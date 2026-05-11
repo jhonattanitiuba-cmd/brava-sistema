@@ -126,7 +126,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
             <Logo size={40} mode="white" style={{ color: '#fff' }} />
           </div>
           <div className="auth-brand-stack__h">
-            <h1>Sua plataforma de atendimento completa <span className="grad-text">orquestrado por IA</span>.</h1>
+            <h1>Sua plataforma de atendimento completa <span className="grad-text">orquestrada por IA</span>.</h1>
             <p>
               WhatsApp, pipeline, automações e Agente de IA<br/>
               num único workspace.<br/>
