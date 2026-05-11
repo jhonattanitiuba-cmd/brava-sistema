@@ -17,7 +17,7 @@ function Nav() {
           <a className="btn btn-sm btn-outline" href="https://brava.company" target="_blank" rel="noopener">Site</a>
           <a className="btn btn-sm" href={(() => {
             const t = document.documentElement.getAttribute('data-theme') || 'dark';
-            return `/app/?theme=${t}`;
+            return `/app/?login=1&theme=${t}`;
           })()} style={{ background: '#1E90FF', color: '#fff', boxShadow: '0 4px 14px rgba(30,144,255,.35)' }}>Entrar</a>
         </div>
       </div>

@@ -1915,6 +1915,15 @@ function App() {
     let cancelled = false;
     (async () => {
       try {
+        // Se veio com ?login=1 (clicou "Entrar" na LP) → sempre mostra login,
+        // mesmo se já tiver sessão. Cliente quer logar de propósito.
+        const wantsLogin = urlParams.get('login') === '1';
+        if (wantsLogin) {
+          setTweak('screen', 'login');
+          setBootChecking(false);
+          return;
+        }
+
         if (!window.supabase) { setBootChecking(false); return; }
 
         const { data: { session } } = await window.supabase.auth.getSession();
