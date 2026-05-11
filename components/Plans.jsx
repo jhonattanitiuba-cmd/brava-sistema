@@ -12,7 +12,7 @@ const PLANS = [
     id: 'essencial',
     name: 'Essencial',
     tag: 'Pra começar a profissionalizar agora',
-    price: 'R$ 697',
+    price: 'R$ 1.297',
     cycle: '/mês',
     features: [
       '3 atendentes',
@@ -28,7 +28,7 @@ const PLANS = [
     id: 'performance',
     name: 'Performance',
     tag: 'CRM + Site profissional integrado',
-    price: 'R$ 1.297',
+    price: 'R$ 2.497',
     cycle: '/mês',
     badge: 'MAIS ESCOLHIDO',
     features: [
@@ -49,7 +49,7 @@ const PLANS = [
     id: 'scale',
     name: 'Scale',
     tag: 'Operações grandes, multi-canal',
-    price: 'R$ 2.497',
+    price: 'R$ 4.697',
     cycle: '/mês',
     features: [
       { strong: 'Tudo do Performance, mais:' },
