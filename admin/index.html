@@ -343,7 +343,7 @@ setTimeout(function() {
 </script>
 <div id="brava-loading" style="position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity .4s ease;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
-    <img src="app/brava-logo-white.png" alt="Brava" style="height:32px;animation:brava-pulse 1.6s ease-in-out infinite;"/>
+    <img src="/admin/app/brava-logo-white.png" alt="Brava" style="height:32px;animation:brava-pulse 1.6s ease-in-out infinite;" onerror="this.onerror=null;this.src='app/brava-logo-white.png'"/>
     <div style="width:120px;height:2px;background:#1F1F2A;border-radius:99px;overflow:hidden;">
       <div style="width:40%;height:100%;background:linear-gradient(90deg,#7B3FE4,#1E90FF);border-radius:99px;animation:brava-bar 1.2s ease infinite;"></div>
     </div>
@@ -453,12 +453,28 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
 
       {/* Logo Brava em destaque */}
       <div id="sidebar-logo-wrap" style={{
-        padding:'16px 20px 14px',
+        padding:'18px 20px 16px',
         borderBottom:'1px solid #1F1F2A',
         flexShrink:0,
         display:'flex', alignItems:'center', justifyContent:'space-between',
+        background: 'linear-gradient(180deg, rgba(123,63,228,0.05), transparent)',
       }}>
-        <img src="app/brava-logo-white.png" alt="Brava Company" id="sidebar-logo" style={{height:22, objectFit:'contain'}}/>
+        <img
+          src="/admin/app/brava-logo-white.png"
+          alt="BRAVA"
+          id="sidebar-logo"
+          style={{ height: 26, objectFit: 'contain', display: 'block' }}
+          onError={(e) => {
+            // Fallback: tenta caminho relativo
+            if (!e.target.dataset.retry) {
+              e.target.dataset.retry = '1';
+              e.target.src = 'app/brava-logo-white.png';
+            } else if (e.target.dataset.retry === '1') {
+              e.target.dataset.retry = '2';
+              e.target.src = '/app/app/assets/brava-logo-white.png';
+            }
+          }}
+        />
         <button onClick={() => setCollapsed(true)} title="Fechar" style={{
           width:26, height:26, borderRadius:6, border:'1px solid #2A2A3A',
           display:'flex', alignItems:'center', justifyContent:'center',
