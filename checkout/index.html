@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Brava Company © Checkout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+/* ── Tokens — modo claro fixo ── */
+:root {
+  --purple: #7B3FE4;
+  --blue:   #1E90FF;
+  --grad:   linear-gradient(90deg, #7B3FE4 0%, #1E90FF 100%);
+  --bg:     #F0F0F0;
+  --bg-1:   #F0F0F0;
+  --bg-2:   #FFFFFF;
+  --bg-3:   #F5F5F5;
+  --border: #D8D8D8;
+  --border-soft: #E6E6E6;
+  --t1: #0A0A0F;
+  --t2: #4A4A52;
+  --t3: #8E8E94;
+  --success: #1D9E75;
+  --danger:  #A32D2D;
+  --shadow:  0 1px 2px rgba(20,20,40,.06), 0 6px 20px rgba(20,20,40,.06);
+  --f-display: "Space Grotesk", sans-serif;
+  --f-body:    "Inter", sans-serif;
+  --f-mono:    "JetBrains Mono", monospace;
+  --r: 12px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--t1); font-family: var(--f-body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, select { font: inherit; color: inherit; }
+a { color: var(--blue); text-decoration: none; }
+
+/* ── Layout ── */
+.page { min-height: 100vh; display: flex; flex-direction: column; }
+
+.topbar {
+  height: 64px; padding: 0 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #000000;
+  border-bottom: 1px solid #1F1F2A;
+}
+.topbar__brand { display: flex; align-items: center; gap: 10px; }
+.topbar__brand-logo {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--grad); display: flex; align-items: center; justify-content: center;
+}
+.topbar__brand-name { font-family: var(--f-display); font-size: 17px; font-weight: 700; letter-spacing: -0.02em; color: #F5F5F7; }
+.topbar__secure { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #F5F5F7; font-family: var(--f-body); }
+
+.main { flex: 1; display: grid; grid-template-columns: 1fr 480px; max-width: 1080px; margin: 0 auto; width: 100%; gap: 0; padding: 0 24px; }
+
+/* ── Resumo (esquerda) ── */
+.summary { padding: 48px 48px 48px 0; border-right: 1px solid var(--border-soft); }
+.summary__back { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--t2); margin-bottom: 32px; background: none; border: none; padding: 0; }
+.summary__back:hover { color: var(--t1); }
+
+.plan-card {
+  background: var(--bg-2); border: 1px solid var(--border-soft);
+  border-radius: 16px; padding: 28px; margin-bottom: 24px;
+  position: relative;
+}
+.plan-card__badge {
+  position: absolute; top: -12px; left: 24px;
+  font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.08em;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--grad); color: #fff;
+}
+.plan-card__name { font-family: var(--f-display); font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 4px; }
+.plan-card__desc { font-size: 13.5px; color: var(--t2); margin-bottom: 20px; }
+.plan-card__price { display: flex; align-items: baseline; gap: 4px; margin-bottom: 24px; }
+.plan-card__price-val { font-family: var(--f-display); font-size: 40px; font-weight: 700; letter-spacing: -0.03em; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.plan-card__price-cycle { font-size: 14px; color: var(--t3); }
+
+.plan-card__features { list-style: none; display: grid; gap: 10px; }
+.plan-card__features li { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--t2); }
+.plan-card__features li svg { flex-shrink: 0; margin-top: 2px; color: var(--purple); }
+.plan-card__features li b { color: var(--t1); }
+
+.summary__guarantees { display: grid; gap: 10px; }
+.guarantee-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 10px; font-size: 13.5px; color: var(--t2); }
+.guarantee-item svg { color: var(--success); flex-shrink: 0; }
+
+/* ── Pagamento (direita) ── */
+.payment { padding: 48px 0 48px 48px; }
+.payment__title { font-family: var(--f-display); font-size: 24px; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 28px; }
+
+/* Método tabs */
+.method-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 28px; }
+.method-tab {
+  padding: 12px 8px; border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-2);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--t2); font-weight: 500;
+  transition: all .15s;
+}
+.method-tab:hover { border-color: var(--t3); color: var(--t1); }
+.method-tab--on {
+  border-color: transparent;
+  color: var(--t1);
+  background: linear-gradient(var(--bg-2), var(--bg-2)) padding-box, var(--grad) border-box;
+}
+.method-tab svg { opacity: .7; }
+.method-tab--on svg { opacity: 1; }
+
+/* Form */
+.form { display: grid; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-size: 13px; font-weight: 500; color: var(--t2); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.input {
+  height: 48px; padding: 0 14px;
+  background: var(--bg-2); color: var(--t1);
+  border: 1px solid var(--border); border-radius: 10px;
+  font-size: 15px; width: 100%;
+  transition: border-color .15s, box-shadow .15s;
+}
+.input::placeholder { color: var(--t3); }
+.input:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 4px rgba(123,63,228,.2); }
+.input--card { padding-left: 44px; }
+.input-wrap { position: relative; }
+.input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--t3); pointer-events: none; }
+
+/* Pix panel */
+.pix-panel { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 12px; padding: 28px; text-align: center; display: grid; gap: 16px; }
+.pix-qr { width: 180px; height: 180px; margin: 0 auto; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.pix-panel p { font-size: 14px; color: var(--t2); line-height: 1.5; }
+.pix-code {
+  font-family: var(--f-mono); font-size: 11.5px; color: var(--t2);
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; word-break: break-all;
+  text-align: left;
+}
+.pix-copy { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 13px; color: var(--t2); }
+.pix-copy:hover { color: var(--t1); border-color: var(--t2); }
+
+/* Boleto panel */
+.boleto-panel { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 12px; padding: 28px; display: grid; gap: 16px; }
+.boleto-panel p { font-size: 14px; color: var(--t2); line-height: 1.5; }
+
+/* Total */
+.total-box { background: var(--bg-2); border: 1px solid var(--border-soft); border-radius: 12px; padding: 18px 20px; margin: 8px 0; display: grid; gap: 10px; }
+.total-row { display: flex; justify-content: space-between; font-size: 14px; color: var(--t2); }
+.total-row--big { font-size: 17px; font-weight: 700; color: var(--t1); padding-top: 10px; border-top: 1px solid var(--border-soft); font-family: var(--f-display); }
+
+/* CTA */
+.btn-pay {
+  width: 100%; height: 54px; border-radius: 12px;
+  background: var(--grad); color: #fff;
+  font-family: var(--f-display); font-size: 17px; font-weight: 600; letter-spacing: -0.01em;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 6px 24px rgba(123,63,228,.4);
+  transition: box-shadow .15s, transform .12s;
+  border: none; cursor: pointer;
+}
+.btn-pay:hover { box-shadow: 0 10px 32px rgba(123,63,228,.55); transform: translateY(-1px); }
+.btn-pay:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+.btn-pay--loading::after {
+  content: ''; width: 18px; height: 18px;
+  border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff;
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.security { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--t3); margin-top: 10px; }
+
+/* Footer */
+.footer {
+  padding: 22px 40px;
+  background: #000000;
+  border-top: 1px solid #1F1F2A;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  font-size: 12.5px; color: #6E6E78; text-align: center;
+}
+.footer__legal { color: #F5F5F7; font-weight: 500; font-size: 13px; }
+.footer__emails { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.footer__email { color: #A0A0AA; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; transition: color .15s; }
+.footer__email:hover { color: #1E90FF; }
+.footer__links { display: flex; align-items: center; gap: 16px; }
+.footer a { color: #6E6E78; transition: color .15s; text-decoration: none; }
+.footer a:hover { color: #1E90FF; }
+.footer__dot { color: #2A2A3A; }
+
+/* Integration markers */
+.integration-note { display: none; }
+
+
+@media (max-width: 780px) {
+  .main { grid-template-columns: 1fr; }
+  .summary { border-right: none; border-bottom: 1px solid var(--border-soft); padding: 32px 0; }
+  .payment { padding: 32px 0; }
+}
+</style>
+</head>
+<body>
+<div class="page" id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+
+<script type="text/babel">
+const { useState } = React;
+
+/* ─── Ícones inline (Lucide) ─── */
+const Icon = ({ name, size = 16 }) => {
+  const icons = {
+    ArrowLeft:   <><polyline points="15 18 9 12 15 6"/></>,
+    Check:       <><polyline points="20 6 9 17 4 12"/></>,
+    Shield:      <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
+    Lock:        <><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
+    Copy:        <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
+    CreditCard:  <><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></>,
+    Zap:         <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>,
+    FileText:    <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>,
+    Star:        <><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>,
+    Calendar:    <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+  };
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {icons[name]}
+    </svg>
+  );
+};
+
+/* ─── Planos ─── */
+const PLANOS = {
+  essencial:   { nome: 'Essencial',   preco: 697,   features: ['3 atendentes', '1 número WhatsApp', 'Inbox + IA básico', 'Configuração guiada'] },
+  performance: { nome: 'Performance', preco: 1297,  badge: 'MAIS ESCOLHIDO', features: ['10 atendentes', '2 números WhatsApp', <><b>Site institucional incluso</b></>, 'Pipeline de vendas (kanban)', 'Analytics completo', 'Múltiplos agentes IA', 'White-label completo', 'Suporte em até 4h'] },
+  scale:       { nome: 'Scale',       preco: 2497,  features: ['30 atendentes', '5 números WhatsApp', 'API REST + webhooks', 'Integração n8n', 'Múltiplos pipelines', 'Suporte prioritário 1h'] },
+};
+
+/* ─── QR Pix decorativo ─── */
+const PixQR = () => {
+  const cells = [];
+  let h = 42;
+  for (let y = 0; y < 21; y++) for (let x = 0; x < 21; x++) {
+    h = (h * 1103515245 + 12345) >>> 0;
+    const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
+    cells.push([x, y, finder ? 1 : (h % 100 < 45 ? 1 : 0)]);
+  }
+  return (
+    <svg viewBox="0 0 21 21" width="140" height="140" shapeRendering="crispEdges">
+      <rect width="21" height="21" fill="#fff"/>
+      {cells.filter(([,,v]) => v).map(([x,y],i) => <rect key={i} x={x} y={y} width="1" height="1" fill="#000"/>)}
+    </svg>
+  );
+};
+
+/* ─── Tela de Loading Brava (transição) ─── */
+const BravaLoading = ({ texto }) => (
+  <div style={{
+    position:'fixed', inset:0, background:'#000000',
+    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+    gap:24, zIndex:99999,
+    animation:'fadein .3s ease',
+  }}>
+    <style>{`
+      @keyframes fadein { from{opacity:0;} to{opacity:1;} }
+      @keyframes brava-pulse { 0%,100%{opacity:.6;} 50%{opacity:1;} }
+      @keyframes brava-bar   { 0%{transform:translateX(-200%);} 100%{transform:translateX(450%);} }
+    `}</style>
+    <img src="brava-logo-white.png" alt="Brava" style={{height:36, animation:'brava-pulse 1.6s ease-in-out infinite'}}/>
+    <div style={{width:140, height:2, background:'#1F1F2A', borderRadius:99, overflow:'hidden'}}>
+      <div style={{width:'40%', height:'100%', background:'linear-gradient(90deg,#7B3FE4,#1E90FF)', borderRadius:99, animation:'brava-bar 1.2s ease infinite'}}/>
+    </div>
+    {texto && <div style={{fontFamily:'Inter, sans-serif', fontSize:13, color:'#A0A0AA', marginTop:6, letterSpacing:'.02em'}}>{texto}</div>}
+  </div>
+);
+
+/* ─── App ─── */
+/* ─── Tela de Confirmação ─── */
+const Confirmacao = ({ plano }) => {
+  const [contagem, setContagem] = React.useState(15);
+  const [carregando, setCarregando] = React.useState(false);
+
+  // Salva o estado do checkout em localStorage compartilhado (window.name) e na URL
+  const irPara = () => {
+    setCarregando(true);
+    const tema = document.documentElement.getAttribute('data-theme') || 'light';
+    document.cookie = `brava_checkout_done=1;path=/;max-age=600;samesite=lax`;
+    document.cookie = `brava_plano=${plano.nome.toLowerCase()};path=/;max-age=600;samesite=lax`;
+    document.cookie = `brava_theme=${tema};path=/;max-age=600;samesite=lax`;
+    const params = `new=1&plano=${plano.nome.toLowerCase()}&theme=${tema}&skip_login=1`;
+    // Mostra o loading por ~1.5s antes de redirecionar (CRM continua o loading por +3.5s)
+    setTimeout(() => {
+      window.location.href = `http://${window.location.hostname}:3002/Brava%20CRM.html?${params}#onboarding`;
+    }, 1500);
+  };
+
+  if (carregando) return <BravaLoading texto="Preparando seu workspace..." />;
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setContagem(n => {
+        if (n <= 1) { clearInterval(timer); irPara(); }
+        return n - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const irAgora = irPara;
+
+  return (
+    <div className="page" style={{minHeight:'100vh', display:'flex', flexDirection:'column'}}>
+      {/* Header padrão */}
+      <header className="topbar">
+        <div className="topbar__brand">
+          <img src="brava-logo-white.png" alt="Brava Company" style={{height:17, objectFit:'contain'}}/>
+        </div>
+        <div className="topbar__secure">Checkout seguro · SSL</div>
+      </header>
+
+      {/* Conteúdo */}
+      <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 24px'}}>
+        <div style={{
+          maxWidth:480, width:'100%', textAlign:'center',
+          animation:'confirm-in .6s cubic-bezier(.22,1,.36,1)',
+        }}>
+          <style>{`
+            @keyframes confirm-in { from{opacity:0;transform:translateY(24px);} to{opacity:1;transform:translateY(0);} }
+            @keyframes check-pop  { 0%{transform:scale(0) rotate(-10deg);} 60%{transform:scale(1.15) rotate(3deg);} 100%{transform:scale(1) rotate(0);} }
+            @keyframes ring-out   { 0%{transform:scale(1);opacity:.8;} 100%{transform:scale(2.2);opacity:0;} }
+          `}</style>
+
+          {/* Ícone animado */}
+          <div style={{position:'relative', width:96, height:96, margin:'0 auto 28px'}}>
+            <div style={{
+              width:96, height:96, borderRadius:'50%',
+              background:'linear-gradient(135deg,#1D9E75,#25D366)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              animation:'check-pop .5s .2s cubic-bezier(.22,1,.36,1) both',
+              boxShadow:'0 12px 40px rgba(29,158,117,.4)',
+            }}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            {/* Rings pulsantes */}
+            {[0,1].map(i => (
+              <div key={i} style={{
+                position:'absolute', inset:0, borderRadius:'50%',
+                border:'2px solid rgba(29,158,117,.4)',
+                animation:`ring-out 1.6s ${i*.4}s ease-out infinite`,
+              }}/>
+            ))}
+          </div>
+
+          {/* Texto */}
+          <h1 style={{fontFamily:'var(--f-display)', fontSize:32, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', margin:'0 0 10px'}}>
+            Pagamento confirmado!
+          </h1>
+          <p style={{fontSize:16, color:'var(--t2)', margin:'0 0 28px', lineHeight:1.6}}>
+            Seu plano <strong style={{color:'var(--t1)'}}>{plano.nome}</strong> está ativo.<br/>
+            Agora vamos configurar o seu workspace.
+          </p>
+
+          {/* Resumo do plano */}
+          <div style={{
+            padding:'16px 20px', borderRadius:12, marginBottom:28,
+            background:'#000000', border:'1px solid #2A2A3A',
+            display:'flex', justifyContent:'space-between', alignItems:'center',
+          }}>
+            <div style={{textAlign:'left'}}>
+              <div style={{fontSize:12, color:'#F5F5F7', fontFamily:'Inter, sans-serif', fontWeight:700, marginBottom:5}}>Plano contratado</div>
+              <div style={{fontFamily:'Inter, sans-serif', fontWeight:400, fontSize:16, color:'#A0A0AA'}}>{plano.nome}</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:12, color:'#F5F5F7', fontFamily:'Inter, sans-serif', fontWeight:700, marginBottom:5}}>Valor mensal</div>
+              <div style={{fontFamily:'Inter, sans-serif', fontWeight:600, fontSize:16, background:'linear-gradient(90deg,#7B3FE4,#1E90FF)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent'}}>
+                {plano.preco}/mês
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <button onClick={irAgora} style={{
+            width:'auto', padding:'0 24px', height:44, borderRadius:10,
+            background:'linear-gradient(90deg,#7B3FE4,#1E90FF)',
+            border:'none', cursor:'pointer', color:'#fff',
+            fontFamily:'Inter, sans-serif', fontSize:14, fontWeight:500,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+            boxShadow:'0 6px 18px rgba(123,63,228,.35)',
+            transition:'transform .15s, box-shadow .15s', margin:'0 auto',
+          }}
+            onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 12px 32px rgba(123,63,228,.55)';}}
+            onMouseLeave={e=>{e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='0 8px 24px rgba(123,63,228,.4)';}}
+          >
+            Configurar meu workspace
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </button>
+
+          <p style={{fontSize:13, color:'var(--t3)', marginTop:14}}>
+            Redirecionando automaticamente em <strong style={{color:'var(--t1)'}}>{contagem}s</strong>
+          </p>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="footer">
+        <span>Brava Company © Todos os direitos reservados — CNPJ 34.454.770/0001-26</span>
+        <div className="footer__links">
+          <a href="#">Política de Privacidade</a>
+          <span className="footer__dot">·</span>
+          <a href="#">Termos de Uso</a>
+          <span className="footer__dot">·</span>
+          <a href="#">LGPD</a>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+const Checkout = () => {
+  const params = new URLSearchParams(window.location.search);
+  const planoKey = params.get('plano') || 'performance';
+  const plano = PLANOS[planoKey] || PLANOS.performance;
+
+  const [metodo, setMetodo] = useState('cartao');
+  const [loading, setLoading] = useState(false);
+  const [pago, setPago] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [form, setForm] = useState({ numero: '', nome: '', validade: '', cvv: '', cpf: '' });
+
+  if (pago) return <Confirmacao plano={plano} />;
+  const update = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
+
+  const formatCard = v => v.replace(/\D/g,'').slice(0,16).replace(/(.{4})/g,'$1 ').trim();
+  const formatDate = v => v.replace(/\D/g,'').slice(0,4).replace(/^(\d{2})(\d)/,'$1/$2');
+  const formatCPF  = v => v.replace(/\D/g,'').slice(0,11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');
+
+  // Detector de bandeira
+  const getBandeira = (num) => {
+    const n = (num || '').replace(/\D/g,'');
+    if (/^4/.test(n)) return 'visa';
+    if (/^(5[1-5]|2[2-7])/.test(n)) return 'mastercard';
+    if (/^3[47]/.test(n)) return 'amex';
+    if (/^(606282|3841)/.test(n)) return 'hipercard';
+    if (/^(636368|438935|504175|451416|509[0-9]{3}|6516[0-9]{2}|6550[0-9]{2})/.test(n)) return 'elo';
+    return null;
+  };
+  const bandeiraAtual = getBandeira(form.numero);
+  const bandeiraSVG = {
+    visa:       <svg width="32" height="20" viewBox="0 0 48 32"><rect width="48" height="32" rx="4" fill="#1A1F71"/><text x="24" y="22" textAnchor="middle" fill="#fff" fontWeight="bold" fontSize="12" fontFamily="Arial">VISA</text></svg>,
+    mastercard: <svg width="32" height="20" viewBox="0 0 48 32"><rect width="48" height="32" rx="4" fill="#fff" stroke="#ddd"/><circle cx="20" cy="16" r="9" fill="#EB001B"/><circle cx="28" cy="16" r="9" fill="#F79E1B" opacity=".85"/></svg>,
+    amex:       <svg width="32" height="20" viewBox="0 0 48 32"><rect width="48" height="32" rx="4" fill="#006FCF"/><text x="24" y="20" textAnchor="middle" fill="#fff" fontWeight="bold" fontSize="9" fontFamily="Arial">AMEX</text></svg>,
+    hipercard:  <svg width="32" height="20" viewBox="0 0 48 32"><rect width="48" height="32" rx="4" fill="#B3131B"/><text x="24" y="20" textAnchor="middle" fill="#fff" fontWeight="bold" fontSize="7" fontFamily="Arial">HIPER</text></svg>,
+    elo:        <svg width="32" height="20" viewBox="0 0 48 32"><rect width="48" height="32" rx="4" fill="#000"/><text x="24" y="20" textAnchor="middle" fill="#FFD200" fontWeight="bold" fontSize="11" fontFamily="Arial">elo</text></svg>,
+  };
+
+  const handlePay = () => {
+    setLoading(true);
+    /*
+     * 🔌 INTEGRAÇÃO STRIPE — Cartão
+     * 1. Backend cria PaymentIntent: POST /api/checkout/create-intent { plano }
+     * 2. Frontend recebe { clientSecret }
+     * 3. stripe.confirmCardPayment(clientSecret, { payment_method: { card: elements.getElement('card'), ... } })
+     * 4. On success → redireciona para /confirmacao?session_id=...
+     */
+    setTimeout(() => {
+      setLoading(false);
+      setPago(true); // Mostra tela de confirmação
+      // 🔌 INTEGRAÇÃO: aguardar webhook Stripe antes de confirmar
+    }, 2000);
+  };
+
+  const handlePix = () => {
+    /*
+     * 🔌 INTEGRAÇÃO STRIPE — Pix
+     * 1. Backend cria PaymentIntent com method: 'pix': POST /api/checkout/create-pix { plano }
+     * 2. Retorna { qr_code_url, qr_code_text, expires_at }
+     * 3. Frontend exibe QR e polling a cada 3s: GET /api/checkout/status?intent_id=...
+     * 4. On 'succeeded' → redireciona para /confirmacao
+     */
+  };
+
+  const handleBoleto = () => {
+    /*
+     * 🔌 INTEGRAÇÃO STRIPE — Boleto
+     * 1. POST /api/checkout/create-boleto { plano, cpf, nome }
+     * 2. Retorna { pdf_url, barcode, expires_at }
+     * 3. Abre PDF num nova aba
+     * 4. Webhook 'payment_intent.succeeded' confirma pagamento (D+1 a D+3)
+     */
+  };
+
+  return (
+    <div className="page">
+
+      {/* Topbar */}
+      <header className="topbar">
+        <div className="topbar__brand">
+          <img src="brava-logo-white.png" alt="Brava Company" style={{ height: 17, objectFit: 'contain' }} />
+        </div>
+        <div className="topbar__secure">
+          Checkout seguro · SSL
+          {/* 🔌 INTEGRAÇÃO: adicionar logo Stripe aqui */}
+        </div>
+      </header>
+
+      {/* Conteúdo */}
+      <div className="main">
+
+        {/* ── Esquerda: resumo ── */}
+        <div className="summary">
+          <button className="summary__back" onClick={() => window.history.back()}>
+            <Icon name="ArrowLeft" size={15} /> Voltar
+          </button>
+
+          <div className="plan-card">
+            {plano.badge && <span className="plan-card__badge">{plano.badge}</span>}
+            <div className="plan-card__name">{plano.nome}</div>
+            <div className="plan-card__desc">Plano mensal · sem fidelidade · cancele quando quiser</div>
+            <div className="plan-card__price">
+              <span className="plan-card__price-val">R$ {plano.preco.toLocaleString('pt-BR')}</span>
+              <span className="plan-card__price-cycle">/mês</span>
+            </div>
+            <ul className="plan-card__features">
+              {plano.features.map((f, i) => (
+                <li key={i}>
+                  <Icon name="Check" size={15} />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="summary__guarantees">
+            <div className="guarantee-item"><Icon name="Shield" size={15} /><span>Garantia de <b>7 dias</b> — devolução 100%</span></div>
+            <div className="guarantee-item"><Icon name="Calendar" size={15} /><span>Primeiro ciclo começa após ativação</span></div>
+            <div className="guarantee-item"><Icon name="Lock" size={15} /><span>Cancele quando quiser, sem multa</span></div>
+          </div>
+        </div>
+
+        {/* ── Direita: pagamento ── */}
+        <div className="payment">
+          <h2 className="payment__title">Forma de pagamento</h2>
+
+          {/* Métodos */}
+          <div className="method-tabs">
+            {[
+              { key: 'cartao', label: 'Cartão', icon: 'CreditCard' },
+              { key: 'pix',    label: 'Pix',    icon: 'Zap' },
+              { key: 'boleto', label: 'Boleto', icon: 'FileText' },
+            ].map(m => (
+              <button key={m.key} className={`method-tab${metodo === m.key ? ' method-tab--on' : ''}`} onClick={() => setMetodo(m.key)}>
+                <Icon name={m.icon} size={20} />
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Cartão ── */}
+          {metodo === 'cartao' && (
+            <div className="form">
+              {/*
+               * 🔌 INTEGRAÇÃO STRIPE:
+               * Substituir este form pelo <CardElement> do @stripe/react-stripe-js
+               * Instalar: npm i @stripe/react-stripe-js @stripe/stripe-js
+               * Envolver app em <Elements stripe={stripePromise}>
+               */}
+              <div className="field">
+                <label>Número do cartão</label>
+                <div className="input-wrap" style={{position:'relative'}}>
+                  <span className="input-icon"><Icon name="CreditCard" size={16} /></span>
+                  <input className="input input--card" placeholder="0000 0000 0000 0000" value={form.numero} onChange={e => update('numero')({ target: { value: formatCard(e.target.value) } })} maxLength={19} style={{paddingRight: bandeiraAtual ? 56 : 14}}/>
+                  {bandeiraAtual && (
+                    <div style={{position:'absolute', right:14, top:'50%', transform:'translateY(-50%)', animation:'fade-in .25s'}}>
+                      {bandeiraSVG[bandeiraAtual]}
+                    </div>
+                  )}
+                </div>
+                <style>{`@keyframes fade-in { from{opacity:0; transform:translate(8px,-50%);} to{opacity:1; transform:translate(0,-50%);} }`}</style>
+              </div>
+              <div className="field">
+                <label>Nome no cartão</label>
+                <input className="input" placeholder="NOME COMO NO CARTÃO" value={form.nome} onChange={update('nome')} style={{ textTransform: 'uppercase' }} />
+              </div>
+              <div className="field-row">
+                <div className="field">
+                  <label>Validade</label>
+                  <input className="input" placeholder="MM/AA" value={form.validade} onChange={e => update('validade')({ target: { value: formatDate(e.target.value) } })} maxLength={5} />
+                </div>
+                <div className="field">
+                  <label>CVV</label>
+                  <input className="input" placeholder="000" value={form.cvv} onChange={update('cvv')} maxLength={4} type="password" />
+                </div>
+              </div>
+              <div className="field">
+                <label>CPF do titular</label>
+                <input className="input" placeholder="000.000.000-00" value={form.cpf} onChange={e => update('cpf')({ target: { value: formatCPF(e.target.value) } })} maxLength={14} />
+              </div>
+
+              <div className="total-box">
+                <div className="total-row"><span>Plano {plano.nome}</span><span>R$ {plano.preco.toLocaleString('pt-BR')}/mês</span></div>
+                <div className="total-row"><span>Setup</span><span style={{color:'var(--success)'}}>Grátis</span></div>
+                <div className="total-row total-row--big"><span>Total hoje</span><span>R$ {plano.preco.toLocaleString('pt-BR')}</span></div>
+              </div>
+
+              <button className={`btn-pay${loading ? ' btn-pay--loading' : ''}`} onClick={handlePay} disabled={loading}>
+                {!loading && <><Icon name="Lock" size={18} /> Finalizar pagamento</>}
+              </button>
+              <p className="security"><Icon name="Shield" size={13} /> Seus dados são criptografados e nunca armazenados.</p>
+            </div>
+          )}
+
+          {/* ── Pix ── */}
+          {metodo === 'pix' && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="pix-panel">
+                <p style={{ fontFamily: 'var(--f-display)', fontSize: 17, fontWeight: 500 }}>Escaneie o QR Code</p>
+                <div className="pix-qr">
+                  {/* 🔌 INTEGRAÇÃO STRIPE: trocar por QR dinâmico gerado pelo PaymentIntent Pix */}
+                  <PixQR />
+                </div>
+                <p>Abra o app do seu banco, vá em Pix e escaneie o código. O pagamento é confirmado em segundos.</p>
+                <div className="pix-code">
+                  {/* 🔌 INTEGRAÇÃO STRIPE: trocar por qr_code_text real do PaymentIntent */}
+                  00020126360014BR.GOV.BCB.PIX0114+5511999999999520400005303986540512975802BR5913BravaCompany6008Sao Paulo62070503***6304ABCD
+                </div>
+                <button className="pix-copy" onClick={() => setCopied(true)}>
+                  <Icon name="Copy" size={14} />
+                  {copied ? 'Copiado!' : 'Copiar código Pix'}
+                </button>
+              </div>
+              <div className="total-box">
+                <div className="total-row"><span>Plano {plano.nome}</span><span>R$ {plano.preco.toLocaleString('pt-BR')}/mês</span></div>
+                <div className="total-row total-row--big"><span>Total</span><span>R$ {plano.preco.toLocaleString('pt-BR')}</span></div>
+              </div>
+              <p className="security"><Icon name="Shield" size={13} /> Aguardando confirmação do Pix… {/* 🔌 INTEGRAÇÃO: polling status a cada 3s */}</p>
+            </div>
+          )}
+
+          {/* ── Boleto ── */}
+          {metodo === 'boleto' && (
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div className="boleto-panel">
+                <div className="field">
+                  <label>CPF / CNPJ do pagador</label>
+                  <input className="input" placeholder="000.000.000-00" value={form.cpf} onChange={e => update('cpf')({ target: { value: formatCPF(e.target.value) } })} maxLength={14} />
+                </div>
+                <p style={{ fontSize: 13.5, color: 'var(--t2)' }}>
+                  O boleto vence em <b>3 dias úteis</b>. Após o pagamento, a confirmação pode levar até <b>3 dias úteis</b>.
+                  {/* 🔌 INTEGRAÇÃO STRIPE: exibir data real de vencimento do boleto */}
+                </p>
+                <button className="btn-pay" onClick={handleBoleto} style={{ marginTop: 8 }}>
+                  <Icon name="FileText" size={18} /> Gerar boleto
+                </button>
+              </div>
+              <div className="total-box">
+                <div className="total-row"><span>Plano {plano.nome}</span><span>R$ {plano.preco.toLocaleString('pt-BR')}/mês</span></div>
+                <div className="total-row total-row--big"><span>Total</span><span>R$ {plano.preco.toLocaleString('pt-BR')}</span></div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <footer className="footer">
+        <span className="footer__legal">Brava Company © Todos os direitos reservados — CNPJ 34.454.770/0001-26</span>
+        <div className="footer__emails">
+          <a href="mailto:comercial@brava.company" className="footer__email">comercial@brava.company</a>
+          <span className="footer__dot">·</span>
+          <a href="mailto:financeiro@brava.company" className="footer__email">financeiro@brava.company</a>
+          <span className="footer__dot">·</span>
+          <a href="mailto:suporte@brava.company" className="footer__email">suporte@brava.company</a>
+        </div>
+        <div className="footer__links">
+          <a href="#">Política de Privacidade</a>
+          <span className="footer__dot">·</span>
+          <a href="#">Termos de Uso</a>
+          <span className="footer__dot">·</span>
+          <a href="#">LGPD</a>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Checkout />);
+</script>
+</body>
+</html>

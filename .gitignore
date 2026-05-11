@@ -1,0 +1,33 @@
+# Dependências
+node_modules/
+.npm/
+
+# Ambiente
+.env
+.env.local
+.env.production
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/settings.json
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporários
+*.tmp
+*.temp
+.cache/
+
+# Senhas e credenciais (nunca subir!)
+*credentials*
+*secrets*
+*apikey*

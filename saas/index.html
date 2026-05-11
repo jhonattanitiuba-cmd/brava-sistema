@@ -1,0 +1,3007 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brava Company © Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ─── Tokens fixos ─── */
+:root {
+  --purple:#7B3FE4; --blue:#1E90FF;
+  --grad:linear-gradient(90deg,#7B3FE4 0%,#1E90FF 100%);
+  --success:#1D9E75; --warning:#BA7517; --danger:#A32D2D; --info:#185FA5;
+  --f-d:"Space Grotesk",sans-serif; --f-b:"Inter",sans-serif; --f-m:"JetBrains Mono",monospace;
+  --sidebar:240px; --header:60px;
+}
+
+/* ─── Modo escuro (default) ─── */
+:root, [data-theme="dark"] {
+  --bg:#000000; --bg-1:#0E0E14; --bg-2:#15151E; --bg-3:#1B1B27;
+  --border:#2A2A3A; --border-soft:#1F1F2A;
+  --t1:#F5F5F7; --t2:#A0A0AA; --t3:#6E6E78;
+  --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 24px rgba(0,0,0,.45);
+  --logo:url("app/brava-logo-white.png");
+}
+
+/* ─── Modo claro ─── */
+[data-theme="light"] {
+  --bg:#F0F0F0; --bg-1:#F0F0F0; --bg-2:#FFFFFF; --bg-3:#F5F5F5;
+  --border:#D8D8D8; --border-soft:#E6E6E6;
+  --t1:#0A0A0F; --t2:#4A4A52; --t3:#8E8E94;
+  --shadow:0 1px 2px rgba(20,20,40,.06),0 6px 20px rgba(20,20,40,.06);
+  --logo:url("app/brava-logo-dark.png");
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f-b);font-size:15px;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+input,select,textarea{font:inherit;color:inherit;}
+a{color:inherit;text-decoration:none;}
+svg{display:block;flex-shrink:0;}
+
+/* ─── WhatsApp tokens ─── */
+:root, [data-theme="dark"] {
+  --wa-sidebar-bg:    #111B21;
+  --wa-sidebar-hover: rgba(255,255,255,.05);
+  --wa-header-bg:     #202C33;
+  --wa-chat-bg:       #0B141A;
+  --wa-input-bg:      #202C33;
+  --wa-msg-out-bg:    #005C4B;
+  --wa-msg-in-bg:     #202C33;
+  --wa-msg-out-text:  #E9EDEF;
+  --wa-msg-in-text:   #E9EDEF;
+  --wa-text-primary:  #E9EDEF;
+  --wa-text-secondary:#8696A0;
+  --wa-border:        #313D45;
+  --wa-search-bg:     #2A3942;
+  --wa-active-bg:     #2A3942;
+  --wa-green:         #25D366;
+  --wa-green-dark:    #00A884;
+  --wa-unread-bg:     #00A884;
+}
+[data-theme="light"] {
+  --wa-sidebar-bg:    #F0F2F5;
+  --wa-sidebar-hover: rgba(0,0,0,.04);
+  --wa-header-bg:     #F0F2F5;
+  --wa-chat-bg:       #EFEAE2;
+  --wa-input-bg:      #F0F2F5;
+  --wa-msg-out-bg:    #D9FDD3;
+  --wa-msg-in-bg:     #FFFFFF;
+  --wa-msg-out-text:  #111B21;
+  --wa-msg-in-text:   #111B21;
+  --wa-text-primary:  #111B21;
+  --wa-text-secondary:#667781;
+  --wa-border:        #D1D7DB;
+  --wa-search-bg:     #FFFFFF;
+  --wa-active-bg:     #FFFFFF;
+  --wa-green:         #25D366;
+  --wa-green-dark:    #128C7E;
+  --wa-unread-bg:     #25D366;
+}
+
+/* ─── Layout ─── */
+.app{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:var(--header) 1fr;height:100vh;overflow:hidden;}
+
+/* ─── Sidebar — sempre preta ─── */
+.sidebar{
+  grid-row:1/-1;
+  background:#000000;
+  border-right:1px solid #1F1F2A;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:width .25s cubic-bezier(.22,1,.36,1);
+}
+.sidebar.collapsed{width:0;overflow:hidden;border-right:none;}
+
+.sidebar__nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;border-radius:10px;
+  font-size:13.5px;color:#A0A0AA;font-weight:500;
+  cursor:pointer;transition:background .15s,color .15s;
+  position:relative;
+}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#F5F5F7;}
+.nav-item.active{
+  background:rgba(123,63,228,.18);
+  color:#F5F5F7;
+}
+.nav-item.active::before{
+  content:'';position:absolute;left:0;top:20%;bottom:20%;
+  width:2.5px;border-radius:999px;
+  background:var(--grad);
+}
+.nav-badge{
+  margin-left:auto;min-width:18px;height:18px;
+  padding:0 5px;border-radius:999px;
+  background:var(--grad);color:#fff;
+  font-family:var(--f-m);font-size:10px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+}
+.nav-divider{height:1px;background:#1F1F2A;margin:8px 10px;}
+.nav-item.danger:hover{background:rgba(163,45,45,.18);color:#fca5a5;}
+
+/* ─── Header ─── */
+/* ─── Header — sempre preto ─── */
+.header{
+  background:#000000;
+  border-bottom:1px solid #1F1F2A;
+  display:flex;align-items:center;gap:16px;
+  padding:0 28px;
+}
+.header__breadcrumb{flex:1;display:flex;align-items:center;gap:8px;font-size:13px;color:#6E6E78;}
+.header__breadcrumb span{color:#F5F5F7;font-weight:600;}
+.header__search{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;
+  background:#0E0E14;border:1px solid #2A2A3A;border-radius:8px;
+  font-size:13px;color:#6E6E78;
+  width:260px;white-space:nowrap;flex-shrink:0;
+  cursor:text;transition:border-color .15s;
+}
+.header__search:hover{border-color:#A0A0AA;}
+.header__actions{display:flex;align-items:center;gap:8px;}
+.header__icon{
+  width:34px;height:34px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  color:#A0A0AA;cursor:pointer;transition:background .15s,color .15s;
+  position:relative;
+}
+.header__icon:hover{background:#1B1B27;color:#F5F5F7;}
+.header__notif{
+  position:absolute;top:5px;right:5px;
+  width:8px;height:8px;border-radius:50%;
+  background:var(--purple);border:2px solid #000;
+}
+.header__avatar{
+  width:32px;height:32px;border-radius:50%;
+  background:var(--grad);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-d);font-weight:700;font-size:12px;color:#fff;
+  cursor:pointer;flex-shrink:0;
+}
+
+/* ─── Main content ─── */
+.main{overflow-y:auto;padding:28px 32px;background:var(--bg);color:var(--t1);}
+.page{max-width:1440px;margin:0 auto;}
+
+/* ─── Page header ─── */
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;gap:16px;}
+.page-head__title{font-family:var(--f-d);font-size:22px;font-weight:600;letter-spacing:-.02em;}
+.page-head__sub{font-size:13px;color:var(--t2);margin-top:3px;}
+.page-head__actions{display:flex;gap:8px;flex-shrink:0;}
+
+/* ─── Botões ─── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:0 16px;height:36px;border-radius:9px;
+  font-size:13.5px;font-weight:500;
+  transition:transform .12s,box-shadow .15s,opacity .15s;
+  white-space:nowrap;
+}
+.btn:hover{transform:translateY(-1px);}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 4px 14px rgba(123,63,228,.3);}
+.btn-primary:hover{box-shadow:0 8px 20px rgba(123,63,228,.45);}
+.btn-outline{border:1px solid var(--border);color:var(--t2);background:transparent;}
+.btn-outline:hover{border-color:var(--t2);color:var(--t1);}
+.btn-ghost{color:var(--t2);}
+.btn-ghost:hover{background:var(--bg-2);color:var(--t1);}
+
+/* ─── KPI Cards ─── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px;}
+.kpi{
+  background:var(--bg-2);border:1px solid var(--border-soft);border-radius:14px;
+  padding:20px 22px;
+  transition:border-color .2s,transform .2s;
+  cursor:default;
+}
+.kpi:hover{border-color:rgba(123,63,228,.3);transform:translateY(-2px);}
+.kpi__label{font-size:12.5px;color:var(--t2);font-weight:500;font-family:var(--f-b);letter-spacing:0;text-transform:none;}
+.kpi__value{font-family:var(--f-d);font-size:32px;font-weight:700;letter-spacing:-.03em;margin:8px 0 4px;line-height:1;color:var(--t1);}
+.kpi__value.grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.kpi__delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:500;}
+.kpi__delta.up{color:var(--success);}
+.kpi__delta.down{color:var(--danger);}
+.kpi__icon{float:right;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-top:-4px;}
+
+/* ─── Grid 2 colunas ─── */
+.grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:14px;}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+
+/* ─── Card genérico ─── */
+.card{background:var(--bg-2);border:1px solid var(--border-soft);border-radius:14px;padding:22px;}
+.card__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.card__title{font-family:var(--f-d);font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--t1);}
+.card__action{font-size:12px;color:var(--blue);font-weight:500;cursor:pointer;}
+.card__action:hover{text-decoration:underline;}
+
+/* ─── Gráfico de barras ─── */
+.chart{display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:8px;}
+.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;}
+.chart-bar{width:100%;border-radius:5px 5px 0 0;min-height:4px;transition:opacity .2s;}
+.chart-bar:hover{opacity:.8;}
+.chart-bar.today{background:var(--grad);}
+.chart-bar.past{background:rgba(123,63,228,.45);}
+.chart-label{font-family:var(--f-m);font-size:9.5px;color:var(--t2);}
+[data-theme="light"] .chart-bar.past{background:rgba(123,63,228,.3);}
+[data-theme="light"] .chart-bar{min-height:6px;}
+
+/* ─── Lista de conversas ─── */
+.conv-list{display:flex;flex-direction:column;gap:0;}
+.conv-item{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 0;border-bottom:1px solid var(--border-soft);
+  cursor:pointer;transition:background .15s;border-radius:8px;
+  padding-left:6px;padding-right:6px;
+}
+.conv-item:last-child{border-bottom:none;}
+.conv-item:hover{background:var(--status-bg,rgba(255,255,255,.03));}
+[data-theme="light"] .conv-item:hover{background:rgba(0,0,0,.04);}
+.conv-avatar{
+  width:34px;height:34px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--f-d);font-weight:700;font-size:11.5px;color:#fff;
+  flex-shrink:0;
+}
+.conv-meta{flex:1;min-width:0;}
+.conv-name{font-size:13.5px;font-weight:600;color:var(--t1);}
+.conv-preview{font-size:12px;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.conv-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+.conv-time{font-family:var(--f-m);font-size:10px;color:var(--t3);}
+.conv-badge{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--grad);color:#fff;font-size:10px;font-weight:700;font-family:var(--f-m);display:flex;align-items:center;justify-content:center;}
+.conv-tag{font-size:10px;padding:2px 7px;border-radius:4px;font-family:var(--f-m);}
+.conv-tag.ia{background:rgba(123,63,228,.2);color:#c4a8ff;}
+.conv-tag.hot{background:rgba(163,45,45,.18);color:#fca5a5;}
+.conv-tag.ok{background:rgba(29,158,117,.15);color:#6ee7b7;}
+
+/* ─── Agente IA card ─── */
+.ia-status{display:flex;align-items:center;gap:10px;padding:14px 16px;background:rgba(123,63,228,.08);border:1px solid rgba(123,63,228,.2);border-radius:12px;margin-bottom:14px;}
+.ia-dot{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success);flex-shrink:0;animation:pulse-dot 2s ease infinite;}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(29,158,117,.6);}50%{box-shadow:0 0 0 5px rgba(29,158,117,0);}}
+.ia-info{flex:1;}
+.ia-name{font-size:13.5px;font-weight:600;}
+.ia-sub{font-size:11.5px;color:var(--t2);margin-top:1px;}
+
+/* ─── Stat row ─── */
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-soft);}
+.stat-row:last-child{border-bottom:none;}
+.stat-label{font-size:13px;color:#A0A0AA;}
+.stat-val{font-family:var(--f-d);font-size:14px;font-weight:600;color:#F5F5F7;}
+
+/* ─── Badge plano ─── */
+.plan-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(123,63,228,.15);border:1px solid rgba(123,63,228,.25);font-size:11.5px;font-family:var(--f-m);color:#c4a8ff;letter-spacing:.04em;}
+
+/* ─── Progress bar ─── */
+.progress{height:6px;background:var(--border);border-radius:999px;overflow:hidden;margin-top:8px;}
+.progress__fill{height:100%;border-radius:999px;background:var(--grad);transition:width .6s cubic-bezier(.22,1,.36,1);}
+
+/* ─── Empty / Placeholder ─── */
+.placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 24px;color:var(--t3);text-align:center;}
+.placeholder svg{opacity:.35;}
+.placeholder p{font-size:14px;max-width:280px;line-height:1.5;}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:999px;}
+
+/* ─── Animações globais ─── */
+@keyframes fade-up{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fade-in{from{opacity:0;}to{opacity:1;}}
+@keyframes scale-in{from{opacity:0;transform:scale(.96);}to{opacity:1;transform:scale(1);}}
+@keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+@keyframes glow-pulse{0%,100%{box-shadow:0 0 0 0 rgba(123,63,228,.4);}50%{box-shadow:0 0 0 6px rgba(123,63,228,0);}}
+@keyframes ripple{from{transform:scale(0);opacity:.6;}to{transform:scale(2);opacity:0;}}
+@keyframes toast-in{from{opacity:0;transform:translateY(20px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+
+.page{animation:fade-up .35s cubic-bezier(.22,1,.36,1);}
+.kpi{animation:fade-up .4s cubic-bezier(.22,1,.36,1) both;}
+.kpi:nth-child(1){animation-delay:.05s;}
+.kpi:nth-child(2){animation-delay:.1s;}
+.kpi:nth-child(3){animation-delay:.15s;}
+.kpi:nth-child(4){animation-delay:.2s;}
+.grid-2 > *,.grid-3 > *{animation:fade-up .45s cubic-bezier(.22,1,.36,1) both;}
+.grid-2 > *:nth-child(2){animation-delay:.1s;}
+.grid-3 > *:nth-child(2){animation-delay:.08s;}
+.grid-3 > *:nth-child(3){animation-delay:.16s;}
+
+/* Skeleton */
+.skeleton{
+  background:linear-gradient(90deg, var(--bg-3) 0%, var(--bg-2) 50%, var(--bg-3) 100%);
+  background-size:200% 100%;
+  animation:shimmer 1.4s infinite linear;
+  border-radius:6px;
+}
+
+/* Hover unificado em links/itens clicáveis */
+.card__action{position:relative;}
+.card__action:hover{color:var(--blue);}
+
+/* Premium glow nos planos */
+.glow-premium{box-shadow:0 0 0 1px rgba(123,63,228,.3),0 8px 32px rgba(123,63,228,.18);}
+
+/* Fade nas mensagens do chat */
+.fade-msg{animation:fade-up .25s cubic-bezier(.22,1,.36,1);}
+</style>
+</head>
+<body>
+<script>
+// Fail-safe: garante que o loading some mesmo se React falhar
+window.addEventListener('error', function(e) {
+  console.error('[Brava] Erro carregando:', e.message);
+  var l = document.getElementById('brava-loading');
+  if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
+});
+setTimeout(function() {
+  var l = document.getElementById('brava-loading');
+  if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
+}, 3000);
+</script>
+<div id="brava-loading" style="position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity .4s ease;">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
+    <img src="app/brava-logo-white.png" alt="Brava" style="height:32px;animation:brava-pulse 1.6s ease-in-out infinite;"/>
+    <div style="width:120px;height:2px;background:#1F1F2A;border-radius:99px;overflow:hidden;">
+      <div style="width:40%;height:100%;background:linear-gradient(90deg,#7B3FE4,#1E90FF);border-radius:99px;animation:brava-bar 1.2s ease infinite;"></div>
+    </div>
+  </div>
+  <style>
+    @keyframes brava-pulse { 0%,100%{opacity:.6;}50%{opacity:1;} }
+    @keyframes brava-bar { 0%{transform:translateX(-200%);}100%{transform:translateX(450%);} }
+  </style>
+</div>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+<script type="text/babel" src="app/icons.jsx"></script>
+<script type="text/babel" src="app/components.jsx"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ─── Sessão (lida da URL na primeira carga, persistida em localStorage) ─── */
+const DEFAULT_SESSAO = { nome: 'Jhonattan Itiuba', email: 'diretoria@brava.company', plano: 'admin', role: 'Diretoria', welcome: false };
+
+function carregarSessao() {
+  try {
+    const url = new URLSearchParams(window.location.search);
+    const userUrl = url.get('user');
+    const emailUrl = url.get('email');
+    if (userUrl && emailUrl) {
+      const sessao = {
+        nome: userUrl,
+        email: emailUrl,
+        plano: url.get('plano') || 'performance',
+        role: url.get('role') || 'Owner',
+        welcome: url.get('welcome') === '1',
+        logado_em: new Date().toISOString(),
+      };
+      const tema = url.get('theme');
+      if (tema) document.documentElement.setAttribute('data-theme', tema);
+      localStorage.setItem('brava_sessao', JSON.stringify(sessao));
+      window.history.replaceState({}, '', '/');
+      return sessao;
+    }
+    const s = localStorage.getItem('brava_sessao');
+    if (s) {
+      const parsed = JSON.parse(s);
+      // Garante que campos obrigatórios existam
+      return { ...DEFAULT_SESSAO, ...parsed };
+    }
+  } catch(e) {
+    console.warn('[Brava] Erro ao carregar sessão, usando default:', e);
+  }
+  return DEFAULT_SESSAO;
+}
+
+const SESSAO = carregarSessao();
+const ehDiretoria = (SESSAO.role || '') === 'Diretoria';
+const safeNome = SESSAO.nome || 'Cliente';
+const safeEmail = SESSAO.email || 'usuario@brava.company';
+
+/* ─── Brava Admin context ─── */
+const TENANT = {
+  name: ehDiretoria ? 'Brava Company' : safeNome,
+  slug: ehDiretoria ? 'admin' : (safeEmail.split('@')[0] || 'cliente').toLowerCase(),
+  initials: (safeNome.split(' ').slice(0,2).map(n => n[0] || '').join('') || 'BC').toUpperCase(),
+  role: SESSAO.role || 'Owner',
+  email: safeEmail,
+};
+
+/* ─── Counter animado ─── */
+function useCount(target, duration = 1600) {
+  const [v, setV] = useState(0);
+  useEffect(() => {
+    let s = null, raf;
+    const step = ts => {
+      if (!s) s = ts;
+      const p = Math.min((ts - s) / duration, 1);
+      setV(Math.round((1 - Math.pow(1 - p, 3)) * target));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return v;
+}
+
+/* ─── Nav items ─── */
+const NAV = [
+  { key:'dashboard',  label:'Dashboard',   icon:'LayoutDashboard', badge:null },
+  { key:'clientes',   label:'WhatsApp',    icon:'MessageCircle',   badge:23 },
+  { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
+  { key:'mrr',        label:'MRR',         icon:'TrendingUp',      badge:null },
+  { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
+  { key:'chamados',   label:'Chamados',    icon:'LifeBuoy',        badge:3 },
+  { key:'equipe',     label:'Equipe',      icon:'UsersRound',      badge:null },
+  { key:'logs',       label:'Logs',        icon:'ScrollText',      badge:null },
+];
+const NAV_BOTTOM = [
+  { key:'config',     label:'Configurações', icon:'Settings',      badge:null },
+  { key:'sair',       label:'Sair',          icon:'LogOut',        badge:null, danger:true },
+];
+
+/* ─── Sidebar ─── */
+function Sidebar({ page, setPage, collapsed, setCollapsed }) {
+  return (
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
+      {/* Faixa topo gradiente */}
+      <div style={{height:4, background:'var(--grad)', flexShrink:0}}/>
+
+      {/* Logo Brava em destaque */}
+      <div id="sidebar-logo-wrap" style={{
+        padding:'16px 20px 14px',
+        borderBottom:'1px solid #1F1F2A',
+        flexShrink:0,
+        display:'flex', alignItems:'center', justifyContent:'space-between',
+      }}>
+        <img src="app/brava-logo-white.png" alt="Brava Company" id="sidebar-logo" style={{height:22, objectFit:'contain'}}/>
+        <button onClick={() => setCollapsed(true)} title="Fechar" style={{
+          width:26, height:26, borderRadius:6, border:'1px solid #2A2A3A',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          color:'var(--t3)', cursor:'pointer', background:'transparent', transition:'all .15s', flexShrink:0,
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor='#A0A0AA';e.currentTarget.style.color='#F5F5F7';}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor='#2A2A3A';e.currentTarget.style.color='#6E6E78';}}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+
+      <nav className="sidebar__nav">
+        {NAV.map(n => (
+          <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => setPage(n.key)}>
+            <Icon name={n.icon} size={16} />
+            {n.label}
+            {n.badge && <span className="nav-badge">{n.badge}</span>}
+          </div>
+        ))}
+
+        <div className="nav-divider" />
+
+        {NAV_BOTTOM.map(n => (
+          <div key={n.key} className={`nav-item${n.danger ? ' danger' : ''}`}
+            onClick={() => {
+              if (n.key === 'sair') {
+                if (confirm('Sair da plataforma?')) {
+                  localStorage.removeItem('brava_sessao');
+                  const tema = document.documentElement.getAttribute('data-theme') || 'dark';
+                  window.location.href = `http://${window.location.hostname}:3001/?logout=1&theme=${tema}`;
+                }
+              }
+              else setPage(n.key);
+            }}>
+            <Icon name={n.icon} size={16} />
+            {n.label}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+/* ─── Header ─── */
+function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notifAberta, setNotifAberta }) {
+  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', pipeline:'Pipeline', mrr:'MRR', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
+  return (
+    <header className="header" style={{borderBottom:'1px solid var(--border-soft)'}}>
+      {collapsed && (
+        <button onClick={() => setCollapsed(false)} title="Abrir" style={{
+          width:28, height:28, borderRadius:6, border:'1px solid #2A2A3A',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          color:'var(--t2)', cursor:'pointer', background:'transparent',
+          marginRight:8, flexShrink:0, transition:'all .15s',
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor='#A0A0AA';e.currentTarget.style.color='#F5F5F7';}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor='#2A2A3A';e.currentTarget.style.color='#A0A0AA';}}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      )}
+      <div className="header__breadcrumb">
+        <span style={{color:'#F5F5F7',fontWeight:600,fontSize:15}}>{labels[page] || 'Dashboard'}</span>
+      </div>
+
+      <div className="header__search">
+        <Icon name="Search" size={14}/>
+        <input value={busca||''} onChange={e=>setBusca&&setBusca(e.target.value)} placeholder="Buscar clientes, nichos..." style={{
+          background:'none', border:'none', outline:'none', color:'#F5F5F7',
+          fontSize:13, fontFamily:'var(--f-b)', flex:1, minWidth:0,
+        }}/>
+        {busca && <button onClick={()=>setBusca('')} style={{color:'#6E6E78', cursor:'pointer', padding:0, lineHeight:1, fontSize:14}}>×</button>}
+      </div>
+
+      <div className="header__actions" style={{position:'relative'}}>
+        <div className="header__icon" onClick={()=>setNotifAberta(v=>!v)}>
+          <Icon name="Bell" size={17}/>
+          <span className="header__notif"/>
+        </div>
+        {notifAberta && (
+          <div style={{
+            position:'absolute', top:46, right:80, zIndex:1000,
+            width:320, background:'var(--bg-2)', border:'1px solid var(--border)',
+            borderRadius:12, boxShadow:'0 12px 40px rgba(0,0,0,.5)', overflow:'hidden',
+          }}>
+            <div style={{padding:'14px 16px', borderBottom:'1px solid var(--border-soft)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+              <span style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:14, color:'var(--t1)'}}>Notificações</span>
+              <span style={{fontSize:11, color:'var(--purple)', fontFamily:'var(--f-m)', cursor:'pointer'}}>Marcar como lidas</span>
+            </div>
+            {[
+              {icon:'LifeBuoy', cor:'#A32D2D', titulo:'Novo chamado', sub:'EstacionePark abriu chamado #142', tempo:'há 12 min'},
+              {icon:'AlertCircle', cor:'#BA7517', titulo:'Pagamento atrasado', sub:'Hyperplay – fatura vence em 2 dias', tempo:'há 1h'},
+              {icon:'TrendingUp', cor:'#1D9E75', titulo:'Novo cliente', sub:'CasaUrba assinou Performance', tempo:'há 3h'},
+            ].map((n,i) => (
+              <div key={i} style={{padding:'12px 16px', borderBottom:'1px solid var(--border-soft)', display:'flex', gap:10, cursor:'pointer', transition:'background .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(123,63,228,.06)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                onClick={()=>{setNotifAberta(false); setPage&&setPage('chamados');}}>
+                <div style={{width:32, height:32, borderRadius:8, background:n.cor+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+                  <Icon name={n.icon} size={15} style={{color:n.cor}}/>
+                </div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{fontSize:13, fontWeight:600, color:'var(--t1)'}}>{n.titulo}</div>
+                  <div style={{fontSize:12, color:'var(--t2)', marginTop:2}}>{n.sub}</div>
+                  <div style={{fontSize:11, color:'var(--t3)', marginTop:3, fontFamily:'var(--f-m)'}}>{n.tempo}</div>
+                </div>
+              </div>
+            ))}
+            <div style={{padding:10, textAlign:'center'}}>
+              <span style={{fontSize:12, color:'var(--blue)', cursor:'pointer'}} onClick={()=>{setNotifAberta(false); setPage&&setPage('chamados');}}>Ver todas →</span>
+            </div>
+          </div>
+        )}
+        <div className="header__icon" onClick={()=>setPage&&setPage('config')} title="Configurações">
+          <Icon name="Settings" size={17}/>
+        </div>
+        <div className="header__avatar" style={{padding:0, overflow:'hidden'}} title="Jhonattan Itiuba">
+          <img src="app/gabriel.jpg" alt="Jhonattan Itiuba" style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%'}}
+            onError={e => { e.target.style.display='none'; e.target.parentElement.textContent='JI'; }}/>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+/* ─── Dashboard ─── */
+function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExportar, busca }) {
+  const clientes   = useCount(21);
+  const mrr        = useCount(28400);
+  const conversas  = useCount(1247);
+  const chamados   = useCount(3);
+
+  const chartData = [
+    { day:'Seg', v:14800 },{ day:'Ter', v:19200 },{ day:'Qua', v:21000 },
+    { day:'Qui', v:23400 },{ day:'Sex', v:25100 },{ day:'Sáb', v:26800 },
+    { day:'Hoje', v:28400, today:true },
+  ];
+  const maxV = Math.max(...chartData.map(d => d.v));
+
+  // Filtro pela busca global
+  const clientesList = (busca
+    ? CLIENTES_CRM.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) || c.nicho.toLowerCase().includes(busca.toLowerCase()))
+    : CLIENTES_CRM
+  ).slice(0, 6);
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Bom dia, {SESSAO.nome.split(' ')[0]}</div>
+          <div className="page-head__sub">Sábado, 10 de maio de 2026 · <span style={{color:'var(--success)'}}>● Plataforma operacional</span></div>
+        </div>
+        <div className="page-head__actions">
+          <button className="btn btn-outline" onClick={onExportar}><Icon name="Download" size={14}/>Exportar relatório</button>
+          <button className="btn btn-primary" onClick={onNovoCliente}><Icon name="Plus" size={14}/>Novo cliente</button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid">
+        <div className="kpi">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div className="kpi__label">Clientes ativos</div>
+            <div className="kpi__icon" style={{background:'rgba(123,63,228,.12)'}}>
+              <Icon name="Building2" size={17} style={{color:'var(--purple)'}}/>
+            </div>
+          </div>
+          <div className="kpi__value" style={{color:'var(--t1)'}}>{clientes}</div>
+          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>+3 este mês</div>
+        </div>
+
+        <div className="kpi">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div className="kpi__label">MRR</div>
+            <div className="kpi__icon" style={{background:'rgba(30,144,255,.12)'}}>
+              <Icon name="TrendingUp" size={17} style={{color:'var(--blue)'}}/>
+            </div>
+          </div>
+          <div className="kpi__value" style={{fontSize:26, color:'var(--t1)'}}>R$ {mrr.toLocaleString('pt-BR')}</div>
+          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>+12% vs mês anterior</div>
+        </div>
+
+        <div className="kpi">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div className="kpi__label">Conversas processadas</div>
+            <div className="kpi__icon" style={{background:'rgba(29,158,117,.12)'}}>
+              <Icon name="MessageCircle" size={17} style={{color:'var(--success)'}}/>
+            </div>
+          </div>
+          <div className="kpi__value" style={{color:'var(--t1)'}}>{conversas.toLocaleString('pt-BR')}</div>
+          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>em todos os tenants hoje</div>
+        </div>
+
+        <div className="kpi">
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+            <div className="kpi__label">Chamados abertos</div>
+            <div className="kpi__icon" style={{background:'rgba(163,45,45,.12)'}}>
+              <Icon name="LifeBuoy" size={17} style={{color:'var(--danger)'}}/>
+            </div>
+          </div>
+          <div className="kpi__value" style={{color:chamados > 0 ? 'var(--warning)' : 'var(--success)'}}>{chamados}</div>
+          <div className="kpi__delta" style={{color:'var(--t3)'}}><Icon name="Clock" size={12}/>2 aguardando resposta</div>
+        </div>
+      </div>
+
+      {/* Gráfico MRR + Clientes recentes */}
+      <div className="grid-2">
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Evolução do MRR — últimos 7 dias</div>
+            <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Ver MRR completo →</div>
+          </div>
+          <div className="chart">
+            {chartData.map((d,i) => (
+              <div key={i} className="chart-bar-wrap">
+                <div
+                  className={`chart-bar ${d.today ? 'today' : 'past'}`}
+                  style={{height:`${(d.v/maxV)*100}%`}}
+                  title={`R$ ${d.v.toLocaleString('pt-BR')}`}
+                />
+                <div className="chart-label">{d.day}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Clientes recentes</div>
+            <div className="card__action" onClick={()=>setPage&&setPage('pipeline')}>Ver todos →</div>
+          </div>
+          <div className="conv-list">
+            {clientesList.map((c,i) => (
+              <div key={i} className="conv-item" style={{cursor:'pointer'}} onClick={()=>onImpersonate(c)}>
+                <div className="conv-avatar" style={{background:c.color}}>{c.init}</div>
+                <div className="conv-meta">
+                  <div className="conv-name">{c.nome}</div>
+                  <div className="conv-preview" style={{fontSize:11.5}}>{c.servico} · {c.nicho}</div>
+                </div>
+                <div className="conv-right" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                  <div className="conv-tag" style={{background:'rgba(29,158,117,.08)',color:STATUS_COLOR[c.status]||'var(--t2)',border:`1px solid ${STATUS_COLOR[c.status]||'var(--border)'}33`,borderRadius:6,padding:'2px 7px',fontSize:10.5,fontWeight:500}}>{c.status}</div>
+                  <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
+                    <Icon name="EyeOff" size={10}/>Entrar
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Saúde + Planos + Equipe */}
+      <div className="grid-3">
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Saúde da plataforma</div>
+            <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:'rgba(29,158,117,.15)',color:'#6ee7b7',fontFamily:'var(--f-m)'}}>OPERACIONAL</span>
+          </div>
+          <div className="ia-status">
+            <div className="ia-dot"/>
+            <div className="ia-info">
+              <div className="ia-name">Todos os sistemas normais</div>
+              <div className="ia-sub">Uptime 99.98% nos últimos 30 dias</div>
+            </div>
+          </div>
+          <div className="stat-row">
+            <div className="stat-label">Latência média API</div>
+            <div className="stat-val">142ms</div>
+          </div>
+          <div className="stat-row">
+            <div className="stat-label">Webhooks processados</div>
+            <div className="stat-val">4.821 hoje</div>
+          </div>
+          <div className="stat-row">
+            <div className="stat-label">Erros nas últimas 24h</div>
+            <div className="stat-val" style={{color:'var(--success)'}}>0</div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Distribuição de planos</div>
+          </div>
+          {(pipelineCols||[]).map((col,i) => {
+            const total = (pipelineCols||[]).reduce((s,c)=>s+c.cards.length,0)||1;
+            const pct = Math.round((col.cards.length/total)*100);
+            return { plano:col.nome, qtd:col.cards.length, pct, cor:col.cor };
+          }).map((p,i) => (
+            <div key={i}>
+              <div className="stat-row">
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{width:8,height:8,borderRadius:'50%',background:p.cor,flexShrink:0}}/>
+                  <div className="stat-label">{p.plano}</div>
+                </div>
+                <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                  <div className="stat-label">{p.qtd}</div>
+                  <div className="stat-val">{p.pct}%</div>
+                </div>
+              </div>
+              <div className="progress" style={{marginBottom:6}}>
+                <div className="progress__fill" style={{width:`${p.pct}%`,background:p.cor}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="card">
+          <div className="card__head">
+            <div className="card__title">Equipe Brava</div>
+          </div>
+          {[
+            {name:'Jhonattan Itiuba', role:'Diretoria',    status:'online', foto:'app/gabriel.jpg'},
+            {name:'Maria Eduarda',   role:'CS / Suporte', status:'online', foto:null},
+            {name:'João Silva',      role:'Dev',          status:'online', foto:null},
+            {name:'Ana Lima',        role:'Comercial',    status:'away',   foto:null},
+          ].map((a,i) => (
+            <div key={i} className="stat-row">
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{position:'relative'}}>
+                  <div style={{width:30,height:30,borderRadius:'50%',background:'var(--bg-3)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,color:'var(--t2)',overflow:'hidden'}}>
+                    {a.foto
+                      ? <img src={a.foto} alt={a.name} style={{width:'100%',height:'100%',objectFit:'cover'}} onError={e=>{e.target.style.display='none';}}/>
+                      : a.name.split(' ').map(n=>n[0]).join('')
+                    }
+                  </div>
+                  <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:a.status==='online'?'var(--success)':'var(--t3)',border:'2px solid var(--bg-2)'}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>{a.name}</div>
+                  <div style={{fontSize:11,color:'var(--t3)'}}>{a.role}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── IA Chat ─── */
+const CLIENTES_CRM = [
+  { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#7B3FE4' },
+  { nome:'Garcia Sadler',        servico:'IA + API',             nicho:'Construção',          status:'Em Prod',             init:'GS', color:'#1E90FF' },
+  { nome:'Dra. Thalita Morete',  servico:'IA + CRM',             nicho:'Estética',            status:'Em Prod',             init:'TM', color:'#1D9E75' },
+  { nome:'Ldccell Sorocaba',     servico:'IA + API',             nicho:'Loja de Eletrônicos', status:'Em Prod',             init:'LS', color:'#185FA5' },
+  { nome:'VapoCamping Hotel',    servico:'IA + CRM + Site',      nicho:'Turismo',             status:'Em Prod',             init:'VC', color:'#1D9E75' },
+  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#7B3FE4' },
+  { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#BA7517' },
+  { nome:'Monteiro Multimarcas', servico:'IA + CRM',             nicho:'Automobilístico',     status:'Implementação',       init:'MM', color:'#185FA5' },
+  { nome:'Grupo Marinho',        servico:'IA + API + CRM',       nicho:'Automobilístico',     status:'Implementação',       init:'GM', color:'#185FA5' },
+  { nome:'Bionicão',             servico:'IA + CRM',             nicho:'Veterinário',         status:'Implementação',       init:'BI', color:'#185FA5' },
+  { nome:'Soldatopo',            servico:'IA + CRM',             nicho:'Indústria',           status:'Implementação',       init:'SO', color:'#185FA5' },
+  { nome:'Protbal',              servico:'IA + CRM',             nicho:'Indústria',           status:'Implementação',       init:'PR', color:'#185FA5' },
+  { nome:'Hyperplay',            servico:'IA + CRM',             nicho:'Indústria',           status:'Comercial',           init:'HP', color:'var(--t3)' },
+  { nome:'CasaUrba',             servico:'IA + CRM',             nicho:'Estética',            status:'Comercial',           init:'CU', color:'var(--t3)' },
+  { nome:'Imobzi',               servico:'IA + API',             nicho:'Imobiliário',         status:'Comercial',           init:'IM', color:'var(--t3)' },
+  { nome:'PHS Incorporadora',    servico:'IA + CRM',             nicho:'Imobiliário',         status:'Comercial',           init:'PH', color:'var(--t3)' },
+  { nome:'Maressa Ribeiro',      servico:'IA + CRM',             nicho:'Arquitetura',         status:'Comercial',           init:'MR', color:'var(--t3)' },
+  { nome:'Marcenaria Sorocaba',  servico:'IA + CRM',             nicho:'Arquitetura',         status:'Comercial',           init:'MS', color:'var(--t3)' },
+  { nome:'EAG Agro',             servico:'IA + CRM',             nicho:'Agro',                status:'Comercial',           init:'EA', color:'var(--t3)' },
+  { nome:'Camping Pousada',      servico:'IA + API',             nicho:'Turismo',             status:'Proposta Apresentada',init:'CP', color:'#BA7517' },
+  { nome:'Pousada Garcia',       servico:'IA + API',             nicho:'Turismo',             status:'Em breve',            init:'PG', color:'#BA7517' },
+];
+
+const STATUS_COLOR = {
+  'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4',
+  'Comercial':'#BA7517', 'Proposta Apresentada':'#BA7517', 'Em breve':'#6E6E78',
+};
+
+const SYSTEM_DATA = {
+  clientes: 21, mrr: 28400, conversas: 1247, chamados: 3,
+  planos: { 'Em Prod': 5, 'Ativo': 2, 'Implementação': 5, 'Comercial': 7, 'Proposta/Breve': 2 },
+  equipe: ['Jhonattan Itiuba','Maria Eduarda','João Silva','Ana Lima'],
+  saude: { uptime:'99.98%', latencia:'142ms', erros:0 },
+};
+
+function responderIA(pergunta) {
+  const p = pergunta.toLowerCase();
+  if (p.includes('mrr') || p.includes('receita') || p.includes('faturamento'))
+    return `O MRR atual é **R$ ${SYSTEM_DATA.mrr.toLocaleString('pt-BR')}**, crescimento de +12% em relação ao mês anterior. Distribuição: ${Object.entries(SYSTEM_DATA.planos).map(([k,v])=>`${v} no ${k}`).join(', ')}.`;
+  if (p.includes('cliente') || p.includes('tenant'))
+    return `Há **${SYSTEM_DATA.clientes} clientes** na base. **5 em produção** (Clínica Reunidas, Garcia Sadler, Dra. Thalita, Ldccell, VapoCamping), **2 ativos** (EstacionePark, Master Aviação), **5 em implementação**, **7 em negociação comercial** e 2 em prospecção.`;
+  if (p.includes('chamado') || p.includes('suporte'))
+    return `Existem **${SYSTEM_DATA.chamados} chamados abertos** no momento, 2 aguardando resposta da equipe. Tempo médio de resolução: 3h.`;
+  if (p.includes('conversa') || p.includes('atendimento') || p.includes('mensagem'))
+    return `Foram processadas **${SYSTEM_DATA.conversas.toLocaleString('pt-BR')} conversas** hoje em todos os tenants. A IA assumiu 91% delas com tempo médio de resposta de 22 segundos.`;
+  if (p.includes('saúde') || p.includes('uptime') || p.includes('sistema') || p.includes('erro'))
+    return `Plataforma **operacional**. Uptime de ${SYSTEM_DATA.saude.uptime} nos últimos 30 dias, latência média de ${SYSTEM_DATA.saude.latencia} e **${SYSTEM_DATA.saude.erros} erros** nas últimas 24h.`;
+  if (p.includes('plano') || p.includes('performance') || p.includes('scale') || p.includes('essencial'))
+    return `Por status: **5 em produção**, 2 ativos, 5 em implementação, 7 em negociação comercial, 2 em proposta/prospecção. Nichos: Automobilístico, Indústria, Imobiliário, Turismo, Arquitetura, Saúde, Estética, Agro, Aviação e mais. Ticket médio estimado: R$ ${Math.round(SYSTEM_DATA.mrr/SYSTEM_DATA.clientes).toLocaleString('pt-BR')}/mês.`;
+  if (p.includes('equipe') || p.includes('time'))
+    return `A equipe Brava tem **${SYSTEM_DATA.equipe.length} membros**: ${SYSTEM_DATA.equipe.join(', ')}. Todos online agora.`;
+  if (p.includes('churn') || p.includes('cancelamento') || p.includes('saiu'))
+    return `Nenhum cancelamento este mês. Taxa de churn: **0%**. O cliente mais antigo está há 8 meses na plataforma.`;
+  return `Posso te ajudar com informações sobre **clientes, MRR, chamados, conversas, saúde da plataforma, planos e equipe**. O que você quer saber?`;
+}
+
+function AIChat() {
+  const [aberto, setAberto] = useState(false);
+  const [msgs, setMsgs] = useState([
+    { from:'ai', text:'Olá, Diretoria. Tenho acesso a todos os dados da plataforma em tempo real. O que você quer saber?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => { if(aberto) bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs, aberto]);
+
+  const send = () => {
+    const txt = input.trim();
+    if (!txt || loading) return;
+    setMsgs(m => [...m, { from:'user', text:txt }]);
+    setInput('');
+    setLoading(true);
+    setTimeout(() => {
+      setMsgs(m => [...m, { from:'ai', text: responderIA(txt) }]);
+      setLoading(false);
+    }, 700);
+  };
+
+  const renderText = (t) => t.split(/\*\*(.*?)\*\*/g).map((p,i) =>
+    i % 2 === 1 ? <strong key={i} style={{color:'var(--t1)'}}>{p}</strong> : p
+  );
+
+  const sugestoes = ['Qual o MRR?','Clientes ativos?','Como está a saúde?','Chamados abertos?'];
+
+  // Botão flutuante (fechado)
+  if (!aberto) return (
+    <button onClick={()=>setAberto(true)} title="IA Admin Brava" style={{
+      position:'fixed', bottom:16, right:64, zIndex:9998,
+      width:54, height:54, borderRadius:'50%',
+      background:'var(--grad)',
+      border:'2px solid rgba(255,255,255,.1)',
+      boxShadow:'0 8px 24px rgba(123,63,228,.45), 0 0 0 0 rgba(123,63,228,.6)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      cursor:'pointer', transition:'transform .2s, box-shadow .2s',
+      animation:'pulse-ai 2.4s ease infinite',
+    }}
+      onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.08)';e.currentTarget.style.boxShadow='0 12px 32px rgba(123,63,228,.6)';}}
+      onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow='0 8px 24px rgba(123,63,228,.45)';}}
+    >
+      <Icon name="Sparkles" size={22} style={{color:'#fff'}}/>
+      <style>{`@keyframes pulse-ai { 0%,100%{box-shadow:0 8px 24px rgba(123,63,228,.45), 0 0 0 0 rgba(123,63,228,.4);} 70%{box-shadow:0 8px 24px rgba(123,63,228,.45), 0 0 0 14px rgba(123,63,228,0);} }`}</style>
+    </button>
+  );
+
+  // Painel aberto
+  return (
+    <div style={{
+      position:'fixed', bottom:16, right:16, zIndex:9998,
+      width:380, maxWidth:'calc(100vw - 32px)', maxHeight:'calc(100vh - 80px)',
+      background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:16,
+      overflow:'hidden', display:'flex', flexDirection:'column',
+      boxShadow:'0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(123,63,228,.2)',
+      animation:'slide-up .25s cubic-bezier(.22,1,.36,1)',
+    }}>
+      <style>{`@keyframes slide-up { from{transform:translateY(20px); opacity:0;} to{transform:translateY(0); opacity:1;} }`}</style>
+
+      {/* Header */}
+      <div style={{
+        padding:'12px 16px', borderBottom:'1px solid var(--border-soft)',
+        display:'flex', alignItems:'center', gap:10, flexShrink:0,
+        background:'linear-gradient(135deg, rgba(123,63,228,.08), rgba(30,144,255,.08))',
+      }}>
+        <div style={{
+          width:36, height:36, borderRadius:10,
+          background:'var(--grad)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          flexShrink:0,
+        }}>
+          <Icon name="Sparkles" size={17} style={{color:'#fff'}}/>
+        </div>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontFamily:'var(--f-d)',fontWeight:600,fontSize:14,color:'var(--t1)'}}>IA Admin · Brava</div>
+          <div style={{fontSize:11.5,color:'var(--success)',display:'flex',alignItems:'center',gap:5,marginTop:1}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'var(--success)',display:'inline-block',boxShadow:'0 0 6px var(--success)'}}/>
+            Conectada aos dados do sistema
+          </div>
+        </div>
+        <button onClick={()=>setAberto(false)} title="Fechar" style={{
+          width:30, height:30, borderRadius:8, color:'var(--t3)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          cursor:'pointer', transition:'all .15s', flexShrink:0,
+        }}
+          onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,.06)';e.currentTarget.style.color='var(--t1)';}}
+          onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--t3)';}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      {/* Sugestões */}
+      <div style={{padding:'10px 16px 0', display:'flex', gap:5, flexWrap:'wrap', flexShrink:0}}>
+        {sugestoes.map((s,i) => (
+          <button key={i} onClick={()=>{ setInput(s); }} style={{
+            padding:'4px 10px', borderRadius:999,
+            border:'1px solid var(--border)', background:'transparent',
+            fontSize:11, color:'var(--t2)', cursor:'pointer', transition:'all .15s',
+          }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--purple)';e.currentTarget.style.color='var(--t1)';}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--t2)';}}
+          >{s}</button>
+        ))}
+      </div>
+
+      {/* Mensagens */}
+      <div style={{flex:1, minHeight:280, maxHeight:380, overflowY:'auto', padding:'14px 16px', display:'flex', flexDirection:'column', gap:12}}>
+        {msgs.map((m,i) => (
+          <div key={i} style={{
+            display:'flex', gap:10,
+            flexDirection: m.from === 'user' ? 'row-reverse' : 'row',
+            alignItems:'flex-end',
+          }}>
+            <div style={{
+              width:28, height:28, borderRadius:'50%', flexShrink:0,
+              background: m.from === 'ai' ? 'var(--grad)' : 'var(--bg-3)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              {m.from === 'ai'
+                ? <Icon name="Sparkles" size={13} style={{color:'#fff'}}/>
+                : <span style={{fontSize:10,fontWeight:700,color:'var(--t2)'}}>VC</span>
+              }
+            </div>
+            <div style={{
+              maxWidth:'75%', padding:'10px 14px', borderRadius:12,
+              fontSize:13.5, lineHeight:1.55,
+              background: m.from === 'ai' ? 'var(--bg-3)' : 'rgba(123,63,228,.18)',
+              color: m.from === 'ai' ? '#A0A0AA' : '#F5F5F7',
+              borderBottomLeftRadius: m.from === 'ai' ? 4 : 12,
+              borderBottomRightRadius: m.from === 'user' ? 4 : 12,
+            }}>
+              {renderText(m.text)}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
+            <div style={{width:28,height:28,borderRadius:'50%',background:'var(--grad)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Icon name="Sparkles" size={13} style={{color:'#fff'}}/>
+            </div>
+            <div style={{padding:'10px 14px',borderRadius:'12px 12px 12px 4px',background:'var(--bg-3)',display:'flex',gap:5,alignItems:'center'}}>
+              {[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:'50%',background:'#6E6E78',display:'inline-block',animation:`bounce 1.2s ${i*.15}s infinite`}}/>)}
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef}/>
+      </div>
+
+      {/* Input */}
+      <div style={{
+        padding:'12px 16px', borderTop:'1px solid var(--border-soft)',
+        display:'flex', gap:10,
+      }}>
+        <input
+          value={input}
+          onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>e.key==='Enter' && send()}
+          placeholder="Pergunte sobre clientes, MRR, chamados, saúde..."
+          style={{
+            flex:1, height:40, padding:'0 14px',
+            background:'var(--bg-3)', border:'1px solid var(--border)',
+            borderRadius:10, fontSize:13.5, color:'var(--t1)',
+            outline:'none', transition:'border-color .15s',
+          }}
+          onFocus={e=>e.target.style.borderColor='var(--purple)'}
+          onBlur={e=>e.target.style.borderColor='var(--border)'}
+        />
+        <button onClick={send} disabled={!input.trim()||loading} style={{
+          width:40, height:40, borderRadius:10,
+          background: input.trim() ? 'var(--grad)' : 'var(--bg-3)',
+          border:'none', cursor: input.trim() ? 'pointer' : 'default',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          transition:'all .2s', color:'#fff',
+          opacity: input.trim() ? 1 : 0.4,
+        }}>
+          <Icon name="Send" size={15} style={{color:'#fff'}}/>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── WhatsApp / Conversas ─── */
+const CONTATOS = [
+  { id:1, name:'Carla Mendes',    init:'CM', color:'#7B3FE4', preview:'Posso reservar 14h de amanhã?',      time:'23:47', unread:0, tag:'ia',      status:'online',  via:'Stories Meta',    canal:'WhatsApp' },
+  { id:2, name:'Roberto Lima',    init:'RL', color:'#1E90FF', preview:'Pode me mandar a tabela de preços?', time:'23:42', unread:2, tag:'quente',   status:'offline', via:'Link Bio',        canal:'WhatsApp' },
+  { id:3, name:'Juliana Prado',   init:'JP', color:'#1D9E75', preview:'Fechado! Confirmo a visita amanhã.', time:'23:18', unread:0, tag:'fechou',   status:'online',  via:'Direto',          canal:'WhatsApp' },
+  { id:4, name:'Marcos Tavares',  init:'MT', color:'#185FA5', preview:'Recebi a proposta, vou analisar',    time:'22:51', unread:0, tag:null,       status:'offline', via:'Google Ads',      canal:'WhatsApp' },
+  { id:5, name:'Beatriz Souza',   init:'BS', color:'#BA7517', preview:'Quero saber mais sobre o plano…',   time:'22:09', unread:1, tag:'quente',   status:'offline', via:'Instagram',       canal:'WhatsApp' },
+  { id:6, name:'Felipe Ramos',    init:'FR', color:'#7B3FE4', preview:'Tem disponibilidade na quinta?',     time:'21:44', unread:0, tag:'ia',       status:'online',  via:'Direto',          canal:'WhatsApp' },
+  { id:7, name:'Amanda Costa',    init:'AC', color:'#1E90FF', preview:'Oi! Vi o anúncio de vocês',         time:'21:30', unread:3, tag:null,       status:'online',  via:'Meta Ads',        canal:'WhatsApp' },
+  { id:8, name:'Pedro Almeida',   init:'PA', color:'#1D9E75', preview:'Já fiz o pagamento, ok?',            time:'20:58', unread:0, tag:'fechou',   status:'offline', via:'Indicação',       canal:'WhatsApp' },
+];
+
+const MENSAGENS = {
+  1: [
+    { from:'in',  text:'Boa noite! Vi o anúncio de vocês. Tem vaga pra avaliação amanhã às 14h?', time:'23:47', ia:false },
+    { from:'out', text:'Oi Carla, boa noite! Temos sim 👋 Avaliação clínica gratuita, dura uns 40 minutos. Posso reservar 14h pra você?', time:'23:47', ia:true },
+    { from:'in',  text:'Pode reservar. É na unidade Alphaville mesmo?', time:'23:48', ia:false },
+    { from:'out', text:'Reservado ✅ Alphaville, Al. Rio Negro 503. Mando o lembrete 1h antes. Posso já adiantar a ficha pra ganhar tempo?', time:'23:48', ia:true },
+    { from:'in',  text:'Posso reservar 14h de amanhã?', time:'23:47', ia:false },
+  ],
+  2: [
+    { from:'in',  text:'Boa tarde! Vocês atendem empresa ou só pessoa física?', time:'23:10', ia:false },
+    { from:'out', text:'Olá Roberto! Atendemos ambos, com foco em empresas B2B. Qual o seu segmento?', time:'23:11', ia:true },
+    { from:'in',  text:'Construção civil. Tenho uma equipe de 40 pessoas.', time:'23:15', ia:false },
+    { from:'out', text:'Perfeito! Temos cases de sucesso no setor. Posso te enviar a tabela de preços?', time:'23:16', ia:true },
+    { from:'in',  text:'Pode me mandar a tabela de preços?', time:'23:42', ia:false },
+  ],
+};
+
+function Conversas({ pipelineCols, moverNoPipeline }) {
+  const [ativo, setAtivo] = useState(1);
+  const [filtro, setFiltro] = useState('todas');
+  const [iaAtiva, setIaAtiva] = useState(true);
+  const [msg, setMsg] = useState('');
+  const [busca, setBusca] = useState('');
+  const [sidebarAberta, setSidebarAberta] = useState(true);
+  const bottomRef = useRef(null);
+  const contato = CONTATOS.find(c => c.id === ativo);
+  const msgs = MENSAGENS[ativo] || MENSAGENS[1];
+
+  // Fase atual do contato no pipeline
+  const faseAtual = (pipelineCols||[]).find(col =>
+    col.cards.some(k => k.nome === contato?.name)
+  );
+  const mudarFase = (colId) => {
+    if (moverNoPipeline && contato) moverNoPipeline(contato.name, colId);
+  };
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [ativo]);
+
+  const filtrados = CONTATOS.filter(c => {
+    if (busca && !c.name.toLowerCase().includes(busca.toLowerCase())) return false;
+    if (filtro === 'nao_lidas') return c.unread > 0;
+    if (filtro === 'ia') return c.tag === 'ia';
+    if (filtro === 'minhas') return !c.tag;
+    return true;
+  });
+
+  const S = { // atalhos para tokens WA via CSS vars (usados via style)
+    sidebarBg:   'var(--wa-sidebar-bg)',
+    headerBg:    'var(--wa-header-bg)',
+    chatBg:      'var(--wa-chat-bg)',
+    inputBg:     'var(--wa-input-bg)',
+    msgOut:      'var(--wa-msg-out-bg)',
+    msgIn:       'var(--wa-msg-in-bg)',
+    textPrimary: 'var(--wa-text-primary)',
+    textSec:     'var(--wa-text-secondary)',
+    border:      'var(--wa-border)',
+    searchBg:    'var(--wa-search-bg)',
+    activeBg:    'var(--wa-active-bg)',
+    green:       'var(--wa-green)',
+    unread:      'var(--wa-unread-bg)',
+  };
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:`320px 1fr ${sidebarAberta?'264px':'0'}`, height:'calc(100vh - 60px)', overflow:'hidden', margin:'-28px -32px', transition:'grid-template-columns .25s cubic-bezier(.22,1,.36,1)' }}>
+
+      {/* ── Coluna 1: Lista ── */}
+      <div style={{ display:'flex', flexDirection:'column', background:S.sidebarBg, borderRight:`1px solid ${S.border}`, overflow:'hidden' }}>
+        {/* Header */}
+        <div style={{ padding:'14px 16px 10px', background:S.headerBg, borderBottom:`1px solid ${S.border}`, flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+            <span style={{ fontFamily:'var(--f-d)', fontWeight:700, fontSize:17, color:S.textPrimary }}>WhatsApp</span>
+            <div style={{ display:'flex', gap:6 }}>
+              {['Filter','Plus'].map(ic => (
+                <div key={ic} style={{ width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer', transition:'background .15s' }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <Icon name={ic} size={18}/>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Busca */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 12px', background:S.searchBg, borderRadius:8 }}>
+            <Icon name="Search" size={14} style={{color:S.textSec, flexShrink:0}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Pesquisar ou começar uma nova conversa" style={{ background:'none', border:'none', outline:'none', fontSize:13.5, color:S.textPrimary, width:'100%' }}/>
+          </div>
+          {/* Filtros */}
+          <div style={{ display:'flex', gap:4, marginTop:8 }}>
+            {[['todas','Todas'],['nao_lidas','Não lidas'],['ia','IA'],['minhas','Minhas']].map(([k,l]) => (
+              <button key={k} onClick={()=>setFiltro(k)} style={{
+                padding:'4px 10px', borderRadius:999, fontSize:11.5, fontWeight:500, cursor:'pointer',
+                background: filtro===k ? 'rgba(37,211,102,.15)' : 'transparent',
+                color: filtro===k ? 'var(--wa-green)' : S.textSec,
+                border: filtro===k ? '1px solid rgba(37,211,102,.3)' : '1px solid transparent',
+                transition:'all .15s',
+              }}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Lista */}
+        <div style={{ flex:1, overflowY:'auto' }}>
+          {filtrados.map(c => (
+            <div key={c.id} onClick={()=>setAtivo(c.id)} style={{
+              display:'flex', alignItems:'flex-start', gap:12,
+              padding:'12px 16px',
+              background: ativo===c.id ? S.activeBg : 'transparent',
+              borderBottom:`1px solid ${S.border}`,
+              cursor:'pointer', transition:'background .12s',
+            }}
+              onMouseEnter={e=>{ if(ativo!==c.id) e.currentTarget.style.background='var(--wa-sidebar-hover)'; }}
+              onMouseLeave={e=>{ if(ativo!==c.id) e.currentTarget.style.background='transparent'; }}
+            >
+              <div style={{ position:'relative', flexShrink:0 }}>
+                <div style={{ width:46, height:46, borderRadius:'50%', background:c.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:15, color:'#fff' }}>{c.init}</div>
+                {c.status==='online' && <div style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.sidebarBg}` }}/>}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
+                  <span style={{ fontSize:14.5, fontWeight:500, color:S.textPrimary }}>{c.name}</span>
+                  <span style={{ fontSize:11, color: c.unread>0 ? S.green : S.textSec }}>{c.time}</span>
+                </div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:3 }}>
+                  <span style={{ fontSize:13, color:S.textSec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:180 }}>{c.preview}</span>
+                  {c.unread > 0 && <span style={{ minWidth:19, height:19, borderRadius:999, background:S.unread, color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 4px', flexShrink:0 }}>{c.unread}</span>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Coluna 2: Chat ── */}
+      <div style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {/* Header chat */}
+        <div style={{ padding:'10px 16px', background:S.headerBg, borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+          <div style={{ position:'relative' }}>
+            <div style={{ width:40, height:40, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:14, color:'#fff' }}>{contato?.init}</div>
+            {contato?.status==='online' && <div style={{ position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.headerBg}` }}/>}
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary }}>{contato?.name}</div>
+            <div style={{ fontSize:12, color:S.green, marginTop:1 }}>{contato?.status==='online' ? 'online' : 'visto por último às 22:30'}</div>
+          </div>
+          <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+            <button onClick={()=>setIaAtiva(v=>!v)} style={{
+              display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:999,
+              background: iaAtiva ? 'rgba(37,211,102,.12)' : 'transparent',
+              border: `1px solid ${iaAtiva ? 'rgba(37,211,102,.35)' : S.border}`,
+              color: iaAtiva ? 'var(--wa-green)' : S.textSec,
+              fontSize:11, fontFamily:'var(--f-m)', fontWeight:600, cursor:'pointer', transition:'all .2s',
+            }}>
+              <div style={{ width:6, height:6, borderRadius:'50%', background: iaAtiva ? 'var(--wa-green)' : S.textSec, boxShadow: iaAtiva ? '0 0 6px var(--wa-green)' : '' }}/>
+              IA {iaAtiva ? 'ATIVA' : 'PAUSADA'}
+            </button>
+            <div onClick={()=>setSidebarAberta(v=>!v)} style={{
+              width:36, height:36, borderRadius:'50%',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              color: sidebarAberta ? 'var(--wa-green)' : S.textSec,
+              cursor:'pointer', transition:'background .15s, color .15s',
+              background: sidebarAberta ? 'rgba(37,211,102,.12)' : 'transparent',
+            }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+              onMouseLeave={e=>e.currentTarget.style.background=sidebarAberta?'rgba(37,211,102,.12)':'transparent'}
+              title={sidebarAberta ? 'Fechar contato' : 'Ver contato'}
+            >
+              <Icon name="UserCircle" size={20}/>
+            </div>
+            {['Search','Phone','MoreVertical'].map(ic => (
+              <div key={ic} style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer', transition:'background .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <Icon name={ic} size={18}/>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Mensagens */}
+        <div style={{ flex:1, overflowY:'auto', padding:'16px 10%', display:'flex', flexDirection:'column', gap:4, background:S.chatBg,
+          backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23000000\' fill-opacity=\'0.02\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
+        }}>
+          {msgs.map((m,i) => (
+            <div key={i} style={{ display:'flex', flexDirection: m.from==='out' ? 'row-reverse' : 'row', gap:6, marginBottom:2, alignItems:'flex-end' }}>
+              {m.from==='out' && (
+                <div style={{ width:24, height:24, borderRadius:'50%', background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginBottom:4 }}>
+                  <Icon name="Sparkles" size={11} style={{color:'#fff'}}/>
+                </div>
+              )}
+              <div style={{
+                maxWidth:'65%', padding:'7px 12px 6px', fontSize:13.5, lineHeight:1.5,
+                borderRadius: m.from==='out' ? '8px 0px 8px 8px' : '0px 8px 8px 8px',
+                background: m.from==='out' ? S.msgOut : S.msgIn,
+                color: m.from==='out' ? 'var(--wa-msg-out-text)' : 'var(--wa-msg-in-text)',
+                boxShadow:'0 1px 2px rgba(0,0,0,.1)',
+              }}>
+                {m.text}
+                <div style={{ fontSize:10.5, color:S.textSec, marginTop:3, textAlign:'right', display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
+                  {m.ia && <span style={{ fontSize:9.5, background:'rgba(37,211,102,.2)', color:'var(--wa-green)', padding:'1px 5px', borderRadius:3, fontFamily:'var(--f-m)' }}>IA</span>}
+                  {m.time}
+                  {m.from==='out' && <svg width="14" height="10" viewBox="0 0 16 11" fill="var(--wa-green)"><path d="M11.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061zm3 0a.75.75 0 0 0-1.036.218l-5.64 8.65-.52-.52a.75.75 0 1 0-1.06 1.06l1.19 1.19a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div ref={bottomRef}/>
+        </div>
+
+        {/* Input */}
+        <div style={{ padding:'8px 12px', background:S.inputBg, borderTop:`1px solid ${S.border}`, flexShrink:0 }}>
+          {iaAtiva && (
+            <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', marginBottom:6, background:'rgba(37,211,102,.08)', border:'1px solid rgba(37,211,102,.2)', borderRadius:6, fontSize:12, color:'var(--wa-green)' }}>
+              <Icon name="Sparkles" size={12}/> IA ativa — responde automaticamente. Digite para assumir.
+            </div>
+          )}
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {['Smile','Paperclip'].map(ic => (
+              <div key={ic} style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer' }}>
+                <Icon name={ic} size={20}/>
+              </div>
+            ))}
+            <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&msg.trim()) setMsg(''); }} placeholder="Digite uma mensagem" style={{
+              flex:1, height:42, padding:'0 16px', borderRadius:21,
+              background:S.searchBg, border:'none', outline:'none',
+              fontSize:14, color:S.textPrimary,
+            }}/>
+            <div style={{ width:42, height:42, borderRadius:'50%', background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
+              <Icon name={msg ? 'Send' : 'Mic'} size={18} style={{color:'#fff'}}/>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Coluna 3: Contexto ── */}
+      <div style={{ borderLeft:`1px solid ${S.border}`, overflowY:'auto', background:S.sidebarBg, padding:'16px 14px', display:'flex', flexDirection:'column', gap:14 }}>
+        <div style={{ textAlign:'center', paddingBottom:14, borderBottom:`1px solid ${S.border}` }}>
+          <div style={{ width:60, height:60, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:20, color:'#fff', margin:'0 auto 10px' }}>{contato?.init}</div>
+          <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary }}>{contato?.name}</div>
+          <div style={{ fontSize:12, color:S.textSec, marginTop:3 }}>via {contato?.via}</div>
+          <div style={{ fontSize:12, color:S.green, marginTop:2 }}>{contato?.canal}</div>
+        </div>
+
+        {/* Pipeline integrado */}
+        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
+          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em' }}>PIPELINE</div>
+          {(pipelineCols||[{id:'lead',nome:'Lead',cor:'#6E6E78'},{id:'proposta',nome:'Proposta',cor:'#BA7517'},{id:'impl',nome:'Implementação',cor:'#7B3FE4'},{id:'ativo',nome:'Ativo',cor:'#1E90FF'},{id:'prod',nome:'Em Produção',cor:'#1D9E75'}]).map((col) => {
+            const isAtual = faseAtual?.id === col.id;
+            return (
+              <div key={col.id} onClick={()=>mudarFase(col.id)} style={{
+                display:'flex', alignItems:'center', gap:8, marginBottom:6,
+                padding:'6px 8px', borderRadius:7, cursor:'pointer',
+                background: isAtual ? col.cor+'18' : 'transparent',
+                border: isAtual ? `1px solid ${col.cor}44` : '1px solid transparent',
+                transition:'all .15s',
+              }}
+                onMouseEnter={e=>{ if(!isAtual) e.currentTarget.style.background='rgba(128,128,128,.08)'; }}
+                onMouseLeave={e=>{ if(!isAtual) e.currentTarget.style.background='transparent'; }}
+              >
+                <div style={{ width:8, height:8, borderRadius:'50%', background: isAtual ? col.cor : S.border, flexShrink:0, transition:'background .15s' }}/>
+                <span style={{ fontSize:13, color: isAtual ? S.textPrimary : S.textSec, fontWeight: isAtual ? 600 : 400 }}>{col.nome}</span>
+                {isAtual && <span style={{ marginLeft:'auto', fontSize:10, color:col.cor, fontFamily:'var(--f-m)', fontWeight:700 }}>ATUAL</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Info */}
+        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
+          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em' }}>INFORMAÇÕES</div>
+          {[['Telefone','+55 11 99999-9999'],['Origem',contato?.via||'Direto'],['1ª msg','Hoje, 23:47'],['Total','1 conversa']].map(([k,v]) => (
+            <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
+              <span style={{ fontSize:12.5, color:S.textSec }}>{k}</span>
+              <span style={{ fontSize:12.5, color:S.textPrimary, fontWeight:500 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Notas */}
+        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px', flex:1 }}>
+          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:8, letterSpacing:'.04em' }}>ANOTAÇÕES</div>
+          <textarea placeholder="Adicionar nota..." style={{
+            width:'100%', minHeight:80, background:'transparent', border:'none', outline:'none',
+            fontSize:13, color:S.textPrimary, resize:'none', lineHeight:1.6,
+          }}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Chamados ─── */
+const CHAMADOS_INIT = [
+  { id:142, cliente:'EstacionePark', init:'EP', cor:'#7B3FE4', titulo:'IA não está respondendo após atualização', categoria:'Bug',     prioridade:'Alta',  status:'Aberto',     aberto:'há 12 min', resps:0 },
+  { id:141, cliente:'Hyperplay',     init:'HP', cor:'#6E6E78', titulo:'Como configurar o agente de IA?',         categoria:'Dúvida',  prioridade:'Média', status:'Aberto',     aberto:'há 1h',     resps:0 },
+  { id:140, cliente:'Garcia Sadler', init:'GS', cor:'#1E90FF', titulo:'Pedido: integração com sistema interno',  categoria:'Sugestão',prioridade:'Baixa', status:'Aberto',     aberto:'há 3h',     resps:1 },
+  { id:139, cliente:'Clínica Reunidas',init:'CR',cor:'#7B3FE4',titulo:'Erro ao enviar template aprovado',         categoria:'Bug',     prioridade:'Alta',  status:'Em andamento',aberto:'há 5h',     resps:3 },
+  { id:138, cliente:'Master Aviação',init:'MA', cor:'#BA7517', titulo:'Upgrade de plano para Scale',             categoria:'Comercial',prioridade:'Média', status:'Em andamento',aberto:'ontem',     resps:2 },
+  { id:137, cliente:'Ldccell Sorocaba',init:'LS',cor:'#185FA5',titulo:'Como exportar conversas para CSV?',        categoria:'Dúvida',  prioridade:'Baixa', status:'Resolvido',  aberto:'há 2 dias', resps:4 },
+];
+const PRIORIDADE_COR = { 'Alta':'#A32D2D', 'Média':'#BA7517', 'Baixa':'#1D9E75' };
+const CHAMADO_STATUS_COR = { 'Aberto':'#A32D2D', 'Em andamento':'#BA7517', 'Resolvido':'#1D9E75' };
+
+function Chamados() {
+  const [chamados, setChamados] = useState(() => {
+    try { const s = localStorage.getItem('brava_chamados'); if (s) return JSON.parse(s); } catch(e){}
+    return CHAMADOS_INIT;
+  });
+  useEffect(() => { localStorage.setItem('brava_chamados', JSON.stringify(chamados)); }, [chamados]);
+  const [filtro, setFiltro] = useState('todos');
+  const [aberto, setAberto] = useState(chamados[0]?.id);
+
+  const filtrados = chamados.filter(c => filtro==='todos' ? true : c.status===filtro);
+  const ativo = chamados.find(c => c.id===aberto) || chamados[0];
+
+  const mudarStatus = (id, novo) => setChamados(cs => cs.map(c => c.id===id ? {...c, status:novo} : c));
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Chamados</div>
+          <div className="page-head__sub">{chamados.filter(c=>c.status!=='Resolvido').length} abertos · {chamados.filter(c=>c.status==='Resolvido').length} resolvidos</div>
+        </div>
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:'flex', gap:8, marginBottom:14, flexWrap:'wrap'}}>
+        {['todos','Aberto','Em andamento','Resolvido'].map(f => (
+          <button key={f} onClick={()=>setFiltro(f)} style={{
+            padding:'8px 14px', borderRadius:8, fontSize:13, fontWeight:500, cursor:'pointer',
+            background: filtro===f ? (CHAMADO_STATUS_COR[f]||'var(--purple)')+'22' : 'var(--bg-2)',
+            color: filtro===f ? (CHAMADO_STATUS_COR[f]||'#c4a8ff') : 'var(--t2)',
+            border: `1px solid ${filtro===f ? (CHAMADO_STATUS_COR[f]||'var(--purple)')+'55' : 'var(--border-soft)'}`,
+            transition:'all .15s',
+          }}>{f==='todos'?'Todos':f} ({chamados.filter(c => f==='todos' ? true : c.status===f).length})</button>
+        ))}
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'1.2fr 1.5fr', gap:14}}>
+        {/* Lista */}
+        <div className="card" style={{padding:0, maxHeight:'calc(100vh - 240px)', overflowY:'auto'}}>
+          {filtrados.map(c => (
+            <div key={c.id} onClick={()=>setAberto(c.id)} style={{
+              padding:'14px 18px', borderBottom:'1px solid var(--border-soft)',
+              cursor:'pointer', transition:'background .15s',
+              background: aberto===c.id ? 'rgba(123,63,228,.08)' : 'transparent',
+              borderLeft: aberto===c.id ? '3px solid var(--purple)' : '3px solid transparent',
+            }}>
+              <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
+                <div style={{width:34, height:34, borderRadius:'50%', background:c.cor, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:11.5, color:'#fff', flexShrink:0}}>{c.init}</div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8}}>
+                    <span style={{fontSize:13.5, fontWeight:600, color:'var(--t1)'}}>{c.cliente}</span>
+                    <span style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)'}}>#{c.id}</span>
+                  </div>
+                  <div style={{fontSize:12.5, color:'var(--t2)', marginTop:3, lineHeight:1.4}}>{c.titulo}</div>
+                  <div style={{display:'flex', gap:6, marginTop:8, alignItems:'center', flexWrap:'wrap'}}>
+                    <span style={{fontSize:10.5, padding:'2px 7px', borderRadius:4, background:(CHAMADO_STATUS_COR[c.status])+'22', color:CHAMADO_STATUS_COR[c.status], fontFamily:'var(--f-m)', fontWeight:500}}>{c.status}</span>
+                    <span style={{fontSize:10.5, padding:'2px 7px', borderRadius:4, background:(PRIORIDADE_COR[c.prioridade])+'22', color:PRIORIDADE_COR[c.prioridade], fontFamily:'var(--f-m)', fontWeight:500}}>{c.prioridade}</span>
+                    <span style={{fontSize:10.5, color:'var(--t3)'}}>{c.aberto}</span>
+                    {c.resps > 0 && <span style={{fontSize:10.5, color:'var(--t3)', display:'flex', alignItems:'center', gap:3}}><Icon name="MessageCircle" size={10}/>{c.resps}</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Detalhe */}
+        {ativo && (
+          <div className="card" style={{padding:0, display:'flex', flexDirection:'column', maxHeight:'calc(100vh - 240px)'}}>
+            <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border-soft)'}}>
+              <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:10}}>
+                <div style={{width:42, height:42, borderRadius:'50%', background:ativo.cor, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:14, color:'#fff'}}>{ativo.init}</div>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:16, color:'var(--t1)'}}>{ativo.cliente}</div>
+                  <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>Chamado #{ativo.id} · {ativo.categoria} · {ativo.aberto}</div>
+                </div>
+              </div>
+              <div style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:18, color:'var(--t1)', marginTop:10, lineHeight:1.35}}>{ativo.titulo}</div>
+              <div style={{display:'flex', gap:8, marginTop:14}}>
+                {['Aberto','Em andamento','Resolvido'].map(s => (
+                  <button key={s} onClick={()=>mudarStatus(ativo.id, s)} style={{
+                    padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
+                    background: ativo.status===s ? CHAMADO_STATUS_COR[s]+'22' : 'transparent',
+                    color: ativo.status===s ? CHAMADO_STATUS_COR[s] : 'var(--t2)',
+                    border: `1px solid ${ativo.status===s ? CHAMADO_STATUS_COR[s]+'55' : 'var(--border)'}`,
+                  }}>{s}</button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{flex:1, padding:'16px 22px', overflowY:'auto', display:'flex', flexDirection:'column', gap:12}}>
+              <div style={{padding:'12px 14px', background:'var(--bg-3)', borderRadius:10, fontSize:13.5, color:'var(--t2)', lineHeight:1.55}}>
+                <div style={{fontSize:11, color:'var(--t3)', marginBottom:6, fontFamily:'var(--f-m)'}}>{ativo.cliente} · {ativo.aberto}</div>
+                Olá! Preciso de ajuda com isso. Há alguns dias venho enfrentando esse problema e gostaria de uma orientação. Aguardo retorno.
+              </div>
+              {ativo.resps > 0 && (
+                <div style={{padding:'12px 14px', background:'rgba(123,63,228,.08)', border:'1px solid rgba(123,63,228,.2)', borderRadius:10, fontSize:13.5, color:'var(--t1)', lineHeight:1.55}}>
+                  <div style={{fontSize:11, color:'var(--purple)', marginBottom:6, fontFamily:'var(--f-m)', fontWeight:600}}>Equipe Brava · há 30min</div>
+                  Olá! Recebemos seu chamado. Nossa equipe está analisando e em breve voltamos com uma resposta detalhada.
+                </div>
+              )}
+            </div>
+
+            <div style={{padding:'12px 16px', borderTop:'1px solid var(--border-soft)', display:'flex', gap:8}}>
+              <input placeholder="Responder ao cliente..." style={{
+                flex:1, height:40, padding:'0 14px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:10, fontSize:13.5, color:'var(--t1)', outline:'none',
+              }}/>
+              <button className="btn btn-primary"><Icon name="Send" size={14}/>Enviar</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Equipe Brava ─── */
+const EQUIPE_INIT = [
+  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'app/gabriel.jpg', tenants:'todos',    chamados:0 },
+  { id:2, nome:'Maria Eduarda',    email:'maria@bravacompany.app',    role:'CS / Suporte', status:'online', foto:null,             tenants:'todos',    chamados:5 },
+  { id:3, nome:'João Silva',       email:'joao@bravacompany.app',     role:'Dev',          status:'online', foto:null,             tenants:'EstacionePark, Garcia', chamados:2 },
+  { id:4, nome:'Ana Lima',         email:'ana@bravacompany.app',      role:'Comercial',    status:'away',   foto:null,             tenants:'Pipeline',  chamados:0 },
+];
+const ROLE_COR = { 'Diretoria':'#7B3FE4', 'CS / Suporte':'#1D9E75', 'Dev':'#1E90FF', 'Comercial':'#BA7517' };
+
+function Equipe() {
+  const [equipe, setEquipe] = useState(() => {
+    try { const s = localStorage.getItem('brava_equipe'); if (s) return JSON.parse(s); } catch(e){}
+    return EQUIPE_INIT;
+  });
+  useEffect(() => { localStorage.setItem('brava_equipe', JSON.stringify(equipe)); }, [equipe]);
+
+  const adicionar = () => {
+    const nome = prompt('Nome do membro:'); if (!nome) return;
+    const email = prompt('E-mail:'); if (!email) return;
+    const role = prompt('Cargo (Diretoria, CS / Suporte, Dev, Comercial):') || 'Dev';
+    setEquipe(e => [...e, { id:Date.now(), nome, email, role, status:'offline', foto:null, tenants:'—', chamados:0 }]);
+  };
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Equipe Brava</div>
+          <div className="page-head__sub">{equipe.length} membros · {equipe.filter(m=>m.status==='online').length} online agora</div>
+        </div>
+        <div className="page-head__actions">
+          <button className="btn btn-primary" onClick={adicionar}><Icon name="Plus" size={14}/>Adicionar membro</button>
+        </div>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
+        {equipe.map(m => (
+          <div key={m.id} style={{
+            background:'#000000', border:'1px solid #2A2A3A', borderRadius:14, padding:22,
+            transition:'border-color .2s, transform .2s, box-shadow .2s',
+          }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(123,63,228,.5)';e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 12px 32px rgba(0,0,0,.4)';}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor='#2A2A3A';e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none';}}>
+            <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:14}}>
+              <div style={{position:'relative'}}>
+                <div style={{width:46, height:46, borderRadius:'50%', background:'#1B1B27', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:14, color:'#A0A0AA', overflow:'hidden'}}>
+                  {m.foto
+                    ? <img src={m.foto} alt={m.nome} style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>e.target.style.display='none'}/>
+                    : m.nome.split(' ').slice(0,2).map(n=>n[0]).join('')
+                  }
+                </div>
+                <div style={{position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%', background: m.status==='online' ? '#1D9E75' : '#6E6E78', border:'2px solid #000000'}}/>
+              </div>
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{fontWeight:600, fontSize:14, color:'#F5F5F7'}}>{m.nome}</div>
+                <div style={{fontSize:12, color:'#A0A0AA', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{m.email}</div>
+              </div>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
+              <span style={{fontSize:11, padding:'3px 10px', borderRadius:999, background:(ROLE_COR[m.role]||'#6E6E78')+'33', color:ROLE_COR[m.role]||'#A0A0AA', fontFamily:'var(--f-m)', fontWeight:500}}>{m.role}</span>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid #1F1F2A'}}>
+              <div style={{fontSize:13, color:'#A0A0AA'}}>Tenants</div>
+              <div style={{fontFamily:'var(--f-d)', fontSize:14, fontWeight:600, color:'#F5F5F7', fontSize:12.5}}>{m.tenants}</div>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0'}}>
+              <div style={{fontSize:13, color:'#A0A0AA'}}>Chamados ativos</div>
+              <div style={{fontFamily:'var(--f-d)', fontSize:14, fontWeight:600, color: m.chamados>0 ? '#BA7517' : '#1D9E75'}}>{m.chamados}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Logs ─── */
+const LOGS_INIT = [
+  { time:'23:48', level:'info',  user:'Jhonattan Itiuba', acao:'Login realizado',                 alvo:'-' },
+  { time:'23:42', level:'info',  user:'Sistema',          acao:'Webhook Stripe processado',       alvo:'sub_1JXkLb...' },
+  { time:'23:30', level:'warn',  user:'Maria Eduarda',    acao:'Tentou exportar dados sensíveis', alvo:'CRM completo' },
+  { time:'23:15', level:'info',  user:'IA Agent',         acao:'Conversa assumida',               alvo:'Carla Mendes (EstacionePark)' },
+  { time:'22:58', level:'info',  user:'Sistema',          acao:'Backup automático concluído',     alvo:'34.2 MB' },
+  { time:'22:45', level:'error', user:'Sistema',          acao:'Falha ao enviar e-mail',          alvo:'cliente@hyperplay.com' },
+  { time:'22:30', level:'info',  user:'João Silva',       acao:'Cliente cadastrado',              alvo:'CasaUrba' },
+  { time:'22:12', level:'info',  user:'Sistema',          acao:'IA respondeu mensagem',           alvo:'Roberto Lima' },
+  { time:'21:58', level:'warn',  user:'Sistema',          acao:'Latência alta detectada',         alvo:'API Stripe (3.2s)' },
+  { time:'21:30', level:'info',  user:'Ana Lima',         acao:'Pipeline atualizado',             alvo:'Hyperplay → Proposta' },
+];
+const LEVEL_COR = { info:'#1E90FF', warn:'#BA7517', error:'#A32D2D' };
+
+function Logs() {
+  const [filtro, setFiltro] = useState('todos');
+  const filtrados = LOGS_INIT.filter(l => filtro==='todos' || l.level===filtro);
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Logs</div>
+          <div className="page-head__sub">Auditoria de ações · últimas 24h</div>
+        </div>
+        <div className="page-head__actions">
+          <button className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
+        </div>
+      </div>
+
+      <div style={{display:'flex', gap:8, marginBottom:14}}>
+        {['todos','info','warn','error'].map(f => (
+          <button key={f} onClick={()=>setFiltro(f)} style={{
+            padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
+            background: filtro===f ? (LEVEL_COR[f]||'var(--purple)')+'22' : 'transparent',
+            color: filtro===f ? (LEVEL_COR[f]||'#c4a8ff') : 'var(--t2)',
+            border: `1px solid ${filtro===f ? (LEVEL_COR[f]||'var(--purple)')+'55' : 'var(--border)'}`,
+            textTransform:'uppercase', fontFamily:'var(--f-m)', letterSpacing:'.05em',
+          }}>{f}</button>
+        ))}
+      </div>
+
+      <div className="card" style={{padding:0, overflow:'hidden'}}>
+        <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+          <thead>
+            <tr style={{background:'#000000'}}>
+              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Hora</th>
+              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Nível</th>
+              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Usuário</th>
+              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Ação</th>
+              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Alvo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtrados.map((l,i) => (
+              <tr key={i} style={{borderBottom:'1px solid var(--border-soft)'}}>
+                <td style={{padding:'10px 14px', fontFamily:'var(--f-m)', color:'var(--t3)', fontSize:12}}>{l.time}</td>
+                <td style={{padding:'10px 14px'}}><span style={{padding:'2px 8px', borderRadius:4, fontSize:10.5, fontFamily:'var(--f-m)', fontWeight:600, background:LEVEL_COR[l.level]+'22', color:LEVEL_COR[l.level], textTransform:'uppercase'}}>{l.level}</span></td>
+                <td style={{padding:'10px 14px', color:'var(--t1)', fontWeight:500}}>{l.user}</td>
+                <td style={{padding:'10px 14px', color:'var(--t2)'}}>{l.acao}</td>
+                <td style={{padding:'10px 14px', color:'var(--t3)', fontFamily:'var(--f-m)', fontSize:12}}>{l.alvo}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Configurações ─── */
+function Config() {
+  const [aba, setAba] = useState('geral');
+  const abas = [
+    {key:'geral',     label:'Geral',          icon:'Settings'},
+    {key:'integracoes',label:'Integrações',   icon:'Plug'},
+    {key:'webhooks',  label:'Webhooks',       icon:'Webhook'},
+    {key:'api',       label:'API Keys',       icon:'Key'},
+    {key:'billing',   label:'Billing Brava',  icon:'CreditCard'},
+    {key:'lgpd',      label:'LGPD & Dados',   icon:'Shield'},
+  ];
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Configurações</div>
+          <div className="page-head__sub">Configurações da plataforma Brava Company</div>
+        </div>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:18}}>
+        {/* Tabs */}
+        <div className="card" style={{padding:8, height:'fit-content'}}>
+          {abas.map(a => (
+            <div key={a.key} onClick={()=>setAba(a.key)} style={{
+              padding:'10px 12px', borderRadius:8, cursor:'pointer',
+              display:'flex', alignItems:'center', gap:10,
+              background: aba===a.key ? 'rgba(123,63,228,.12)' : 'transparent',
+              color: aba===a.key ? 'var(--t1)' : 'var(--t2)',
+              fontWeight: aba===a.key ? 600 : 500, fontSize:13,
+              transition:'all .15s',
+            }}>
+              <Icon name={a.icon} size={15}/>
+              {a.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Conteúdo */}
+        <div className="card">
+          {aba==='geral' && (
+            <div style={{display:'flex', flexDirection:'column', gap:18}}>
+              <div className="card__title" style={{marginBottom:0}}>Informações da empresa</div>
+              {[['Razão social','Brava Company'],['CNPJ','34.454.770/0001-26'],['E-mail principal','diretoria@brava.company'],['WhatsApp comercial','+55 11 96334-2541'],['Domínio','bravacompany.app']].map(([k,v])=>(
+                <div key={k}>
+                  <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{k}</label>
+                  <input defaultValue={v} style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}/>
+                </div>
+              ))}
+              <button className="btn btn-primary" style={{width:'fit-content'}}><Icon name="Check" size={14}/>Salvar alterações</button>
+            </div>
+          )}
+          {aba==='integracoes' && (
+            <div style={{display:'flex', flexDirection:'column', gap:12}}>
+              <div className="card__title" style={{marginBottom:6}}>Integrações disponíveis</div>
+              {[
+                {nome:'Stripe',          desc:'Pagamentos e assinaturas',     status:'desconectado', icon:'CreditCard', cor:'#635BFF'},
+                {nome:'Evolution API',   desc:'WhatsApp não-oficial',          status:'desconectado', icon:'MessageCircle', cor:'#25D366'},
+                {nome:'WhatsApp Cloud',  desc:'WhatsApp oficial Meta',         status:'desconectado', icon:'MessageCircle', cor:'#25D366'},
+                {nome:'Resend',          desc:'E-mail transacional',           status:'conectado',   icon:'Mail',       cor:'#000000'},
+                {nome:'n8n',             desc:'Automações e workflows',         status:'desconectado', icon:'Plug',       cor:'#EA4B71'},
+                {nome:'Claude API',      desc:'Agente IA',                     status:'conectado',   icon:'Sparkles',   cor:'#7B3FE4'},
+              ].map((i,k) => (
+                <div key={k} style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
+                  <div style={{width:40, height:40, borderRadius:10, background:i.cor+'22', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                    <Icon name={i.icon} size={18} style={{color:i.cor}}/>
+                  </div>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>{i.nome}</div>
+                    <div style={{fontSize:12, color:'var(--t3)', marginTop:1}}>{i.desc}</div>
+                  </div>
+                  <span style={{fontSize:11, padding:'3px 10px', borderRadius:999, background:i.status==='conectado'?'rgba(29,158,117,.18)':'rgba(110,110,120,.15)', color:i.status==='conectado'?'#1D9E75':'var(--t3)', fontFamily:'var(--f-m)', fontWeight:500}}>{i.status.toUpperCase()}</span>
+                  <button className={i.status==='conectado'?'btn btn-outline':'btn btn-primary'}>{i.status==='conectado'?'Configurar':'Conectar'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+          {aba==='webhooks' && (
+            <div>
+              <div className="card__title" style={{marginBottom:14}}>Webhooks ativos</div>
+              <div style={{padding:14, background:'var(--bg-3)', borderRadius:10, fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', border:'1px solid var(--border-soft)'}}>
+                <div style={{color:'var(--success)', marginBottom:6}}>● POST https://bravacompany.app/api/webhooks/stripe</div>
+                <div style={{color:'var(--success)', marginBottom:6}}>● POST https://bravacompany.app/api/webhooks/evolution</div>
+                <div style={{color:'var(--t3)'}}>○ POST https://bravacompany.app/api/webhooks/cloud-api (inativo)</div>
+              </div>
+            </div>
+          )}
+          {aba==='api' && (
+            <div>
+              <div className="card__title" style={{marginBottom:14}}>Chaves de API</div>
+              <div style={{padding:14, background:'var(--bg-3)', borderRadius:10, fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', border:'1px solid var(--border-soft)', marginBottom:10}}>
+                <div style={{color:'var(--t3)', marginBottom:4}}>Production</div>
+                <div style={{color:'var(--t1)'}}>brava_live_sk_•••••••••••••••••••••aXkj9</div>
+              </div>
+              <div style={{padding:14, background:'var(--bg-3)', borderRadius:10, fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', border:'1px solid var(--border-soft)'}}>
+                <div style={{color:'var(--t3)', marginBottom:4}}>Test</div>
+                <div style={{color:'var(--t1)'}}>brava_test_sk_•••••••••••••••••••••pL2mn</div>
+              </div>
+            </div>
+          )}
+          {aba==='billing' && (
+            <div>
+              <div className="card__title" style={{marginBottom:14}}>Faturamento Brava (interno)</div>
+              <div className="stat-row"><div className="stat-label">MRR</div><div className="stat-val" style={{color:'var(--success)'}}>R$ 18.710</div></div>
+              <div className="stat-row"><div className="stat-label">Custos infra</div><div className="stat-val">R$ 720</div></div>
+              <div className="stat-row"><div className="stat-label">Margem operacional</div><div className="stat-val" style={{color:'var(--success)'}}>96%</div></div>
+              <div className="stat-row"><div className="stat-label">Ticket médio</div><div className="stat-val">R$ 891</div></div>
+            </div>
+          )}
+          {aba==='lgpd' && (
+            <div>
+              <div className="card__title" style={{marginBottom:14}}>LGPD & Privacidade</div>
+              <p style={{fontSize:13, color:'var(--t2)', lineHeight:1.6, marginBottom:14}}>Dados dos clientes são armazenados em servidores brasileiros. Toda conversa é criptografada em repouso e em trânsito. Política de retenção: 24 meses. Backup diário com retenção de 30 dias.</p>
+              <div className="stat-row"><div className="stat-label">DPO responsável</div><div className="stat-val">Jhonattan Itiuba</div></div>
+              <div className="stat-row"><div className="stat-label">E-mail DPO</div><div className="stat-val">dpo@bravacompany.app</div></div>
+              <div className="stat-row"><div className="stat-label">Última auditoria</div><div className="stat-val">15/04/2026</div></div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Analytics ─── */
+function Analytics() {
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const mrrEvol = [12000,14200,15800,17500,19200,21000,22500,24100,25800,26900,27500,28400];
+  const conv    = [820,940,1060,1180,1340,1480,1620,1780,1920,2050,2180,2340];
+  const max1 = Math.max(...mrrEvol);
+  const max2 = Math.max(...conv);
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Analytics</div>
+          <div className="page-head__sub">Visão analítica · últimos 12 meses</div>
+        </div>
+      </div>
+
+      <div className="kpi-grid">
+        {[
+          {l:'Crescimento MRR',  v:'+136%', d:'vs Jan/2026', c:'#1D9E75'},
+          {l:'Churn rate',       v:'2.1%', d:'média 12 meses', c:'#BA7517'},
+          {l:'LTV médio',        v:'R$ 14.250', d:'12x ticket médio', c:'#7B3FE4'},
+          {l:'CAC',              v:'R$ 380',  d:'payback em 4 meses', c:'#1E90FF'},
+        ].map((k,i) => (
+          <div key={i} className="kpi">
+            <div className="kpi__label">{k.l}</div>
+            <div className="kpi__value" style={{color:k.c}}>{k.v}</div>
+            <div className="kpi__delta" style={{color:'var(--t3)'}}>{k.d}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <div className="card__head"><div className="card__title">Evolução MRR — 12 meses</div></div>
+          <div className="chart" style={{height:160}}>
+            {mrrEvol.map((v,i) => (
+              <div key={i} className="chart-bar-wrap">
+                <div className={`chart-bar ${i===11?'today':'past'}`} style={{height:`${(v/max1)*100}%`}} title={`R$ ${v.toLocaleString('pt-BR')}`}/>
+                <div className="chart-label">{meses[i]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="card">
+          <div className="card__head"><div className="card__title">Conversas processadas — 12 meses</div></div>
+          <div className="chart" style={{height:160}}>
+            {conv.map((v,i) => (
+              <div key={i} className="chart-bar-wrap">
+                <div className={`chart-bar ${i===11?'today':'past'}`} style={{height:`${(v/max2)*100}%`}} title={`${v} conversas`}/>
+                <div className="chart-label">{meses[i]}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid-3">
+        <div className="card">
+          <div className="card__head"><div className="card__title">Top nichos por MRR</div></div>
+          {[['Estacionamento',3960,'#7B3FE4'],['Aviação Civil',1440,'#BA7517'],['Saúde',1400,'#1D9E75'],['Construção',1400,'#1E90FF'],['Estética',2000,'#A32D2D']].sort((a,b)=>b[1]-a[1]).map(([n,v,c],i)=>(
+            <div key={i} className="stat-row">
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:c}}/>
+                <div className="stat-label">{n}</div>
+              </div>
+              <div className="stat-val" style={{color:'var(--success)'}}>R$ {v}</div>
+            </div>
+          ))}
+        </div>
+        <div className="card">
+          <div className="card__head"><div className="card__title">Conversão por etapa</div></div>
+          {[['Lead → Qualificado','73%'],['Qualificado → Proposta','52%'],['Proposta → Fechamento','41%'],['Fechamento → Ativo','89%']].map(([k,v],i)=>(
+            <div key={i} style={{marginBottom:12}}>
+              <div className="stat-row" style={{borderBottom:'none',padding:'4px 0'}}>
+                <div className="stat-label">{k}</div>
+                <div className="stat-val">{v}</div>
+              </div>
+              <div className="progress"><div className="progress__fill" style={{width:v}}/></div>
+            </div>
+          ))}
+        </div>
+        <div className="card">
+          <div className="card__head"><div className="card__title">IA · performance</div></div>
+          <div className="stat-row"><div className="stat-label">Taxa de resolução</div><div className="stat-val" style={{color:'var(--success)'}}>91%</div></div>
+          <div className="stat-row"><div className="stat-label">Tempo médio resposta</div><div className="stat-val">22s</div></div>
+          <div className="stat-row"><div className="stat-label">Conversas/dia</div><div className="stat-val">1.247</div></div>
+          <div className="stat-row"><div className="stat-label">Custo por conversa</div><div className="stat-val">R$ 0,12</div></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Placeholder para telas futuras ─── */
+function Placeholder({ page }) {
+  const map = {
+    clientes:  { icon:'Building2',    label:'Clientes',    desc:'Lista de todos os tenants, status, plano e acesso via Impersonate. Fase 5 do roadmap.' },
+    pipeline:  { icon:'KanbanSquare', label:'Pipeline',    desc:'Funil de novos clientes — leads, propostas, fechamentos. Em construção.' },
+    mrr:       { icon:'TrendingUp',   label:'MRR',         desc:'Receita recorrente, churn, LTV e projeções. Fase 6 do roadmap.' },
+    chamados:  { icon:'LifeBuoy',     label:'Chamados',    desc:'Inbox de suporte recebido de todos os clientes. Fase 4 do roadmap.' },
+    equipe:    { icon:'UsersRound',   label:'Equipe',      desc:'Gestão da equipe interna Brava e permissões de acesso. Em construção.' },
+    logs:      { icon:'ScrollText',   label:'Logs',        desc:'Auditoria de ações, erros e eventos da plataforma. Fase 6 do roadmap.' },
+    config:    { icon:'Settings',     label:'Configurações',desc:'Configurações gerais da plataforma Brava. Em construção.' },
+  };
+  const p = map[page] || map.conversas;
+  return (
+    <div className="page">
+      <div className="placeholder" style={{marginTop:80}}>
+        <Icon name={p.icon} size={52} color="var(--t3)"/>
+        <div style={{fontFamily:'var(--f-d)',fontSize:20,fontWeight:600,color:'var(--t2)'}}>{p.label}</div>
+        <p>{p.desc}</p>
+        <span style={{fontFamily:'var(--f-m)',fontSize:11,padding:'4px 12px',borderRadius:999,background:'rgba(123,63,228,.12)',color:'#c4a8ff',letterSpacing:'.06em'}}>FASE 1 DO ROADMAP</span>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Toast system (global) ─── */
+let toastSetters = [];
+function showToast(msg, tipo='success') {
+  toastSetters.forEach(fn => fn(msg, tipo));
+}
+
+function ToastContainer() {
+  const [toasts, setToasts] = useState([]);
+  useEffect(() => {
+    const fn = (msg, tipo) => {
+      const id = Date.now() + Math.random();
+      setToasts(t => [...t, {id, msg, tipo}]);
+      setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3500);
+    };
+    toastSetters.push(fn);
+    return () => { toastSetters = toastSetters.filter(f => f !== fn); };
+  }, []);
+  const cores = {success:'#1D9E75', warn:'#BA7517', error:'#A32D2D', info:'#1E90FF'};
+  const icones = {success:'Check', warn:'AlertTriangle', error:'AlertCircle', info:'Info'};
+  return (
+    <div style={{position:'fixed', bottom:84, right:16, zIndex:99999, display:'flex', flexDirection:'column', gap:8}}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          minWidth:280, maxWidth:380, padding:'12px 16px',
+          background:'var(--bg-2)', border:`1px solid ${cores[t.tipo]}55`,
+          borderLeft:`3px solid ${cores[t.tipo]}`, borderRadius:10,
+          boxShadow:'0 12px 32px rgba(0,0,0,.4)',
+          display:'flex', alignItems:'center', gap:10,
+          animation:'toast-in .25s cubic-bezier(.22,1,.36,1)',
+        }}>
+          <div style={{width:24, height:24, borderRadius:'50%', background:cores[t.tipo]+'22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name={icones[t.tipo]} size={14} style={{color:cores[t.tipo]}}/>
+          </div>
+          <span style={{fontSize:13, color:'var(--t1)', flex:1}}>{t.msg}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Atalhos de teclado ─── */
+function useKeyboardShortcuts({ setNovoCliente, setShortcutsOpen }) {
+  useEffect(() => {
+    const onKey = e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === '/') { e.preventDefault(); document.querySelector('.header__search input')?.focus(); }
+      else if (e.key === 'n') { e.preventDefault(); setNovoCliente(true); }
+      else if (e.key === '?') { e.preventDefault(); setShortcutsOpen(v => !v); }
+      else if (e.key === 'Escape') { setShortcutsOpen(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [setNovoCliente, setShortcutsOpen]);
+}
+
+function ShortcutsModal({ open, onClose }) {
+  if (!open) return null;
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)', zIndex:99997, display:'flex', alignItems:'center', justifyContent:'center', padding:24, animation:'fade-in .2s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'100%', maxWidth:440, background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:16, overflow:'hidden', animation:'scale-in .2s cubic-bezier(.22,1,.36,1)',
+      }}>
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border-soft)'}}>
+          <div style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:16, color:'var(--t1)'}}>Atalhos de teclado</div>
+        </div>
+        <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:10}}>
+          {[
+            ['/', 'Focar busca'],
+            ['n', 'Novo cliente'],
+            ['?', 'Mostrar atalhos'],
+            ['Esc', 'Fechar modais'],
+          ].map(([k,d]) => (
+            <div key={k} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <span style={{fontSize:13.5, color:'var(--t2)'}}>{d}</span>
+              <kbd style={{padding:'3px 9px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:5, fontFamily:'var(--f-m)', fontSize:11, color:'var(--t1)', fontWeight:600}}>{k}</kbd>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Theme toggle ─── */
+function ThemeToggle() {
+  const [dark, setDark] = useState(true);
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    const wrap = document.getElementById('sidebar-logo-wrap');
+    if (wrap) wrap.style.background = 'transparent';
+  };
+  return (
+    <button onClick={toggle} title={dark ? 'Modo claro' : 'Modo escuro'} style={{
+      position:'fixed', bottom:16, right:16, zIndex:9999,
+      width:34, height:34, borderRadius:'50%',
+      background:'var(--bg-2)', border:'1px solid var(--border)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      color:'var(--t2)', cursor:'pointer',
+      boxShadow:'var(--shadow)', transition:'all .2s',
+    }}>
+      {dark
+        ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      }
+    </button>
+  );
+}
+
+/* ─── MRR / Recorrência ─── */
+const RECORRENCIA = [
+  { cliente:'Clínica Reunidas',          servico:'IA + API',                   nicho:'Saúde',               impl:10000, mensal:1400, dia:'',       status:'Em Prod' },
+  { cliente:'Master Aviação - Sistema',  servico:'IA',                         nicho:'Aviação Civil',        impl:3800,  mensal:620,  dia:'Dia 30', status:'Ativo' },
+  { cliente:'Master Aviação - GMB',      servico:'Google Meu Negócio',         nicho:'Aviação Civil',        impl:820,   mensal:0,    dia:'',       status:'Ativo' },
+  { cliente:'EstacionePark - Site',      servico:'Site',                       nicho:'Estacionamento',       impl:2000,  mensal:0,    dia:'',       status:'Ativo' },
+  { cliente:'EstacionePark - IA',        servico:'IA + CRM',                   nicho:'Estacionamento',       impl:0,     mensal:820,  dia:'Dia 30', status:'Ativo' },
+  { cliente:'EstacionePark - Campanha',  servico:'Gestão de Tráfego',          nicho:'Estacionamento',       impl:2000,  mensal:820,  dia:'Dia 15', status:'Ativo' },
+  { cliente:'EstacionePark - Micro SaaS',servico:'Sistema',                    nicho:'Estacionamento',       impl:2500,  mensal:320,  dia:'',       status:'Ativo' },
+  { cliente:'Dra. Thalita Morete',       servico:'IA + CRM',                   nicho:'Estética',             impl:0,     mensal:1000, dia:'Dia 10', status:'Em Prod' },
+  { cliente:'Garcia Sadler - IA',        servico:'IA + API',                   nicho:'Construção',           impl:2500,  mensal:1200, dia:'',       status:'Em Prod' },
+  { cliente:'Garcia Sadler - SISTEMA',   servico:'Sistema',                    nicho:'Construção',           impl:2000,  mensal:200,  dia:'',       status:'Em Prod' },
+  { cliente:'Ldccell Sorocaba',          servico:'IA + API',                   nicho:'Loja de Eletrônicos',  impl:0,     mensal:620,  dia:'',       status:'Em Prod' },
+  { cliente:'VapoCamping Hotel - IA',    servico:'Sistema de IA + CRM',        nicho:'Turismo',              impl:2400,  mensal:800,  dia:'',       status:'Proposta Apresentada' },
+  { cliente:'VapoCamping Hotel - Site',  servico:'Site c/ motor de reservas',  nicho:'Turismo',              impl:1800,  mensal:0,    dia:'',       status:'Proposta Apresentada' },
+  { cliente:'Grupo Marinho',             servico:'IA + API + CRM',             nicho:'Automobilístico',      impl:10000, mensal:1400, dia:'',       status:'Implementação' },
+  { cliente:'Bionicão',                  servico:'IA + CRM',                   nicho:'Veterinário',          impl:2500,  mensal:1200, dia:'',       status:'Implementação' },
+  { cliente:'Soldatopo',                 servico:'IA + CRM',                   nicho:'Indústria',            impl:5000,  mensal:1200, dia:'',       status:'Implementação' },
+  { cliente:'Monteiro Multimarcas',      servico:'IA + CRM',                   nicho:'Automobilístico',      impl:0,     mensal:820,  dia:'',       status:'Comercial' },
+  { cliente:'Imobzi',                    servico:'IA + API',                   nicho:'Imobiliário',          impl:2500,  mensal:620,  dia:'',       status:'Comercial' },
+  { cliente:'Hyperplay',                 servico:'IA + CRM',                   nicho:'Indústria',            impl:0,     mensal:250,  dia:'',       status:'Comercial' },
+  { cliente:'EAG Agro',                  servico:'IA + CRM',                   nicho:'Agro',                 impl:2500,  mensal:1000, dia:'',       status:'Comercial' },
+  { cliente:'CasaUrba',                  servico:'IA + CRM',                   nicho:'Estética',             impl:2500,  mensal:1000, dia:'',       status:'Comercial' },
+  { cliente:'PHS Incorporadora',         servico:'IA + CRM',                   nicho:'Imobiliário',          impl:0,     mensal:1000, dia:'',       status:'Comercial' },
+  { cliente:'Maressa Ribeiro',           servico:'IA + CRM',                   nicho:'Arquitetura',          impl:1800,  mensal:620,  dia:'',       status:'Comercial' },
+  { cliente:'Marcenaria Sorocaba',       servico:'IA + CRM',                   nicho:'Arquitetura',          impl:2000,  mensal:1000, dia:'',       status:'Comercial' },
+  { cliente:'EAG Agro - 2/2',           servico:'',                           nicho:'Agro',                 impl:2950,  mensal:0,    dia:'',       status:'Comercial' },
+  { cliente:'Pousada Garcia',            servico:'IA + API',                   nicho:'Turismo',              impl:4200,  mensal:800,  dia:'',       status:'Em breve' },
+  { cliente:'Cobertura Vitor Lippi',     servico:'Produção Audiovisual',       nicho:'Político',             impl:1500,  mensal:0,    dia:'',       status:'Comercial' },
+  { cliente:'PHS Incorporadora (Filme)', servico:'Filme Ritmo',                nicho:'Imobiliário',          impl:4200,  mensal:0,    dia:'',       status:'Comercial' },
+];
+
+const SC = { 'Em Prod':'#1D9E75','Ativo':'#1E90FF','Implementação':'#7B3FE4','Comercial':'#BA7517','Proposta Apresentada':'#BA7517','Em breve':'#6E6E78','':'' };
+
+/* ─── Projeção MRR 12 meses (empilhada por status) ─── */
+function ProjecaoMRR() {
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez','Jan/27'];
+  const mesAtual = 4; // maio
+  const corStatus = { 'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
+  const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
+
+  // Agrupar MRR por status atual (snapshot real do CRM)
+  const mrrPorStatus = {};
+  RECORRENCIA.forEach(r => {
+    if (!r.mensal) return;
+    mrrPorStatus[r.status] = (mrrPorStatus[r.status] || 0) + r.mensal;
+  });
+
+  // Curva histórica: clientes Em Prod e Ativo entram gradualmente do início do ano até maio
+  // Curva futura: Implementação ativa em jun-jul, Comercial converte ao longo do ano, Proposta/Em breve fecham no fim
+  // Cada mês: % de cada bucket que está faturando
+  // Formato: [Em Prod %, Ativo %, Implementação %, Comercial %, Proposta %, Em breve %]
+  const cronograma = [
+    /* Jan */ [0.55, 0.40, 0,    0,    0,    0   ],
+    /* Fev */ [0.70, 0.55, 0,    0,    0,    0   ],
+    /* Mar */ [0.85, 0.75, 0,    0,    0,    0   ],
+    /* Abr */ [0.95, 0.90, 0,    0,    0,    0   ],
+    /* Mai */ [1.00, 1.00, 0,    0,    0,    0   ], // ATUAL
+    /* Jun */ [1.00, 1.00, 0.30, 0.10, 0,    0   ],
+    /* Jul */ [1.00, 1.00, 0.65, 0.20, 0,    0   ],
+    /* Ago */ [1.00, 1.00, 1.00, 0.40, 0.20, 0   ],
+    /* Set */ [1.00, 1.00, 1.00, 0.60, 0.45, 0.15],
+    /* Out */ [1.00, 1.00, 1.00, 0.85, 0.75, 0.40],
+    /* Nov */ [1.00, 1.00, 1.00, 1.00, 1.00, 0.75],
+    /* Dez */ [1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
+    /* Jan/27 */ [1.10, 1.10, 1.20, 1.30, 1.40, 1.20], // crescimento orgânico + novos
+  ];
+
+  const dados = meses.map((mes, idx) => {
+    const fatores = cronograma[idx];
+    const stack = {};
+    let total = 0;
+    statusOrdem.forEach((st, i) => {
+      const valor = Math.round((mrrPorStatus[st] || 0) * fatores[i]);
+      if (valor > 0) { stack[st] = valor; total += valor; }
+    });
+    return { mes, total, stack, eAtual: idx === mesAtual, ePassado: idx < mesAtual, eFuturo: idx > mesAtual };
+  });
+
+  const maxTotal = Math.max(...dados.map(d => d.total));
+  const totalAcumulado = dados.slice(mesAtual, 12).reduce((s,d) => s + d.total, 0);
+  const projDezembro = dados[11].total;
+  const mrrHoje = dados[mesAtual].total;
+  const crescimento = Math.round(((projDezembro - mrrHoje) / mrrHoje) * 100);
+
+  return (
+    <div className="card" style={{marginBottom:14, padding:'22px 24px'}}>
+      <div className="card__head" style={{marginBottom:18}}>
+        <div>
+          <div className="card__title" style={{fontSize:15}}>Projeção de MRR · 12 meses</div>
+          <div style={{fontSize:12, color:'var(--t3)', marginTop:3}}>Empilhada por estágio do cliente · baseado em conversões esperadas</div>
+        </div>
+        <div style={{display:'flex', gap:14, alignItems:'center'}}>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>MRR projetado dez/26</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}>R$ {projDezembro.toLocaleString('pt-BR')}</div>
+          </div>
+          <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Crescimento</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>+{crescimento}%</div>
+          </div>
+          <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Acumulado 8 meses</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}>R$ {totalAcumulado.toLocaleString('pt-BR')}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Gráfico empilhado */}
+      <div style={{display:'flex', alignItems:'flex-end', gap:8, height:220, padding:'0 4px', position:'relative'}}>
+        {/* Linha pontilhada do mês atual */}
+        <div style={{
+          position:'absolute', left:`${(mesAtual+0.5)/13*100}%`, top:0, bottom:24,
+          borderLeft:'2px dashed var(--purple)', opacity:.5, pointerEvents:'none'
+        }}/>
+
+        {dados.map((d, i) => {
+          const altura = (d.total / maxTotal) * 100;
+          return (
+            <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6, height:'100%'}}>
+              {/* Valor topo */}
+              <div style={{
+                fontFamily:'var(--f-m)', fontSize:9.5,
+                color: d.eAtual ? 'var(--purple)' : d.eFuturo ? 'var(--t3)' : 'var(--t2)',
+                fontWeight: d.eAtual ? 700 : 500,
+                opacity: d.total > 0 ? 1 : 0,
+              }}>
+                {d.total >= 1000 ? `${(d.total/1000).toFixed(1)}k` : d.total}
+              </div>
+
+              {/* Barra empilhada */}
+              <div style={{flex:1, width:'100%', display:'flex', flexDirection:'column', justifyContent:'flex-end', position:'relative'}}>
+                <div style={{
+                  width:'100%', height:`${altura}%`, minHeight:4,
+                  display:'flex', flexDirection:'column-reverse',
+                  borderRadius:'5px 5px 0 0', overflow:'hidden',
+                  border: d.eAtual ? '2px solid var(--purple)' : 'none',
+                  boxShadow: d.eAtual ? '0 0 12px rgba(123,63,228,.4)' : 'none',
+                  transition:'opacity .2s',
+                  opacity: d.eFuturo ? 0.85 : 1,
+                  cursor:'default',
+                }}
+                  title={`${d.mes}/26 · R$ ${d.total.toLocaleString('pt-BR')}\n${Object.entries(d.stack).map(([k,v]) => `${k}: R$ ${v.toLocaleString('pt-BR')}`).join('\n')}`}
+                >
+                  {statusOrdem.map(st => d.stack[st] ? (
+                    <div key={st} style={{
+                      width:'100%',
+                      height:`${(d.stack[st]/d.total)*100}%`,
+                      background: corStatus[st],
+                    }}/>
+                  ) : null)}
+                </div>
+              </div>
+
+              {/* Mês */}
+              <div style={{
+                fontFamily:'var(--f-m)', fontSize:10,
+                color: d.eAtual ? 'var(--purple)' : 'var(--t3)',
+                fontWeight: d.eAtual ? 700 : 500,
+              }}>{d.mes}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legenda */}
+      <div style={{display:'flex', gap:18, marginTop:18, paddingTop:14, borderTop:'1px solid var(--border-soft)', flexWrap:'wrap', alignItems:'center'}}>
+        {statusOrdem.map(st => {
+          const total = RECORRENCIA.filter(r => r.status === st).reduce((s,r) => s+r.mensal, 0);
+          if (total === 0) return null;
+          return (
+            <div key={st} style={{display:'flex', alignItems:'center', gap:6}}>
+              <div style={{width:12, height:12, borderRadius:3, background:corStatus[st]}}/>
+              <span style={{fontSize:12, color:'var(--t2)', fontWeight:500}}>{st}</span>
+              <span style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)'}}>R$ {total.toLocaleString('pt-BR')}/mês</span>
+            </div>
+          );
+        })}
+        <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--t3)'}}>
+          <div style={{width:14, height:0, borderTop:'2px dashed var(--purple)'}}/>
+          <span>Mês atual (Maio/26)</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MRR() {
+  const [filtro, setFiltro] = useState('todos');
+  const [busca, setBusca] = useState('');
+  const [sortCol, setSortCol] = useState('impl');
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const totalImpl = RECORRENCIA.reduce((s,r) => s+r.impl, 0);
+  const totalMRR  = RECORRENCIA.reduce((s,r) => s+r.mensal, 0);
+  const ativos    = RECORRENCIA.filter(r=>['Em Prod','Ativo'].includes(r.status));
+  const mrrAtivo  = ativos.reduce((s,r) => s+r.mensal, 0);
+
+  const filtrados = RECORRENCIA
+    .filter(r => {
+      if (filtro !== 'todos' && r.status !== filtro) return false;
+      if (busca && !r.cliente.toLowerCase().includes(busca.toLowerCase()) && !r.nicho.toLowerCase().includes(busca.toLowerCase())) return false;
+      return true;
+    })
+    .sort((a,b) => {
+      const v = sortAsc ? 1 : -1;
+      if (sortCol === 'impl') return (a.impl - b.impl) * v;
+      if (sortCol === 'mensal') return (a.mensal - b.mensal) * v;
+      return a.cliente.localeCompare(b.cliente) * v;
+    });
+
+  const col = (label, key) => (
+    <th onClick={()=>{ if(sortCol===key) setSortAsc(v=>!v); else { setSortCol(key); setSortAsc(false); }}}
+      style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,cursor:'pointer',userSelect:'none',whiteSpace:'nowrap',borderBottom:'1px solid #2A2A3A'}}>
+      {label} {sortCol===key ? (sortAsc?'↑':'↓') : ''}
+    </th>
+  );
+
+  const fmt = v => v > 0 ? `R$ ${v.toLocaleString('pt-BR')}` : '—';
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">MRR · Controle de Recorrência</div>
+          <div className="page-head__sub">Base: CRM TECNOLOGIA · {RECORRENCIA.length} contratos</div>
+        </div>
+        <div className="page-head__actions">
+          <button className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:24}}>
+        {[
+          {label:'Total Implementação',val:`R$ ${totalImpl.toLocaleString('pt-BR')}`,icon:'Briefcase',color:'#7B3FE4'},
+          {label:'MRR Total',          val:`R$ ${totalMRR.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1E90FF'},
+          {label:'MRR Ativo (Em Prod + Ativo)', val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'CheckCircle', color:'#1D9E75'},
+          {label:'Ticket médio mensal', val:`R$ ${Math.round(totalMRR/RECORRENCIA.filter(r=>r.mensal>0).length).toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#BA7517'},
+        ].map((k,i) => (
+          <div key={i} className="kpi">
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
+            </div>
+            <div className="kpi__value" style={{color:'var(--t1)',fontSize:24}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Projeção 12 meses — empilhada por status */}
+      <ProjecaoMRR/>
+
+      {/* Filtros + busca */}
+      <div className="card" style={{padding:'16px 18px',marginBottom:14}}>
+        <div style={{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:8,flex:'1',minWidth:180}}>
+            <Icon name="Search" size={13} style={{color:'var(--t3)'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente ou nicho…" style={{background:'none',border:'none',outline:'none',fontSize:13,color:'var(--t1)',width:'100%'}}/>
+          </div>
+          {['todos','Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'].map(f => (
+            <button key={f} onClick={()=>setFiltro(f)} style={{
+              padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:500,cursor:'pointer',
+              background:filtro===f ? (SC[f]||'var(--purple)')+'22' : 'transparent',
+              color:filtro===f ? (SC[f]||'#c4a8ff') : '#6E6E78',
+              border:`1px solid ${filtro===f ? (SC[f]||'var(--purple)')+'55' : 'transparent'}`,
+              transition:'all .15s',
+            }}>{f==='todos'?'Todos':f} {filtro===f && f!=='todos' && `(${RECORRENCIA.filter(r=>r.status===f).length})`}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div className="card" style={{padding:0,overflow:'hidden'}}>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13.5}}>
+            <thead>
+              <tr style={{background:'#000000'}}>
+                {col('Cliente','cliente')}
+                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Serviço</th>
+                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Nicho</th>
+                {col('Implementação','impl')}
+                {col('Mensal','mensal')}
+                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Dia Pag.</th>
+                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.map((r,i) => (
+                <tr key={i} style={{borderBottom:'1px solid var(--border-soft)',transition:'background .12s'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <td style={{padding:'11px 14px',fontWeight:600,color:'var(--t1)',whiteSpace:'nowrap'}}>{r.cliente}</td>
+                  <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>{r.servico||'—'}</td>
+                  <td style={{padding:'11px 14px',color:'var(--t2)'}}>{r.nicho}</td>
+                  <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.impl>0?'#F5F5F7':'#6E6E78',textAlign:'right'}}>{fmt(r.impl)}</td>
+                  <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.mensal>0?'#1D9E75':'#6E6E78',fontWeight:r.mensal>0?600:400,textAlign:'right'}}>{fmt(r.mensal)}</td>
+                  <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>{r.dia||'—'}</td>
+                  <td style={{padding:'11px 14px'}}>
+                    {r.status && <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:(SC[r.status]||'#6E6E78')+'18',color:SC[r.status]||'#6E6E78',border:`1px solid ${(SC[r.status]||'#6E6E78')}33`,fontWeight:500}}>{r.status}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{background:'var(--bg-3)',borderTop:'2px solid var(--border)'}}>
+                <td style={{padding:'12px 14px',fontWeight:700,color:'var(--t1)',fontFamily:'var(--f-d)'}} colSpan={3}>TOTAL ({filtrados.length} contratos)</td>
+                <td style={{padding:'12px 14px',fontFamily:'var(--f-m)',fontWeight:700,color:'var(--t1)',textAlign:'right'}}>R$ {filtrados.reduce((s,r)=>s+r.impl,0).toLocaleString('pt-BR')}</td>
+                <td style={{padding:'12px 14px',fontFamily:'var(--f-m)',fontWeight:700,color:'#1D9E75',textAlign:'right'}}>R$ {filtrados.reduce((s,r)=>s+r.mensal,0).toLocaleString('pt-BR')}/mês</td>
+                <td colSpan={2}/>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Pipeline Kanban ─── */
+const PIPELINE_INIT = [
+  { id:'lead',       nome:'Lead',        cor:'#6E6E78', cards: CLIENTES_CRM.filter(c=>c.status==='Comercial').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
+  { id:'proposta',   nome:'Proposta',    cor:'#BA7517', cards: CLIENTES_CRM.filter(c=>c.status==='Proposta Apresentada').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
+  { id:'impl',       nome:'Implementação',cor:'#7B3FE4',cards: CLIENTES_CRM.filter(c=>c.status==='Implementação').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
+  { id:'ativo',      nome:'Ativo',       cor:'#1E90FF', cards: CLIENTES_CRM.filter(c=>c.status==='Ativo').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
+  { id:'prod',       nome:'Em Produção', cor:'#1D9E75', cards: CLIENTES_CRM.filter(c=>c.status==='Em Prod').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
+];
+
+const CORES = ['#6E6E78','#7B3FE4','#1E90FF','#1D9E75','#BA7517','#A32D2D','#185FA5','#E040FB','#FF6D00','#00BCD4'];
+
+// Placeholder visual durante drag (renomeado pra não conflitar com PageEmBreve)
+function DragPlaceholder({ cor, h }) {
+  return (
+    <div style={{
+      height: h, borderRadius: 10,
+      background: `${cor}15`,
+      border: `2px dashed ${cor}66`,
+      animation: 'fade-in .12s ease',
+      transition: 'all .2s',
+    }}/>
+  );
+}
+
+function Pipeline({ cols, setCols }) {
+  const [editando, setEditando] = useState(null);
+  const [novoNome, setNovoNome] = useState('');
+  // dragState: { card, fromCol, fromIdx, height }
+  const [drag, setDrag] = useState(null);
+  // dropTarget: { colId, idx }  → onde vai inserir
+  const [dropTarget, setDropTarget] = useState(null);
+  // colHover: id da coluna sendo hover
+  const [colHover, setColHover] = useState(null);
+
+  const updateCol = (id, patch) => setCols(cs => cs.map(c => c.id===id ? {...c,...patch} : c));
+  const addCol = () => {
+    const id = 'col_'+Date.now();
+    setCols(cs => [...cs, {id, nome:'Nova coluna', cor:'#6E6E78', cards:[]}]);
+    setEditando({colId:id, tipo:'nome'});
+    setNovoNome('Nova coluna');
+  };
+  const removeCol = id => {
+    if (!confirm('Remover esta coluna e todos os cards dela?')) return;
+    setCols(cs => cs.filter(c => c.id!==id));
+  };
+  const addCard = colId => {
+    const nome = prompt('Nome do cliente:');
+    if (!nome) return;
+    setCols(cs => cs.map(c => c.id===colId ? {...c, cards:[...c.cards, {id:Date.now()+'', nome, sub:'', nicho:'', color:'#7B3FE4', init:nome.slice(0,2).toUpperCase()}]} : c));
+  };
+
+  // Move com posição específica (suporta reordenar dentro da mesma coluna)
+  const moveTo = (cardId, fromColId, toColId, toIdx) => {
+    setCols(cs => {
+      const novas = cs.map(c => ({...c, cards: [...c.cards]}));
+      const fromC = novas.find(c => c.id === fromColId);
+      const toC   = novas.find(c => c.id === toColId);
+      if (!fromC || !toC) return cs;
+      const fromIdx = fromC.cards.findIndex(k => k.id === cardId);
+      if (fromIdx < 0) return cs;
+      const [card] = fromC.cards.splice(fromIdx, 1);
+      // ajusta o índice se mover dentro da mesma coluna pra trás
+      const insertAt = (fromColId === toColId && toIdx > fromIdx) ? toIdx - 1 : toIdx;
+      toC.cards.splice(Math.min(insertAt, toC.cards.length), 0, card);
+      return novas;
+    });
+  };
+
+  const onDragStart = (e, card, colId, idx) => {
+    setDrag({ card, fromCol: colId, fromIdx: idx });
+    e.dataTransfer.effectAllowed = 'move';
+    // Cria um ghost transparente customizado
+    try {
+      const ghost = e.currentTarget.cloneNode(true);
+      ghost.style.position = 'absolute';
+      ghost.style.top = '-9999px';
+      ghost.style.left = '-9999px';
+      ghost.style.width = e.currentTarget.offsetWidth + 'px';
+      ghost.style.transform = 'rotate(3deg)';
+      ghost.style.opacity = '0.95';
+      ghost.style.boxShadow = '0 16px 40px rgba(0,0,0,.5)';
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, 20, 20);
+      setTimeout(() => ghost.remove(), 0);
+    } catch (err) {}
+  };
+
+  const onCardDragOver = (e, colId, idx) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!drag) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const meio = rect.top + rect.height / 2;
+    const novoIdx = e.clientY < meio ? idx : idx + 1;
+    if (dropTarget?.colId !== colId || dropTarget?.idx !== novoIdx) {
+      setDropTarget({ colId, idx: novoIdx });
+    }
+  };
+
+  const onColDragOver = (e, colId) => {
+    e.preventDefault();
+    setColHover(colId);
+    // Se não tem dropTarget na coluna, coloca no final
+    if (drag && (!dropTarget || dropTarget.colId !== colId)) {
+      const col = cols.find(c => c.id === colId);
+      if (col) setDropTarget({ colId, idx: col.cards.length });
+    }
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    if (drag && dropTarget) {
+      moveTo(drag.card.id, drag.fromCol, dropTarget.colId, dropTarget.idx);
+      if (drag.fromCol !== dropTarget.colId) {
+        showToast(`${drag.card.nome} movido para "${cols.find(c=>c.id===dropTarget.colId)?.nome}"`, 'success');
+      }
+    }
+    setDrag(null); setDropTarget(null); setColHover(null);
+  };
+
+  const onDragEnd = () => { setDrag(null); setDropTarget(null); setColHover(null); };
+
+  return (
+    <div style={{padding:'28px 32px',overflowX:'auto',height:'calc(100vh - 60px)',display:'flex',flexDirection:'column'}}>
+      <div className="page-head" style={{flexShrink:0}}>
+        <div>
+          <div className="page-head__title">Pipeline de Clientes</div>
+          <div className="page-head__sub">{cols.reduce((s,c)=>s+c.cards.length,0)} clientes · {cols.length} colunas · arraste cards entre colunas ou reordene dentro da mesma</div>
+        </div>
+        <div className="page-head__actions">
+          <button className="btn btn-outline" onClick={addCol}><Icon name="Plus" size={14}/>Nova coluna</button>
+        </div>
+      </div>
+
+      <div style={{display:'flex',gap:14,flex:1,overflowX:'auto',overflowY:'hidden',paddingBottom:16}}
+        onDragEnd={onDragEnd}>
+        {cols.map(col => {
+          const isHover = colHover === col.id && drag;
+          return (
+          <div key={col.id} style={{
+              width:280, flexShrink:0, display:'flex', flexDirection:'column', gap:0,
+              transition:'transform .15s',
+              transform: isHover ? 'translateY(-2px)' : 'none',
+            }}
+            onDragOver={e => onColDragOver(e, col.id)}
+            onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setColHover(null); }}
+            onDrop={onDrop}>
+
+            {/* Header coluna */}
+            <div style={{
+              display:'flex',alignItems:'center',gap:8,
+              padding:'10px 14px',marginBottom:10,
+              background:'var(--bg-2)',
+              border:`1px solid ${isHover ? col.cor : col.cor+'44'}`,
+              borderTop:`3px solid ${col.cor}`,
+              borderRadius:'10px 10px 0 0',
+              boxShadow: isHover ? `0 0 0 2px ${col.cor}33` : 'none',
+              transition:'all .2s',
+            }}>
+              <div style={{position:'relative'}}>
+                <div onClick={()=>setEditando(editando?.colId===col.id&&editando?.tipo==='cor'?null:{colId:col.id,tipo:'cor'})}
+                  style={{width:16,height:16,borderRadius:'50%',background:col.cor,cursor:'pointer',border:'2px solid rgba(255,255,255,.2)',flexShrink:0}}/>
+                {editando?.colId===col.id && editando?.tipo==='cor' && (
+                  <div style={{position:'absolute',top:24,left:0,zIndex:100,background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:10,padding:10,display:'flex',gap:6,flexWrap:'wrap',width:140,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
+                    {CORES.map(c=>(
+                      <div key={c} onClick={()=>{updateCol(col.id,{cor:c});setEditando(null);}}
+                        style={{width:22,height:22,borderRadius:'50%',background:c,cursor:'pointer',border:col.cor===c?'2px solid #fff':'2px solid transparent',transition:'border .15s'}}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {editando?.colId===col.id && editando?.tipo==='nome'
+                ? <input autoFocus value={novoNome} onChange={e=>setNovoNome(e.target.value)}
+                    onBlur={()=>{updateCol(col.id,{nome:novoNome});setEditando(null);}}
+                    onKeyDown={e=>{if(e.key==='Enter'){updateCol(col.id,{nome:novoNome});setEditando(null);}if(e.key==='Escape')setEditando(null);}}
+                    style={{flex:1,background:'var(--bg-3)',border:'1px solid var(--purple)',borderRadius:6,padding:'2px 8px',fontSize:13,color:'var(--t1)',outline:'none'}}/>
+                : <span onClick={()=>{setEditando({colId:col.id,tipo:'nome'});setNovoNome(col.nome);}}
+                    style={{flex:1,fontFamily:'var(--f-d)',fontWeight:600,fontSize:13.5,color:'var(--t1)',cursor:'pointer'}}
+                    title="Clique para renomear">{col.nome}</span>
+              }
+
+              <span style={{fontFamily:'var(--f-m)',fontSize:11,color:'var(--t3)',background:'var(--bg-3)',padding:'2px 7px',borderRadius:999}}>{col.cards.length}</span>
+              <button onClick={()=>removeCol(col.id)} title="Remover coluna"
+                style={{width:20,height:20,borderRadius:4,display:'flex',alignItems:'center',justifyContent:'center',color:'var(--t3)',cursor:'pointer',transition:'color .15s'}}
+                onMouseEnter={e=>e.currentTarget.style.color='#fca5a5'}
+                onMouseLeave={e=>e.currentTarget.style.color='var(--t3)'}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            {/* Cards */}
+            <div style={{
+              flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:8, paddingRight:2,
+              padding:'2px 4px 2px 0',
+              borderRadius:8,
+              background: isHover ? `${col.cor}08` : 'transparent',
+              transition:'background .2s',
+            }}>
+              {col.cards.length === 0 && !isHover && (
+                <div style={{padding:'30px 16px', textAlign:'center', border:'1.5px dashed var(--border)', borderRadius:10, color:'var(--t3)', fontSize:12}}>
+                  <Icon name="Inbox" size={28} style={{color:'var(--t3)', opacity:.4, margin:'0 auto 8px'}}/>
+                  <div>Arraste um card aqui<br/>ou clique em + Adicionar</div>
+                </div>
+              )}
+              {col.cards.map((card, idx) => {
+                const showPlaceholderBefore = dropTarget?.colId === col.id && dropTarget?.idx === idx && drag?.card.id !== card.id;
+                const isDragging = drag?.card.id === card.id;
+                return (
+                  <React.Fragment key={card.id}>
+                    {showPlaceholderBefore && <DragPlaceholder cor={col.cor} h={drag?.height || 60}/>}
+                    <div draggable
+                      onDragStart={e => {
+                        const h = e.currentTarget.offsetHeight;
+                        setDrag({ card, fromCol: col.id, fromIdx: idx, height: h });
+                        e.dataTransfer.effectAllowed = 'move';
+                      }}
+                      onDragEnd={onDragEnd}
+                      onDragOver={e => onCardDragOver(e, col.id, idx)}
+                      style={{
+                        background:'var(--bg-2)', border:'1px solid var(--border-soft)',
+                        borderLeft:`3px solid ${card.color}`, borderRadius:10,
+                        padding:'12px 14px', cursor:'grab',
+                        transition:'all .18s cubic-bezier(.22,1,.36,1)',
+                        opacity: isDragging ? 0.35 : 1,
+                        transform: isDragging ? 'scale(.97)' : 'scale(1)',
+                        boxShadow: isDragging ? 'none' : '0 1px 0 rgba(0,0,0,.05)',
+                      }}
+                      onMouseDown={e => e.currentTarget.style.cursor = 'grabbing'}
+                      onMouseUp={e => e.currentTarget.style.cursor = 'grab'}
+                      onMouseEnter={e => { if (!drag) { e.currentTarget.style.borderColor = 'rgba(123,63,228,.4)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.15)'; }}}
+                      onMouseLeave={e => { if (!drag) { e.currentTarget.style.borderColor = 'var(--border-soft)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 0 rgba(0,0,0,.05)'; }}}>
+                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:card.sub?6:0}}>
+                        <div style={{width:26,height:26,borderRadius:'50%',background:card.color,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--f-d)',fontWeight:700,fontSize:10,color:'#fff',flexShrink:0}}>{card.init}</div>
+                        <div style={{fontWeight:600,fontSize:13,color:'var(--t1)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{card.nome}</div>
+                      </div>
+                      {card.sub && <div style={{fontSize:11.5,color:'var(--t3)',marginLeft:34}}>{card.sub}</div>}
+                      {card.nicho && <div style={{fontSize:11,color:'var(--t2)',marginLeft:34,marginTop:2}}>{card.nicho}</div>}
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {/* Placeholder no fim da lista */}
+              {dropTarget?.colId === col.id && dropTarget?.idx >= col.cards.length && drag && drag.fromCol !== col.id && (
+                <DragPlaceholder cor={col.cor} h={drag.height || 60}/>
+              )}
+              {dropTarget?.colId === col.id && dropTarget?.idx >= col.cards.length && drag?.fromCol === col.id && drag?.fromIdx !== col.cards.length - 1 && (
+                <DragPlaceholder cor={col.cor} h={drag.height || 60}/>
+              )}
+
+              {/* Adicionar card */}
+              <button onClick={()=>addCard(col.id)} style={{
+                width:'100%',padding:'9px',borderRadius:9,border:'1px dashed var(--border)',
+                background:'transparent',color:'var(--t3)',fontSize:12.5,cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center',gap:5,
+                transition:'all .15s',
+              }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--purple)';e.currentTarget.style.color='#c4a8ff';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--t3)';}}>
+                <Icon name="Plus" size={13}/>Adicionar
+              </button>
+            </div>
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Impersonate Banner ─── */
+function ImpersonateBanner({ cliente, onSair }) {
+  return (
+    <div style={{
+      position:'fixed', top:0, left:0, right:0, zIndex:99999,
+      height:40, background:'var(--danger)',
+      display:'flex', alignItems:'center', justifyContent:'center', gap:16,
+      fontSize:13, fontWeight:500, color:'#fff',
+      fontFamily:'var(--f-b)',
+    }}>
+      <div style={{width:8,height:8,borderRadius:'50%',background:'rgba(255,255,255,.5)'}}/>
+      Você está vendo como <strong>{cliente.nome}</strong> · {cliente.nicho}
+      <button onClick={onSair} style={{
+        padding:'4px 14px', borderRadius:6,
+        background:'rgba(255,255,255,.2)', border:'1px solid rgba(255,255,255,.35)',
+        color:'#fff', fontSize:12, cursor:'pointer', fontWeight:600,
+        transition:'background .15s',
+      }}
+        onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.32)'}
+        onMouseLeave={e=>e.currentTarget.style.background='rgba(255,255,255,.2)'}
+      >
+        Sair do impersonate ✕
+      </button>
+    </div>
+  );
+}
+
+/* ─── Client Workspace Dashboard ─── */
+const NAV_CLIENT = [
+  { key:'dashboard',  label:'Dashboard',  icon:'LayoutDashboard', badge:null },
+  { key:'conversas',  label:'Conversas',  icon:'MessageCircle',   badge:14  },
+  { key:'pipeline',   label:'Pipeline',   icon:'KanbanSquare',    badge:null },
+  { key:'analytics',  label:'Analytics',  icon:'BarChart3',       badge:null },
+  { key:'contatos',   label:'Contatos',   icon:'Users',           badge:null },
+  { key:'configuracoes', label:'Configurações', icon:'Settings',  badge:null },
+];
+
+function ClientWorkspace({ cliente }) {
+  const [page, setPage] = useState('dashboard');
+  const conv  = useCount(Math.floor(Math.random()*80)+20);
+  const leads = useCount(Math.floor(Math.random()*15)+5);
+  const taxa  = useCount(Math.floor(Math.random()*20)+75);
+
+  const chartData = [62,78,54,91,83,70,conv].map((v,i) => ({
+    day:['Seg','Ter','Qua','Qui','Sex','Sáb','Hoje'][i], v, today:i===6
+  }));
+  const maxV = Math.max(...chartData.map(d=>d.v));
+
+  return (
+    <div className="app" style={{paddingTop:40}}>
+      {/* Sidebar do cliente */}
+      <aside className="sidebar" style={{gridRow:'1/-1'}}>
+        <div style={{height:4, background:cliente.color || 'var(--grad)', flexShrink:0}}/>
+        <div style={{padding:'16px 20px 14px', borderBottom:'1px solid #1F1F2A', display:'flex', alignItems:'center', gap:10, flexShrink:0}}>
+          <div style={{width:32,height:32,borderRadius:9,background:cliente.color,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--f-d)',fontWeight:700,fontSize:13,color:'#fff',flexShrink:0}}>
+            {cliente.init}
+          </div>
+          <div style={{minWidth:0}}>
+            <div style={{fontFamily:'var(--f-d)',fontWeight:600,fontSize:12.5,color:'var(--t1)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{cliente.nome}</div>
+            <div style={{fontFamily:'var(--f-m)',fontSize:9.5,color:'var(--t3)'}}>{cliente.nome.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12)}.brava.software</div>
+          </div>
+        </div>
+        <nav className="sidebar__nav">
+          {NAV_CLIENT.map(n => (
+            <div key={n.key} className={`nav-item${page===n.key?' active':''}`} onClick={()=>setPage(n.key)}>
+              <Icon name={n.icon} size={16}/>
+              {n.label}
+              {n.badge && <span className="nav-badge">{n.badge}</span>}
+            </div>
+          ))}
+          <div className="nav-divider"/>
+          <div className="nav-item"><Icon name="LifeBuoy" size={16}/>Suporte</div>
+        </nav>
+      </aside>
+
+      {/* Header cliente */}
+      <header className="header">
+        <div className="header__breadcrumb">
+          <span style={{color:'#F5F5F7',fontWeight:600,fontSize:15}}>
+            {['dashboard','conversas','pipeline','analytics','contatos','configuracoes'].includes(page)
+              ? {dashboard:'Dashboard',conversas:'Conversas',pipeline:'Pipeline',analytics:'Analytics',contatos:'Contatos',configuracoes:'Configurações'}[page]
+              : 'Dashboard'}
+          </span>
+        </div>
+        <div className="header__search">
+          <Icon name="Search" size={14}/>Buscar…
+        </div>
+        <div className="header__actions">
+          <div className="header__icon"><Icon name="Bell" size={17}/><span className="header__notif"/></div>
+          <div className="header__avatar" style={{background:cliente.color}}>{cliente.init}</div>
+        </div>
+      </header>
+
+      {/* Conteúdo */}
+      <main className="main">
+        {page === 'dashboard' && (
+          <div className="page">
+            <div className="page-head">
+              <div>
+                <div className="page-head__title">{cliente.nome}</div>
+                <div className="page-head__sub">{cliente.nicho} · {cliente.servico} · <span style={{color:'var(--success)'}}>● IA ativa</span></div>
+              </div>
+              <div className="page-head__actions">
+                <button className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
+                <button className="btn btn-primary" style={{background:cliente.color}}><Icon name="MessageCircle" size={14}/>Nova conversa</button>
+              </div>
+            </div>
+
+            <div className="kpi-grid">
+              {[
+                {label:'Conversas hoje', val:conv,    icon:'MessageCircle', suf:''},
+                {label:'IA respondeu',   val:taxa,    icon:'Sparkles',      suf:'%'},
+                {label:'Leads ativos',   val:leads,   icon:'Users',         suf:''},
+                {label:'Tempo de resp.', val:22,      icon:'Clock',         suf:'s'},
+              ].map((k,i) => (
+                <div key={i} className="kpi">
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                    <div className="kpi__label">{k.label}</div>
+                    <div className="kpi__icon" style={{background:cliente.color+'22'}}>
+                      <Icon name={k.icon} size={17} style={{color:cliente.color}}/>
+                    </div>
+                  </div>
+                  <div className="kpi__value" style={{color:'var(--t1)'}}>{k.val}{k.suf}</div>
+                  <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>em alta</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid-2">
+              <div className="card">
+                <div className="card__head">
+                  <div className="card__title">Conversas — últimos 7 dias</div>
+                </div>
+                <div className="chart">
+                  {chartData.map((d,i) => (
+                    <div key={i} className="chart-bar-wrap">
+                      <div className={`chart-bar ${d.today?'today':'past'}`} style={{height:`${(d.v/maxV)*100}%`, background: d.today ? cliente.color : cliente.color+'55'}}/>
+                      <div className="chart-label">{d.day}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card">
+                <div className="card__head">
+                  <div className="card__title">Status do Agente IA</div>
+                  <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:'rgba(29,158,117,.15)',color:'#6ee7b7',fontFamily:'var(--f-m)'}}>ATIVO</span>
+                </div>
+                <div className="ia-status">
+                  <div className="ia-dot"/>
+                  <div className="ia-info">
+                    <div className="ia-name">Agente IA · {cliente.servico.includes('CRM')?'Vendas & Suporte':'Atendimento'}</div>
+                    <div className="ia-sub">Respondendo em média 22 seg</div>
+                  </div>
+                </div>
+                {[['Uptime hoje','100%'],['Conversas assumidas',`${conv} / ${conv+3}`],['Plano atual',cliente.servico],['Nicho',cliente.nicho]].map(([k,v])=>(
+                  <div key={k} className="stat-row">
+                    <div className="stat-label">{k}</div>
+                    <div className="stat-val">{v}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        {page !== 'dashboard' && (
+          <div className="placeholder" style={{marginTop:80}}>
+            <Icon name={NAV_CLIENT.find(n=>n.key===page)?.icon||'LayoutDashboard'} size={52} color="var(--t3)"/>
+            <div style={{fontFamily:'var(--f-d)',fontSize:18,fontWeight:600,color:'var(--t2)'}}>{NAV_CLIENT.find(n=>n.key===page)?.label}</div>
+            <p>Disponível no workspace real de {cliente.nome} após deploy.</p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+/* ─── Modal Novo Cliente ─── */
+function NovoClienteModal({ onClose, onSalvar }) {
+  const [form, setForm] = useState({
+    nome:'', servico:'IA + CRM', nicho:'Saúde', status:'Comercial',
+    impl:'', mensal:'', dia:'', etiqueta:''
+  });
+  const upd = k => e => setForm(f => ({...f, [k]:e.target.value}));
+  const cores = ['#7B3FE4','#1E90FF','#1D9E75','#BA7517','#A32D2D','#185FA5','#6E6E78'];
+  const [cor, setCor] = useState(cores[0]);
+  const [etiqueta, setEtiqueta] = useState('');
+
+  const salvar = () => {
+    if (!form.nome.trim()) { alert('Nome é obrigatório'); return; }
+    const init = form.nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+    onSalvar({ ...form, color:cor, init, etiqueta, impl:Number(form.impl)||0, mensal:Number(form.mensal)||0 });
+    onClose();
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)',
+      zIndex:99998, display:'flex', alignItems:'center', justifyContent:'center', padding:24,
+    }}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'100%', maxWidth:520, background:'var(--bg-2)',
+        border:'1px solid var(--border)', borderRadius:16,
+        boxShadow:'0 24px 60px rgba(0,0,0,.6)', overflow:'hidden',
+      }}>
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border-soft)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:17, color:'var(--t1)'}}>Cadastrar novo cliente</div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Adicionado ao pipeline e ao CRM</div>
+          </div>
+          <button onClick={onClose} style={{width:30, height:30, borderRadius:8, color:'var(--t3)', cursor:'pointer'}}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:14, maxHeight:'70vh', overflowY:'auto'}}>
+          {/* Nome */}
+          <div>
+            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Nome do cliente *</label>
+            <input value={form.nome} onChange={upd('nome')} placeholder="Ex: Clínica Reunidas" autoFocus style={{
+              width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
+              border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+            }}/>
+          </div>
+
+          {/* Cor + Nicho */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:12}}>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Cor</label>
+              <div style={{display:'flex', gap:6, padding:'10px 8px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flexWrap:'wrap'}}>
+                {cores.map(c => (
+                  <div key={c} onClick={()=>setCor(c)} style={{width:22, height:22, borderRadius:'50%', background:c, cursor:'pointer', border:cor===c?'2px solid #fff':'2px solid transparent', boxShadow:cor===c?'0 0 0 2px var(--purple)':'none'}}/>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Nicho</label>
+              <select value={form.nicho} onChange={upd('nicho')} style={{
+                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+              }}>
+                {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político'].map(n => <option key={n}>{n}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Serviço + Status */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Serviço</label>
+              <select value={form.servico} onChange={upd('servico')} style={{
+                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+              }}>
+                {['IA','IA + API','IA + CRM','IA + API + CRM','Site','Sistema','Site + IA','IA + CRM + Site','Gestão de Tráfego','Google Meu Negócio'].map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Status</label>
+              <select value={form.status} onChange={upd('status')} style={{
+                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+              }}>
+                {['Comercial','Proposta Apresentada','Implementação','Ativo','Em Prod','Em breve'].map(s => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Valores */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12}}>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Implementação (R$)</label>
+              <input type="number" value={form.impl} onChange={upd('impl')} placeholder="0" style={{
+                width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+              }}/>
+            </div>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Mensal (R$)</label>
+              <input type="number" value={form.mensal} onChange={upd('mensal')} placeholder="0" style={{
+                width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+              }}/>
+            </div>
+            <div>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Dia pag.</label>
+              <select value={form.dia} onChange={upd('dia')} style={{
+                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+              }}>
+                <option value="">—</option>
+                <option>Dia 5</option><option>Dia 10</option><option>Dia 15</option><option>Dia 20</option><option>Dia 30</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Etiqueta */}
+          <div>
+            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Etiqueta (opcional)</label>
+            <input value={etiqueta} onChange={e=>setEtiqueta(e.target.value)} placeholder="Ex: VIP, Indicação, Urgente" style={{
+              width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
+              border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
+            }}/>
+          </div>
+        </div>
+
+        <div style={{padding:'14px 22px', borderTop:'1px solid var(--border-soft)', display:'flex', gap:10, justifyContent:'flex-end'}}>
+          <button onClick={onClose} className="btn btn-outline">Cancelar</button>
+          <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>Cadastrar cliente</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Exportar CSV ─── */
+function exportarCSV() {
+  const rows = [['Cliente','Serviço','Nicho','Status','Implementação','Mensal','Dia Pagamento']];
+  RECORRENCIA.forEach(r => rows.push([r.cliente, r.servico, r.nicho, r.status, r.impl, r.mensal, r.dia]));
+  const csv = rows.map(r => r.map(c => `"${(''+c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `brava_relatorio_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('Relatório exportado com sucesso', 'success');
+}
+
+/* ─── App ─── */
+function App() {
+  // Persistência via localStorage
+  const [page, setPage] = useState(() => localStorage.getItem('brava_page') || 'dashboard');
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('brava_collapsed') === '1');
+  const [impersonate, setImpersonate] = useState(null);
+  const [pipelineCols, setPipelineCols] = useState(() => {
+    try { const s = localStorage.getItem('brava_pipeline'); if (s) return JSON.parse(s); } catch(e){}
+    return PIPELINE_INIT;
+  });
+  const [busca, setBusca] = useState('');
+  const [notifAberta, setNotifAberta] = useState(false);
+  const [novoClienteAberto, setNovoClienteAberto] = useState(false);
+  const [extraCRM, setExtraCRM] = useState(() => {
+    try { const s = localStorage.getItem('brava_extra_crm'); if (s) return JSON.parse(s); } catch(e){}
+    return [];
+  });
+
+  // Persistir
+  useEffect(() => { localStorage.setItem('brava_page', page); }, [page]);
+  useEffect(() => { localStorage.setItem('brava_collapsed', collapsed?'1':'0'); }, [collapsed]);
+  useEffect(() => { localStorage.setItem('brava_pipeline', JSON.stringify(pipelineCols)); }, [pipelineCols]);
+  useEffect(() => { localStorage.setItem('brava_extra_crm', JSON.stringify(extraCRM)); }, [extraCRM]);
+
+  const moverNoPipeline = (nomeCliente, paraColId) => {
+    setPipelineCols(cs => {
+      const card = cs.flatMap(c=>c.cards).find(k=>k.nome===nomeCliente);
+      if (!card) return cs;
+      return cs.map(c => {
+        if (c.cards.some(k=>k.nome===nomeCliente)) return {...c, cards: c.cards.filter(k=>k.nome!==nomeCliente)};
+        if (c.id === paraColId) return {...c, cards:[...c.cards, card]};
+        return c;
+      });
+    });
+  };
+
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  useKeyboardShortcuts({ setNovoCliente: setNovoClienteAberto, setShortcutsOpen });
+
+  // Cadastrar novo cliente
+  const cadastrarCliente = (cliente) => {
+    setExtraCRM(arr => [...arr, cliente]);
+    const colMap = { 'Comercial':'lead', 'Proposta Apresentada':'proposta', 'Implementação':'impl', 'Ativo':'ativo', 'Em Prod':'prod', 'Em breve':'lead' };
+    const colId = colMap[cliente.status] || 'lead';
+    setPipelineCols(cs => cs.map(c => c.id === colId ? {...c, cards:[...c.cards, {id:cliente.nome+Date.now(), nome:cliente.nome, sub:cliente.servico, nicho:cliente.nicho, color:cliente.color, init:cliente.init}]} : c));
+    showToast(`Cliente ${cliente.nome} cadastrado com sucesso`, 'success');
+  };
+
+  useEffect(() => {
+    const app = document.querySelector('.app');
+    if (app) app.style.gridTemplateColumns = collapsed ? '0 1fr' : 'var(--sidebar) 1fr';
+  }, [collapsed]);
+
+  // Toast de boas-vindas no primeiro acesso pós-checkout
+  useEffect(() => {
+    if (SESSAO.welcome) {
+      setTimeout(() => {
+        showToast(`Bem-vindo à Brava, ${SESSAO.nome.split(' ')[0]}! Seu workspace está pronto.`, 'success');
+        // Marca como já visto pra não mostrar de novo
+        const s = JSON.parse(localStorage.getItem('brava_sessao') || '{}');
+        s.welcome = false;
+        localStorage.setItem('brava_sessao', JSON.stringify(s));
+      }, 1200);
+    }
+  }, []);
+
+  // Fechar notificações ao clicar fora
+  useEffect(() => {
+    if (!notifAberta) return;
+    const close = e => { if (!e.target.closest('.header__actions')) setNotifAberta(false); };
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [notifAberta]);
+
+  if (impersonate) return (
+    <>
+      <ImpersonateBanner cliente={impersonate} onSair={() => setImpersonate(null)}/>
+      <ClientWorkspace cliente={impersonate}/>
+    </>
+  );
+
+  return (
+    <div className="app">
+      <ThemeToggle/>
+      <Sidebar page={page} setPage={setPage} collapsed={collapsed} setCollapsed={setCollapsed}/>
+      <Header page={page} collapsed={collapsed} setCollapsed={setCollapsed} setPage={setPage} busca={busca} setBusca={setBusca} notifAberta={notifAberta} setNotifAberta={setNotifAberta}/>
+      <main className="main">
+        {page === 'dashboard' ? <Dashboard onImpersonate={setImpersonate} pipelineCols={pipelineCols} setPage={setPage} onNovoCliente={()=>setNovoClienteAberto(true)} onExportar={exportarCSV} busca={busca}/>
+          : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
+          : page === 'mrr'      ? <MRR/>
+          : page === 'pipeline' ? <Pipeline cols={pipelineCols} setCols={setPipelineCols}/>
+          : page === 'analytics'? <Analytics/>
+          : page === 'chamados' ? <Chamados/>
+          : page === 'equipe'   ? <Equipe/>
+          : page === 'logs'     ? <Logs/>
+          : page === 'config'   ? <Config/>
+          : <Placeholder page={page}/>}
+      </main>
+      {novoClienteAberto && <NovoClienteModal onClose={()=>setNovoClienteAberto(false)} onSalvar={cadastrarCliente}/>}
+      <ShortcutsModal open={shortcutsOpen} onClose={()=>setShortcutsOpen(false)}/>
+      <AIChat/>
+      <ToastContainer/>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+setTimeout(() => {
+  const l = document.getElementById('brava-loading');
+  if (l) { l.style.opacity = '0'; setTimeout(() => l.remove(), 400); }
+}, 700);
+</script>
+</body>
+</html>
