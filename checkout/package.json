@@ -1,0 +1,9 @@
+{
+  "name": "brava-checkout",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Brava Company - Checkout",
+  "scripts": {
+    "build": "echo 'Static site - no build needed' && exit 0"
+  }
+}
