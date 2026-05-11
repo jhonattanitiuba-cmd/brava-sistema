@@ -126,8 +126,12 @@ const LoginScreen = ({ onContinue, onNav }) => {
             <Logo size={40} mode="white" style={{ color: '#fff' }} />
           </div>
           <div className="auth-brand-stack__h">
-            <h1>O atendimento da sua empresa,<br/><span className="grad-text">orquestrado por IA</span>.</h1>
-            <p>WhatsApp, pipeline, automações e agente de IA num único workspace. Operação visível, ticket que justifica o preço.</p>
+            <h1>Sua plataforma de atendimento completa <span className="grad-text">orquestrado por IA</span>.</h1>
+            <p>
+              WhatsApp, pipeline, automações e Agente de IA<br/>
+              num único workspace.<br/>
+              Simples assim.
+            </p>
           </div>
         </div>
       </div>
@@ -193,7 +197,15 @@ const LoginScreen = ({ onContinue, onNav }) => {
               {!novoCadastro && <button type="button" className="auth-link" onClick={() => onNav('forgot')}>Esqueci minha senha</button>}
             </div>
 
-            <Button type="submit" variant="primary" size="lg" fullWidth iconRight="ArrowRight" loading={submitting}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              iconRight="ArrowRight"
+              loading={submitting}
+              className={novoCadastro ? 'btn-signup-dark' : ''}
+            >
               {submitting
                 ? (novoCadastro ? 'Criando…' : 'Entrando…')
                 : (novoCadastro ? 'Crie seu acesso para começar' : 'Entrar')}
