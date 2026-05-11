@@ -1626,6 +1626,7 @@ a { color: inherit; text-decoration: none; }
 <!-- Supabase SDK + cliente configurado -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app/supabase-client.js"></script>
+<script src="app/save-onboarding.js"></script>
 
 <script type="text/babel" src="app/icons.jsx"></script>
 <script type="text/babel" src="app/components.jsx"></script>
@@ -1780,22 +1781,30 @@ function App() {
   switch (t.screen) {
     case 'login':      body = <LoginScreen onContinue={onContinue} onNav={onNav} />; break;
     case 'forgot':     body = <ForgotScreen onNav={onNav} />; break;
-    case 'onboarding': body = <OnboardingWizard onContinue={(next) => {
+    case 'onboarding': body = <OnboardingWizard onContinue={async (next) => {
                                 if (next === 'done') {
-                                  const tema = document.documentElement.getAttribute('data-theme') || 'dark';
-                                  const nome = onboardingData?.workspaceName || onboardingData?.bizName || 'Cliente';
-                                  const params = new URLSearchParams({
-                                    user: nome,
-                                    email: urlParams.get('email') || '',
-                                    plano: PLANO_VINDO,
-                                    role: 'Owner',
-                                    welcome: '1',
-                                    theme: tema,
-                                    slug: onboardingData?.slug || nome.toLowerCase().replace(/[^a-z0-9]/g,''),
-                                  });
-                                  window.location.href = `/admin/?${params.toString()}`;
+                                  // SALVA no Supabase antes de redirecionar
+                                  try {
+                                    if (!onboardingData) throw new Error('Sem dados do onboarding.');
+                                    const workspace = await window.saveOnboarding(onboardingData);
+
+                                    const tema = document.documentElement.getAttribute('data-theme') || 'dark';
+                                    const { data: { user } } = await window.supabase.auth.getUser();
+                                    const params = new URLSearchParams({
+                                      user:    workspace.name,
+                                      email:   user?.email || '',
+                                      plano:   workspace.plan,
+                                      role:    'Owner',
+                                      welcome: '1',
+                                      theme:   tema,
+                                      slug:    workspace.slug,
+                                    });
+                                    window.location.href = `/admin/?${params.toString()}`;
+                                  } catch (err) {
+                                    console.error('[Brava] Erro ao salvar onboarding:', err);
+                                    alert('Erro ao finalizar: ' + (err?.message || 'Tente novamente.'));
+                                  }
                                 } else if (next === 'login' && SKIP_LOGIN) {
-                                  // Se veio do checkout, "Sair" vai pro checkout
                                   window.history.back();
                                 } else {
                                   setTweak('screen', next);
