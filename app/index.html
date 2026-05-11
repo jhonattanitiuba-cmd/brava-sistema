@@ -622,6 +622,111 @@ a { color: inherit; text-decoration: none; }
   z-index: 0;
 }
 
+/* ═══════════════ Animações de entrada elegantes ═══════════════ */
+@keyframes auth-fade-up {
+  0%   { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes auth-fade-in {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes auth-slide-in-right {
+  0%   { opacity: 0; transform: translateX(40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes auth-slide-in-left {
+  0%   { opacity: 0; transform: translateX(-40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes auth-scale-in {
+  0%   { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes auth-glow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(123,63,228,0); }
+  50%      { box-shadow: 0 0 40px 5px rgba(123,63,228,.15); }
+}
+
+/* Brand side (esquerda) — entra da esquerda, escalonado */
+.auth-brand-stack__logo {
+  animation: auth-slide-in-left .8s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .05s;
+}
+.auth-brand-stack__h h1 {
+  animation: auth-fade-up .8s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .2s;
+}
+.auth-brand-stack__h p {
+  animation: auth-fade-up .8s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .4s;
+}
+
+/* Form side (direita) — entra da direita */
+.auth-form-wrap {
+  animation: auth-slide-in-right .7s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .15s;
+}
+.auth-form-wrap > * {
+  animation: auth-fade-up .6s cubic-bezier(.22,1,.36,1) both;
+}
+.auth-form-wrap > *:nth-child(1) { animation-delay: .25s; }
+.auth-form-wrap > *:nth-child(2) { animation-delay: .35s; }
+.auth-form-wrap > *:nth-child(3) { animation-delay: .45s; }
+.auth-form-wrap > *:nth-child(4) { animation-delay: .55s; }
+
+/* Banner de pagamento confirmado — entrada destacada */
+.auth-form-wrap > div:first-child[style*="rgba(29,158,117"] {
+  animation: auth-scale-in .6s cubic-bezier(.34,1.56,.64,1) both,
+             auth-glow-pulse 2.5s ease-in-out 1s infinite;
+}
+
+/* Inputs do form com fade-up sutil */
+.auth-form .bv-input {
+  animation: auth-fade-up .5s cubic-bezier(.22,1,.36,1) both;
+}
+.auth-form .bv-input:nth-of-type(1) { animation-delay: .5s; }
+.auth-form .bv-input:nth-of-type(2) { animation-delay: .6s; }
+
+/* Botão principal entra por último, com leve scale */
+.auth-form .bv-btn {
+  animation: auth-scale-in .5s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .75s;
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease, border-color .2s ease;
+}
+.auth-form .bv-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.auth-form .bv-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Inputs com foco animado */
+.auth-form .bv-input input,
+.auth-form .bv-input textarea {
+  transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.auth-form .bv-input:focus-within {
+  transform: translateY(-1px);
+}
+.auth-form .bv-input { transition: transform .15s ease; }
+
+/* Reduz animações pra quem prefere */
+@media (prefers-reduced-motion: reduce) {
+  .auth-brand-stack__logo,
+  .auth-brand-stack__h h1,
+  .auth-brand-stack__h p,
+  .auth-form-wrap,
+  .auth-form-wrap > *,
+  .auth-form .bv-input,
+  .auth-form .bv-btn {
+    animation: none !important;
+  }
+  .auth-glow-blob {
+    animation: none !important;
+  }
+}
+
 /* Animated glow blobs (mesmo estilo da LP) */
 .auth-glow-blob {
   position: absolute;
