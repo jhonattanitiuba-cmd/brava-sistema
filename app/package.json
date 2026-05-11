@@ -1,8 +1,8 @@
 {
-  "name": "brava-crm",
+  "name": "brava-app",
   "version": "1.0.0",
   "private": true,
-  "description": "Brava Company - CRM / Login / Onboarding",
+  "description": "Brava Company - App (Login + Onboarding + CRM)",
   "scripts": {
     "build": "echo 'Static site - no build needed' && exit 0"
   }

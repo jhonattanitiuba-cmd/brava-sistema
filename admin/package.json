@@ -1,8 +1,8 @@
 {
-  "name": "brava-saas",
+  "name": "brava-admin",
   "version": "1.0.0",
   "private": true,
-  "description": "Brava Company - SaaS Admin",
+  "description": "Brava Company - Admin (Painel SaaS)",
   "scripts": {
     "build": "echo 'Static site - no build needed' && exit 0"
   }

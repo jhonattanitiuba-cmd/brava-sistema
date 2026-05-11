@@ -1,10 +1,10 @@
 @echo off
 echo.
 echo  ================================
-echo   BRAVA COMPANY — SaaS Dashboard
+echo   BRAVA COMPANY — Admin (Painel)
 echo   http://localhost:3004
 echo  ================================
 echo.
-cd /d "%~dp0saas"
+cd /d "%~dp0admin"
 npx serve . -p 3004 --no-clipboard
 pause
