@@ -143,7 +143,8 @@ function Plans() {
                 <a
                   href={p.id === 'enterprise' ? WA_LINK : (() => {
                     const tm = document.documentElement.getAttribute('data-theme') || 'dark';
-                    return `http://${window.location.hostname}:3003/?plano=${p.id}&theme=${tm}`;
+                    // TODO: trocar pelos Payment Links do Stripe quando configurar
+                    return `/app/?plano=${p.id}&theme=${tm}&new=1`;
                   })()}
                   className={`btn ${p.highlight ? 'btn-primary' : 'btn-ghost'}`}
                   style={{ width: '100%', marginBottom: 24 }}

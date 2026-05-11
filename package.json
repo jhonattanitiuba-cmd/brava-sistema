@@ -1,8 +1,8 @@
 {
-  "name": "brava-lp",
+  "name": "brava-sistema",
   "version": "1.0.0",
   "private": true,
-  "description": "Brava Company - Landing Page",
+  "description": "Brava Company - Sistema completo (LP + App + Admin)",
   "scripts": {
     "build": "echo 'Static site - no build needed' && exit 0"
   }

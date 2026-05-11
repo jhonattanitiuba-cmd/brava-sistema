@@ -1707,7 +1707,7 @@ function App() {
         theme: t.theme,
         slug: onboardingData?.slug || '',
       });
-      window.location.href = `http://${window.location.hostname}:3004/?${params.toString()}`;
+      window.location.href = `/admin/?${params.toString()}`;
       return;
     }
     setTweak('screen', next);
@@ -1731,7 +1731,7 @@ function App() {
                                     theme: tema,
                                     slug: onboardingData?.slug || nome.toLowerCase().replace(/[^a-z0-9]/g,''),
                                   });
-                                  window.location.href = `http://${window.location.hostname}:3004/?${params.toString()}`;
+                                  window.location.href = `/admin/?${params.toString()}`;
                                 } else if (next === 'login' && SKIP_LOGIN) {
                                   // Se veio do checkout, "Sair" vai pro checkout
                                   window.history.back();

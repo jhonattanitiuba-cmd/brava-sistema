@@ -489,7 +489,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
                 if (confirm('Sair da plataforma?')) {
                   localStorage.removeItem('brava_sessao');
                   const tema = document.documentElement.getAttribute('data-theme') || 'dark';
-                  window.location.href = `http://${window.location.hostname}:3001/?logout=1&theme=${tema}`;
+                  window.location.href = `/?logout=1&theme=${tema}`;
                 }
               }
               else setPage(n.key);

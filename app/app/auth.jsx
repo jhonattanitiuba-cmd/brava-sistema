@@ -35,7 +35,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
       theme: tema,
       ...(novoCadastro ? { welcome: '1' } : {}),
     });
-    window.location.href = `http://${window.location.hostname}:3004/?${params.toString()}`;
+    window.location.href = `/admin/?${params.toString()}`;
   };
 
   const submit = (e) => {
