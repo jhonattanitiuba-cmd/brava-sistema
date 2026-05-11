@@ -1668,6 +1668,7 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [done, setDone] = useState(false);
   const [onboardingData, setOnboardingData] = useState(null);
+  const [bootChecking, setBootChecking] = useState(true); // checa sessão Supabase no boot
 
   // Força tela correta com base na URL/cookie (ignora estado anterior do useTweaks)
   useEffect(() => {
@@ -1675,6 +1676,42 @@ function App() {
       setTweak('screen', 'onboarding');
     }
     if (TEMA_VINDO) setTweak('theme', TEMA_VINDO);
+  }, []);
+
+  // ─── BOOT: checa se já tem sessão Supabase ativa ───
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!window.supabase) { setBootChecking(false); return; }
+
+        const { data: { session } } = await window.supabase.auth.getSession();
+        if (!session?.user || cancelled) { setBootChecking(false); return; }
+
+        // Tem sessão — verifica se já tem workspace
+        const { data: members } = await window.supabase
+          .from('workspace_members')
+          .select('role, workspaces(id, slug, name, plan)')
+          .eq('user_id', session.user.id)
+          .limit(1);
+
+        if (cancelled) return;
+
+        if (members && members.length > 0 && members[0].workspaces) {
+          // Tem workspace → vai direto pro admin
+          window.irParaAdmin?.(session.user, members[0].workspaces, members[0]);
+          return; // não desativa o loading — a página vai ser substituída
+        } else {
+          // Logado mas sem workspace → onboarding
+          setTweak('screen', 'onboarding');
+        }
+      } catch (e) {
+        console.warn('[Brava] Erro ao verificar sessão:', e);
+      } finally {
+        if (!cancelled) setBootChecking(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   // Sync theme attribute on root
@@ -1717,6 +1754,27 @@ function App() {
     setTweak('screen', next);
   };
   const onNav = (next) => setTweak('screen', next);
+
+  // Enquanto checa sessão Supabase no boot, mostra um loading discreto
+  if (bootChecking) {
+    return (
+      <div style={{
+        position:'fixed', inset:0, display:'flex', alignItems:'center', justifyContent:'center',
+        background:'var(--bg-deep, #000)', color:'var(--text-2, #A0A0AA)',
+        fontFamily:'JetBrains Mono, monospace', fontSize:13, letterSpacing:'.05em'
+      }}>
+        <div style={{display:'flex', alignItems:'center', gap:10}}>
+          <div style={{
+            width:14, height:14, borderRadius:'50%',
+            border:'2px solid rgba(123,63,228,.3)', borderTopColor:'#7B3FE4',
+            animation:'spin 0.7s linear infinite'
+          }} />
+          <span>VERIFICANDO SESSÃO…</span>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   let body;
   switch (t.screen) {

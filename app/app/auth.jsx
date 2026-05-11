@@ -1,68 +1,116 @@
-// Auth screens — Login, Forgot password, Reset password.
+// Auth screens — Login, Signup (vindo do Stripe), Esqueci senha.
+// Conectado ao Supabase Auth (window.supabase).
 
+// Helper: traduz erros comuns do Supabase pra mensagens amigáveis em PT
+const translateAuthError = (msg = '') => {
+  const m = String(msg).toLowerCase();
+  if (m.includes('invalid login credentials'))    return 'E-mail ou senha incorretos.';
+  if (m.includes('user already registered'))      return 'Este e-mail já tem cadastro. Tente entrar normalmente.';
+  if (m.includes('email not confirmed'))          return 'Confirme seu e-mail antes de entrar (cheque sua caixa de entrada).';
+  if (m.includes('password should be at least'))  return 'A senha precisa ter no mínimo 8 caracteres.';
+  if (m.includes('email rate limit'))             return 'Muitas tentativas seguidas. Aguarde 1 minuto e tente de novo.';
+  if (m.includes('network'))                      return 'Sem conexão. Verifique sua internet.';
+  return msg || 'Erro ao processar. Tente novamente.';
+};
+
+// Helper: redireciona pra /admin/ com os dados do workspace
+const irParaAdmin = (user, workspace, member) => {
+  const tema = document.documentElement.getAttribute('data-theme') || 'dark';
+  const params = new URLSearchParams({
+    user:  workspace?.name || user.email,
+    email: user.email,
+    plano: workspace?.plan || 'trial',
+    role:  member?.role === 'owner' ? 'Owner' : (member?.role === 'admin' ? 'Admin' : 'Atendente'),
+    slug:  workspace?.slug || '',
+    theme: tema,
+  });
+  window.location.href = `/admin/?${params.toString()}`;
+};
+
+// ═══════════════════════════════════════════════════════════
+// LOGIN / SIGNUP SCREEN
+// ═══════════════════════════════════════════════════════════
 const LoginScreen = ({ onContinue, onNav }) => {
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [showPwd, setShowPwd] = React.useState(false);
-  const [remember, setRemember] = React.useState(true);
+  const [email, setEmail]           = React.useState('');
+  const [password, setPassword]     = React.useState('');
+  const [showPwd, setShowPwd]       = React.useState(false);
+  const [remember, setRemember]     = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState('');
+  const [error, setError]           = React.useState('');
+  const [info, setInfo]             = React.useState('');
 
-  // Lê dados vindos do checkout (plano, novo cadastro, etc.)
-  const urlParams = new URLSearchParams(window.location.search);
-  const planoVindo = urlParams.get('plano');
-  const novoCadastro = urlParams.get('new') === '1';
-  const temaVindo = urlParams.get('theme');
+  // Lê dados vindos do checkout (Stripe)
+  const urlParams      = new URLSearchParams(window.location.search);
+  const planoVindo     = urlParams.get('plano');
+  const novoCadastro   = urlParams.get('new') === '1';
+  const temaVindo      = urlParams.get('theme');
+  const stripeSession  = urlParams.get('session_id');
 
   // Aplica tema vindo da URL
   React.useEffect(() => {
     if (temaVindo) document.documentElement.setAttribute('data-theme', temaVindo);
   }, [temaVindo]);
 
-  // Credenciais conhecidas
-  const USERS = {
-    'diretoria@brava.company': { senha: 'Liberdade@2026', nome: 'Jhonattan Itiuba',     plano: 'admin',       role: 'Diretoria' },
-    'querover@brava.software':    { senha: '12345678',       nome: 'Visitante Demo',       plano: 'performance', role: 'Demo' },
-  };
-
-  const irParaSaaS = (info) => {
-    const tema = document.documentElement.getAttribute('data-theme') || 'dark';
-    const params = new URLSearchParams({
-      user: info.nome,
-      email: info.email,
-      plano: info.plano,
-      role: info.role,
-      theme: tema,
-      ...(novoCadastro ? { welcome: '1' } : {}),
-    });
-    window.location.href = `/admin/?${params.toString()}`;
-  };
-
-  const submit = (e) => {
+  const submit = async (e) => {
     e?.preventDefault();
-    if (!email.includes('@')) { setError('Informe um e-mail válido.'); return; }
-    if (password.length < 4)  { setError('Informe sua senha.'); return; }
-    setError('');
-    setSubmitting(true);
+    if (!email.includes('@'))   { setError('Informe um e-mail válido.'); return; }
+    if (password.length < 8)    { setError('Senha precisa ter no mínimo 8 caracteres.'); return; }
+    setError(''); setInfo(''); setSubmitting(true);
 
-    setTimeout(() => {
-      const user = USERS[email.trim().toLowerCase()];
-      if (user && user.senha === password) {
-        irParaSaaS({ ...user, email });
-      } else if (email.includes('@') && password.length >= 4) {
-        // Cliente novo / fluxo via checkout
-        const nomeFromEmail = email.split('@')[0].split('.').map(s => s[0].toUpperCase()+s.slice(1)).join(' ');
-        irParaSaaS({
-          nome: nomeFromEmail || 'Cliente',
-          email,
-          plano: planoVindo || 'performance',
-          role: 'Owner',
+    try {
+      if (!window.supabase) throw new Error('Supabase não carregado.');
+
+      // ─── FLUXO SIGNUP (cliente novo vindo do Stripe) ───
+      if (novoCadastro) {
+        const { data, error: e1 } = await window.supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            data: {
+              plano: planoVindo,
+              stripe_session_id: stripeSession,
+              source: 'stripe_checkout',
+            },
+          },
         });
-      } else {
-        setSubmitting(false);
-        setError('E-mail ou senha incorretos.');
+        if (e1) throw e1;
+
+        // Se Supabase exigir confirmação de email, data.session vem null
+        if (data.user && !data.session) {
+          setInfo('Conta criada! Verifique seu e-mail pra confirmar antes de entrar.');
+          setSubmitting(false);
+          return;
+        }
+
+        // Auto-logado → vai pro onboarding
+        onContinue('onboarding');
+        return;
       }
-    }, 900);
+
+      // ─── FLUXO LOGIN (cliente existente) ───
+      const { data, error: e2 } = await window.supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (e2) throw e2;
+
+      // Verifica se o usuário tem workspace
+      const { data: members } = await window.supabase
+        .from('workspace_members')
+        .select('role, workspaces(id, slug, name, plan)')
+        .eq('user_id', data.user.id)
+        .limit(1);
+
+      if (members && members.length > 0 && members[0].workspaces) {
+        irParaAdmin(data.user, members[0].workspaces, members[0]);
+      } else {
+        // Logado mas sem workspace ainda → onboarding
+        onContinue('onboarding');
+      }
+    } catch (err) {
+      setSubmitting(false);
+      setError(translateAuthError(err?.message));
+    }
   };
 
   return (
@@ -126,7 +174,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
               label="Senha"
               icon="Lock"
               type={showPwd ? 'text' : 'password'}
-              placeholder="Mínimo 10 caracteres"
+              placeholder="Mínimo 8 caracteres"
               value={password}
               onChange={e => setPassword(e.target.value)}
               suffix={
@@ -137,59 +185,31 @@ const LoginScreen = ({ onContinue, onNav }) => {
             />
 
             {error && <div className="auth-error"><Icon name="AlertCircle" size={14} />{error}</div>}
+            {info  && (
+              <div style={{padding:'10px 12px', borderRadius:10, background:'rgba(24,95,165,.12)', border:'1px solid rgba(24,95,165,.3)', display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--text-1)'}}>
+                <Icon name="Info" size={14} style={{color:'#185FA5'}}/>{info}
+              </div>
+            )}
 
             <div className="auth-form__row">
               <Toggle checked={remember} onChange={setRemember} label="Manter conectado" />
-              <button type="button" className="auth-link" onClick={() => onNav('forgot')}>Esqueci minha senha</button>
+              {!novoCadastro && <button type="button" className="auth-link" onClick={() => onNav('forgot')}>Esqueci minha senha</button>}
             </div>
 
             <Button type="submit" variant="primary" size="lg" fullWidth iconRight="ArrowRight" loading={submitting}>
-              {submitting ? 'Entrando…' : 'Entrar'}
+              {submitting
+                ? (novoCadastro ? 'Criando…' : 'Entrando…')
+                : (novoCadastro ? 'Criar conta e continuar' : 'Entrar')}
             </Button>
-
-            <Divider label="ou acesso rápido" />
-
-            <div style={{display:'flex', gap:8, flexDirection:'column'}}>
-              <button type="button" onClick={()=>{setEmail('diretoria@brava.company');setPassword('Liberdade@2026');}} style={{
-                display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
-                background:'rgba(123,63,228,.08)', border:'1px solid rgba(123,63,228,.25)',
-                borderRadius:10, fontSize:13, color:'var(--text-1)', cursor:'pointer',
-                transition:'all .15s', textAlign:'left',
-              }}
-                onMouseEnter={e=>{e.currentTarget.style.background='rgba(123,63,228,.15)';e.currentTarget.style.borderColor='rgba(123,63,228,.45)';}}
-                onMouseLeave={e=>{e.currentTarget.style.background='rgba(123,63,228,.08)';e.currentTarget.style.borderColor='rgba(123,63,228,.25)';}}>
-                <div style={{width:28, height:28, borderRadius:8, background:'linear-gradient(90deg,#7B3FE4,#1E90FF)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
-                  <Icon name="Sparkles" size={14} style={{color:'#fff'}}/>
-                </div>
-                <div style={{flex:1, minWidth:0}}>
-                  <div style={{fontWeight:600}}>Acesso Diretoria Brava</div>
-                  <div style={{fontSize:11.5, color:'var(--text-2)', fontFamily:'var(--font-mono)'}}>diretoria@brava.company</div>
-                </div>
-                <Icon name="ArrowRight" size={14} style={{color:'var(--text-3)'}}/>
-              </button>
-
-              <button type="button" onClick={()=>{setEmail('querover@brava.software');setPassword('12345678');}} style={{
-                display:'flex', alignItems:'center', gap:10, padding:'10px 14px',
-                background:'rgba(30,144,255,.08)', border:'1px solid rgba(30,144,255,.25)',
-                borderRadius:10, fontSize:13, color:'var(--text-1)', cursor:'pointer',
-                transition:'all .15s', textAlign:'left',
-              }}
-                onMouseEnter={e=>{e.currentTarget.style.background='rgba(30,144,255,.15)';e.currentTarget.style.borderColor='rgba(30,144,255,.45)';}}
-                onMouseLeave={e=>{e.currentTarget.style.background='rgba(30,144,255,.08)';e.currentTarget.style.borderColor='rgba(30,144,255,.25)';}}>
-                <div style={{width:28, height:28, borderRadius:8, background:'#1E90FF', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
-                  <Icon name="Eye" size={14} style={{color:'#fff'}}/>
-                </div>
-                <div style={{flex:1, minWidth:0}}>
-                  <div style={{fontWeight:600}}>Quero ver — modo demo</div>
-                  <div style={{fontSize:11.5, color:'var(--text-2)', fontFamily:'var(--font-mono)'}}>querover@brava.software</div>
-                </div>
-                <Icon name="ArrowRight" size={14} style={{color:'var(--text-3)'}}/>
-              </button>
-            </div>
           </form>
 
           <footer className="auth-form__foot">
-            <p>Sem conta? <a href="https://wa.me/5511963342541?text=Ol%C3%A1%21+Vim+pelo+site+da+Brava+e+gostaria+de+solicitar+uma+demonstra%C3%A7%C3%A3o+da+plataforma.+Pode+me+ajudar%3F" className="auth-link" target="_blank">Solicite uma demonstração</a></p>
+            <p>{novoCadastro ? 'Já tem conta?' : 'Sem conta?'}{' '}
+              {novoCadastro
+                ? <button type="button" className="auth-link" onClick={() => { window.location.href = '/app/'; }}>Entrar com sua conta existente</button>
+                : <a href="https://wa.me/5511991612610?text=Ol%C3%A1%21+Vim+pelo+site+da+Brava+e+gostaria+de+solicitar+uma+demonstra%C3%A7%C3%A3o+da+plataforma." className="auth-link" target="_blank">Solicite uma demonstração</a>
+              }
+            </p>
             <div className="auth-form__legal">
               <a href="#">Privacidade</a><span>·</span><a href="#">Termos</a><span>·</span><span>LGPD compliant</span>
             </div>
@@ -200,9 +220,33 @@ const LoginScreen = ({ onContinue, onNav }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════
+// FORGOT PASSWORD SCREEN
+// ═══════════════════════════════════════════════════════════
 const ForgotScreen = ({ onNav }) => {
-  const [email, setEmail] = React.useState('');
-  const [sent, setSent] = React.useState(false);
+  const [email, setEmail]   = React.useState('');
+  const [sent, setSent]     = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError]   = React.useState('');
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!email.includes('@')) { setError('Informe um e-mail válido.'); return; }
+    setError(''); setSubmitting(true);
+    try {
+      if (!window.supabase) throw new Error('Supabase não carregado.');
+      const { error: e1 } = await window.supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        { redirectTo: `${window.location.origin}/app/?recovery=1` },
+      );
+      if (e1) throw e1;
+      setSent(true);
+    } catch (err) {
+      setError(translateAuthError(err?.message));
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="auth-page auth-page--center">
@@ -216,10 +260,13 @@ const ForgotScreen = ({ onNav }) => {
         {!sent ? (
           <>
             <h2>Esqueceu sua senha?</h2>
-            <p className="auth-card__sub">Informe seu e-mail e enviaremos um link para criar uma nova. O link expira em 30 minutos.</p>
-            <form onSubmit={e => { e.preventDefault(); if (email.includes('@')) setSent(true); }} className="auth-form">
+            <p className="auth-card__sub">Informe seu e-mail e enviaremos um link para criar uma nova. O link expira em 1 hora.</p>
+            <form onSubmit={submit} className="auth-form">
               <Input label="E-mail" icon="Mail" type="email" placeholder="voce@empresa.com.br" value={email} onChange={e => setEmail(e.target.value)} autoFocus />
-              <Button variant="primary" size="lg" fullWidth type="submit" iconRight="ArrowRight">Enviar link de recuperação</Button>
+              {error && <div className="auth-error"><Icon name="AlertCircle" size={14} />{error}</div>}
+              <Button variant="primary" size="lg" fullWidth type="submit" iconRight="ArrowRight" loading={submitting}>
+                {submitting ? 'Enviando…' : 'Enviar link de recuperação'}
+              </Button>
             </form>
           </>
         ) : (
@@ -228,7 +275,7 @@ const ForgotScreen = ({ onNav }) => {
             <h2>Verifique sua caixa de entrada</h2>
             <p className="auth-card__sub">Se houver uma conta para <b>{email}</b>, você receberá em instantes um link para criar uma nova senha.</p>
             <div className="auth-card__hints">
-              <div><Icon name="Clock" size={14} /> O link expira em 30 minutos</div>
+              <div><Icon name="Clock" size={14} /> O link expira em 1 hora</div>
               <div><Icon name="Lock" size={14} /> Uso único — depois é invalidado</div>
               <div><Icon name="Info" size={14} /> Não recebeu? Confira o spam ou tente novamente</div>
             </div>
@@ -242,3 +289,4 @@ const ForgotScreen = ({ onNav }) => {
 
 window.LoginScreen = LoginScreen;
 window.ForgotScreen = ForgotScreen;
+window.irParaAdmin = irParaAdmin;
