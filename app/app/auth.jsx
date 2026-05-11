@@ -116,23 +116,20 @@ const LoginScreen = ({ onContinue, onNav }) => {
   return (
     <div className="auth-page">
       <div className="auth-page__brand">
+        {/* Glow blobs animados (estilo LP) */}
+        <div className="auth-glow-blob auth-glow-blob--purple" aria-hidden="true" />
+        <div className="auth-glow-blob auth-glow-blob--blue" aria-hidden="true" />
+        <div className="auth-page__brand-grid" aria-hidden="true" />
+
         <div className="auth-brand-stack">
-          <div className="auth-brand-stack__logo"><Logo size={56} /></div>
+          <div className="auth-brand-stack__logo">
+            <Logo size={40} mode="white" style={{ color: '#fff' }} />
+          </div>
           <div className="auth-brand-stack__h">
             <h1>O atendimento da sua empresa,<br/><span className="grad-text">orquestrado por IA</span>.</h1>
             <p>WhatsApp, pipeline, automações e agente de IA num único workspace. Operação visível, ticket que justifica o preço.</p>
           </div>
-          <div className="auth-brand-stack__pill">
-            <Badge variant="brand" icon="Sparkles">v1.2 · multi-tenant</Badge>
-            <span>Você está acessando: <b>EstacionePark Aeroporto</b></span>
-          </div>
-          <div className="auth-brand-stack__metrics">
-            <div><span className="auth-metric__n">128</span><span className="auth-metric__l">conversas hoje</span></div>
-            <div><span className="auth-metric__n">2.1<small>min</small></span><span className="auth-metric__l">1ª resposta</span></div>
-            <div><span className="auth-metric__n">97<small>%</small></span><span className="auth-metric__l">SLA cumprido</span></div>
-          </div>
         </div>
-        <div className="auth-page__brand-grid" aria-hidden="true" />
       </div>
 
       <div className="auth-page__form">
@@ -164,7 +161,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
             <Input
               label="E-mail"
               icon="Mail"
-              placeholder="voce@empresa.com.br"
+              placeholder="login@brava.company"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -199,7 +196,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
             <Button type="submit" variant="primary" size="lg" fullWidth iconRight="ArrowRight" loading={submitting}>
               {submitting
                 ? (novoCadastro ? 'Criando…' : 'Entrando…')
-                : (novoCadastro ? 'Criar conta e continuar' : 'Entrar')}
+                : (novoCadastro ? 'Crie seu acesso para começar' : 'Entrar')}
             </Button>
           </form>
 
