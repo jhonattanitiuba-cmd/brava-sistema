@@ -666,17 +666,24 @@ a { color: inherit; text-decoration: none; }
 }
 .auth-brand-stack {
   position: relative; z-index: 2;
-  max-width: 540px;
+  max-width: 640px;
   display: grid; gap: 36px;
 }
 .auth-brand-stack__h h1 {
   font-family: var(--font-display);
   font-weight: 500;
-  font-size: 48px;
-  line-height: 1.05;
+  font-size: 40px;
+  line-height: 1.1;
   letter-spacing: -0.025em;
   margin: 0 0 16px;
   color: #fff;
+  white-space: nowrap;
+}
+@media (max-width: 1400px) {
+  .auth-brand-stack__h h1 { font-size: 36px; }
+}
+@media (max-width: 1200px) {
+  .auth-brand-stack__h h1 { font-size: 32px; white-space: normal; }
 }
 .auth-brand-stack__h p {
   margin: 0; font-size: 17px; line-height: 1.55; color: rgba(245,245,247,.65);
