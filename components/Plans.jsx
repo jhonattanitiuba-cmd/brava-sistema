@@ -1,5 +1,12 @@
 /* global React, WA_LINK */
 
+// Links de pagamento do Stripe — TROCAR PROS LINKS DE PRODUÇÃO QUANDO MIGRAR
+const STRIPE_LINKS = {
+  essencial:   'https://buy.stripe.com/test_3cI00i0Sd3G1eLZ9CS9fW00',
+  performance: 'https://buy.stripe.com/test_9B6eVc58tgsN33h3eu9fW01',
+  scale:       'https://buy.stripe.com/test_eVq14m6cx3G1dHV2aq9fW02',
+};
+
 const PLANS = [
   {
     id: 'essencial',
@@ -141,11 +148,7 @@ function Plans() {
                   {p.cycle && <span style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>{p.cycle}</span>}
                 </div>
                 <a
-                  href={p.id === 'enterprise' ? WA_LINK : (() => {
-                    const tm = document.documentElement.getAttribute('data-theme') || 'dark';
-                    // TODO: trocar pelos Payment Links do Stripe quando configurar
-                    return `/app/?plano=${p.id}&theme=${tm}&new=1`;
-                  })()}
+                  href={p.id === 'enterprise' ? WA_LINK : (STRIPE_LINKS[p.id] || '#')}
                   className={`btn ${p.highlight ? 'btn-primary' : 'btn-ghost'}`}
                   style={{ width: '100%', marginBottom: 24 }}
                 >
