@@ -834,17 +834,16 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 // loginUrl: pra onde "Entrar" leva. Brava-hosted = /app/?login=1&workspace=slug
 // Sistemas externos (ex.: Orquestra) usam URL absoluta.
 const CLIENTES_CRM = [
-  // Alessandro / Hub Imob: deployado em /clientes/alessandro/ no mesmo Cloudfy.
-  // Fonte de edicao: 3. SAAS/1. ALESSANDRO - SISTEMA IMOBILIARIO/ (organizacional)
-  // Deploy: 0. SISTEMA DE HOSPEDAGEM/clientes/alessandro/ (vai pro ar)
+  // === TOPO: clientes com sistema proprio (externo ou Brava-hosted dedicado) ===
   { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#7B3FE4', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html' },
+  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#7B3FE4', slug:'estacionepark', loginUrl:'https://www.estacioneparkcongonhas.site/login', externo:true },
+  { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#BA7517', slug:'masteraviacao', loginUrl:'https://master-escola-de-avia-o-civil-congo.vercel.app/login', externo:true },
+  // === Demais Em Prod (white-label Brava em /clientes/) ===
   { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#7B3FE4', slug:'clinicareunidas', loginUrl:'/clientes/clinicareunidas/login.html' },
   { nome:'Garcia Sadler',        servico:'IA + API',             nicho:'Construção',          status:'Em Prod',             init:'GS', color:'#1E90FF', slug:'garciasadler', loginUrl:'/clientes/garciasadler/login.html' },
   { nome:'Dra. Thalita Morete',  servico:'IA + CRM',             nicho:'Estética',            status:'Em Prod',             init:'TM', color:'#1D9E75', slug:'thalita', loginUrl:'/clientes/thalita/login.html' },
   { nome:'Ldccell Sorocaba',     servico:'IA + API',             nicho:'Loja de Eletrônicos', status:'Em Prod',             init:'LS', color:'#185FA5', slug:'ldccell', loginUrl:'/clientes/ldccell/login.html' },
   { nome:'VapoCamping Hotel',    servico:'IA + CRM + Site',      nicho:'Turismo',             status:'Em Prod',             init:'VC', color:'#1D9E75', slug:'vapocamping', loginUrl:'/clientes/vapocamping/login.html' },
-  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#7B3FE4', slug:'estacionepark', loginUrl:'https://www.estacioneparkcongonhas.site/login', externo:true },
-  { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#BA7517', slug:'masteraviacao', loginUrl:'https://master-escola-de-avia-o-civil-congo.vercel.app/login', externo:true },
   { nome:'Monteiro Multimarcas', servico:'IA + CRM',             nicho:'Automobilístico',     status:'Implementação',       init:'MM', color:'#185FA5', slug:'monteiro' },
   { nome:'Grupo Marinho',        servico:'IA + API + CRM',       nicho:'Automobilístico',     status:'Implementação',       init:'GM', color:'#185FA5', slug:'grupomarinho' },
   { nome:'Bionicão',             servico:'IA + CRM',             nicho:'Veterinário',         status:'Implementação',       init:'BI', color:'#185FA5', slug:'bionicao' },
