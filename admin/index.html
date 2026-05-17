@@ -1792,6 +1792,71 @@ function HeaderUserAvatar() {
   );
 }
 
+/* ─── Configurações > Aba Geral (componente separado p/ hooks isolados) ─── */
+function ConfigGeralTab() {
+  const CAMPOS = [
+    ['razaoSocial',   'Razão social',       'Brava Company'],
+    ['cnpj',          'CNPJ',                '34.454.770/0001-26'],
+    ['emailPrincipal','E-mail principal',    'diretoria@brava.company'],
+    ['whatsApp',      'WhatsApp comercial',  '+55 11 96334-2541'],
+    ['dominio',       'Domínio',             'bravacompany.app'],
+  ];
+  const empresaSaved = (() => { try { return JSON.parse(localStorage.getItem('brava_empresa')||'{}'); } catch { return {}; } })();
+  const refs = React.useRef({});
+  const [empSal, setEmpSal] = useState(false);
+  const [empMsg, setEmpMsg] = useState('');
+
+  const salvarEmpresa = () => {
+    setEmpSal(true); setEmpMsg('');
+    const data = {};
+    CAMPOS.forEach(([k]) => { data[k] = refs.current[k]?.value || ''; });
+    try {
+      localStorage.setItem('brava_empresa', JSON.stringify(data));
+      setTimeout(() => {
+        setEmpSal(false);
+        setEmpMsg('Informações da empresa salvas.');
+        setTimeout(() => setEmpMsg(''), 2500);
+      }, 400);
+    } catch (e) {
+      setEmpSal(false); setEmpMsg('Erro ao salvar.');
+    }
+  };
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:18}}>
+      <div className="card__title" style={{marginBottom:0}}>Informações da empresa</div>
+      {CAMPOS.map(([k, label, defaultV]) => (
+        <div key={k}>
+          <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
+          <input
+            ref={el => refs.current[k] = el}
+            defaultValue={empresaSaved[k] || defaultV}
+            style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}
+          />
+        </div>
+      ))}
+      <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+        <button className="btn btn-primary" style={{width:'fit-content'}} onClick={salvarEmpresa} disabled={empSal}>
+          <Icon name="Check" size={14}/>{empSal ? 'Salvando…' : 'Salvar alterações'}
+        </button>
+        {empMsg && (
+          <div style={{
+            padding:'8px 12px',
+            background: empMsg.includes('Erro') ? 'rgba(163,45,45,.15)' : 'rgba(29,158,117,.15)',
+            color: empMsg.includes('Erro') ? '#fca5a5' : '#6ee7b7',
+            borderRadius:8, fontSize:13, fontWeight:500,
+            display:'flex', alignItems:'center', gap:6
+          }}>
+            <Icon name={empMsg.includes('Erro') ? 'AlertCircle' : 'CheckCircle2'} size={14}/>
+            {empMsg}
+            <button onClick={() => setEmpMsg('')} style={{background:'none', border:'none', color:'inherit', cursor:'pointer', padding:'0 0 0 4px', opacity:.7}}><Icon name="X" size={12}/></button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Configurações ─── */
 function Config() {
   const [aba, setAba] = useState('geral');
@@ -1978,67 +2043,7 @@ function Config() {
               </div>
             </div>
           )}
-          {aba==='geral' && (() => {
-            const CAMPOS = [
-              ['razaoSocial', 'Razão social',       'Brava Company'],
-              ['cnpj',        'CNPJ',                '34.454.770/0001-26'],
-              ['emailPrincipal','E-mail principal',  'diretoria@brava.company'],
-              ['whatsApp',    'WhatsApp comercial',  '+55 11 96334-2541'],
-              ['dominio',     'Domínio',             'bravacompany.app'],
-            ];
-            const empresaSaved = (() => { try { return JSON.parse(localStorage.getItem('brava_empresa')||'{}'); } catch { return {}; } })();
-            const refs = React.useRef({});
-            const [empSal, setEmpSal] = useState(false);
-            const [empMsg, setEmpMsg] = useState('');
-            const salvarEmpresa = () => {
-              setEmpSal(true); setEmpMsg('');
-              const data = {};
-              CAMPOS.forEach(([k]) => { data[k] = refs.current[k]?.value || ''; });
-              try {
-                localStorage.setItem('brava_empresa', JSON.stringify(data));
-                setTimeout(() => {
-                  setEmpSal(false);
-                  setEmpMsg('Informações da empresa salvas.');
-                  setTimeout(() => setEmpMsg(''), 2500);
-                }, 400);
-              } catch (e) {
-                setEmpSal(false); setEmpMsg('Erro ao salvar.');
-              }
-            };
-            return (
-              <div style={{display:'flex', flexDirection:'column', gap:18}}>
-                <div className="card__title" style={{marginBottom:0}}>Informações da empresa</div>
-                {CAMPOS.map(([k, label, defaultV]) => (
-                  <div key={k}>
-                    <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
-                    <input
-                      ref={el => refs.current[k] = el}
-                      defaultValue={empresaSaved[k] || defaultV}
-                      style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}
-                    />
-                  </div>
-                ))}
-                <div style={{display:'flex', gap:10, alignItems:'center'}}>
-                  <button className="btn btn-primary" style={{width:'fit-content'}} onClick={salvarEmpresa} disabled={empSal}>
-                    <Icon name="Check" size={14}/>{empSal ? 'Salvando…' : 'Salvar alterações'}
-                  </button>
-                  {empMsg && (
-                    <div style={{
-                      padding:'8px 12px',
-                      background: empMsg.includes('Erro') ? 'rgba(163,45,45,.15)' : 'rgba(29,158,117,.15)',
-                      color: empMsg.includes('Erro') ? '#fca5a5' : '#6ee7b7',
-                      borderRadius:8, fontSize:13, fontWeight:500,
-                      display:'flex', alignItems:'center', gap:6
-                    }}>
-                      <Icon name={empMsg.includes('Erro') ? 'AlertCircle' : 'CheckCircle2'} size={14}/>
-                      {empMsg}
-                      <button onClick={() => setEmpMsg('')} style={{background:'none', border:'none', color:'inherit', cursor:'pointer', padding:'0 0 0 4px', opacity:.7}}><Icon name="X" size={12}/></button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()}
+          {aba==='geral' && <ConfigGeralTab/>}
           {aba==='integracoes' && (
             <div style={{display:'flex', flexDirection:'column', gap:12}}>
               <div className="card__title" style={{marginBottom:6}}>Integrações disponíveis</div>
