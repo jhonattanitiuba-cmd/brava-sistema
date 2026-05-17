@@ -989,7 +989,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 // Sistemas externos (ex.: Orquestra) usam URL absoluta.
 const CLIENTES_CRM = [
   // === TOPO: clientes com sistema proprio (externo ou Brava-hosted dedicado) ===
-  { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#FFFFFF', logoUrl:'/clientes/_logos/alessandro.jpg', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html' },
+  { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#FFFFFF', logoUrl:'/clientes/_logos/alessandro.jpg', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html', externo:true },
   { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#FFFFFF', logoUrl:'/clientes/_logos/estacionepark.png', slug:'estacionepark', loginUrl:'https://www.estacioneparkcongonhas.site/login', externo:true },
   { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#F5A623', logoUrl:'/clientes/_logos/masteraviacao.png', slug:'masteraviacao', loginUrl:'https://master-escola-de-avia-o-civil-congo.vercel.app/login', externo:true },
   // === Demais Em Prod (white-label Brava em /clientes/) ===
