@@ -897,6 +897,31 @@ function clienteLoginUrl(c) {
   return `/app/?login=1&workspace=${slug}`;
 }
 
+// Helper: busca a logoUrl do cliente pelo nome (usado em Chamados, Pipeline, etc.)
+function getClienteLogo(nome) {
+  if (!nome) return null;
+  const c = CLIENTES_CRM.find(x => x.nome === nome || nome.indexOf(x.nome) === 0);
+  return c?.logoUrl || null;
+}
+
+// Componente reutilizavel: renderiza logo do cliente ou fallback init
+function ClienteAvatar({ nome, init, color, size = 34, logoUrl }) {
+  const logo = logoUrl || getClienteLogo(nome);
+  const bg = logo ? '#FFFFFF' : (color || 'var(--purple)');
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: '50%',
+      background: bg, overflow: 'hidden', flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontFamily: 'var(--f-d)', fontWeight: 700, fontSize: Math.max(10, Math.round(size * 0.32)), color: '#fff'
+    }}>
+      {logo
+        ? <img src={logo + '?v=3'} alt={nome || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.background = color || 'var(--purple)'; e.target.parentNode.textContent = init; }}/>
+        : init}
+    </div>
+  );
+}
+
 const STATUS_COLOR = {
   'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4',
   'Comercial':'#BA7517', 'Proposta Apresentada':'#BA7517', 'Em breve':'#6E6E78',
@@ -1475,7 +1500,7 @@ function Chamados() {
               borderLeft: aberto===c.id ? '3px solid var(--purple)' : '3px solid transparent',
             }}>
               <div style={{display:'flex', alignItems:'flex-start', gap:10}}>
-                <div style={{width:34, height:34, borderRadius:'50%', background:c.cor, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:11.5, color:'#fff', flexShrink:0}}>{c.init}</div>
+                <ClienteAvatar nome={c.cliente} init={c.init} color={c.cor} size={34}/>
                 <div style={{flex:1, minWidth:0}}>
                   <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8}}>
                     <span style={{fontSize:13.5, fontWeight:600, color:'var(--t1)'}}>{c.cliente}</span>
@@ -2369,11 +2394,11 @@ function MRR() {
 
 /* ─── Pipeline Kanban ─── */
 const PIPELINE_INIT = [
-  { id:'lead',       nome:'Lead',        cor:'#6E6E78', cards: CLIENTES_CRM.filter(c=>c.status==='Comercial').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
-  { id:'proposta',   nome:'Proposta',    cor:'#BA7517', cards: CLIENTES_CRM.filter(c=>c.status==='Proposta Apresentada').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
-  { id:'impl',       nome:'Implementação',cor:'#7B3FE4',cards: CLIENTES_CRM.filter(c=>c.status==='Implementação').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
-  { id:'ativo',      nome:'Ativo',       cor:'#1E90FF', cards: CLIENTES_CRM.filter(c=>c.status==='Ativo').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
-  { id:'prod',       nome:'Em Produção', cor:'#1D9E75', cards: CLIENTES_CRM.filter(c=>c.status==='Em Prod').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init})) },
+  { id:'lead',       nome:'Lead',        cor:'#6E6E78', cards: CLIENTES_CRM.filter(c=>c.status==='Comercial').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init,logoUrl:c.logoUrl})) },
+  { id:'proposta',   nome:'Proposta',    cor:'#BA7517', cards: CLIENTES_CRM.filter(c=>c.status==='Proposta Apresentada').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init,logoUrl:c.logoUrl})) },
+  { id:'impl',       nome:'Implementação',cor:'#7B3FE4',cards: CLIENTES_CRM.filter(c=>c.status==='Implementação').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init,logoUrl:c.logoUrl})) },
+  { id:'ativo',      nome:'Ativo',       cor:'#1E90FF', cards: CLIENTES_CRM.filter(c=>c.status==='Ativo').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init,logoUrl:c.logoUrl})) },
+  { id:'prod',       nome:'Em Produção', cor:'#1D9E75', cards: CLIENTES_CRM.filter(c=>c.status==='Em Prod').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init,logoUrl:c.logoUrl})) },
 ];
 
 const CORES = ['#6E6E78','#7B3FE4','#1E90FF','#1D9E75','#BA7517','#A32D2D','#185FA5','#E040FB','#FF6D00','#00BCD4'];
@@ -2600,7 +2625,7 @@ function Pipeline({ cols, setCols }) {
                       onMouseEnter={e => { if (!drag) { e.currentTarget.style.borderColor = 'rgba(123,63,228,.4)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.15)'; }}}
                       onMouseLeave={e => { if (!drag) { e.currentTarget.style.borderColor = 'var(--border-soft)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 0 rgba(0,0,0,.05)'; }}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:card.sub?6:0}}>
-                        <div style={{width:26,height:26,borderRadius:'50%',background:card.color,display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--f-d)',fontWeight:700,fontSize:10,color:'#fff',flexShrink:0}}>{card.init}</div>
+                        <ClienteAvatar nome={card.nome} init={card.init} color={card.color} logoUrl={card.logoUrl} size={28}/>
                         <div style={{fontWeight:600,fontSize:13,color:'var(--t1)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{card.nome}</div>
                       </div>
                       {card.sub && <div style={{fontSize:11.5,color:'var(--t3)',marginLeft:34}}>{card.sub}</div>}
@@ -2725,7 +2750,7 @@ function ClientWorkspace({ cliente }) {
         </div>
         <div className="header__actions">
           <div className="header__icon"><Icon name="Bell" size={17}/><span className="header__notif"/></div>
-          <div className="header__avatar" style={{background:cliente.color}}>{cliente.init}</div>
+          <ClienteAvatar nome={cliente.nome} init={cliente.init} color={cliente.color} logoUrl={cliente.logoUrl} size={32}/>
         </div>
       </header>
 
@@ -3007,7 +3032,7 @@ function App() {
     setExtraCRM(arr => [...arr, cliente]);
     const colMap = { 'Comercial':'lead', 'Proposta Apresentada':'proposta', 'Implementação':'impl', 'Ativo':'ativo', 'Em Prod':'prod', 'Em breve':'lead' };
     const colId = colMap[cliente.status] || 'lead';
-    setPipelineCols(cs => cs.map(c => c.id === colId ? {...c, cards:[...c.cards, {id:cliente.nome+Date.now(), nome:cliente.nome, sub:cliente.servico, nicho:cliente.nicho, color:cliente.color, init:cliente.init}]} : c));
+    setPipelineCols(cs => cs.map(c => c.id === colId ? {...c, cards:[...c.cards, {id:cliente.nome+Date.now(), nome:cliente.nome, sub:cliente.servico, nicho:cliente.nicho, color:cliente.color, init:cliente.init, logoUrl:cliente.logoUrl}]} : c));
     showToast(`Cliente ${cliente.nome} cadastrado com sucesso`, 'success');
   };
 
