@@ -355,7 +355,11 @@ window.addEventListener('error', function(e) {
 setTimeout(function() {
   var l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
-}, 3000);
+}, 9500);
+// Aplica modo claro por padrao no boot
+if (!document.documentElement.getAttribute('data-theme')) {
+  document.documentElement.setAttribute('data-theme', 'light');
+}
 </script>
 <div id="brava-loading" style="position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity .4s ease;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
@@ -2595,7 +2599,8 @@ function ShortcutsModal({ open, onClose }) {
 
 /* ─── Theme toggle ─── */
 function ThemeToggle() {
-  const [dark, setDark] = useState(true);
+  // Inicia em modo claro por padrao
+  const [dark, setDark] = useState(false);
   const toggle = () => {
     const next = !dark;
     setDark(next);
@@ -3540,7 +3545,8 @@ function exportarCSV() {
 /* ─── App ─── */
 function App() {
   // Persistência via localStorage
-  const [page, setPage] = useState(() => localStorage.getItem('brava_page') || 'dashboard');
+  // Sempre comeca em Dashboard ao logar (ignora ultima pagina salva)
+  const [page, setPage] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('brava_collapsed') === '1');
   const [impersonate, setImpersonate] = useState(null);
   const [pipelineCols, setPipelineCols] = useState(() => {
@@ -3644,10 +3650,11 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+// Splash de login: 8 segundos antes de revelar o sistema
 setTimeout(() => {
   const l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(() => l.remove(), 400); }
-}, 700);
+}, 8000);
 </script>
 </body>
 </html>
