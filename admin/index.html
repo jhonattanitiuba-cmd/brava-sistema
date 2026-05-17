@@ -593,7 +593,7 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
           <Icon name="Settings" size={17}/>
         </div>
         <div className="header__avatar" style={{padding:0, overflow:'hidden'}} title="Jhonattan Itiuba">
-          <img src="app/gabriel.jpg" alt="Jhonattan Itiuba" style={{width:'100%', height:'100%', objectFit:'cover', borderRadius:'50%'}}
+          <img src="app/jhonattan.jpg" alt="Jhonattan Itiuba" style={{width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 25%', borderRadius:'50%'}}
             onError={e => { e.target.style.display='none'; e.target.parentElement.textContent='JI'; }}/>
         </div>
       </div>
@@ -805,7 +805,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
             <div className="card__title">Equipe Brava</div>
           </div>
           {[
-            {name:'Jhonattan Itiuba', role:'Diretoria',    status:'online', foto:'app/gabriel.jpg'},
+            {name:'Jhonattan Itiuba', role:'Diretoria',    status:'online', foto:'app/jhonattan.jpg'},
             {name:'Maria Eduarda',   role:'CS / Suporte', status:'online', foto:null},
             {name:'João Silva',      role:'Dev',          status:'online', foto:null},
             {name:'Ana Lima',        role:'Comercial',    status:'away',   foto:null},
@@ -1521,7 +1521,7 @@ function Chamados() {
 
 /* ─── Equipe Brava ─── */
 const EQUIPE_INIT = [
-  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'app/gabriel.jpg', tenants:'todos',    chamados:0 },
+  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'app/jhonattan.jpg', tenants:'todos',    chamados:0 },
   { id:2, nome:'Maria Eduarda',    email:'maria@bravacompany.app',    role:'CS / Suporte', status:'online', foto:null,             tenants:'todos',    chamados:5 },
   { id:3, nome:'João Silva',       email:'joao@bravacompany.app',     role:'Dev',          status:'online', foto:null,             tenants:'EstacionePark, Garcia', chamados:2 },
   { id:4, nome:'Ana Lima',         email:'ana@bravacompany.app',      role:'Comercial',    status:'away',   foto:null,             tenants:'Pipeline',  chamados:0 },
