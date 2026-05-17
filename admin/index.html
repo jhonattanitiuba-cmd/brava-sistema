@@ -640,8 +640,16 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__title">Bom dia, {SESSAO.nome.split(' ')[0]}</div>
-          <div className="page-head__sub">Sábado, 10 de maio de 2026 · <span style={{color:'var(--success)'}}>● Plataforma operacional</span></div>
+          <div className="page-head__title">{(() => {
+            const h = new Date().getHours();
+            const saudacao = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+            return `${saudacao}, ${SESSAO.nome.split(' ')[0]}`;
+          })()}</div>
+          <div className="page-head__sub">{(() => {
+            const hoje = new Date();
+            const fmt = new Intl.DateTimeFormat('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(hoje);
+            return fmt.charAt(0).toUpperCase() + fmt.slice(1);
+          })()} · <span style={{color:'var(--success)'}}>● Plataforma operacional</span></div>
         </div>
         <div className="page-head__actions">
           <button className="btn btn-outline" onClick={onExportar}><Icon name="Download" size={14}/>Exportar relatório</button>
