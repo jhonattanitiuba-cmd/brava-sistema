@@ -130,7 +130,7 @@
 <script>
   // Gate: precisa ter auth pra ver o loading
   if (localStorage.getItem('orquestra_auth') !== '1') {
-    window.location.replace('/login');
+    window.location.replace('login.html');
   }
 
   const STEPS = [
@@ -170,7 +170,7 @@
     }
 
     if (p < 1) requestAnimationFrame(tick);
-    else setTimeout(() => window.location.replace('/orquestra'), 250);
+    else setTimeout(() => window.location.replace('orquestra.html'), 250);
   }
   requestAnimationFrame(tick);
 </script>

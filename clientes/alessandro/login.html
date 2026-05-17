@@ -264,7 +264,7 @@ tailwind.config = {
     setTimeout(() => {
       localStorage.setItem('orquestra_auth', '1');
       localStorage.setItem('orquestra_user', JSON.stringify({ email, name: 'Alessandro', remember: remember.checked }));
-      window.location.href = '/loading';
+      window.location.href = 'loading.html';
     }, 600);
   });
 
@@ -276,7 +276,7 @@ tailwind.config = {
       setTimeout(() => {
         localStorage.setItem('orquestra_auth', '1');
         localStorage.setItem('orquestra_user', JSON.stringify({ email: 'alessandro@orquestra.com.br', name: 'Alessandro', sso: provider }));
-        window.location.href = '/loading';
+        window.location.href = 'loading.html';
       }, 700);
     });
   });
