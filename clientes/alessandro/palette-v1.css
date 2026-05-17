@@ -1,0 +1,109 @@
+/* ============================================================
+   ORQUESTRA — Paleta v1 (snapshot em 2026-05-17)
+   Tema: navy marinho + branco (estilo Quinto Andar light/dark)
+   Para reverter: aplicar estes valores nos lugares indicados.
+   ============================================================ */
+
+
+/* =====================================================
+   1) orquestra.html  →  bloco dentro de <style>
+   ===================================================== */
+:root {
+  --c-bg: 245 247 250;
+  --c-panel: 255 255 255;
+  --c-panel2: 247 249 252;
+  --c-border: 227 232 239;
+  --c-muted: 100 115 135;
+  --c-text: 10 31 61;
+  --c-accent: 0 59 92;
+  --c-accent2: 0 119 182;
+  --c-warn: 245 158 11;
+  --c-danger: 220 38 38;
+  --c-side-bg: 6 22 41;
+  --c-side-text: 226 234 247;
+  --c-side-muted: 138 160 192;
+  --c-side-active: 77 163 217;
+}
+html.dark {
+  --c-bg: 10 16 28;
+  --c-panel: 22 32 50;
+  --c-panel2: 30 42 64;
+  --c-border: 48 64 92;
+  --c-muted: 148 168 196;
+  --c-text: 232 238 250;
+  --c-accent: 77 163 217;
+  --c-accent2: 124 196 240;
+  --c-warn: 251 191 36;
+  --c-danger: 248 113 113;
+  --c-side-bg: 4 12 24;
+  --c-side-active: 124 196 240;
+}
+
+
+/* =====================================================
+   2) login.html  →  tailwind.config inline
+   ===================================================== */
+/*
+colors: {
+  navy:    '#003B5C',
+  navy2:   '#06162a',
+  navy3:   '#0a2547',
+  accent2: '#0077b6',
+  accent3: '#4da3d9',
+  text:    '#0a1f3d',
+  muted:   '#6b7785',
+  border:  '#e3e8ef',
+  warn:    '#f59e0b',
+  danger:  '#dc2626',
+}
+
+Hero gradient (no .hero):
+  radial-gradient(1200px 600px at 90% -10%, rgba(77,163,217,0.18), transparent 60%),
+  radial-gradient(900px 500px at -10% 110%,  rgba(0,119,182,0.22), transparent 55%),
+  linear-gradient(135deg, #06162a 0%, #0a2547 60%, #0e3258 100%);
+
+Textos no hero:
+  hero text:   #e2eaf7
+  hero muted:  #b8c8e0
+  hero label:  #8aa0c0
+*/
+
+
+/* =====================================================
+   3) loading.html  →  estilos hardcoded
+   ===================================================== */
+/*
+body background:
+  radial-gradient(1400px 700px at 80% -10%, rgba(77,163,217,0.22), transparent 60%),
+  radial-gradient(1100px 600px at -10% 110%, rgba(0,119,182,0.28), transparent 55%),
+  linear-gradient(135deg, #06162a 0%, #0a2547 55%, #0e3258 100%);
+
+logo-box gradient: linear-gradient(135deg, #4da3d9 0%, #0077b6 100%);
+brand:    #fff
+tagline:  #8aa0c0
+status:   #b8c8e0
+status checkmark: #4da3d9
+progress fill: linear-gradient(90deg, #4da3d9, #0077b6)
+progress shadow: rgba(77,163,217,0.6)
+footer: #8aa0c0 (com strong #fff)
+ring borders: rgba(124,196,240, 0.18 / 0.1)
+*/
+
+
+/* =====================================================
+   HEX equivalentes (referência rápida light theme)
+   ===================================================== */
+/*
+--c-bg       #f5f7fa
+--c-panel    #ffffff
+--c-panel2   #f7f9fc
+--c-border   #e3e8ef
+--c-muted    #647387
+--c-text     #0a1f3d  (navy escuro p/ texto)
+--c-accent   #003B5C  (navy marinho primário)
+--c-accent2  #0077b6  (blue secundário)
+--c-warn     #f59e0b  (amber)
+--c-danger   #dc2626  (red)
+--c-side-bg  #06162a  (sidebar bg sempre escuro)
+--c-side-active #4da3d9
+*/

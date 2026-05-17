@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orquestra · Inicializando...</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: 'Montserrat', sans-serif; color: #e2eaf7; }
+  body {
+    background:
+      radial-gradient(1400px 700px at 80% -10%, rgba(77,163,217,0.22), transparent 60%),
+      radial-gradient(1100px 600px at -10% 110%, rgba(0,119,182,0.28), transparent 55%),
+      linear-gradient(135deg, #06162a 0%, #0a2547 55%, #0e3258 100%);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  body::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    pointer-events: none;
+  }
+
+  .wrap { position: relative; z-index: 1; text-align: center; max-width: 460px; padding: 24px; }
+
+  .logo-box {
+    width: 72px; height: 72px; margin: 0 auto 28px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #4da3d9 0%, #0077b6 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 40px rgba(77,163,217,0.4), 0 0 0 1px rgba(255,255,255,0.08);
+    animation: pulse-logo 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse-logo {
+    0%, 100% { transform: scale(1); box-shadow: 0 10px 40px rgba(77,163,217,0.4), 0 0 0 1px rgba(255,255,255,0.08); }
+    50% { transform: scale(1.06); box-shadow: 0 16px 56px rgba(77,163,217,0.6), 0 0 0 1px rgba(255,255,255,0.14); }
+  }
+
+  .brand {
+    font-size: 26px; font-weight: 800; letter-spacing: -0.5px;
+    color: #fff;
+  }
+  .tagline {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 3px;
+    color: #8aa0c0; margin-top: 6px; font-weight: 600;
+  }
+
+  .status {
+    margin-top: 44px;
+    font-size: 14px; font-weight: 500; color: #b8c8e0;
+    min-height: 22px;
+    transition: opacity 0.25s ease;
+  }
+  .status .check { color: #4da3d9; font-weight: 700; margin-right: 6px; }
+
+  .progress-track {
+    margin-top: 22px;
+    width: 320px; height: 4px; max-width: 100%;
+    background: rgba(255,255,255,0.08); border-radius: 999px;
+    overflow: hidden; margin-left: auto; margin-right: auto;
+    position: relative;
+  }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #4da3d9, #0077b6);
+    border-radius: 999px;
+    box-shadow: 0 0 12px rgba(77,163,217,0.6);
+    transition: width 0.2s linear;
+  }
+  .progress-pct {
+    margin-top: 12px;
+    font-size: 11px; font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #8aa0c0; letter-spacing: 0.5px;
+  }
+
+  .footer {
+    position: absolute; bottom: 28px; left: 0; right: 0;
+    text-align: center; z-index: 1;
+    font-size: 11px; color: #8aa0c0;
+  }
+  .footer strong { color: #fff; font-weight: 700; letter-spacing: 0.3px; }
+
+  /* spinner ring around progress (subtle) */
+  .ring {
+    position: absolute; width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 1px dashed rgba(124,196,240,0.18);
+    animation: rotate 16s linear infinite;
+    pointer-events: none;
+  }
+  .ring.r2 { width: 280px; height: 280px; border-color: rgba(124,196,240,0.1); animation-duration: 24s; animation-direction: reverse; }
+  @keyframes rotate { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <div class="ring"></div>
+  <div class="ring r2"></div>
+
+  <div class="wrap">
+    <div class="logo-box">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+        <path d="M4 4 L12 12 L20 4 M4 20 L12 12 L20 20" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="brand">orquestra</div>
+    <div class="tagline">hub imobiliário · paulista</div>
+
+    <div class="status" id="status">Conectando ao Orquestra Hub...</div>
+
+    <div class="progress-track">
+      <div class="progress-fill" id="bar"></div>
+    </div>
+    <div class="progress-pct" id="pct">0%</div>
+  </div>
+
+  <div class="footer">
+    powered by <strong>© Brava Company</strong> · v2.4
+  </div>
+
+<script>
+  // Gate: precisa ter auth pra ver o loading
+  if (localStorage.getItem('orquestra_auth') !== '1') {
+    window.location.replace('/login');
+  }
+
+  const STEPS = [
+    { at: 0,    msg: 'Conectando ao Orquestra Hub...' },
+    { at: 600,  msg: '<span class="check">✓</span> Autenticação validada · CRECI-SP' },
+    { at: 1200, msg: 'Sincronizando estoque consolidado · 412 imóveis...' },
+    { at: 1900, msg: '<span class="check">✓</span> 7 imobiliárias parceiras conectadas' },
+    { at: 2500, msg: 'Carregando IA Maestra · modelo Claude Sonnet 4.6...' },
+    { at: 3200, msg: '<span class="check">✓</span> Pipeline ativo · 271 leads em qualificação' },
+    { at: 3700, msg: 'Pronto.' },
+  ];
+  const DURATION = 4000;
+
+  const status = document.getElementById('status');
+  const bar = document.getElementById('bar');
+  const pct = document.getElementById('pct');
+
+  const start = performance.now();
+  let stepIdx = 0;
+
+  function fadeText(html) {
+    status.style.opacity = '0';
+    setTimeout(() => { status.innerHTML = html; status.style.opacity = '1'; }, 180);
+  }
+
+  function tick(now) {
+    const elapsed = now - start;
+    const p = Math.min(elapsed / DURATION, 1);
+    const percent = Math.floor(p * 100);
+    bar.style.width = percent + '%';
+    pct.textContent = percent + '%';
+
+    while (stepIdx < STEPS.length && elapsed >= STEPS[stepIdx].at) {
+      if (stepIdx > 0) fadeText(STEPS[stepIdx].msg);
+      else status.innerHTML = STEPS[stepIdx].msg;
+      stepIdx++;
+    }
+
+    if (p < 1) requestAnimationFrame(tick);
+    else setTimeout(() => window.location.replace('/orquestra'), 250);
+  }
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>

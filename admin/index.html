@@ -834,10 +834,10 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 // loginUrl: pra onde "Entrar" leva. Brava-hosted = /app/?login=1&workspace=slug
 // Sistemas externos (ex.: Orquestra) usam URL absoluta.
 const CLIENTES_CRM = [
-  // Alessandro / Hub Imob: sistema em desenvolvimento local (Claude Code em outra sessao).
-  // Arquivos em: 3. SAAS/1. ALESSANDRO - SISTEMA IMOBILIÁRIO/login.html
-  // Quando unificar com Brava, trocar loginUrl pra /hub-imob/login.html e remover externo:true
-  { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Implementação', init:'AL', color:'#7B3FE4', slug:'alessandro', loginUrl:'http://localhost:3010/login.html', externo:true, devLocal:true },
+  // Alessandro / Hub Imob: deployado em /clientes/alessandro/ no mesmo Cloudfy.
+  // Fonte de edicao: 3. SAAS/1. ALESSANDRO - SISTEMA IMOBILIARIO/ (organizacional)
+  // Deploy: 0. SISTEMA DE HOSPEDAGEM/clientes/alessandro/ (vai pro ar)
+  { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#7B3FE4', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html' },
   { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#7B3FE4', slug:'clinicareunidas' },
   { nome:'Garcia Sadler',        servico:'IA + API',             nicho:'Construção',          status:'Em Prod',             init:'GS', color:'#1E90FF', slug:'garciasadler' },
   { nome:'Dra. Thalita Morete',  servico:'IA + CRM',             nicho:'Estética',            status:'Em Prod',             init:'TM', color:'#1D9E75', slug:'thalita' },
