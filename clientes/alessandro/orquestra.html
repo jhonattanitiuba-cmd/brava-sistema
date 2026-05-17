@@ -2265,7 +2265,7 @@ supportForm.addEventListener('submit', (e) => {
 
 // Auth gate
 if (localStorage.getItem('orquestra_auth') !== '1') {
-  window.location.href = '/login';
+  window.location.href = 'login.html';
 }
 
 // Hidrata nome do user logado, se existir
@@ -2297,7 +2297,7 @@ try {
 document.getElementById('logoutBtn').addEventListener('click', () => {
   localStorage.removeItem('orquestra_auth');
   localStorage.removeItem('orquestra_user');
-  window.location.href = '/login';
+  window.location.href = 'login.html';
 });
 </script>
 
