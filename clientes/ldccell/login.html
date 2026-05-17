@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Ldccell Sorocaba — Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #185FA5;
+  --secondary: #1E90FF;
+  --bg: #050510;
+  --bg-elev: #0E0E14;
+  --bg-card: rgba(20,20,28,.6);
+  --border: rgba(255,255,255,.08);
+  --text-1: #F5F5F7;
+  --text-2: #A0A0AA;
+  --text-3: #6E6E78;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text-1);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  overflow: hidden;
+}
+@media (max-width: 900px) { body { grid-template-columns: 1fr; } .brand-side { display: none; } }
+
+/* Lado esquerdo - brand */
+.brand-side {
+  position: relative;
+  background: #000;
+  padding: 48px 64px 48px 100px;
+  display: flex; align-items: center;
+  overflow: hidden;
+}
+.glow-purple, .glow-blue {
+  position: absolute; border-radius: 50%;
+  filter: blur(140px); pointer-events: none;
+}
+.glow-purple {
+  width: 460px; height: 460px; top: -140px; left: -140px;
+  background: var(--primary); opacity: .32;
+  animation: drift-p 7s ease-in-out infinite;
+}
+.glow-blue {
+  width: 420px; height: 420px; bottom: -120px; right: -120px;
+  background: var(--secondary); opacity: .28;
+  animation: drift-b 8s ease-in-out infinite;
+}
+@keyframes drift-p { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(60px,40px) scale(1.1);} }
+@keyframes drift-b { 0%,100%{transform:translate(0,0) scale(1);} 50%{transform:translate(-50px,30px) scale(1.08);} }
+.brand-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 50% 30%, #000 0%, #000 50%, transparent 85%);
+  pointer-events: none;
+}
+.brand-stack { position: relative; z-index: 2; max-width: 640px; display: grid; gap: 36px; }
+.brand-logo {
+  width: 80px; height: 80px; border-radius: 20px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px; font-weight: 700; color: #fff;
+  box-shadow: 0 12px 32px -8px var(--primary);
+  animation: slide-in-left .8s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .05s;
+}
+.brand-h h1 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500; font-size: 40px; line-height: 1.1;
+  letter-spacing: -.025em; color: #fff;
+  white-space: nowrap;
+  animation: fade-up .8s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .2s;
+}
+.brand-h h1 .grad {
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand-h p {
+  margin-top: 14px; font-size: 16px; line-height: 1.6;
+  color: rgba(245,245,247,.65); max-width: 460px;
+  animation: fade-up .8s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .4s;
+}
+
+/* Lado direito - form */
+.form-side {
+  background: #F5F5F7;
+  display: flex; align-items: center; justify-content: center;
+  padding: 48px 32px;
+  animation: slide-in-right .7s cubic-bezier(.22,1,.36,1) both;
+  animation-delay: .15s;
+}
+.form-wrap { width: 100%; max-width: 440px; color: #0A0A0F; }
+.form-head h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 32px; font-weight: 500; letter-spacing: -.02em;
+  margin-bottom: 8px; color: #0A0A0F;
+}
+.form-head p { color: #4A4A52; margin-bottom: 20px; font-size: 14px; }
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.field label { font-size: 13px; font-weight: 500; color: #4A4A52; }
+.field input {
+  height: 40px; padding: 0 14px; font-size: 15px;
+  background: #fff; color: #0A0A0F;
+  border: 1px solid #D8D8D8; border-radius: 10px;
+  font-family: inherit;
+  transition: border-color .15s, box-shadow .15s;
+}
+.field input:focus {
+  outline: none; border-color: var(--primary);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+.btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; height: 48px;
+  background: #000; color: #fff;
+  border: 1px solid #1a1a25; border-radius: 10px;
+  font-size: 15px; font-weight: 500; font-family: inherit;
+  cursor: pointer; margin-top: 16px;
+  transition: all .2s ease;
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}
+.btn:hover { background: var(--secondary); border-color: var(--secondary); box-shadow: 0 6px 20px color-mix(in oklab, var(--secondary) 50%, transparent); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
+.error {
+  background: #FCEBEB; border: 1px solid #f8c5c5; color: #791F1F;
+  padding: 10px 12px; border-radius: 8px; font-size: 13px;
+  margin-top: 10px; display: none;
+}
+.error.show { display: block; }
+.foot {
+  text-align: center; margin-top: 24px;
+  font-size: 13px; color: #6E6E78;
+}
+.foot a { color: var(--primary); text-decoration: none; }
+.foot a:hover { text-decoration: underline; }
+
+@keyframes fade-up { 0%{opacity:0;transform:translateY(20px);} 100%{opacity:1;transform:translateY(0);} }
+@keyframes slide-in-left { 0%{opacity:0;transform:translateX(-40px);} 100%{opacity:1;transform:translateX(0);} }
+@keyframes slide-in-right { 0%{opacity:0;transform:translateX(40px);} 100%{opacity:1;transform:translateX(0);} }
+</style>
+</head>
+<body>
+
+<div class="brand-side">
+  <div class="glow-purple"></div>
+  <div class="glow-blue"></div>
+  <div class="brand-grid"></div>
+  <div class="brand-stack">
+    <div class="brand-logo">LS</div>
+    <div class="brand-h">
+      <h1>Sua plataforma<br/>de atendimento <span class="grad">Ldccell Sorocaba</span>.</h1>
+      <p>Acesse seu workspace para acompanhar conversas, equipe, métricas e tudo que sua operação precisa em um só lugar.</p>
+    </div>
+  </div>
+</div>
+
+<div class="form-side">
+  <div class="form-wrap">
+    <div class="form-head">
+      <h2>Entrar na sua conta</h2>
+      <p>Bem-vindo de volta. Acesse seu workspace Ldccell Sorocaba.</p>
+    </div>
+    <form id="login-form">
+      <div class="field">
+        <label for="email">E-mail</label>
+        <input id="email" type="email" placeholder="voce@empresa.com.br" required autofocus/>
+      </div>
+      <div class="field">
+        <label for="senha">Senha</label>
+        <input id="senha" type="password" placeholder="Mínimo 8 caracteres" required minlength="8"/>
+      </div>
+      <div class="error" id="error"></div>
+      <button class="btn" id="btn" type="submit">Entrar &rarr;</button>
+    </form>
+    <div class="foot">
+      Sem conta? <a href="/" target="_top">Falar com Ldccell Sorocaba</a>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://buvduumggjpybhzbdqzm.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT';
+  const WORKSPACE_SLUG = 'ldccell';
+  const WORKSPACE_NAME = 'Ldccell Sorocaba';
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true }
+  });
+
+  const form = document.getElementById('login-form');
+  const errEl = document.getElementById('error');
+  const btn = document.getElementById('btn');
+
+  function showError(msg) {
+    const t = String(msg).toLowerCase();
+    if (t.includes('invalid login')) msg = 'E-mail ou senha incorretos.';
+    else if (t.includes('email not confirmed')) msg = 'Confirme seu e-mail antes de entrar.';
+    errEl.textContent = msg;
+    errEl.classList.add('show');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errEl.classList.remove('show');
+    btn.disabled = true;
+    btn.textContent = 'Entrando...';
+    try {
+      const email = document.getElementById('email').value.trim().toLowerCase();
+      const senha = document.getElementById('senha').value;
+      const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+      // Redireciona pro admin com slug do workspace
+      const params = new URLSearchParams({
+        user: WORKSPACE_NAME,
+        email: data.user.email,
+        slug: WORKSPACE_SLUG,
+        plano: 'performance',
+        theme: 'dark'
+      });
+      window.location.href = '/admin/?' + params.toString();
+    } catch (err) {
+      showError(err.message || 'Erro ao entrar.');
+      btn.disabled = false;
+      btn.textContent = 'Entrar →';
+    }
+  });
+</script>
+</body>
+</html>
