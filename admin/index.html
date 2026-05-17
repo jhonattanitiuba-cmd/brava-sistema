@@ -232,6 +232,21 @@ svg{display:block;flex-shrink:0;}
 
 /* ─── Lista de conversas ─── */
 .conv-list{display:flex;flex-direction:column;gap:0;}
+.conv-list--scroll {
+  max-height: 480px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123,63,228,.35) transparent;
+  padding-right: 4px;
+}
+.conv-list--scroll::-webkit-scrollbar { width: 6px; }
+.conv-list--scroll::-webkit-scrollbar-track { background: transparent; }
+.conv-list--scroll::-webkit-scrollbar-thumb {
+  background: rgba(123,63,228,.35);
+  border-radius: 999px;
+  transition: background .15s;
+}
+.conv-list--scroll::-webkit-scrollbar-thumb:hover { background: rgba(123,63,228,.6); }
 .conv-item{
   display:flex;align-items:center;gap:12px;
   padding:11px 0;border-bottom:1px solid var(--border-soft);
@@ -616,11 +631,10 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   ];
   const maxV = Math.max(...chartData.map(d => d.v));
 
-  // Filtro pela busca global
-  const clientesList = (busca
+  // Filtro pela busca global — agora mostra TODOS (com scroll)
+  const clientesList = busca
     ? CLIENTES_CRM.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) || c.nicho.toLowerCase().includes(busca.toLowerCase()))
-    : CLIENTES_CRM
-  ).slice(0, 6);
+    : CLIENTES_CRM;
 
   return (
     <div className="page">
@@ -705,10 +719,13 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 
         <div className="card">
           <div className="card__head">
-            <div className="card__title">Clientes recentes</div>
-            <div className="card__action" onClick={()=>setPage&&setPage('pipeline')}>Ver todos →</div>
+            <div className="card__title">Acesso Rápido</div>
+            <div style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)'}}>{clientesList.length} clientes</span>
+              <div className="card__action" onClick={()=>setPage&&setPage('pipeline')}>Ver todos →</div>
+            </div>
           </div>
-          <div className="conv-list">
+          <div className="conv-list conv-list--scroll">
             {clientesList.map((c,i) => {
               const url = clienteLoginUrl(c);
               const externo = !!c.externo;
