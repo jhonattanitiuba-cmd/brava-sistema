@@ -85,16 +85,31 @@ svg{display:block;flex-shrink:0;}
 /* ─── Layout ─── */
 .app{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:var(--header) 1fr;height:100vh;overflow:hidden;}
 
-/* ─── Sidebar — sempre preta ─── */
+/* ─── Sidebar — sempre preta com animacao suave de abrir/fechar ─── */
 .sidebar{
   grid-row:1/-1;
   background:#000000;
   border-right:1px solid #1F1F2A;
   display:flex;flex-direction:column;
   overflow:hidden;
-  transition:width .25s cubic-bezier(.22,1,.36,1);
+  transition: width .45s cubic-bezier(.65,0,.35,1),
+              opacity .35s cubic-bezier(.22,1,.36,1),
+              transform .45s cubic-bezier(.65,0,.35,1),
+              border-color .3s ease;
+  transform-origin: left center;
 }
-.sidebar.collapsed{width:0;overflow:hidden;border-right:none;}
+.sidebar.collapsed{
+  width:0; overflow:hidden; border-right:none;
+  opacity:0; transform: translateX(-12px) scaleX(.96);
+}
+.sidebar.collapsed > * { pointer-events: none; }
+.sidebar:not(.collapsed) > * {
+  animation: sidebar-fade-in .45s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes sidebar-fade-in {
+  0% { opacity: 0; transform: translateX(-8px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
 
 .sidebar__nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
 .nav-item{
@@ -620,10 +635,12 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
 
 /* ─── Dashboard ─── */
 function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExportar, busca }) {
-  const clientes   = useCount(21);
-  const mrr        = useCount(28400);
-  const conversas  = useCount(1247);
-  const chamados   = useCount(3);
+  // Contadores em cascata: todos comecam juntos, mas terminam em ordem
+  // 1. Clientes ativos -> 2. MRR -> 3. Conversas -> 4. Chamados
+  const clientes   = useCount(21,    2200);  // termina em ~2.2s
+  const mrr        = useCount(28400, 3000);  // termina em 3.0s
+  const conversas  = useCount(1247,  3800);  // termina em 3.8s
+  const chamados   = useCount(3,     4600);  // termina em 4.6s
 
   const chartData = [
     { day:'Seg', v:14800 },{ day:'Ter', v:19200 },{ day:'Qua', v:21000 },
