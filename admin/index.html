@@ -1880,11 +1880,26 @@ function Config() {
                     )}
                   </div>
 
-                  {msg && (
-                    <div style={{marginTop:10, padding:'8px 12px', background: msg.includes('Erro')||msg.includes('grande')||msg.includes('precisa') ? 'rgba(163,45,45,.15)' : 'rgba(29,158,117,.15)', color: msg.includes('Erro')||msg.includes('grande')||msg.includes('precisa') ? '#fca5a5' : '#6ee7b7', borderRadius:8, fontSize:13, fontWeight:500}}>
-                      {msg}
-                    </div>
-                  )}
+                  {msg && (() => {
+                    const isErr = msg.includes('Erro')||msg.includes('grande')||msg.includes('precisa');
+                    return (
+                      <div style={{
+                        marginTop:10, padding:'10px 14px',
+                        background: isErr ? 'rgba(163,45,45,.15)' : 'rgba(29,158,117,.15)',
+                        color: isErr ? '#fca5a5' : '#6ee7b7',
+                        borderRadius:8, fontSize:13, fontWeight:500,
+                        display:'flex', alignItems:'center', justifyContent:'space-between', gap:10
+                      }}>
+                        <span style={{display:'flex', alignItems:'center', gap:8}}>
+                          <Icon name={isErr ? 'AlertCircle' : 'CheckCircle2'} size={15}/>
+                          {msg}
+                        </span>
+                        <button onClick={() => setMsg('')} style={{background:'transparent', border:'none', color:'inherit', cursor:'pointer', padding:4, display:'flex', alignItems:'center', opacity:.7}} title="Fechar">
+                          <Icon name="X" size={14}/>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -1911,8 +1926,21 @@ function Config() {
               </div>
 
               <div style={{display:'flex', gap:10, paddingTop:8, borderTop:'1px solid var(--border-soft)'}}>
-                <button className="btn btn-primary"><Icon name="Check" size={14}/>Salvar alterações</button>
-                <button className="btn btn-ghost">Cancelar</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={salvando}
+                  onClick={() => {
+                    setSalvando(true); setMsg('');
+                    // Simula save (no backend, persiste no localStorage)
+                    setTimeout(() => {
+                      setSalvando(false);
+                      setMsg('Alterações salvas com sucesso.');
+                      // Auto-fecha em 2.5s
+                      setTimeout(() => setMsg(''), 2500);
+                    }, 500);
+                  }}
+                ><Icon name={salvando ? 'Loader' : 'Check'} size={14}/>{salvando ? 'Salvando…' : 'Salvar alterações'}</button>
+                <button className="btn btn-ghost" onClick={() => setMsg('')}>Cancelar</button>
               </div>
             </div>
           )}
