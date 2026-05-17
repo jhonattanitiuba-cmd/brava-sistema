@@ -708,21 +708,35 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
             <div className="card__action" onClick={()=>setPage&&setPage('pipeline')}>Ver todos →</div>
           </div>
           <div className="conv-list">
-            {clientesList.map((c,i) => (
-              <div key={i} className="conv-item" style={{cursor:'pointer'}} onClick={()=>onImpersonate(c)}>
-                <div className="conv-avatar" style={{background:c.color}}>{c.init}</div>
-                <div className="conv-meta">
-                  <div className="conv-name">{c.nome}</div>
-                  <div className="conv-preview" style={{fontSize:11.5}}>{c.servico} · {c.nicho}</div>
-                </div>
-                <div className="conv-right" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
-                  <div className="conv-tag" style={{background:'rgba(29,158,117,.08)',color:STATUS_COLOR[c.status]||'var(--t2)',border:`1px solid ${STATUS_COLOR[c.status]||'var(--border)'}33`,borderRadius:6,padding:'2px 7px',fontSize:10.5,fontWeight:500}}>{c.status}</div>
-                  <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
-                    <Icon name="EyeOff" size={10}/>Entrar
+            {clientesList.map((c,i) => {
+              const url = clienteLoginUrl(c);
+              const externo = !!c.externo;
+              return (
+                <div
+                  key={i}
+                  className="conv-item"
+                  style={{cursor:'pointer'}}
+                  onClick={() => {
+                    if (externo) window.open(url, '_blank', 'noopener');
+                    else window.location.href = url;
+                  }}
+                  title={externo ? `Abrir login externo: ${url}` : `Login do cliente: ${url}`}
+                >
+                  <div className="conv-avatar" style={{background:c.color}}>{c.init}</div>
+                  <div className="conv-meta">
+                    <div className="conv-name">{c.nome}</div>
+                    <div className="conv-preview" style={{fontSize:11.5}}>{c.servico} · {c.nicho}</div>
+                  </div>
+                  <div className="conv-right" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                    <div className="conv-tag" style={{background:'rgba(29,158,117,.08)',color:STATUS_COLOR[c.status]||'var(--t2)',border:`1px solid ${STATUS_COLOR[c.status]||'var(--border)'}33`,borderRadius:6,padding:'2px 7px',fontSize:10.5,fontWeight:500}}>{c.status}</div>
+                    <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
+                      <Icon name={externo ? 'ExternalLink' : 'LogIn'} size={10}/>
+                      {externo ? 'Abrir' : 'Entrar'}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -817,29 +831,39 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 }
 
 /* ─── IA Chat ─── */
+// loginUrl: pra onde "Entrar" leva. Brava-hosted = /app/?login=1&workspace=slug
+// Sistemas externos (ex.: Orquestra) usam URL absoluta.
 const CLIENTES_CRM = [
-  { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#7B3FE4' },
-  { nome:'Garcia Sadler',        servico:'IA + API',             nicho:'Construção',          status:'Em Prod',             init:'GS', color:'#1E90FF' },
-  { nome:'Dra. Thalita Morete',  servico:'IA + CRM',             nicho:'Estética',            status:'Em Prod',             init:'TM', color:'#1D9E75' },
-  { nome:'Ldccell Sorocaba',     servico:'IA + API',             nicho:'Loja de Eletrônicos', status:'Em Prod',             init:'LS', color:'#185FA5' },
-  { nome:'VapoCamping Hotel',    servico:'IA + CRM + Site',      nicho:'Turismo',             status:'Em Prod',             init:'VC', color:'#1D9E75' },
-  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#7B3FE4' },
-  { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#BA7517' },
-  { nome:'Monteiro Multimarcas', servico:'IA + CRM',             nicho:'Automobilístico',     status:'Implementação',       init:'MM', color:'#185FA5' },
-  { nome:'Grupo Marinho',        servico:'IA + API + CRM',       nicho:'Automobilístico',     status:'Implementação',       init:'GM', color:'#185FA5' },
-  { nome:'Bionicão',             servico:'IA + CRM',             nicho:'Veterinário',         status:'Implementação',       init:'BI', color:'#185FA5' },
-  { nome:'Soldatopo',            servico:'IA + CRM',             nicho:'Indústria',           status:'Implementação',       init:'SO', color:'#185FA5' },
-  { nome:'Protbal',              servico:'IA + CRM',             nicho:'Indústria',           status:'Implementação',       init:'PR', color:'#185FA5' },
-  { nome:'Hyperplay',            servico:'IA + CRM',             nicho:'Indústria',           status:'Comercial',           init:'HP', color:'var(--t3)' },
-  { nome:'CasaUrba',             servico:'IA + CRM',             nicho:'Estética',            status:'Comercial',           init:'CU', color:'var(--t3)' },
-  { nome:'Imobzi',               servico:'IA + API',             nicho:'Imobiliário',         status:'Comercial',           init:'IM', color:'var(--t3)' },
-  { nome:'PHS Incorporadora',    servico:'IA + CRM',             nicho:'Imobiliário',         status:'Comercial',           init:'PH', color:'var(--t3)' },
-  { nome:'Maressa Ribeiro',      servico:'IA + CRM',             nicho:'Arquitetura',         status:'Comercial',           init:'MR', color:'var(--t3)' },
-  { nome:'Marcenaria Sorocaba',  servico:'IA + CRM',             nicho:'Arquitetura',         status:'Comercial',           init:'MS', color:'var(--t3)' },
-  { nome:'EAG Agro',             servico:'IA + CRM',             nicho:'Agro',                status:'Comercial',           init:'EA', color:'var(--t3)' },
-  { nome:'Camping Pousada',      servico:'IA + API',             nicho:'Turismo',             status:'Proposta Apresentada',init:'CP', color:'#BA7517' },
-  { nome:'Pousada Garcia',       servico:'IA + API',             nicho:'Turismo',             status:'Em breve',            init:'PG', color:'#BA7517' },
+  { nome:'Alessandro - Sistema Imobiliário', servico:'Sistema Orquestra', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#7B3FE4', slug:'alessandro', loginUrl:'https://orquestra.brava.software/login', externo:true },
+  { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#7B3FE4', slug:'clinicareunidas' },
+  { nome:'Garcia Sadler',        servico:'IA + API',             nicho:'Construção',          status:'Em Prod',             init:'GS', color:'#1E90FF', slug:'garciasadler' },
+  { nome:'Dra. Thalita Morete',  servico:'IA + CRM',             nicho:'Estética',            status:'Em Prod',             init:'TM', color:'#1D9E75', slug:'thalita' },
+  { nome:'Ldccell Sorocaba',     servico:'IA + API',             nicho:'Loja de Eletrônicos', status:'Em Prod',             init:'LS', color:'#185FA5', slug:'ldccell' },
+  { nome:'VapoCamping Hotel',    servico:'IA + CRM + Site',      nicho:'Turismo',             status:'Em Prod',             init:'VC', color:'#1D9E75', slug:'vapocamping' },
+  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#7B3FE4', slug:'estacionepark' },
+  { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#BA7517', slug:'masteraviacao' },
+  { nome:'Monteiro Multimarcas', servico:'IA + CRM',             nicho:'Automobilístico',     status:'Implementação',       init:'MM', color:'#185FA5', slug:'monteiro' },
+  { nome:'Grupo Marinho',        servico:'IA + API + CRM',       nicho:'Automobilístico',     status:'Implementação',       init:'GM', color:'#185FA5', slug:'grupomarinho' },
+  { nome:'Bionicão',             servico:'IA + CRM',             nicho:'Veterinário',         status:'Implementação',       init:'BI', color:'#185FA5', slug:'bionicao' },
+  { nome:'Soldatopo',            servico:'IA + CRM',             nicho:'Indústria',           status:'Implementação',       init:'SO', color:'#185FA5', slug:'soldatopo' },
+  { nome:'Protbal',              servico:'IA + CRM',             nicho:'Indústria',           status:'Implementação',       init:'PR', color:'#185FA5', slug:'protbal' },
+  { nome:'Hyperplay',            servico:'IA + CRM',             nicho:'Indústria',           status:'Comercial',           init:'HP', color:'var(--t3)', slug:'hyperplay' },
+  { nome:'CasaUrba',             servico:'IA + CRM',             nicho:'Estética',            status:'Comercial',           init:'CU', color:'var(--t3)', slug:'casaurba' },
+  { nome:'Imobzi',               servico:'IA + API',             nicho:'Imobiliário',         status:'Comercial',           init:'IM', color:'var(--t3)', slug:'imobzi' },
+  { nome:'PHS Incorporadora',    servico:'IA + CRM',             nicho:'Imobiliário',         status:'Comercial',           init:'PH', color:'var(--t3)', slug:'phs' },
+  { nome:'Maressa Ribeiro',      servico:'IA + CRM',             nicho:'Arquitetura',         status:'Comercial',           init:'MR', color:'var(--t3)', slug:'maressa' },
+  { nome:'Marcenaria Sorocaba',  servico:'IA + CRM',             nicho:'Arquitetura',         status:'Comercial',           init:'MS', color:'var(--t3)', slug:'marcenariasorocaba' },
+  { nome:'EAG Agro',             servico:'IA + CRM',             nicho:'Agro',                status:'Comercial',           init:'EA', color:'var(--t3)', slug:'eagagro' },
+  { nome:'Camping Pousada',      servico:'IA + API',             nicho:'Turismo',             status:'Proposta Apresentada',init:'CP', color:'#BA7517', slug:'campingpousada' },
+  { nome:'Pousada Garcia',       servico:'IA + API',             nicho:'Turismo',             status:'Em breve',            init:'PG', color:'#BA7517', slug:'pousadagarcia' },
 ];
+
+// Helper: gera URL de login do cliente. Externos abrem em outra aba.
+function clienteLoginUrl(c) {
+  if (c.loginUrl) return c.loginUrl;
+  const slug = c.slug || c.nome.toLowerCase().replace(/[^a-z0-9]/g,'');
+  return `/app/?login=1&workspace=${slug}`;
+}
 
 const STATUS_COLOR = {
   'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4',
