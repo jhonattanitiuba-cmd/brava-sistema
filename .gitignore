@@ -31,3 +31,6 @@ npm-debug.log*
 *credentials*
 *secrets*
 *apikey*
+
+# Backups dos PNGs originais (10MB cada, ja existe historico)
+clientes/_logos/*-original.png

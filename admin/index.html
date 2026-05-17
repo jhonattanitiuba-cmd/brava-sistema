@@ -567,7 +567,7 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
       </div>
 
       <div className="header__actions" style={{position:'relative'}}>
-        <div className="header__icon" onClick={()=>setNotifAberta(v=>!v)}>
+        <div className="header__icon" onClick={()=>setNotifAberta(v=>!v)} title="Notificações" role="button" tabIndex={0}>
           <Icon name="Bell" size={17}/>
           <span className="header__notif"/>
         </div>
@@ -747,7 +747,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
                 >
                   <div className="conv-avatar" style={{background:c.color}}>
                     {c.logoUrl
-                      ? <img src={c.logoUrl + '?v=2'} alt={c.nome} style={{width:'100%', height:'100%', objectFit:'cover', objectPosition:'center'}} onError={(e)=>{e.target.style.display='none'; e.target.parentNode.textContent=c.init;}}/>
+                      ? <img src={ASSET(c.logoUrl)} alt={c.nome} style={{width:'100%', height:'100%', objectFit:'cover', objectPosition:'center'}} onError={(e)=>{e.target.style.display='none'; e.target.parentNode.textContent=c.init;}}/>
                       : c.init}
                   </div>
                   <div className="conv-meta">
@@ -838,7 +838,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
                 <div style={{position:'relative'}}>
                   <div style={{
                     width:30, height:30, borderRadius:'50%',
-                    background: a.foto ? `var(--bg-3) url('${a.foto}?v=6') center 25%/cover no-repeat` : 'var(--bg-3)',
+                    background: a.foto ? `var(--bg-3) url('${ASSET(a.foto)}') center 25%/cover no-repeat` : 'var(--bg-3)',
                     display:'flex', alignItems:'center', justifyContent:'center',
                     fontSize:10, fontWeight:700,
                     color: a.foto ? 'transparent' : 'var(--t2)',
@@ -866,11 +866,11 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 // Sistemas externos (ex.: Orquestra) usam URL absoluta.
 const CLIENTES_CRM = [
   // === TOPO: clientes com sistema proprio (externo ou Brava-hosted dedicado) ===
-  { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#FFFFFF', logoUrl:'/clientes/_logos/alessandro.png', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html' },
+  { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#FFFFFF', logoUrl:'/clientes/_logos/alessandro.jpg', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html' },
   { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#FFFFFF', logoUrl:'/clientes/_logos/estacionepark.png', slug:'estacionepark', loginUrl:'https://www.estacioneparkcongonhas.site/login', externo:true },
   { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#F5A623', logoUrl:'/clientes/_logos/masteraviacao.png', slug:'masteraviacao', loginUrl:'https://master-escola-de-avia-o-civil-congo.vercel.app/login', externo:true },
   // === Demais Em Prod (white-label Brava em /clientes/) ===
-  { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#FFFFFF', logoUrl:'/clientes/_logos/clinicareunidas.png', slug:'clinicareunidas', loginUrl:'/clientes/clinicareunidas/login.html' },
+  { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#FFFFFF', logoUrl:'/clientes/_logos/clinicareunidas.jpg', slug:'clinicareunidas', loginUrl:'/clientes/clinicareunidas/login.html' },
   { nome:'Garcia Sadler',        servico:'IA + API',             nicho:'Construção',          status:'Em Prod',             init:'GS', color:'#1E90FF', slug:'garciasadler', loginUrl:'/clientes/garciasadler/login.html' },
   { nome:'Dra. Thalita Morete',  servico:'IA + CRM',             nicho:'Estética',            status:'Em Prod',             init:'TM', color:'#1D9E75', slug:'thalita', loginUrl:'/clientes/thalita/login.html' },
   { nome:'Ldccell Sorocaba',     servico:'IA + API',             nicho:'Loja de Eletrônicos', status:'Em Prod',             init:'LS', color:'#185FA5', slug:'ldccell', loginUrl:'/clientes/ldccell/login.html' },
@@ -917,7 +917,7 @@ function ClienteAvatar({ nome, init, color, size = 34, logoUrl }) {
       fontFamily: 'var(--f-d)', fontWeight: 700, fontSize: Math.max(10, Math.round(size * 0.32)), color: '#fff'
     }}>
       {logo
-        ? <img src={logo + '?v=3'} alt={nome || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.background = color || 'var(--purple)'; e.target.parentNode.textContent = init; }}/>
+        ? <img src={ASSET(logo)} alt={nome || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }} onError={e => { e.target.style.display = 'none'; e.target.parentNode.style.background = color || 'var(--purple)'; e.target.parentNode.textContent = init; }}/>
         : init}
     </div>
   );
@@ -1648,7 +1648,7 @@ function Equipe() {
               <div style={{position:'relative'}}>
                 <div style={{
                   width:46, height:46, borderRadius:'50%',
-                  background: m.foto ? `#1B1B27 url('${m.foto}?v=6') center 25%/cover no-repeat` : '#1B1B27',
+                  background: m.foto ? `#1B1B27 url('${ASSET(m.foto)}') center 25%/cover no-repeat` : '#1B1B27',
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontFamily:'var(--f-d)', fontWeight:700, fontSize:14,
                   color: m.foto ? 'transparent' : '#A0A0AA',
@@ -1751,6 +1751,10 @@ function Logs() {
     </div>
   );
 }
+
+/* ─── Constantes globais ─── */
+const CACHE_VERSION = 'v=8'; // bump quando trocar assets (logos, fotos, etc.)
+const ASSET = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + CACHE_VERSION;
 
 /* ─── Helper: foto do usuario (localStorage agora, Supabase Storage depois) ─── */
 function getUserPhoto() {
@@ -1974,18 +1978,67 @@ function Config() {
               </div>
             </div>
           )}
-          {aba==='geral' && (
-            <div style={{display:'flex', flexDirection:'column', gap:18}}>
-              <div className="card__title" style={{marginBottom:0}}>Informações da empresa</div>
-              {[['Razão social','Brava Company'],['CNPJ','34.454.770/0001-26'],['E-mail principal','diretoria@brava.company'],['WhatsApp comercial','+55 11 96334-2541'],['Domínio','bravacompany.app']].map(([k,v])=>(
-                <div key={k}>
-                  <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{k}</label>
-                  <input defaultValue={v} style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}/>
+          {aba==='geral' && (() => {
+            const CAMPOS = [
+              ['razaoSocial', 'Razão social',       'Brava Company'],
+              ['cnpj',        'CNPJ',                '34.454.770/0001-26'],
+              ['emailPrincipal','E-mail principal',  'diretoria@brava.company'],
+              ['whatsApp',    'WhatsApp comercial',  '+55 11 96334-2541'],
+              ['dominio',     'Domínio',             'bravacompany.app'],
+            ];
+            const empresaSaved = (() => { try { return JSON.parse(localStorage.getItem('brava_empresa')||'{}'); } catch { return {}; } })();
+            const refs = React.useRef({});
+            const [empSal, setEmpSal] = useState(false);
+            const [empMsg, setEmpMsg] = useState('');
+            const salvarEmpresa = () => {
+              setEmpSal(true); setEmpMsg('');
+              const data = {};
+              CAMPOS.forEach(([k]) => { data[k] = refs.current[k]?.value || ''; });
+              try {
+                localStorage.setItem('brava_empresa', JSON.stringify(data));
+                setTimeout(() => {
+                  setEmpSal(false);
+                  setEmpMsg('Informações da empresa salvas.');
+                  setTimeout(() => setEmpMsg(''), 2500);
+                }, 400);
+              } catch (e) {
+                setEmpSal(false); setEmpMsg('Erro ao salvar.');
+              }
+            };
+            return (
+              <div style={{display:'flex', flexDirection:'column', gap:18}}>
+                <div className="card__title" style={{marginBottom:0}}>Informações da empresa</div>
+                {CAMPOS.map(([k, label, defaultV]) => (
+                  <div key={k}>
+                    <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
+                    <input
+                      ref={el => refs.current[k] = el}
+                      defaultValue={empresaSaved[k] || defaultV}
+                      style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}
+                    />
+                  </div>
+                ))}
+                <div style={{display:'flex', gap:10, alignItems:'center'}}>
+                  <button className="btn btn-primary" style={{width:'fit-content'}} onClick={salvarEmpresa} disabled={empSal}>
+                    <Icon name="Check" size={14}/>{empSal ? 'Salvando…' : 'Salvar alterações'}
+                  </button>
+                  {empMsg && (
+                    <div style={{
+                      padding:'8px 12px',
+                      background: empMsg.includes('Erro') ? 'rgba(163,45,45,.15)' : 'rgba(29,158,117,.15)',
+                      color: empMsg.includes('Erro') ? '#fca5a5' : '#6ee7b7',
+                      borderRadius:8, fontSize:13, fontWeight:500,
+                      display:'flex', alignItems:'center', gap:6
+                    }}>
+                      <Icon name={empMsg.includes('Erro') ? 'AlertCircle' : 'CheckCircle2'} size={14}/>
+                      {empMsg}
+                      <button onClick={() => setEmpMsg('')} style={{background:'none', border:'none', color:'inherit', cursor:'pointer', padding:'0 0 0 4px', opacity:.7}}><Icon name="X" size={12}/></button>
+                    </div>
+                  )}
                 </div>
-              ))}
-              <button className="btn btn-primary" style={{width:'fit-content'}}><Icon name="Check" size={14}/>Salvar alterações</button>
-            </div>
-          )}
+              </div>
+            );
+          })()}
           {aba==='integracoes' && (
             <div style={{display:'flex', flexDirection:'column', gap:12}}>
               <div className="card__title" style={{marginBottom:6}}>Integrações disponíveis</div>
@@ -2049,7 +2102,7 @@ function Config() {
               <p style={{fontSize:13, color:'var(--t2)', lineHeight:1.6, marginBottom:14}}>Dados dos clientes são armazenados em servidores brasileiros. Toda conversa é criptografada em repouso e em trânsito. Política de retenção: 24 meses. Backup diário com retenção de 30 dias.</p>
               <div className="stat-row"><div className="stat-label">DPO responsável</div><div className="stat-val">Jhonattan Itiuba</div></div>
               <div className="stat-row"><div className="stat-label">E-mail DPO</div><div className="stat-val">dpo@bravacompany.app</div></div>
-              <div className="stat-row"><div className="stat-label">Última auditoria</div><div className="stat-val">15/04/2026</div></div>
+              <div className="stat-row"><div className="stat-label">Última auditoria</div><div className="stat-val">{(() => { const d=new Date(); d.setDate(d.getDate()-30); return new Intl.DateTimeFormat('pt-BR').format(d); })()}</div></div>
             </div>
           )}
         </div>
