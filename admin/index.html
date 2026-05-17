@@ -628,10 +628,38 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   ];
   const maxV = Math.max(...chartData.map(d => d.v));
 
+  // Hook reativo: re-renderiza automaticamente quando algum cliente eh editado/excluido/adicionado
+  const clientesCRM = useClientesReactivos();
+  const [menuAberto, setMenuAberto] = useState(null);
+  const [editandoCliente, setEditandoCliente] = useState(null);
+
   // Filtro pela busca global — agora mostra TODOS (com scroll)
   const clientesList = busca
-    ? CLIENTES_CRM.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) || c.nicho.toLowerCase().includes(busca.toLowerCase()))
-    : CLIENTES_CRM;
+    ? clientesCRM.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) || c.nicho.toLowerCase().includes(busca.toLowerCase()))
+    : clientesCRM;
+
+  // Fechar menu de acoes ao clicar fora
+  useEffect(() => {
+    if (!menuAberto) return;
+    const fechar = e => { if (!e.target.closest('.cliente-acoes-menu') && !e.target.closest('.cliente-acoes-btn')) setMenuAberto(null); };
+    document.addEventListener('click', fechar);
+    return () => document.removeEventListener('click', fechar);
+  }, [menuAberto]);
+
+  const onExcluirCliente = (c) => {
+    if (!confirm(`Excluir ${c.nome}?\n\nO cliente sera removido das listagens. Voce pode reverter em Configuracoes > Lixeira.`)) return;
+    deleteClienteStore(c.nome);
+    setMenuAberto(null);
+    if (typeof showToast === 'function') showToast(`${c.nome} excluido`, 'success');
+  };
+
+  const onMudarStatus = (c, novoStatus) => {
+    editClienteStore(c.nome, { status: novoStatus });
+    setMenuAberto(null);
+    if (typeof showToast === 'function') showToast(`${c.nome}: ${novoStatus}`, 'success');
+  };
+
+  const STATUS_OPCOES = ['Em Prod', 'Ativo', 'Implementação', 'Comercial', 'Proposta Apresentada', 'Em breve'];
 
   return (
     <div className="page">
@@ -734,12 +762,14 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
             {clientesList.map((c,i) => {
               const url = clienteLoginUrl(c);
               const externo = !!c.externo;
+              const menuId = c.nome + '-' + i;
               return (
                 <div
-                  key={i}
+                  key={menuId}
                   className="conv-item"
-                  style={{cursor:'pointer'}}
-                  onClick={() => {
+                  style={{cursor:'pointer', position:'relative'}}
+                  onClick={(e) => {
+                    if (e.target.closest('.cliente-acoes-btn') || e.target.closest('.cliente-acoes-menu')) return;
                     if (externo) window.open(url, '_blank', 'noopener');
                     else window.location.href = url;
                   }}
@@ -756,15 +786,104 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
                   </div>
                   <div className="conv-right" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
                     <div className="conv-tag" style={{background:'rgba(29,158,117,.08)',color:STATUS_COLOR[c.status]||'var(--t2)',border:`1px solid ${STATUS_COLOR[c.status]||'var(--border)'}33`,borderRadius:6,padding:'2px 7px',fontSize:10.5,fontWeight:500}}>{c.status}</div>
-                    <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
-                      <Icon name={externo ? 'ExternalLink' : 'LogIn'} size={10}/>
-                      {externo ? 'Abrir' : 'Entrar'}
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
+                        <Icon name={externo ? 'ExternalLink' : 'LogIn'} size={10}/>
+                        {externo ? 'Abrir' : 'Entrar'}
+                      </div>
+                      <button
+                        className="cliente-acoes-btn"
+                        onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === menuId ? null : menuId); }}
+                        title="Ações"
+                        style={{
+                          background:'transparent', border:'none', cursor:'pointer',
+                          color:'var(--t3)', padding:4, borderRadius:6,
+                          display:'flex', alignItems:'center', justifyContent:'center'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.06)'; e.currentTarget.style.color = 'var(--t1)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--t3)'; }}
+                      >
+                        <Icon name="MoreVertical" size={14}/>
+                      </button>
                     </div>
                   </div>
+
+                  {menuAberto === menuId && (
+                    <div
+                      className="cliente-acoes-menu"
+                      style={{
+                        position:'absolute', top:'100%', right:8, marginTop:4,
+                        background:'var(--bg-2)', border:'1px solid var(--border)',
+                        borderRadius:10, padding:6, minWidth:200, zIndex:50,
+                        boxShadow:'0 8px 24px rgba(0,0,0,.4)'
+                      }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => { setEditandoCliente(c); setMenuAberto(null); }}
+                        style={{
+                          width:'100%', textAlign:'left', padding:'8px 10px', border:'none',
+                          background:'transparent', color:'var(--t1)', fontSize:13, cursor:'pointer',
+                          borderRadius:6, display:'flex', alignItems:'center', gap:8
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(123,63,228,.12)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <Icon name="Pencil" size={13}/>Editar cliente
+                      </button>
+
+                      <div style={{padding:'6px 10px 2px', fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', letterSpacing:'.05em', textTransform:'uppercase'}}>
+                        Mudar status
+                      </div>
+                      {STATUS_OPCOES.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => onMudarStatus(c, s)}
+                          disabled={s === c.status}
+                          style={{
+                            width:'100%', textAlign:'left', padding:'6px 10px', border:'none',
+                            background: s === c.status ? 'rgba(123,63,228,.08)' : 'transparent',
+                            color: s === c.status ? 'var(--t3)' : 'var(--t1)',
+                            fontSize:12.5, cursor: s === c.status ? 'default' : 'pointer',
+                            borderRadius:6, display:'flex', alignItems:'center', gap:8,
+                            fontWeight: s === c.status ? 600 : 400
+                          }}
+                          onMouseEnter={e => { if (s !== c.status) e.currentTarget.style.background = 'rgba(123,63,228,.12)'; }}
+                          onMouseLeave={e => { if (s !== c.status) e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <span style={{width:8, height:8, borderRadius:'50%', background:STATUS_COLOR[s]||'var(--t3)', flexShrink:0}}/>
+                          {s}{s === c.status && ' ✓'}
+                        </button>
+                      ))}
+
+                      <div style={{height:1, background:'var(--border-soft)', margin:'6px 0'}}/>
+
+                      <button
+                        onClick={() => onExcluirCliente(c)}
+                        style={{
+                          width:'100%', textAlign:'left', padding:'8px 10px', border:'none',
+                          background:'transparent', color:'#fca5a5', fontSize:13, cursor:'pointer',
+                          borderRadius:6, display:'flex', alignItems:'center', gap:8
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(163,45,45,.12)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <Icon name="Trash2" size={13}/>Excluir cliente
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+
+          {editandoCliente && (
+            <ClienteEditModal
+              cliente={editandoCliente}
+              onClose={() => setEditandoCliente(null)}
+              onSalvar={(patch) => { editClienteStore(editandoCliente.nome, patch); setEditandoCliente(null); if(typeof showToast==='function') showToast(`${editandoCliente.nome} atualizado`, 'success'); }}
+            />
+          )}
         </div>
       </div>
 
@@ -903,6 +1022,64 @@ function getClienteLogo(nome) {
   if (!nome) return null;
   const c = CLIENTES_CRM.find(x => x.nome === nome || nome.indexOf(x.nome) === 0);
   return c?.logoUrl || null;
+}
+
+/* ─── Store reativo de clientes (CRUD + persist + events) ─── */
+function getClientesReactivos() {
+  let edits = {}, deleted = [], extras = [];
+  try { edits = JSON.parse(localStorage.getItem('brava_edits_crm') || '{}'); } catch {}
+  try { deleted = JSON.parse(localStorage.getItem('brava_deleted_crm') || '[]'); } catch {}
+  try { extras = JSON.parse(localStorage.getItem('brava_extra_crm') || '[]'); } catch {}
+  const merged = [...CLIENTES_CRM, ...extras].filter(c => !deleted.includes(c.nome));
+  return merged.map(c => edits[c.nome] ? {...c, ...edits[c.nome]} : c);
+}
+
+const fireClientesChanged = () => window.dispatchEvent(new Event('brava_clientes_changed'));
+
+function editClienteStore(nome, patch) {
+  let edits = {};
+  try { edits = JSON.parse(localStorage.getItem('brava_edits_crm') || '{}'); } catch {}
+  edits[nome] = { ...(edits[nome] || {}), ...patch };
+  localStorage.setItem('brava_edits_crm', JSON.stringify(edits));
+  fireClientesChanged();
+}
+
+function deleteClienteStore(nome) {
+  let deleted = [];
+  try { deleted = JSON.parse(localStorage.getItem('brava_deleted_crm') || '[]'); } catch {}
+  if (!deleted.includes(nome)) {
+    deleted.push(nome);
+    localStorage.setItem('brava_deleted_crm', JSON.stringify(deleted));
+  }
+  // Tambem remove dos extras se foi adicionado pelo usuario
+  let extras = [];
+  try { extras = JSON.parse(localStorage.getItem('brava_extra_crm') || '[]'); } catch {}
+  const novosExtras = extras.filter(c => c.nome !== nome);
+  if (novosExtras.length !== extras.length) {
+    localStorage.setItem('brava_extra_crm', JSON.stringify(novosExtras));
+  }
+  fireClientesChanged();
+}
+
+function undoDeleteClienteStore(nome) {
+  let deleted = [];
+  try { deleted = JSON.parse(localStorage.getItem('brava_deleted_crm') || '[]'); } catch {}
+  localStorage.setItem('brava_deleted_crm', JSON.stringify(deleted.filter(n => n !== nome)));
+  fireClientesChanged();
+}
+
+function useClientesReactivos() {
+  const [list, setList] = React.useState(() => getClientesReactivos());
+  React.useEffect(() => {
+    const refresh = () => setList(getClientesReactivos());
+    window.addEventListener('brava_clientes_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_clientes_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return list;
 }
 
 // Componente reutilizavel: renderiza logo do cliente ou fallback init
@@ -1789,6 +1966,104 @@ function HeaderUserAvatar() {
         : 'linear-gradient(135deg, var(--purple), var(--blue))',
       color: foto ? 'transparent' : '#fff'
     }} title={nome}>{iniciais}</div>
+  );
+}
+
+/* ─── Modal de edição de cliente ─── */
+function ClienteEditModal({ cliente, onClose, onSalvar }) {
+  const [nome, setNome] = useState(cliente.nome || '');
+  const [servico, setServico] = useState(cliente.servico || '');
+  const [nicho, setNicho] = useState(cliente.nicho || '');
+  const [status, setStatus] = useState(cliente.status || 'Comercial');
+  const [color, setColor] = useState(cliente.color || '#7B3FE4');
+  const [init, setInit] = useState(cliente.init || cliente.nome.slice(0,2).toUpperCase());
+  const [loginUrl, setLoginUrl] = useState(cliente.loginUrl || '');
+  const [externo, setExterno] = useState(!!cliente.externo);
+
+  const salvar = (e) => {
+    e?.preventDefault();
+    onSalvar({ nome, servico, nicho, status, color, init: init.toUpperCase().slice(0,3), loginUrl: loginUrl || undefined, externo });
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.6)', backdropFilter:'blur(6px)',
+      display:'flex', alignItems:'center', justifyContent:'center', zIndex:99999, padding:20
+    }}>
+      <form onSubmit={salvar} onClick={e=>e.stopPropagation()} style={{
+        background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14,
+        padding:24, width:520, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto',
+        boxShadow:'0 24px 64px rgba(0,0,0,.5)'
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
+          <div>
+            <div style={{fontSize:18, fontWeight:700, color:'var(--t1)', marginBottom:4}}>Editar cliente</div>
+            <div style={{fontSize:13, color:'var(--t3)'}}>{cliente.nome}</div>
+          </div>
+          <button type="button" onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}>
+            <Icon name="X" size={18}/>
+          </button>
+        </div>
+
+        <div style={{display:'grid', gap:14}}>
+          {[
+            ['Nome',            nome,     setNome,    'text'],
+            ['Serviço',         servico,  setServico, 'text'],
+            ['Nicho',           nicho,    setNicho,   'text'],
+            ['Iniciais (2-3)',  init,     setInit,    'text'],
+          ].map(([label, val, set, type]) => (
+            <div key={label}>
+              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
+              <input type={type} value={val} onChange={e=>set(e.target.value)} style={{
+                width:'100%', height:40, padding:'0 12px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none'
+              }}/>
+            </div>
+          ))}
+
+          <div>
+            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Status</label>
+            <select value={status} onChange={e=>setStatus(e.target.value)} style={{
+              width:'100%', height:40, padding:'0 12px', background:'var(--bg-3)',
+              border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none'
+            }}>
+              {['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Cor do avatar</label>
+            <div style={{display:'flex', gap:8, alignItems:'center'}}>
+              <input type="color" value={color.startsWith('#') ? color : '#7B3FE4'} onChange={e=>setColor(e.target.value)} style={{
+                width:50, height:40, padding:0, border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', background:'transparent'
+              }}/>
+              <input value={color} onChange={e=>setColor(e.target.value)} placeholder="#7B3FE4" style={{
+                flex:1, height:40, padding:'0 12px', background:'var(--bg-3)',
+                border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none', fontFamily:'var(--f-m)'
+              }}/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>URL de login (opcional)</label>
+            <input value={loginUrl} onChange={e=>setLoginUrl(e.target.value)} placeholder="/clientes/slug/login.html ou URL externa" style={{
+              width:'100%', height:40, padding:'0 12px', background:'var(--bg-3)',
+              border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none', fontFamily:'var(--f-m)'
+            }}/>
+          </div>
+
+          <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--t1)', cursor:'pointer'}}>
+            <input type="checkbox" checked={externo} onChange={e=>setExterno(e.target.checked)}/>
+            URL externa (abre em nova aba)
+          </label>
+        </div>
+
+        <div style={{display:'flex', gap:10, marginTop:24, paddingTop:18, borderTop:'1px solid var(--border-soft)'}}>
+          <button type="submit" className="btn btn-primary"><Icon name="Check" size={14}/>Salvar alterações</button>
+          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
