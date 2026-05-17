@@ -722,7 +722,11 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
                   }}
                   title={externo ? `Abrir login externo: ${url}` : `Login do cliente: ${url}`}
                 >
-                  <div className="conv-avatar" style={{background:c.color}}>{c.init}</div>
+                  <div className="conv-avatar" style={{background:c.color, overflow:'hidden', padding: c.logoUrl ? 4 : 0}}>
+                    {c.logoUrl
+                      ? <img src={c.logoUrl} alt={c.nome} style={{width:'100%', height:'100%', objectFit:'contain'}} onError={(e)=>{e.target.style.display='none'; e.target.parentNode.textContent=c.init;}}/>
+                      : c.init}
+                  </div>
                   <div className="conv-meta">
                     <div className="conv-name">{c.nome}</div>
                     <div className="conv-preview" style={{fontSize:11.5}}>{c.servico} · {c.nicho}</div>
@@ -836,7 +840,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 const CLIENTES_CRM = [
   // === TOPO: clientes com sistema proprio (externo ou Brava-hosted dedicado) ===
   { nome:'Alessandro - Hub Imob', servico:'Sistema Imobiliário', nicho:'Imobiliário', status:'Em Prod', init:'AL', color:'#7B3FE4', slug:'alessandro', loginUrl:'/clientes/alessandro/login.html' },
-  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#7B3FE4', slug:'estacionepark', loginUrl:'https://www.estacioneparkcongonhas.site/login', externo:true },
+  { nome:'EstacionePark',        servico:'Site + IA + Campanha + Micro SaaS', nicho:'Estacionamento', status:'Ativo',      init:'EP', color:'#FFFFFF', logoUrl:'/clientes/_logos/estacionepark.png', slug:'estacionepark', loginUrl:'https://www.estacioneparkcongonhas.site/login', externo:true },
   { nome:'Master Aviação',       servico:'IA + Sistema + GMB',   nicho:'Aviação Civil',       status:'Ativo',               init:'MA', color:'#BA7517', slug:'masteraviacao', loginUrl:'https://master-escola-de-avia-o-civil-congo.vercel.app/login', externo:true },
   // === Demais Em Prod (white-label Brava em /clientes/) ===
   { nome:'Clínica Reunidas',     servico:'IA + API',             nicho:'Saúde',              status:'Em Prod',             init:'CR', color:'#7B3FE4', slug:'clinicareunidas', loginUrl:'/clientes/clinicareunidas/login.html' },
