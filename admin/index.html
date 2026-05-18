@@ -1844,13 +1844,15 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   // === Backend toggle: Supabase (Realtime) vs Evolution direto (legado) ===
   const [supaEnabled, setSupaEnabled] = useSupaEnabled();
   const supaChatsState = useSupaChats();        // sempre roda (cheap), mas so usa se supaEnabled
+  // Reage a mudancas nos contatos salvos (nome editado, etc) re-normalizando os chats
+  const contatosSalvosMap = useTodosContatosSalvos();
   const supaChats = React.useMemo(() => {
     // Filtro de seguranca: descarta chats fantasma (sem ultima msg E sem unread)
     // Tipicamente sao @lid de Linked Devices sem conversa real.
     return supaChatsState.chats
       .filter(c => c.last_message_ts || c.last_message_text || (c.unread_count > 0))
       .map(supaNormalizeChat);
-  }, [supaChatsState.chats]);
+  }, [supaChatsState.chats, contatosSalvosMap]);
 
   // === Fluxo Evolution direto (legado) ===
   const evoCfg = useEvoConfig();
@@ -3743,8 +3745,13 @@ function supaNormalizeChat(c) {
   // · eles vivem mais abaixo no arquivo mas estarao definidos em runtime.
   const remoteJid = c.jid;
   const isGroup = !!c.is_group;
-  const rawName = c.last_message_sender_name || ''; // nao temos pushName separado aqui
-  const name = isGroup ? (rawName || 'Grupo') : (evoFormatPhone(remoteJid) || 'Contato');
+  const rawName = c.last_message_sender_name || '';
+  // OVERRIDE: se o admin salvou contato manualmente (nome, empresa, tag),
+  // usa esse nome em vez do telefone/pushName. Acessa direto do localStorage
+  // (sem hook aqui, mas re-render acontece via dependency em contatosSalvos no useMemo).
+  const salvo = (typeof getContatoSalvo === 'function') ? getContatoSalvo(remoteJid) : null;
+  const nomeBase = isGroup ? (rawName || 'Grupo') : (evoFormatPhone(remoteJid) || 'Contato');
+  const name = salvo?.nome || nomeBase;
   return {
     id: remoteJid,
     name,
@@ -3757,7 +3764,9 @@ function supaNormalizeChat(c) {
     timestamp: c.last_message_ts ? new Date(c.last_message_ts).getTime() : 0,
     unread: c.unread_count || 0,
     status: 'online',
-    tag: null,
+    tag: salvo?.tag || null,
+    empresa: salvo?.empresa || null,
+    nota: salvo?.nota || null,
     via: isGroup ? 'Grupo' : 'WhatsApp',
     canal: 'WhatsApp',
     isGroup,
