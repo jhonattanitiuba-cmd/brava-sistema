@@ -734,13 +734,12 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       .reduce((s, r) => s + (r.mensal || 0), 0);
   }, [recorrencia]);
 
-  // Contadores em cascata escalonada — sincronizada com o fade-in dos cards
-  // KPI cards aparecem em 80/160/240/320ms; cada contador comeca a animar
-  // exatamente quando o card termina de entrar, em ordem, com duracao curta.
-  const clientes   = useCount(21,             950,  80);
-  const mrr        = useCount(mrrTotalAtivo, 1150, 220);
-  const conversas  = useCount(1247,          1200, 360);
-  const chamados   = useCount(3,              750, 500);
+  // Contadores em cascata escalonada — sincronizada com o fade-in dos cards.
+  // Duracao 8s (suave, 0 -> valor final) com pequeno stagger entre eles.
+  const clientes   = useCount(21,            8000,  80);
+  const mrr        = useCount(mrrTotalAtivo, 8000, 220);
+  const conversas  = useCount(1247,          8000, 360);
+  const chamados   = useCount(3,             8000, 500);
 
   // MRR dinamico: mesma fonte do KPI, mas usado pro grafico 7d
   const mrrAtivoHoje = mrrTotalAtivo;
