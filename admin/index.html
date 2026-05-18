@@ -1648,10 +1648,6 @@ function WhatsAppSwitcher({ setPage }) {
           width:280, background:'var(--bg-2)', border:'1px solid var(--border)',
           borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.5)', overflow:'hidden',
         }}>
-          <div style={{padding:'10px 14px 8px', borderBottom:'1px solid var(--border-soft)'}}>
-            <div style={{fontSize:11, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.06em', fontFamily:'var(--f-m)'}}>WhatsApps</div>
-          </div>
-
           <div style={{maxHeight:320, overflowY:'auto'}}>
             {instances.map(inst => {
               const isActive = inst.id === activeId;
