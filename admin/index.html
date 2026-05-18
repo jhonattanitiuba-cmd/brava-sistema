@@ -495,8 +495,8 @@ const DEFAULT_SESSAO = { nome: 'Jhonattan Itiuba', email: 'diretoria@brava.compa
 // SEMPRE sobrescreve nome/cargo baseado no email (mesmo se URL/cache tiver outra coisa).
 // Pra adicionar mais usuarios: incluir email aqui.
 const BRAVA_USERS = {
-  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541' },
-  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '' },
+  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541', foto: 'app/jhonattan.jpg' },
+  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '',                  foto: 'app/priscilla.jpg' },
 };
 
 function aplicarPerfilBrava(email) {
@@ -735,7 +735,46 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
           </div>
         ))}
       </nav>
+
+      {/* Card do usuario logado (rodape da sidebar) */}
+      <SidebarUserCard setPage={setPage}/>
     </aside>
+  );
+}
+
+/* Card discreto no rodape da sidebar com foto + nome + cargo do usuario logado.
+   Clique abre Configuracoes > Perfil. */
+function SidebarUserCard({ setPage }) {
+  const foto = useUserPhoto();
+  const { nome, cargo } = useUserPerfil();
+  const iniciais = (nome || 'JI').split(' ').slice(0,2).map(n=>n[0]||'').join('').toUpperCase();
+  const primeiroNome = (nome || '').split(' ').slice(0,2).join(' ');
+  return (
+    <div onClick={() => setPage && setPage('config')} title="Editar perfil" style={{
+      flexShrink:0, padding:'12px 14px', borderTop:'1px solid #1F1F2A',
+      display:'flex', alignItems:'center', gap:10, cursor:'pointer',
+      transition:'background .15s',
+      background:'linear-gradient(180deg, transparent, rgba(123,63,228,0.04))',
+    }}
+      onMouseEnter={e=>e.currentTarget.style.background='rgba(123,63,228,0.10)'}
+      onMouseLeave={e=>e.currentTarget.style.background='linear-gradient(180deg, transparent, rgba(123,63,228,0.04))'}
+    >
+      <div style={{
+        width:32, height:32, borderRadius:'50%', flexShrink:0,
+        background: foto
+          ? `url('${foto}') center 25%/cover no-repeat`
+          : 'linear-gradient(135deg, var(--purple), var(--blue))',
+        color: foto ? 'transparent' : '#fff',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        fontSize:11, fontWeight:700,
+        border:'1px solid rgba(255,255,255,.08)',
+      }}>{iniciais}</div>
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{fontSize:12.5, fontWeight:600, color:'#F5F5F7', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
+        <div style={{fontSize:10.5, color:'#A0A0AA', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
+      </div>
+      <Icon name="Settings" size={13} style={{color:'#6E6E78', flexShrink:0}}/>
+    </div>
   );
 }
 
@@ -3090,9 +3129,18 @@ function useUserPerfil() {
   return perfil;
 }
 
-/* ─── Helper: foto do usuario (localStorage agora, Supabase Storage depois) ─── */
+/* ─── Helper: foto do usuario.
+   Prioridade: 1) upload do user (localStorage)  2) foto do mapa BRAVA_USERS pelo email atual ─── */
 function getUserPhoto() {
-  try { return localStorage.getItem('brava_user_photo') || null; } catch { return null; }
+  try {
+    const local = localStorage.getItem('brava_user_photo');
+    if (local) return local;
+    // Fallback: foto default do mapa BRAVA_USERS baseada no email logado
+    const sessao = JSON.parse(localStorage.getItem('brava_sessao') || '{}');
+    const found = BRAVA_USERS[String(sessao.email || '').toLowerCase()];
+    if (found?.foto) return found.foto;
+    return null;
+  } catch { return null; }
 }
 function setUserPhoto(dataUrl) {
   try {
@@ -3100,6 +3148,23 @@ function setUserPhoto(dataUrl) {
     else localStorage.removeItem('brava_user_photo');
     window.dispatchEvent(new Event('brava_photo_changed'));
   } catch (e) { console.warn('Falha ao salvar foto', e); }
+}
+
+/* Hook reativo da foto do usuario (atualiza quando troca foto OU quando muda perfil) */
+function useUserPhoto() {
+  const [foto, setFoto] = React.useState(() => getUserPhoto());
+  React.useEffect(() => {
+    const handler = () => setFoto(getUserPhoto());
+    window.addEventListener('brava_photo_changed', handler);
+    window.addEventListener('brava_perfil_changed', handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener('brava_photo_changed', handler);
+      window.removeEventListener('brava_perfil_changed', handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+  return foto;
 }
 
 /* ─── Header avatar: reage a mudancas de foto via evento ─── */
