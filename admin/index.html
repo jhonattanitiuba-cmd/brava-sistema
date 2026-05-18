@@ -1659,6 +1659,15 @@ function _autoTecnicoDe(display) {
     .slice(0, 32);
 }
 
+// Style helper pros itens do sub-menu de acoes (Conectar/Desconectar/Excluir)
+const _menuItemStyle = (color) => ({
+  width:'100%', padding:'8px 10px', display:'flex', alignItems:'center', gap:8,
+  background:'transparent', border:'none', borderRadius:6,
+  color: color, fontSize:12.5, fontWeight:500, fontFamily:'var(--f-b)',
+  cursor:'pointer', textAlign:'left',
+  transition:'background .12s',
+});
+
 /* ─── Switcher de WhatsApp (multi-instancia) ───────────────────────────
    Dropdown no header pra trocar entre Brava Company, Jhonattan, etc.
    Cada instancia mantem isolamento total no banco (instancia_id). */
@@ -1668,17 +1677,91 @@ function WhatsAppSwitcher({ setPage }) {
   const [aberto, setAberto] = React.useState(false);
   const [pairingInstance, setPairingInstance] = React.useState(null); // instance pra modal QR
   const [novoModalAberto, setNovoModalAberto] = React.useState(false); // modal "Adicionar WhatsApp"
+  const [menuInstanceId, setMenuInstanceId] = React.useState(null);   // sub-menu "..." aberto pra qual instancia
+  const [acaoCarregando, setAcaoCarregando] = React.useState(null);   // {id, action} acao em curso
 
   const active = instances.find(i => i.id === activeId) || instances[0];
+
+  // ─── Ações plug/unplug por instância ────────────────────────────────
+  const handleReconectar = async (inst) => {
+    setMenuInstanceId(null);
+    setAberto(false);
+    setPairingInstance(inst);
+  };
+
+  const handleDesconectar = async (inst) => {
+    if (!confirm(`Desconectar "${inst.nome}"?\n\nA sessão do WhatsApp será encerrada no celular. Você pode reconectar depois escaneando um novo QR.\n\nHistorico de mensagens e contatos é preservado.`)) return;
+    setMenuInstanceId(null);
+    setAcaoCarregando({ id: inst.id, action: 'logout' });
+    try {
+      // 1. Logout na Evolution (encerra sessao Baileys)
+      await evoAdmin.logout(inst.evolution_instance_name).catch(() => null);
+      // 2. UPDATE status no Supabase pra close
+      const cli = getSupa();
+      if (cli) {
+        await cli.from('wa_instancias').update({ status: 'close' }).eq('id', inst.id);
+      }
+      showToast?.(`${inst.nome} desconectado`, 'success');
+    } catch (e) {
+      showToast?.(`Erro ao desconectar: ${e.message}`, 'error');
+    } finally {
+      setAcaoCarregando(null);
+    }
+  };
+
+  const handleExcluir = async (inst) => {
+    const confirmText = inst.nome.replace(/^WhatsApp\s+/i, '');
+    const r = prompt(`Excluir "${inst.nome}" permanentemente?\n\nEsta ação NÃO PODE ser desfeita. Vai apagar:\n- Instância da Evolution (sessão Baileys)\n- Registro no banco (wa_instancias)\n- Histórico de mensagens/chats/contatos vinculados\n\nDigite o nome "${confirmText}" pra confirmar:`);
+    if (r !== confirmText) {
+      if (r !== null) showToast?.('Nome digitado nao bateu, exclusao cancelada', 'info');
+      return;
+    }
+    setMenuInstanceId(null);
+    setAcaoCarregando({ id: inst.id, action: 'delete' });
+    try {
+      // 1. Delete na Evolution (remove sessao Baileys + dados de chat)
+      await evoAdmin.delete(inst.evolution_instance_name).catch((e) => {
+        console.warn('[Brava] Falha ao deletar instancia da Evolution:', e.message);
+      });
+      // 2. Delete cascade do Supabase (manualmente: msgs/chats/contatos/eventos primeiro pq FK)
+      const cli = getSupa();
+      if (cli) {
+        await cli.from('wa_eventos_log').delete().eq('instancia_id', inst.id);
+        await cli.from('wa_mensagens').delete().eq('instancia_id', inst.id);
+        await cli.from('wa_chats').delete().eq('instancia_id', inst.id);
+        await cli.from('wa_contatos').delete().eq('instancia_id', inst.id);
+        await cli.from('wa_instancias').delete().eq('id', inst.id);
+      }
+      // 3. Se era a ativa, troca pra primeira disponivel
+      if (inst.id === activeId) {
+        const restantes = instances.filter(i => i.id !== inst.id);
+        if (restantes.length > 0) {
+          setActiveInstanceId(restantes[0].id);
+        } else {
+          setActiveInstanceId(null);
+        }
+      }
+      showToast?.(`${inst.nome} excluído com sucesso`, 'success');
+    } catch (e) {
+      showToast?.(`Erro ao excluir: ${e.message}`, 'error');
+    } finally {
+      setAcaoCarregando(null);
+    }
+  };
 
   // Fecha ao clicar fora
   React.useEffect(() => {
     if (!aberto) return;
     const fechar = (e) => {
-      if (!e.target.closest('.wa-switcher')) setAberto(false);
+      if (!e.target.closest('.wa-switcher')) { setAberto(false); setMenuInstanceId(null); }
     };
     document.addEventListener('click', fechar);
     return () => document.removeEventListener('click', fechar);
+  }, [aberto]);
+
+  // Fecha o sub-menu quando o dropdown principal fecha
+  React.useEffect(() => {
+    if (!aberto) setMenuInstanceId(null);
   }, [aberto]);
 
   if (loading || instances.length === 0) {
@@ -1772,6 +1855,8 @@ function WhatsAppSwitcher({ setPage }) {
               return (
                 <div key={inst.id}
                   onClick={() => {
+                    // Se sub-menu da instancia esta aberto, ignora clique no item
+                    if (menuInstanceId === inst.id) return;
                     // Troca a instancia ativa
                     if (!isActive) {
                       setActiveInstanceId(inst.id);
@@ -1789,6 +1874,7 @@ function WhatsAppSwitcher({ setPage }) {
                     }
                   }}
                   style={{
+                    position:'relative', // pra sub-menu posicionar relativo a este item
                     padding:'10px 14px', display:'flex', alignItems:'center', gap:10,
                     cursor:'pointer',
                     background: isActive ? 'rgba(123,63,228,.10)' : 'transparent',
@@ -1846,7 +1932,7 @@ function WhatsAppSwitcher({ setPage }) {
                       {inst.owner_email && <><span style={{opacity:.5}}>·</span><span style={{color:'var(--blue)'}}>Privado</span></>}
                     </div>
                   </div>
-                  {isDisconnected && (
+                  {isDisconnected && menuInstanceId !== inst.id && (
                     <span title="Clique pra conectar" style={{
                       fontSize:11, padding:'2px 4px',
                       background:'transparent', color:'var(--t3)',
@@ -1856,7 +1942,63 @@ function WhatsAppSwitcher({ setPage }) {
                       Conectar
                     </span>
                   )}
-                  {isActive && !isDisconnected && <Icon name="Check" size={14} style={{color:'var(--purple)'}}/>}
+                  {isActive && !isDisconnected && menuInstanceId !== inst.id && (
+                    <Icon name="Check" size={14} style={{color:'var(--purple)'}}/>
+                  )}
+                  {/* Menu de acoes plug/unplug (3 dots) */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuInstanceId(menuInstanceId === inst.id ? null : inst.id);
+                    }}
+                    title="Mais ações"
+                    style={{
+                      width:24, height:24, padding:0, borderRadius:6,
+                      background: menuInstanceId === inst.id ? 'rgba(255,255,255,.10)' : 'transparent',
+                      border:'none', cursor:'pointer', flexShrink:0,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      color:'var(--t3)', transition:'background .12s, color .12s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.10)'; e.currentTarget.style.color='var(--t1)'; }}
+                    onMouseLeave={e => { if (menuInstanceId !== inst.id) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)'; } }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                    </svg>
+                  </button>
+                  {/* Sub-menu inline com acoes */}
+                  {menuInstanceId === inst.id && (
+                    <div onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position:'absolute', right:8, top:'calc(50% + 10px)',
+                        background:'var(--bg-3)', border:'1px solid var(--border)',
+                        borderRadius:8, padding:4, minWidth:170, zIndex:10,
+                        boxShadow:'0 8px 24px rgba(0,0,0,.6)',
+                      }}>
+                      {inst.status !== 'open' && (
+                        <button onClick={() => handleReconectar(inst)} style={_menuItemStyle('#1E90FF')}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                          </svg>
+                          Conectar via QR
+                        </button>
+                      )}
+                      {inst.status === 'open' && (
+                        <button onClick={() => handleDesconectar(inst)} style={_menuItemStyle('#F5A623')}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+                          </svg>
+                          Desconectar
+                        </button>
+                      )}
+                      <button onClick={() => handleExcluir(inst)} style={_menuItemStyle('#E5544D')}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Excluir instância
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}
