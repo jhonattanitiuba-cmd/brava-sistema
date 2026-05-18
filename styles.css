@@ -783,12 +783,12 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
 }
 .reveal.visible { opacity: 1; transform: translateY(0); }
 
-/* Nav links */
-.nav-links a {
+/* Nav links — sublinhado animado apenas em links de texto, NUNCA em botoes */
+.nav-links a:not(.btn) {
   position: relative;
   transition: color .2s;
 }
-.nav-links a::after {
+.nav-links a:not(.btn)::after {
   content: '';
   position: absolute; bottom: -3px; left: 0;
   width: 0; height: 1.5px;
@@ -796,7 +796,7 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
   transition: width .25s cubic-bezier(.22,1,.36,1);
   border-radius: 999px;
 }
-.nav-links a:hover::after { width: 100%; }
+.nav-links a:not(.btn):hover::after { width: 100%; }
 
 /* Botões */
 .btn {

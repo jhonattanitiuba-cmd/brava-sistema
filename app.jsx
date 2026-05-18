@@ -87,7 +87,6 @@ function App() {
 
   return (
     <>
-      <ThemeToggle />
       <Nav />
       <Hero headline={t.headline} cta={t.cta} accents={t.accents} />
       <ProposalBlock />
