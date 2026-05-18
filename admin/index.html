@@ -455,6 +455,7 @@ if (!document.documentElement.getAttribute('data-theme')) {
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
 <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
 <script type="text/babel" src="app/icons.jsx"></script>
 <script type="text/babel" src="app/components.jsx"></script>
 <script type="text/babel">
@@ -1640,12 +1641,20 @@ function MediaDocument({ message, S }) {
 }
 
 function Conversas({ pipelineCols, moverNoPipeline }) {
-  // Dados reais vs mock — quando Evolution configurada, usa real
+  // === Backend toggle: Supabase (Realtime) vs Evolution direto (legado) ===
+  const [supaEnabled, setSupaEnabled] = useSupaEnabled();
+  const supaChatsState = useSupaChats();        // sempre roda (cheap), mas so usa se supaEnabled
+  const supaChats = React.useMemo(() => supaChatsState.chats.map(supaNormalizeChat), [supaChatsState.chats]);
+
+  // === Fluxo Evolution direto (legado) ===
   const evoCfg = useEvoConfig();
-  const { chats: realChats, loading: realChatsLoading, error: realChatsError } = useEvoChats(15000);
+  const { chats: evoRealChats, loading: realChatsLoading, error: realChatsError } = useEvoChats(15000);
   const { connected: socketConnected } = useEvoSocket();
   const [escondeRuido, setEscondeRuido] = useEvoEscondeRuido();
-  const usandoReal = !!evoCfg;
+
+  // Source of truth conforme o modo
+  const usandoReal = supaEnabled ? true : !!evoCfg;
+  const realChats = supaEnabled ? supaChats : evoRealChats;
   const fonteContatos = usandoReal ? realChats : CONTATOS;
 
   // ID inicial: primeiro contato disponivel
@@ -1672,8 +1681,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const bottomRef = useRef(null);
   const contato = fonteContatos.find(c => c.id === ativo);
 
-  // Mensagens reais da conversa ativa (so se usando real)
-  const { messages: realMsgs, loading: realMsgsLoading, error: realMsgsError } = useEvoMessages(usandoReal ? ativo : null, 5000);
+  // Mensagens — Supabase (Realtime) tem prioridade sobre Evolution direto
+  const supaMsgsState = useSupaMessages(supaEnabled ? ativo : null);
+  const supaMsgs = React.useMemo(() => supaMsgsState.messages.map(supaNormalizeMessage), [supaMsgsState.messages]);
+  const { messages: realMsgsEvo, loading: realMsgsLoading, error: realMsgsError } = useEvoMessages((!supaEnabled && usandoReal) ? ativo : null, 5000);
+  const realMsgs = supaEnabled ? supaMsgs : realMsgsEvo;
   const msgsBase = usandoReal ? realMsgs : (MENSAGENS[ativo] || MENSAGENS[1] || []);
   // Junta otimistas (sem duplicar se o real ja contem)
   const msgs = [...msgsBase, ...msgsOtimistas.filter(o => o.conversaId === ativo)];
@@ -1716,7 +1728,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     setMsg('');
     setEnviando(true);
     try {
-      await evo.sendText(numero, texto);
+      const client = supaEnabled ? supa : evo;
+      await client.sendText(numero, texto);
     } catch (e) {
       showToast?.('Erro ao enviar: ' + (e.message || 'desconhecido'), 'error');
       setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
@@ -1751,7 +1764,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       setMsg('');
       setEnviando(true);
       try {
-        await evo.sendMedia(numero, base64, mediatype, caption, file.name, mime);
+        const client = supaEnabled ? supa : evo;
+        await client.sendMedia(numero, base64, mediatype, caption, file.name, mime);
         showToast?.(`${file.name} enviado`, 'success');
       } catch (err) {
         showToast?.('Erro ao enviar: ' + (err.message || ''), 'error');
@@ -1800,7 +1814,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           }]);
           setEnviando(true);
           try {
-            await evo.sendWhatsAppAudio(numero, base64);
+            const client = supaEnabled ? supa : evo;
+            await client.sendWhatsAppAudio(numero, base64);
           } catch (err) {
             showToast?.('Erro ao enviar audio: ' + (err.message || ''), 'error');
             setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
@@ -1902,36 +1917,53 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           </div>
         </div>
 
-        {/* Banner status Evolution */}
-        {usandoReal && (
-          <div style={{
-            padding:'8px 14px', fontSize:11, fontFamily:'var(--f-m)',
-            color: realChatsError ? '#ff8585' : 'var(--wa-green)',
-            background: realChatsError ? 'rgba(163,45,45,.08)' : 'rgba(37,211,102,.06)',
-            borderBottom:`1px solid ${S.border}`,
-            display:'flex', alignItems:'center', gap:8,
-          }}>
-            <div style={{width:6, height:6, borderRadius:'50%', background: realChatsError ? '#ff8585' : 'var(--wa-green)', boxShadow: realChatsError ? '' : '0 0 6px var(--wa-green)'}}/>
-            <span style={{flex:1}}>
-              {realChatsError
-                ? `Erro Evolution: ${realChatsError.slice(0,60)}`
-                : `${evoCfg?.instance} · ${realChats.length} conversa${realChats.length===1?'':'s'}${realChatsLoading?' · atualizando':''}`}
-            </span>
-            <span title={socketConnected ? 'WebSocket conectado — atualiza em tempo real' : 'Sem WebSocket — usando polling'} style={{
-              fontSize:10, padding:'1px 6px', borderRadius:4,
-              background: socketConnected ? 'rgba(37,211,102,.15)' : 'rgba(110,110,120,.15)',
-              color: socketConnected ? 'var(--wa-green)' : S.textSec,
-              fontWeight:600, letterSpacing:'.02em',
-            }}>{socketConnected ? '⚡ TEMPO REAL' : 'POLLING'}</span>
-            <button onClick={()=>setEscondeRuido(!escondeRuido)} title={escondeRuido ? 'Mostrar tudo (incluindo @lid)' : 'Esconder ruido (@lid)'} style={{
-              background:'none', border:'none', cursor:'pointer',
-              color: escondeRuido ? S.textSec : 'var(--wa-green)',
-              padding:0, fontSize:11,
+        {/* Banner status — Supabase ou Evolution */}
+        {usandoReal && (() => {
+          const supaErr = supaChatsState.error;
+          const supaLoading = supaChatsState.loading;
+          const errAtual = supaEnabled ? supaErr : realChatsError;
+          const loadingAtual = supaEnabled ? supaLoading : realChatsLoading;
+          const corOk = supaEnabled ? '#3ECF8E' : 'var(--wa-green)'; // verde Supabase
+          return (
+            <div style={{
+              padding:'8px 14px', fontSize:11, fontFamily:'var(--f-m)',
+              color: errAtual ? '#ff8585' : corOk,
+              background: errAtual ? 'rgba(163,45,45,.08)' : (supaEnabled ? 'rgba(62,207,142,.08)' : 'rgba(37,211,102,.06)'),
+              borderBottom:`1px solid ${S.border}`,
+              display:'flex', alignItems:'center', gap:8,
             }}>
-              <Icon name={escondeRuido ? 'EyeOff' : 'Eye'} size={13}/>
-            </button>
-          </div>
-        )}
+              <div style={{width:6, height:6, borderRadius:'50%', background: errAtual ? '#ff8585' : corOk, boxShadow: errAtual ? '' : `0 0 6px ${corOk}`}}/>
+              <span style={{flex:1}}>
+                {errAtual
+                  ? `Erro ${supaEnabled?'Supabase':'Evolution'}: ${String(errAtual).slice(0,80)}`
+                  : `${supaEnabled?'Supabase':evoCfg?.instance} · ${realChats.length} conversa${realChats.length===1?'':'s'}${loadingAtual?' · atualizando':''}`}
+              </span>
+              {/* Toggle Supabase / Evolution */}
+              <button onClick={()=>setSupaEnabled(!supaEnabled)} title={supaEnabled ? 'Modo Supabase ativo (Realtime + apikey segura). Clique pra voltar pro modo Evolution direto' : 'Modo Evolution direto. Clique pra ativar Supabase (Realtime)'} style={{
+                fontSize:10, padding:'2px 8px', borderRadius:4,
+                background: supaEnabled ? 'rgba(62,207,142,.15)' : 'rgba(110,110,120,.15)',
+                color: supaEnabled ? '#3ECF8E' : S.textSec,
+                fontWeight:600, letterSpacing:'.02em',
+                border:'none', cursor:'pointer',
+              }}>{supaEnabled ? '⚡ SUPABASE' : 'EVOLUTION DIRETO'}</button>
+              {!supaEnabled && (
+                <span title={socketConnected ? 'WebSocket conectado — atualiza em tempo real' : 'Sem WebSocket — usando polling'} style={{
+                  fontSize:10, padding:'1px 6px', borderRadius:4,
+                  background: socketConnected ? 'rgba(37,211,102,.15)' : 'rgba(110,110,120,.15)',
+                  color: socketConnected ? 'var(--wa-green)' : S.textSec,
+                  fontWeight:600, letterSpacing:'.02em',
+                }}>{socketConnected ? 'WS' : 'POLLING'}</span>
+              )}
+              <button onClick={()=>setEscondeRuido(!escondeRuido)} title={escondeRuido ? 'Mostrar tudo (incluindo @lid)' : 'Esconder ruido (@lid)'} style={{
+                background:'none', border:'none', cursor:'pointer',
+                color: escondeRuido ? S.textSec : 'var(--wa-green)',
+                padding:0, fontSize:11,
+              }}>
+                <Icon name={escondeRuido ? 'EyeOff' : 'Eye'} size={13}/>
+              </button>
+            </div>
+          );
+        })()}
 
         {/* Lista */}
         <div style={{ flex:1, overflowY:'auto' }}>
@@ -2986,6 +3018,227 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
      end-to-end, mas pra producao multi-usuario migrar para um proxy
      (Supabase Edge Function ou similar)
    ══════════════════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════════════════
+   SUPABASE BACKEND — Fase 2
+   - Recebe mensagens via webhook (Evolution -> wa-webhook Edge Function)
+   - Persiste em wa_chats / wa_mensagens / wa_contatos
+   - Admin le com Realtime (sem polling) usando o cliente publico abaixo
+   - Envia mensagens via wa-proxy (apikey da Evolution fica no server)
+   ══════════════════════════════════════════════════════════════════════════ */
+const SUPA_CFG = {
+  url: 'https://buvduumggjpybhzbdqzm.supabase.co',
+  publishableKey: 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT',
+  // Por enquanto cravado. Quando suportarmos multi-cliente vamos resolver
+  // dinamicamente via workspace_id do usuario logado.
+  instanciaId: 'a7133174-d7f5-4623-ab0a-9938f5827f32',
+};
+
+let _supa = null;
+function getSupa() {
+  if (_supa) return _supa;
+  if (typeof window.supabase === 'undefined') return null;
+  _supa = window.supabase.createClient(SUPA_CFG.url, SUPA_CFG.publishableKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { params: { eventsPerSecond: 20 } },
+  });
+  return _supa;
+}
+
+// Toggle: modo Supabase (ON) usa o banco como source of truth + Realtime
+//                       OFF mantem o fluxo Evolution direto (legado)
+function getSupaEnabled() {
+  try { return localStorage.getItem('brava_supa_enabled') !== '0'; } catch { return true; }
+}
+function setSupaEnabledStore(v) {
+  localStorage.setItem('brava_supa_enabled', v ? '1' : '0');
+  window.dispatchEvent(new Event('brava_supa_changed'));
+}
+function useSupaEnabled() {
+  const [v, setV] = React.useState(getSupaEnabled);
+  React.useEffect(() => {
+    const fn = () => setV(getSupaEnabled());
+    window.addEventListener('brava_supa_changed', fn);
+    return () => window.removeEventListener('brava_supa_changed', fn);
+  }, []);
+  return [v, setSupaEnabledStore];
+}
+
+/* ── Chamada da Edge Function wa-proxy (envia comandos pra Evolution) ── */
+async function supaProxyCall({ path, method = 'GET', body }) {
+  const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-proxy`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'apikey': SUPA_CFG.publishableKey,
+      'authorization': `Bearer ${SUPA_CFG.publishableKey}`,
+    },
+    body: JSON.stringify({ instancia_id: SUPA_CFG.instanciaId, path, method, body }),
+  });
+  const text = await res.text();
+  let data; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const msg = (data && (data.error || data.message)) || text || `HTTP ${res.status}`;
+    throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+  }
+  return data;
+}
+
+// API simetrica ao `evo.*` mas usando Supabase + wa-proxy
+const supa = {
+  sendText: (number, text) => supaProxyCall({
+    path: `/message/sendText/{{instance}}`,
+    method: 'POST',
+    body: { number, text },
+  }),
+  sendMedia: (number, base64, mediatype = 'image', caption = '', fileName = 'arquivo', mimetype = 'image/jpeg') =>
+    supaProxyCall({
+      path: `/message/sendMedia/{{instance}}`,
+      method: 'POST',
+      body: { number, mediatype, media: base64, caption, fileName, mimetype },
+    }),
+  sendWhatsAppAudio: (number, base64) =>
+    supaProxyCall({
+      path: `/message/sendWhatsAppAudio/{{instance}}`,
+      method: 'POST',
+      body: { number, audio: base64 },
+    }),
+};
+
+/* ── Hooks Realtime: chats e mensagens do banco com push automatico ── */
+function useSupaChats() {
+  const [chats, setChats] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) {
+      // Aguarda o SDK carregar
+      const t = setInterval(() => { if (getSupa()) { clearInterval(t); setLoading(l => l); } }, 200);
+      return () => clearInterval(t);
+    }
+    let alive = true;
+    const carregar = async () => {
+      try {
+        const { data, error } = await cli
+          .from('wa_chats').select('*')
+          .eq('instancia_id', SUPA_CFG.instanciaId)
+          .order('last_message_ts', { ascending: false, nullsFirst: false })
+          .limit(300);
+        if (!alive) return;
+        if (error) throw error;
+        setChats(data || []);
+        setError(null);
+      } catch (e) { if (alive) setError(e.message || String(e)); }
+      finally { if (alive) setLoading(false); }
+    };
+    carregar();
+
+    // Realtime: re-fetch suave a cada mudanca
+    let debounceT = null;
+    const refetch = () => { clearTimeout(debounceT); debounceT = setTimeout(carregar, 250); };
+    const channel = cli
+      .channel('rt:wa_chats')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_chats', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_mensagens', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
+      .subscribe();
+
+    return () => { alive = false; clearTimeout(debounceT); cli.removeChannel(channel); };
+  }, []);
+
+  return { chats, loading, error };
+}
+
+function useSupaMessages(chatJid) {
+  const [messages, setMessages] = React.useState([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli || !chatJid) { setMessages([]); return; }
+    let alive = true;
+    setLoading(true);
+    const carregar = async () => {
+      try {
+        const { data, error } = await cli
+          .from('wa_mensagens').select('*')
+          .eq('instancia_id', SUPA_CFG.instanciaId)
+          .eq('chat_jid', chatJid)
+          .order('timestamp', { ascending: true })
+          .limit(300);
+        if (!alive) return;
+        if (error) throw error;
+        setMessages(data || []);
+        setError(null);
+      } catch (e) { if (alive) setError(e.message || String(e)); }
+      finally { if (alive) setLoading(false); }
+    };
+    carregar();
+
+    const channel = cli
+      .channel(`rt:msgs:${chatJid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_mensagens', filter: `chat_jid=eq.${chatJid}` }, carregar)
+      .subscribe();
+
+    return () => { alive = false; cli.removeChannel(channel); };
+  }, [chatJid]);
+
+  return { messages, loading, error };
+}
+
+// Normaliza chat do Supabase para o shape esperado pelo UI atual (mesmo de evoNormalizeChat)
+function supaNormalizeChat(c) {
+  // Importante reutilizar evoFormatPhone/evoLabelContato/evoTemNomeReal/evoColorFromString
+  // — eles vivem mais abaixo no arquivo mas estarao definidos em runtime.
+  const remoteJid = c.jid;
+  const isGroup = !!c.is_group;
+  const rawName = c.last_message_sender_name || ''; // nao temos pushName separado aqui
+  const name = isGroup ? (rawName || 'Grupo') : (evoFormatPhone(remoteJid) || 'Contato');
+  return {
+    id: remoteJid,
+    name,
+    init: evoInitials(name),
+    color: evoColorFromString(remoteJid),
+    preview: c.last_message_from_me
+      ? `Você: ${c.last_message_text || ''}`
+      : (c.last_message_text || '...'),
+    time: evoTimeFormat(c.last_message_ts),
+    timestamp: c.last_message_ts ? new Date(c.last_message_ts).getTime() : 0,
+    unread: c.unread_count || 0,
+    status: 'online',
+    tag: null,
+    via: isGroup ? 'Grupo' : 'WhatsApp',
+    canal: 'WhatsApp',
+    isGroup,
+    ehLid: remoteJid.includes('@lid'),
+    raw: c,
+  };
+}
+
+function supaNormalizeMessage(m) {
+  return {
+    id: m.message_id,
+    from: m.from_me ? 'out' : 'in',
+    text: m.text || '',
+    time: evoHHMM(m.timestamp),
+    timestamp: m.timestamp ? new Date(m.timestamp).getTime() : 0,
+    ia: !!m.ia_generated,
+    statusNum: m.status ?? 2,
+    kind: m.kind || 'text',
+    meta: {
+      kind: m.kind,
+      caption: m.text || '',
+      mimetype: m.media_mimetype,
+      fileName: m.media_filename,
+      fileLength: m.media_size,
+      seconds: m.media_seconds,
+      ptt: m.kind === 'audio',
+    },
+    raw: m.raw || m,
+  };
+}
+
 const EVO_KEY_CFG = 'brava_evolution_config';
 const fireEvoChanged = () => window.dispatchEvent(new Event('brava_evo_changed'));
 
