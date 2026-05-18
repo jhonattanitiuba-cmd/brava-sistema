@@ -68,6 +68,16 @@ const ICON_PATHS = {
   Type: 'M4 7V4h16v3M9 20h6M12 4v16',
   Layers: 'm12 2-9 5 9 5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5',
   Pipette: 'M2 22l1-1h3l9-9M3 21v-3l9-9M15 6l3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z',
+  // novos icons (adicionados pra avatar IA, botoes funcionais e media types)
+  Bot: 'M12 8V4M8 2h8M9 12v2M15 12v2M5 16h14a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2zM5 8h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z',
+  RefreshCw: 'M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5',
+  Smile: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01',
+  Image: 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM8.5 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM21 15l-5-5L5 21',
+  Video: 'M22 7l-7 5 7 5zM2 6a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z',
+  MapPin: 'M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0zM12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  UserCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM6 21a6 6 0 0 1 12 0',
+  Filter: 'M22 3H2l8 9.46V19l4 2v-8.54z',
+  Download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
 };
 
 function Icon({ name, size = 18, stroke = 1.5, className = '', style = {} }) {
