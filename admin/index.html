@@ -2208,11 +2208,92 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   );
 }
 
+/* Modal Salvar/Editar contato manualmente */
+function SalvarContatoModal({ jid, sugestaoNome, onClose }) {
+  const existente = getContatoSalvo(jid);
+  const [nome, setNome] = useState(existente?.nome || sugestaoNome || '');
+  const [empresa, setEmpresa] = useState(existente?.empresa || '');
+  const [tag, setTag] = useState(existente?.tag || '');
+  const [nota, setNota] = useState(existente?.nota || '');
+
+  const salvar = () => {
+    if (!nome.trim()) { showToast?.('Informe o nome', 'warn'); return; }
+    salvarContato(jid, {
+      nome: nome.trim(),
+      empresa: empresa.trim(),
+      tag: tag.trim(),
+      nota: nota.trim(),
+    });
+    showToast?.(`${nome.trim()} salvo`, 'success');
+    onClose();
+  };
+
+  const remover = () => {
+    if (!confirm(`Remover "${existente?.nome}" dos contatos salvos?`)) return;
+    removerContatoSalvo(jid);
+    showToast?.('Contato removido', 'success');
+    onClose();
+  };
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'min(480px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:14, padding:'22px 24px', boxShadow:'0 24px 60px rgba(0,0,0,.5)'
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>
+              {existente ? 'Editar contato' : 'Salvar contato'}
+            </div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:3, fontFamily:'var(--f-m)'}}>{evoFormatPhone(jid) || jid}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{display:'grid', gap:14}}>
+          <div>
+            <label style={lbl}>Nome *</label>
+            <input style={inp} value={nome} onChange={e=>setNome(e.target.value)} placeholder="Nome completo" autoFocus/>
+          </div>
+          <div>
+            <label style={lbl}>Empresa <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+            <input style={inp} value={empresa} onChange={e=>setEmpresa(e.target.value)} placeholder="Ex: Garcia Sadler"/>
+          </div>
+          <div>
+            <label style={lbl}>Etiqueta <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+            <input style={inp} value={tag} onChange={e=>setTag(e.target.value)} placeholder="Cliente, Lead, Fornecedor..."/>
+          </div>
+          <div>
+            <label style={lbl}>Nota <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+            <textarea style={{...inp, minHeight:60, resize:'vertical'}} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Lembrete sobre este contato..."/>
+          </div>
+        </div>
+
+        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+          {existente
+            ? <button onClick={remover} className="btn" style={{background:'transparent', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button>
+            : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
+            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{existente ? 'Salvar' : 'Salvar contato'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* Painel direito reativo — dados reais do contato (numero, 1a msg, total),
    pipeline funcional, suporte a grupos com lista de participantes. */
 function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mudarFase, S }) {
   const presence = useEvoPresence(usandoReal ? contato?.id : null);
   const grupo = useEvoGroupMeta(usandoReal && contato?.isGroup ? contato.id : null);
+  const salvo = useContatoSalvo(usandoReal && !contato?.isGroup ? contato?.id : null);
+  const [salvarAberto, setSalvarAberto] = useState(false);
 
   if (!contato) {
     return (
@@ -2273,6 +2354,22 @@ function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mud
              presence.state === 'unavailable' ? 'offline' : presence.state}
           </div>
         )}
+
+        {/* Botao Salvar/Editar contato */}
+        {usandoReal && !contato.isGroup && (
+          <button onClick={() => setSalvarAberto(true)} style={{
+            marginTop:12, padding:'7px 14px', borderRadius:8,
+            background: salvo ? 'transparent' : 'var(--wa-green)',
+            color: salvo ? 'var(--wa-green)' : '#fff',
+            border: salvo ? '1px solid var(--wa-green)' : 'none',
+            fontSize:12.5, fontWeight:600, fontFamily:'var(--f-b)',
+            cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6,
+            transition:'all .15s',
+          }}>
+            <Icon name={salvo ? 'Pencil' : 'Plus'} size={13}/>
+            {salvo ? 'Editar contato' : 'Salvar contato'}
+          </button>
+        )}
       </div>
 
       {/* Pipeline */}
@@ -2314,18 +2411,28 @@ function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mud
           contato.isGroup
             ? ['Tipo', `Grupo · ${grupo?.participants?.length || '?'} membros`]
             : ['Telefone', telefone],
+          salvo?.empresa ? ['Empresa', salvo.empresa] : null,
+          salvo?.tag ? ['Etiqueta', salvo.tag] : null,
           ['Origem',   origem],
           ['Não lidas',contato.unread > 0 ? String(contato.unread) : '—'],
           ['1ª msg',   primMsgFmt],
           ['Última',   ultMsg?.time || '—'],
           ['Total',    totalMsgs > 0 ? `${totalMsgs} mensagem${totalMsgs===1?'':'s'}` : '—'],
-        ].map(([k,v]) => (
+        ].filter(Boolean).map(([k,v]) => (
           <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:8, gap:8 }}>
             <span style={{ fontSize:12.5, color:S.textSec, flexShrink:0 }}>{k}</span>
             <span style={{ fontSize:12.5, color:S.textPrimary, fontWeight:500, textAlign:'right', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
           </div>
         ))}
       </div>
+
+      {/* Nota salva no contato */}
+      {salvo?.nota && (
+        <div style={{ background:'rgba(123,63,228,.06)', border:'1px solid rgba(123,63,228,.2)', borderRadius:10, padding:'12px 14px' }}>
+          <div style={{ fontSize:11, color:'var(--purple)', fontWeight:600, marginBottom:6, letterSpacing:'.04em' }}>📝 NOTA DO CONTATO</div>
+          <div style={{ fontSize:13, color:S.textPrimary, lineHeight:1.5, whiteSpace:'pre-wrap' }}>{salvo.nota}</div>
+        </div>
+      )}
 
       {/* Membros (se for grupo) */}
       {contato.isGroup && grupo?.participants && grupo.participants.length > 0 && (
@@ -2361,6 +2468,14 @@ function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mud
           fontSize:13, color:S.textPrimary, resize:'vertical', lineHeight:1.6,
         }}/>
       </div>
+
+      {salvarAberto && (
+        <SalvarContatoModal
+          jid={contato.id}
+          sugestaoNome={evoTemNomeReal(contato.name) ? contato.name : ''}
+          onClose={() => setSalvarAberto(false)}
+        />
+      )}
     </div>
   );
 }
@@ -3249,34 +3364,89 @@ function useEvoGroupMeta(groupJid) {
   return _evoGroupCache.get(groupJid) || null;
 }
 
-/* ── Formatar numero de telefone (5511996334254 -> +55 11 99633-4254) ──
-   Nao tenta formatar @lid, @g.us, @broadcast (nao sao telefones reais).
-   Retorna '' (vazio) quando o jid nao parece um numero valido. */
+/* ── Formatar numero SEMPRE no padrao BR: +55 DDD NNNNN-NNNN ──
+   Estrategia:
+   - Extrai todos os digitos do JID
+   - Se tem >= 11 digitos: usa os ULTIMOS 11 como celular BR (DDD + 5 + 4)
+   - Se tem 10 digitos: telefone fixo BR (DDD + 4 + 4)
+   - Retorna sempre formatado: +55 DDD NNNNN-NNNN
+   - Para @g.us / @broadcast: retorna vazio (sao grupos, nao telefone) */
 function evoFormatPhone(jid) {
   if (!jid) return '';
-  if (jid.includes('@lid') || jid.includes('@broadcast') || jid.endsWith('@g.us')) return '';
-  const n = jid.replace('@s.whatsapp.net','').replace('@c.us','');
-  // Brasil: 55 + DDD(2) + 8 ou 9 digitos (12-13 digitos totais)
-  const mBR = n.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
-  if (mBR) return `+55 ${mBR[1]} ${mBR[2]}-${mBR[3]}`;
-  // Internacional generico: tamanho razoavel (10-14)
-  if (/^\d{10,14}$/.test(n)) return '+' + n;
+  if (jid.includes('@broadcast') || jid.endsWith('@g.us')) return '';
+  const n = (jid || '').replace(/@.+$/, '').replace(/\D/g, '');
+  if (!n) return '';
+  // 11+ digitos: usa os ultimos 11 como celular (BR padrao novo)
+  if (n.length >= 11) {
+    const u = n.slice(-11);
+    return `+55 ${u.slice(0,2)} ${u.slice(2,7)}-${u.slice(7)}`;
+  }
+  // 10 digitos: telefone fixo
+  if (n.length === 10) {
+    return `+55 ${n.slice(0,2)} ${n.slice(2,6)}-${n.slice(6)}`;
+  }
+  // Muito curto: nao da pra formatar
   return '';
 }
 
-// Versao "amigavel" para mostrar como rotulo. Estrategia:
-//   1. Se for um telefone valido formatavel -> +55 11 99999-9999
-//   2. Senao (geralmente @lid) -> mostra o numero completo sem mascara
-//      (Evolution v2.3.7 nao expoe o telefone real; o usuario prefere ver
-//       a id completa a "Contato •••XXXX")
+// Label do contato — agora sempre cai no formato +55 DDD NNNNN-NNNN
 function evoLabelContato(jid) {
-  const fone = evoFormatPhone(jid);
-  if (fone) return fone;
-  const n = (jid||'').replace(/@.+$/, '');
-  if (!n) return 'Contato';
-  // Formata visualmente com espacos de 4 em 4 (mais legivel que tudo junto)
-  // ex: "233217344966755" -> "2332 1734 4966 755"
-  return n.replace(/(\d{4})(?=\d)/g, '$1 ');
+  return evoFormatPhone(jid) || 'Contato';
+}
+
+/* ── Store de contatos SALVOS (localStorage + reativo) ──
+   Permite "Salvar contato" direto da conversa, dando nome a um chat
+   sem cadastro (@lid ou telefone sem nome no WhatsApp). */
+const SAVED_CONTACTS_KEY = 'brava_contatos_salvos';
+const fireContatosSalvos = () => window.dispatchEvent(new Event('brava_contatos_salvos_changed'));
+
+function getContatosSalvos() {
+  try { return JSON.parse(localStorage.getItem(SAVED_CONTACTS_KEY) || '{}'); } catch { return {}; }
+}
+function getContatoSalvo(jid) {
+  return getContatosSalvos()[jid] || null;
+}
+function salvarContato(jid, dados) {
+  if (!jid) return;
+  const all = getContatosSalvos();
+  all[jid] = { ...(all[jid] || {}), ...dados, jid, atualizadoEm: Date.now() };
+  localStorage.setItem(SAVED_CONTACTS_KEY, JSON.stringify(all));
+  fireContatosSalvos();
+}
+function removerContatoSalvo(jid) {
+  const all = getContatosSalvos();
+  delete all[jid];
+  localStorage.setItem(SAVED_CONTACTS_KEY, JSON.stringify(all));
+  fireContatosSalvos();
+}
+function useContatoSalvo(jid) {
+  const [v, setV] = React.useState(() => getContatoSalvo(jid));
+  React.useEffect(() => {
+    if (!jid) { setV(null); return; }
+    const refresh = () => setV(getContatoSalvo(jid));
+    refresh();
+    window.addEventListener('brava_contatos_salvos_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_contatos_salvos_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, [jid]);
+  return v;
+}
+// Hook que retorna a coleção inteira (pra usar em normalizers)
+function useTodosContatosSalvos() {
+  const [v, setV] = React.useState(getContatosSalvos);
+  React.useEffect(() => {
+    const refresh = () => setV(getContatosSalvos());
+    window.addEventListener('brava_contatos_salvos_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_contatos_salvos_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return v;
 }
 
 /* ── WebSocket Socket.IO da Evolution (real-time) ── */
@@ -3548,19 +3718,23 @@ function evoNormalizeChat(c) {
   const rawName = c.pushName || c.name || c.profileName || c.subject
                || contato?.pushName || contato?.profileName || contato?.verifiedName || contato?.notify || '';
 
-  // Nome final (igual WhatsApp):
-  //  - Grupo COM subject -> usa o nome do grupo
-  //  - Grupo SEM subject -> "Grupo" generico
-  //  - Contato COM nome real (com letras) -> usa o nome
-  //  - Contato SEM nome real, mas com telefone valido (resolvido) -> telefone formatado
-  //  - Contato @lid sem nome e sem telefone -> "Contato •••XXXX" (ultimo recurso)
+  // Contato salvo manualmente sempre tem prioridade maxima
+  const salvo = getContatoSalvo(remoteJid) || getContatoSalvo(jidResolvido);
+
+  // Nome final (em ordem de prioridade):
+  //  1. Nome salvo manualmente pelo usuario
+  //  2. Grupo com subject -> nome do grupo
+  //  3. Contato com nome real (com letras)
+  //  4. Telefone formatado (+55 DDD NNNNN-NNNN)
   let name;
-  if (isGroup) {
+  if (salvo?.nome) {
+    name = salvo.nome;
+  } else if (isGroup) {
     name = rawName || 'Grupo';
   } else if (evoTemNomeReal(rawName)) {
     name = rawName;
   } else {
-    // tenta formatar o telefone resolvido; se nao tiver, label
+    // Tenta formatar o telefone resolvido; se nao, formata o proprio remoteJid
     name = evoFormatPhone(jidResolvido) || evoLabelContato(remoteJid);
   }
 
@@ -3657,12 +3831,13 @@ function useEvoChats(intervalMs = 15000) {
   const cfg = useEvoConfig();
   useEvoSocket(); // garante que o socket esta conectado
   useEvoContacts(); // garante que contatos foram carregados (resolucao de @lid)
+  const contatosSalvos = useTodosContatosSalvos(); // re-render reativo
   const [escondeRuido] = useEvoEscondeRuido();
-  const [state, setState] = React.useState({ loading:false, chats:[], chatsAll:[], error:null });
+  const [raw, setRaw] = React.useState({ loading:false, arr:[], error:null });
   const fetchRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!cfg) { setState({loading:false, chats:[], chatsAll:[], error:null}); return; }
+    if (!cfg) { setRaw({loading:false, arr:[], error:null}); return; }
     let alive = true;
     const tick = async () => {
       if (!alive) return;
@@ -3672,15 +3847,13 @@ function useEvoChats(intervalMs = 15000) {
         const data = await evo.findChats();
         if (!alive) return;
         const arr = Array.isArray(data) ? data : (data?.chats || []);
-        const all = arr.map(evoNormalizeChat).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
-        const visiveis = all.filter(c => !evoIsRuido(c.raw));
-        setState({ loading:false, chats:visiveis, chatsAll:all, error:null });
+        setRaw({ loading:false, arr, error:null });
       } catch (e) {
-        if (alive) setState(s => ({...s, loading:false, error: e.message || 'Erro ao listar conversas'}));
+        if (alive) setRaw(s => ({...s, loading:false, error: e.message || 'Erro ao listar conversas'}));
       }
     };
     fetchRef.current = tick;
-    setState(s => ({...s, loading:true}));
+    setRaw(s => ({...s, loading:true}));
     tick();
     const id = setInterval(tick, intervalMs);
     return () => { alive = false; clearInterval(id); };
@@ -3693,9 +3866,17 @@ function useEvoChats(intervalMs = 15000) {
   }, []);
   useEvoSocketEvent(['messages.upsert','chats.upsert','chats.update','chats.delete','send.message'], debouncedRefetch);
 
-  // Aplica filtro de ruido reativamente
-  const chats = escondeRuido ? state.chats : state.chatsAll;
-  return { ...state, chats };
+  // Normaliza reativamente — re-roda quando RAW muda OU quando user salva/edita contato
+  const chatsAll = React.useMemo(
+    () => raw.arr.map(evoNormalizeChat).sort((a,b) => (b.timestamp||0) - (a.timestamp||0)),
+    [raw.arr, contatosSalvos]
+  );
+  const chatsVisiveis = React.useMemo(
+    () => chatsAll.filter(c => !evoIsRuido(c.raw)),
+    [chatsAll]
+  );
+  const chats = escondeRuido ? chatsVisiveis : chatsAll;
+  return { loading: raw.loading, error: raw.error, chats, chatsAll };
 }
 
 // Hook lightweight: retorna total de mensagens nao lidas (para badge global)
