@@ -4667,18 +4667,23 @@ function ConfigIATab() {
     setSalvando(true);
     try {
       const cli = getSupa();
-      const { error } = await cli.from('wa_instancias').update({
+      // .select() no fim devolve as linhas atualizadas — se for [], significa
+      // que RLS bloqueou silenciosamente o UPDATE
+      const { data, error } = await cli.from('wa_instancias').update({
         ai_prompt: form.ai_prompt,
         ai_model: form.ai_model,
         ai_enabled_global: form.ai_enabled_global,
         ai_typing_enabled: form.ai_typing_enabled,
         ai_thinking_seconds: form.ai_thinking_seconds,
-      }).eq('id', SUPA_CFG.instanciaId);
+      }).eq('id', SUPA_CFG.instanciaId).select();
       if (error) throw error;
-      showToast?.('Configuração da IA salva', 'success');
+      if (!data || data.length === 0) {
+        throw new Error('Banco aceitou mas nao salvou nenhuma linha. Provavelmente RLS bloqueou o UPDATE — rode a SQL de "wa_inst_anon_write" no editor.');
+      }
+      showToast?.('Configuração da IA salva ✓', 'success');
       carregar();
     } catch (e) {
-      showToast?.('Erro ao salvar: ' + e.message, 'error');
+      showToast?.('Erro ao salvar: ' + (e.message || e), 'error');
     } finally { setSalvando(false); }
   };
 
