@@ -4846,21 +4846,51 @@ function _emailAtual() {
   } catch { return ''; }
 }
 
-/* Hook: ID do usuario logado (resolve via email -> usuarios.id) */
+/* Hook: ID do usuario logado (resolve via email -> usuarios.id).
+   Resiliente: re-resolve quando email muda no localStorage (perfil editado)
+   e quando SDK Supabase carrega tarde. */
 function useUsuarioLogadoId() {
   const [id, setId] = React.useState(null);
+  const [email, setEmail] = React.useState(() => _emailAtual());
+
+  // Escuta mudancas de perfil/sessao
   React.useEffect(() => {
-    const email = _emailAtual();
+    const refresh = () => setEmail(_emailAtual());
+    window.addEventListener('brava_perfil_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_perfil_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+
+  React.useEffect(() => {
     if (!email) return;
-    const cli = getSupa();
-    if (!cli) return;
-    (async () => {
+    let alive = true;
+    let timer = null;
+    const tentar = async () => {
+      const cli = getSupa();
+      if (!cli) {
+        // SDK ainda nao carregou, tenta de novo em 200ms
+        timer = setTimeout(tentar, 200);
+        return;
+      }
       try {
         const { data } = await cli.from('usuarios').select('id').eq('email', email).maybeSingle();
-        if (data?.id) setId(data.id);
-      } catch {}
-    })();
-  }, []);
+        if (alive && data?.id) {
+          setId(data.id);
+          console.log('[Brava] Usuario logado resolvido:', email, '->', data.id);
+        } else if (alive) {
+          console.warn('[Brava] Usuario nao encontrado pra email:', email);
+        }
+      } catch (e) {
+        console.warn('[Brava] Erro resolvendo usuario:', e.message);
+      }
+    };
+    tentar();
+    return () => { alive = false; if (timer) clearTimeout(timer); };
+  }, [email]);
+
   return id;
 }
 function getUserPhoto() {
@@ -5365,20 +5395,24 @@ function playTransferSound() {
 /* Hook: notifica + toca som quando agentee_id de QUALQUER chat passa a ser do user atual.
    Roda no nivel global da Conversas/App. Subscribe Realtime amplo em wa_chats UPDATE. */
 function useTransferenciaWatcher(meuUserId) {
+  // Re-cria channel ao trocar de instancia (o filter precisa do id ativo)
+  const activeInstanceId = useActiveInstanceId();
   React.useEffect(() => {
-    if (!meuUserId) return;
+    if (!meuUserId || !activeInstanceId) return;
     const cli = getSupa();
     if (!cli) return;
+    console.log('[Brava] Transfer watcher armado pra:', meuUserId, 'instancia:', activeInstanceId);
     // Cache pra dedup: chat -> ultimoAgenteId conhecido
     const cache = new Map();
-    const ch = cli.channel('rt:transfer-watch')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, (p) => {
+    const ch = cli.channel(`rt:transfer-watch:${activeInstanceId}:${meuUserId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `instancia_id=eq.${activeInstanceId}` }, (p) => {
         const jid = p.new?.jid; if (!jid) return;
         const novoAgente = p.new?.agente_id || null;
         const antigoAgente = cache.has(jid) ? cache.get(jid) : (p.old?.agente_id || null);
         cache.set(jid, novoAgente);
         // Disparou quando: antes era outro/null E agora e o user atual
         if (novoAgente === meuUserId && antigoAgente !== meuUserId) {
+          console.log('[Brava] Chat transferido pra mim! Tocando som.');
           playTransferSound();
           // Notifica visualmente tambem
           if (typeof adicionarNotificacao === 'function') {
@@ -5395,7 +5429,7 @@ function useTransferenciaWatcher(meuUserId) {
       })
       .subscribe();
     return () => cli.removeChannel(ch);
-  }, [meuUserId]);
+  }, [meuUserId, activeInstanceId]);
 }
 
 /* Hook: agente atribuido + status do chat (wa_chats.agente_id, status).
