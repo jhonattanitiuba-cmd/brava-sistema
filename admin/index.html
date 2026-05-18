@@ -2066,6 +2066,20 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   // Estado IA ATIVA/PAUSADA por chat (sincronizado com banco via Realtime)
   const { ativa: iaAtiva, setIaAtiva } = useSupaChatIa(supaEnabled ? ativo : null);
 
+  // Agente atribuido + status do chat (Realtime)
+  const { agenteId, status: statusChat, atribuir: atribuirAgente, setStatus: setStatusChat } = useSupaChatAgente(supaEnabled ? ativo : null);
+  const usuariosLista = useUsuariosLista();
+  const meuUserId = useUsuarioLogadoId();
+  const agenteAtual = React.useMemo(() => usuariosLista.find(u => u.id === agenteId), [usuariosLista, agenteId]);
+  const [agenteDropAberto, setAgenteDropAberto] = useState(false);
+  const agenteDropRef = useRef(null);
+  useEffect(() => {
+    if (!agenteDropAberto) return;
+    const onClick = (e) => { if (agenteDropRef.current && !agenteDropRef.current.contains(e.target)) setAgenteDropAberto(false); };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [agenteDropAberto]);
+
   // IA esta processando? (frontend heuristic) · pra mostrar "IA digitando..." no header do chat
   const iaProcessando = useIaProcessando(msgs, iaAtiva);
 
@@ -2093,14 +2107,18 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     const lower = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
     if (['vamos la', 'vamosla', '/vamos', '/assumir', 'assumir'].includes(lower)) {
       await setIaAtiva(false);
-      showToast?.('IA pausada nesta conversa. Voce assumiu.', 'success');
+      // Auto-atribui o agente atual (quem digitou) como responsavel
+      if (meuUserId) await atribuirAgente(meuUserId);
+      showToast?.('IA pausada e voce assumiu este chat.', 'success');
       setMsg('');
       return;
     }
     // Reativar: apenas "." (ponto sozinho) ou variantes longas
     if (texto === '.' || ['/ia on', '/ia ativar', '/reativar', 'reativar ia'].includes(lower)) {
       await setIaAtiva(true);
-      showToast?.('IA reativada nesta conversa.', 'success');
+      // Desatribui agente (volta pra pendente) quando devolve pra IA
+      await atribuirAgente(null);
+      showToast?.('IA reativada. Atribuicao removida.', 'success');
       setMsg('');
       return;
     }
@@ -2237,8 +2255,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const filtrados = fonteContatos.filter(c => {
     if (busca && !c.name.toLowerCase().includes(busca.toLowerCase())) return false;
     if (filtro === 'nao_lidas') return c.unread > 0;
-    if (filtro === 'ia') return c.tag === 'ia';
-    if (filtro === 'minhas') return !c.tag;
+    if (filtro === 'ia') return !c.agenteId; // sem agente = IA cuidando
+    if (filtro === 'minhas') return meuUserId && c.agenteId === meuUserId;
     return true;
   });
 
@@ -2403,6 +2421,20 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:3, gap:8 }}>
                   <span style={{ fontSize:13, color:S.textSec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, minWidth:0 }}>{c.preview}</span>
+                  {/* Badge agente atribuido (estilo Chatwoot) */}
+                  {c.agenteId && (() => {
+                    const ag = usuariosLista.find(u => u.id === c.agenteId);
+                    if (!ag) return null;
+                    const isMine = ag.id === meuUserId;
+                    const foto = BRAVA_USERS[ag.email?.toLowerCase()]?.foto;
+                    return (
+                      <div title={`Atendido por ${ag.nome}`} style={{
+                        width:18, height:18, borderRadius:'50%', flexShrink:0,
+                        background: foto ? `url('${foto}') center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))',
+                        border:`1.5px solid ${isMine ? 'var(--wa-green)' : S.border}`,
+                      }}/>
+                    );
+                  })()}
                   {c.unread > 0 && <span style={{ minWidth:19, height:19, borderRadius:999, background:S.unread, color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 5px', flexShrink:0 }}>{c.unread}</span>}
                 </div>
               </div>
@@ -2437,10 +2469,96 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
             <PresenceLabel contato={contato} usandoReal={usandoReal} iaProcessando={iaProcessando}/>
           </div>
           <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+            {/* Atribuir agente (estilo Chatwoot) */}
+            <div ref={agenteDropRef} style={{position:'relative'}}>
+              <button onClick={()=>setAgenteDropAberto(v=>!v)} title={agenteAtual ? `Atendido por ${agenteAtual.nome}` : 'Sem agente atribuido. Clique pra atribuir'} style={{
+                display:'flex', alignItems:'center', gap:6, padding:'5px 10px 5px 5px', borderRadius:999,
+                background: agenteAtual ? 'rgba(123,63,228,.10)' : 'transparent',
+                border: `1px solid ${agenteAtual ? 'rgba(123,63,228,.35)' : S.border}`,
+                color: agenteAtual ? 'var(--purple)' : S.textSec,
+                fontSize:11, fontFamily:'var(--f-m)', fontWeight:600, cursor:'pointer', transition:'all .2s',
+              }}>
+                <div style={{
+                  width:18, height:18, borderRadius:'50%',
+                  background: agenteAtual
+                    ? (BRAVA_USERS[agenteAtual.email?.toLowerCase()]?.foto
+                        ? `url('${BRAVA_USERS[agenteAtual.email?.toLowerCase()]?.foto}') center/cover`
+                        : 'linear-gradient(135deg, var(--purple), var(--blue))')
+                    : 'rgba(128,128,128,.2)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:8, fontWeight:700, color:'#fff',
+                }}>
+                  {!agenteAtual && <Icon name="Plus" size={10} style={{color:S.textSec}}/>}
+                </div>
+                <span>{agenteAtual ? (agenteAtual.nome || '').split(' ')[0] : 'Atribuir'}</span>
+              </button>
+              {agenteDropAberto && (
+                <div style={{
+                  position:'absolute', top:38, right:0, minWidth:240,
+                  background:S.headerBg, border:`1px solid ${S.border}`, borderRadius:10,
+                  boxShadow:'0 12px 32px rgba(0,0,0,.45)', zIndex:200, padding:6, fontSize:13,
+                }}>
+                  <div style={{padding:'8px 12px 6px', fontSize:10.5, color:S.textSec, fontWeight:600, letterSpacing:'.06em', textTransform:'uppercase'}}>
+                    Atribuir agente
+                  </div>
+                  {meuUserId && (
+                    <div onClick={()=>{ atribuirAgente(meuUserId); setAgenteDropAberto(false); showToast?.('Voce assumiu este chat', 'success'); }} style={{
+                      display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:6,
+                      cursor:'pointer', color:S.textPrimary,
+                      background: agenteId === meuUserId ? 'rgba(0,168,132,.12)' : 'transparent',
+                    }}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.12)'}
+                      onMouseLeave={e=>e.currentTarget.style.background=agenteId===meuUserId?'rgba(0,168,132,.12)':'transparent'}>
+                      <Icon name="UserCircle" size={14} style={{color:'var(--wa-green)'}}/>
+                      <span style={{flex:1}}>Atribuir a mim</span>
+                      {agenteId === meuUserId && <Icon name="Check" size={13} style={{color:'var(--wa-green)'}}/>}
+                    </div>
+                  )}
+                  <div style={{height:1, background:S.border, margin:'4px 0'}}/>
+                  {usuariosLista.filter(u => u.id !== meuUserId).map(u => (
+                    <div key={u.id} onClick={()=>{ atribuirAgente(u.id); setAgenteDropAberto(false); showToast?.(`Chat atribuido a ${u.nome}`, 'success'); }} style={{
+                      display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:6,
+                      cursor:'pointer', color:S.textPrimary,
+                      background: agenteId === u.id ? 'rgba(0,168,132,.12)' : 'transparent',
+                    }}
+                      onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.12)'}
+                      onMouseLeave={e=>e.currentTarget.style.background=agenteId===u.id?'rgba(0,168,132,.12)':'transparent'}>
+                      <div style={{
+                        width:20, height:20, borderRadius:'50%',
+                        background: BRAVA_USERS[u.email?.toLowerCase()]?.foto
+                          ? `url('${BRAVA_USERS[u.email?.toLowerCase()]?.foto}') center/cover`
+                          : 'linear-gradient(135deg, var(--purple), var(--blue))',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:9, fontWeight:700, color:'#fff', flexShrink:0,
+                      }}>{!BRAVA_USERS[u.email?.toLowerCase()]?.foto && (u.nome||'?')[0]}</div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:13, fontWeight:500}}>{u.nome}</div>
+                        <div style={{fontSize:10.5, color:S.textSec, textTransform:'uppercase', letterSpacing:'.04em', fontWeight:600}}>{u.role}</div>
+                      </div>
+                      {agenteId === u.id && <Icon name="Check" size={13} style={{color:'var(--wa-green)'}}/>}
+                    </div>
+                  ))}
+                  {agenteId && (
+                    <>
+                      <div style={{height:1, background:S.border, margin:'4px 0'}}/>
+                      <div onClick={()=>{ atribuirAgente(null); setIaAtiva(true); setAgenteDropAberto(false); showToast?.('Removido. Chat volta pra IA.', 'success'); }} style={{
+                        display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:6,
+                        cursor:'pointer', color:'#ff8585',
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.background='rgba(163,45,45,.10)'}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        <Icon name="X" size={14}/>
+                        <span>Remover atribuicao</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
             <button onClick={()=>setIaAtiva(v=>!v)} style={{
               display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:999,
-              background: iaAtiva ? 'rgba(37,211,102,.12)' : 'transparent',
-              border: `1px solid ${iaAtiva ? 'rgba(37,211,102,.35)' : S.border}`,
+              background: iaAtiva ? 'rgba(0,168,132,.12)' : 'transparent',
+              border: `1px solid ${iaAtiva ? 'rgba(0,168,132,.35)' : S.border}`,
               color: iaAtiva ? 'var(--wa-green)' : S.textSec,
               fontSize:11, fontFamily:'var(--f-m)', fontWeight:600, cursor:'pointer', transition:'all .2s',
             }}>
@@ -3410,6 +3528,24 @@ function _emailAtual() {
     return String(s.email || '').toLowerCase().trim();
   } catch { return ''; }
 }
+
+/* Hook: ID do usuario logado (resolve via email -> usuarios.id) */
+function useUsuarioLogadoId() {
+  const [id, setId] = React.useState(null);
+  React.useEffect(() => {
+    const email = _emailAtual();
+    if (!email) return;
+    const cli = getSupa();
+    if (!cli) return;
+    (async () => {
+      try {
+        const { data } = await cli.from('usuarios').select('id').eq('email', email).maybeSingle();
+        if (data?.id) setId(data.id);
+      } catch {}
+    })();
+  }, []);
+  return id;
+}
 function getUserPhoto() {
   try {
     const email = _emailAtual();
@@ -3746,6 +3882,79 @@ function useSupaChats() {
   return { chats, loading, error };
 }
 
+/* Hook: lista de usuarios (admins/operadores) pra atribuir como agente */
+function useUsuariosLista() {
+  const [users, setUsers] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) return;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await cli.from('usuarios')
+          .select('id, email, nome, role, ativo')
+          .eq('ativo', true)
+          .order('nome');
+        if (alive) setUsers(data || []);
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, []);
+  return users;
+}
+
+/* Hook: agente atribuido + status do chat (wa_chats.agente_id, status).
+   Le do banco + Realtime + retorna funcoes pra atribuir/desatribuir. */
+function useSupaChatAgente(chatJid) {
+  const [info, setInfo] = React.useState({ agenteId: null, status: 'pendente' });
+
+  React.useEffect(() => {
+    if (!chatJid) return;
+    const cli = getSupa();
+    if (!cli) return;
+    let alive = true;
+    const carregar = async () => {
+      try {
+        const { data } = await cli.from('wa_chats')
+          .select('agente_id, status').eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid).maybeSingle();
+        if (alive) setInfo({ agenteId: data?.agente_id || null, status: data?.status || 'pendente' });
+      } catch {}
+    };
+    carregar();
+    const ch = cli.channel('rt:chatagente:' + chatJid)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `jid=eq.${chatJid}` }, (p) => {
+        if (alive && p.new) setInfo({ agenteId: p.new.agente_id || null, status: p.new.status || 'pendente' });
+      })
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [chatJid]);
+
+  const atribuir = React.useCallback(async (usuarioId) => {
+    if (!chatJid) return;
+    setInfo(s => ({ ...s, agenteId: usuarioId, status: usuarioId ? 'aberto' : 'pendente' }));
+    const cli = getSupa();
+    try {
+      await cli.from('wa_chats').update({
+        agente_id: usuarioId,
+        agente_atribuido_em: usuarioId ? new Date().toISOString() : null,
+        status: usuarioId ? 'aberto' : 'pendente',
+      }).eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid);
+    } catch (e) { console.warn('Erro atribuir agente:', e); }
+  }, [chatJid]);
+
+  const setStatus = React.useCallback(async (novoStatus) => {
+    if (!chatJid) return;
+    setInfo(s => ({ ...s, status: novoStatus }));
+    const cli = getSupa();
+    try {
+      await cli.from('wa_chats').update({ status: novoStatus })
+        .eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid);
+    } catch (e) { console.warn('Erro setStatus:', e); }
+  }, [chatJid]);
+
+  return { agenteId: info.agenteId, status: info.status, atribuir, setStatus };
+}
+
 /* Hook: estado de IA ATIVA/PAUSADA por chat (wa_chats.ai_enabled).
    Le do banco + escuta Realtime + retorna funcao pra toggle. */
 function useSupaChatIa(chatJid) {
@@ -3914,6 +4123,8 @@ function supaNormalizeChat(c) {
     tag: salvo?.tag || null,
     empresa: salvo?.empresa || null,
     nota: salvo?.nota || null,
+    agenteId: c.agente_id || null,
+    statusChat: c.status || 'pendente',
     via: isGroup ? 'Grupo' : 'WhatsApp',
     canal: 'WhatsApp',
     isGroup,
