@@ -2191,7 +2191,7 @@ function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mud
     : '—';
 
   const telefone = usandoReal
-    ? (contato.isGroup ? '—' : evoFormatPhone(contato.id))
+    ? (contato.isGroup ? '—' : (evoFormatPhone(contato.id) || '—'))
     : '+55 11 99999-9999';
   const origem = contato.isGroup ? 'Grupo WhatsApp' : (contato.ehLid ? 'Linked Device' : 'WhatsApp');
 
@@ -3113,14 +3113,29 @@ function useEvoGroupMeta(groupJid) {
   return _evoGroupCache.get(groupJid) || null;
 }
 
-/* ── Formatar numero de telefone (5511996334254 -> +55 11 99633-4254) ── */
+/* ── Formatar numero de telefone (5511996334254 -> +55 11 99633-4254) ──
+   Nao tenta formatar @lid, @g.us, @broadcast (nao sao telefones reais).
+   Retorna '' (vazio) quando o jid nao parece um numero valido. */
 function evoFormatPhone(jid) {
   if (!jid) return '';
-  const n = jid.replace('@s.whatsapp.net','').replace('@c.us','').replace('@g.us','').replace('@lid','');
-  // Brasil: 55 + DDD(2) + 8 ou 9 digitos
-  const m = n.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
-  if (m) return `+55 ${m[1]} ${m[2]}-${m[3]}`;
-  return '+' + n;
+  if (jid.includes('@lid') || jid.includes('@broadcast') || jid.endsWith('@g.us')) return '';
+  const n = jid.replace('@s.whatsapp.net','').replace('@c.us','');
+  // Brasil: 55 + DDD(2) + 8 ou 9 digitos (12-13 digitos totais)
+  const mBR = n.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
+  if (mBR) return `+55 ${mBR[1]} ${mBR[2]}-${mBR[3]}`;
+  // Internacional generico: tamanho razoavel (10-14)
+  if (/^\d{10,14}$/.test(n)) return '+' + n;
+  return '';
+}
+
+// Versao "amigavel" para mostrar como rotulo (Contato com 4 ultimos digitos)
+function evoLabelContato(jid) {
+  const fone = evoFormatPhone(jid);
+  if (fone) return fone;
+  // @lid ou desconhecido: mascara
+  const n = (jid||'').replace(/@.+$/, '');
+  if (n.length >= 4) return `Contato •••${n.slice(-4)}`;
+  return 'Contato';
 }
 
 /* ── WebSocket Socket.IO da Evolution (real-time) ── */
@@ -3331,11 +3346,20 @@ function evoExtractText(msg) {
   return '';
 }
 
-// Identifica chat "ruido" (linked devices @lid, broadcasts, status) sem nome humano
+// Util: detecta se um valor "parece um nome" (tem letras, nao e so digitos/JID)
+function evoTemNomeReal(s) {
+  if (!s) return false;
+  return /[a-zA-ZÀ-ÿ]/.test(String(s));
+}
+
+// Identifica chat "ruido": @lid (LinkedDevice) sem nome real, broadcasts e status
 function evoIsRuido(chat) {
   const jid = chat.remoteJid || chat.id || chat.key?.remoteJid || '';
-  const hasPushName = !!(chat.pushName || chat.name || chat.profileName);
-  if (jid.includes('@lid') && !hasPushName) return true;
+  const rawName = chat.pushName || chat.name || chat.profileName || chat.subject || '';
+  // Antes considerava como "nao ruido" qualquer pushName presente. Mas o WhatsApp
+  // costuma popular pushName com o proprio numero do @lid (so digitos), o que NAO
+  // e nome real. Exigimos pelo menos uma letra.
+  if (jid.includes('@lid') && !evoTemNomeReal(rawName)) return true;
   if (jid.includes('@broadcast')) return true;
   if (jid === 'status@broadcast') return true;
   return false;
@@ -3365,29 +3389,34 @@ function evoNormalizeChat(c) {
   // Nome final (igual WhatsApp):
   //  - Grupo COM subject -> usa o nome do grupo
   //  - Grupo SEM subject -> "Grupo" generico
-  //  - Contato COM pushName -> usa pushName
-  //  - Contato SEM pushName -> telefone formatado (+55 11 99633-4254)
+  //  - Contato COM nome real (com letras) -> usa o nome
+  //  - Contato SEM nome real, mas com telefone valido -> telefone formatado
+  //  - Contato @lid sem nome -> "Contato •••XXXX"
   let name;
   if (isGroup) {
     name = rawName || 'Grupo';
-  } else if (rawName) {
+  } else if (evoTemNomeReal(rawName)) {
     name = rawName;
   } else {
-    name = evoFormatPhone(remoteJid);
+    name = evoLabelContato(remoteJid);
   }
 
   // Preview com prefixo igual WhatsApp:
   //  - Voce enviou      -> "Voce: <texto>"
-  //  - Outro em grupo   -> "Primeiro Nome: <texto>"
+  //  - Outro em grupo   -> "Primeiro Nome: <texto>" (so se for nome real)
   //  - Outro em direto  -> "<texto>"
   const lm = c.lastMessage;
   let preview = lm ? evoExtractText(lm) : '';
   if (lm) {
     if (lm.key?.fromMe || lm.fromMe) {
       preview = `Você: ${preview || ''}`;
-    } else if (isGroup && lm.pushName) {
-      const primeiroNome = String(lm.pushName).split(/\s+/)[0];
-      preview = `${primeiroNome}: ${preview || ''}`;
+    } else if (isGroup) {
+      const remetente = lm.pushName || lm.participant || lm.key?.participant || '';
+      const primeiroNome = String(remetente).split(/\s+/)[0];
+      // So prefixa se tiver letras (evita "153644016115862: Combinado")
+      if (evoTemNomeReal(primeiroNome)) {
+        preview = `${primeiroNome}: ${preview || ''}`;
+      }
     }
   }
   preview = (preview || '').trim() || '...';
