@@ -1885,9 +1885,9 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     const texto = msg.trim();
     if (!texto || !contato) return;
 
-    // ─── GATILHO "VAMOS LA" / "ASSUMIR" ───
-    // Comando local pro admin assumir o atendimento deste chat (pausa IA so neste).
-    // Variantes aceitas: "vamos lá", "vamos la", "/vamos", "/assumir", "vamosla"
+    // ─── GATILHOS DE CONTROLE DA IA (so pausa/reativa, nao envia msg) ───
+    // PAUSAR: "vamos la" (e variantes) -> admin assume este chat
+    // REATIVAR: "." (ponto sozinho) -> devolve atendimento pra IA
     const lower = texto.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
     if (['vamos la', 'vamosla', '/vamos', '/assumir', 'assumir'].includes(lower)) {
       await setIaAtiva(false);
@@ -1895,8 +1895,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       setMsg('');
       return;
     }
-    // Comando inverso pra reativar
-    if (['/ia on', '/ia ativar', '/reativar', 'reativar ia'].includes(lower)) {
+    // Reativar: apenas "." (ponto sozinho) ou variantes longas
+    if (texto === '.' || ['/ia on', '/ia ativar', '/reativar', 'reativar ia'].includes(lower)) {
       await setIaAtiva(true);
       showToast?.('IA reativada nesta conversa.', 'success');
       setMsg('');
@@ -2463,7 +2463,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           ) : (
             <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', marginBottom:6, background:'rgba(186,117,23,.10)', border:'1px solid rgba(186,117,23,.28)', borderRadius:6, fontSize:12, color:'#E5A24A' }}>
               <Icon name="Pencil" size={12}/>
-              <span>Você assumiu este chat · IA pausada. Pra reativar digite <strong style={{fontWeight:700}}>"/ia on"</strong></span>
+              <span>Você assumiu este chat · IA pausada. Pra devolver pra IA digite <strong style={{fontWeight:700}}>"."</strong></span>
             </div>
           )}
           {gravando ? (
