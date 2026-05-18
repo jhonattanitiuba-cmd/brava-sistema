@@ -686,11 +686,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__title">{(() => {
-            const h = new Date().getHours();
-            const saudacao = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-            return `${saudacao}, ${SESSAO.nome.split(' ')[0]}`;
-          })()}</div>
+          <div className="page-head__title"><SaudacaoDinamica/></div>
           <div className="page-head__sub">{(() => {
             const hoje = new Date();
             const fmt = new Intl.DateTimeFormat('pt-BR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }).format(hoje);
@@ -1967,6 +1963,37 @@ function Logs() {
 const CACHE_VERSION = 'v=8'; // bump quando trocar assets (logos, fotos, etc.)
 const ASSET = (url) => url + (url.indexOf('?') >= 0 ? '&' : '?') + CACHE_VERSION;
 
+/* ─── Helper: perfil do usuario (nome, cargo, email, telefone) ─── */
+function getUserPerfil() {
+  try {
+    const s = localStorage.getItem('brava_user_perfil');
+    return s ? JSON.parse(s) : {};
+  } catch { return {}; }
+}
+function setUserPerfilStore(perfil) {
+  try {
+    localStorage.setItem('brava_user_perfil', JSON.stringify(perfil));
+    window.dispatchEvent(new Event('brava_perfil_changed'));
+  } catch (e) { console.warn('Falha ao salvar perfil', e); }
+}
+function getNomeExibicao() {
+  const p = getUserPerfil();
+  return p.nome || SESSAO.nome || 'Jhonattan Itiuba';
+}
+function useNomeExibicao() {
+  const [nome, setNome] = React.useState(() => getNomeExibicao());
+  React.useEffect(() => {
+    const refresh = () => setNome(getNomeExibicao());
+    window.addEventListener('brava_perfil_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_perfil_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return nome;
+}
+
 /* ─── Helper: foto do usuario (localStorage agora, Supabase Storage depois) ─── */
 function getUserPhoto() {
   try { return localStorage.getItem('brava_user_photo') || null; } catch { return null; }
@@ -2001,6 +2028,15 @@ function HeaderUserAvatar() {
       color: foto ? 'transparent' : '#fff'
     }} title={nome}>{iniciais}</div>
   );
+}
+
+/* ─── Saudacao dinamica baseada na hora + nome do perfil ─── */
+function SaudacaoDinamica() {
+  const nome = useNomeExibicao();
+  const h = new Date().getHours();
+  const saudacao = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  const primeiroNome = (nome || '').split(' ')[0] || 'Jhonattan';
+  return `${saudacao}, ${primeiroNome}`;
 }
 
 /* ─── Modal de edição de cliente ─── */
@@ -2184,6 +2220,7 @@ function Config() {
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState('');
   const fileRef = React.useRef(null);
+  const perfilRefs = React.useRef({}); // refs dos inputs nome/cargo/email/telefone
 
   const onSelectFile = (file) => {
     if (!file) return;
@@ -2313,17 +2350,25 @@ function Config() {
 
               {/* Dados pessoais */}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
-                {[
-                  ['Nome completo', SESSAO.nome || 'Jhonattan Itiuba'],
-                  ['Cargo / Função', SESSAO.role || 'Diretoria'],
-                  ['E-mail',  SESSAO.email || 'diretoria@brava.company'],
-                  ['Telefone / WhatsApp', '+55 11 96334-2541'],
-                ].map(([k,v]) => (
-                  <div key={k}>
-                    <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{k}</label>
-                    <input defaultValue={v} style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}/>
-                  </div>
-                ))}
+                {(() => {
+                  const perfilSaved = getUserPerfil();
+                  const CAMPOS = [
+                    ['nome',     'Nome completo',          perfilSaved.nome     || SESSAO.nome    || 'Jhonattan Itiuba'],
+                    ['cargo',    'Cargo / Função',         perfilSaved.cargo    || SESSAO.role    || 'Diretoria'],
+                    ['email',    'E-mail',                 perfilSaved.email    || SESSAO.email   || 'diretoria@brava.company'],
+                    ['telefone', 'Telefone / WhatsApp',    perfilSaved.telefone || '+55 11 96334-2541'],
+                  ];
+                  return CAMPOS.map(([k, label, v]) => (
+                    <div key={k}>
+                      <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
+                      <input
+                        ref={el => { if (el) perfilRefs.current[k] = el; }}
+                        defaultValue={v}
+                        style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}
+                      />
+                    </div>
+                  ));
+                })()}
               </div>
 
               {/* Senha */}
@@ -2339,13 +2384,23 @@ function Config() {
                   disabled={salvando}
                   onClick={() => {
                     setSalvando(true); setMsg('');
-                    // Simula save (no backend, persiste no localStorage)
-                    setTimeout(() => {
+                    const dados = {
+                      nome:     perfilRefs.current.nome?.value     || '',
+                      cargo:    perfilRefs.current.cargo?.value    || '',
+                      email:    perfilRefs.current.email?.value    || '',
+                      telefone: perfilRefs.current.telefone?.value || '',
+                    };
+                    try {
+                      setUserPerfilStore(dados);
+                      setTimeout(() => {
+                        setSalvando(false);
+                        setMsg('Perfil salvo. Saudação e dados atualizados.');
+                        setTimeout(() => setMsg(''), 2500);
+                      }, 400);
+                    } catch (e) {
                       setSalvando(false);
-                      setMsg('Alterações salvas com sucesso.');
-                      // Auto-fecha em 2.5s
-                      setTimeout(() => setMsg(''), 2500);
-                    }, 500);
+                      setMsg('Erro ao salvar.');
+                    }
                   }}
                 ><Icon name={salvando ? 'Loader' : 'Check'} size={14}/>{salvando ? 'Salvando…' : 'Salvar alterações'}</button>
                 <button className="btn btn-ghost" onClick={() => setMsg('')}>Cancelar</button>
