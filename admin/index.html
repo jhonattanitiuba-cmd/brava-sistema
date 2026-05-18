@@ -1689,6 +1689,19 @@ function WhatsAppSwitcher({ setPage }) {
     setPairingInstance(inst);
   };
 
+  const handleAtualizarPerfil = async (inst) => {
+    setMenuInstanceId(null);
+    setAcaoCarregando({ id: inst.id, action: 'sync' });
+    try {
+      await evoAdmin.fetchInfo(inst.evolution_instance_name);
+      showToast?.(`Perfil de ${inst.nome.replace(/^WhatsApp\s+/i,'')} atualizado`, 'success');
+    } catch (e) {
+      showToast?.(`Erro ao atualizar perfil: ${e.message}`, 'error');
+    } finally {
+      setAcaoCarregando(null);
+    }
+  };
+
   const handleDesconectar = async (inst) => {
     if (!confirm(`Desconectar "${inst.nome}"?\n\nA sessão do WhatsApp será encerrada no celular. Você pode reconectar depois escaneando um novo QR.\n\nHistorico de mensagens e contatos é preservado.`)) return;
     setMenuInstanceId(null);
@@ -1984,12 +1997,20 @@ function WhatsAppSwitcher({ setPage }) {
                         </button>
                       )}
                       {inst.status === 'open' && (
-                        <button onClick={() => handleDesconectar(inst)} style={_menuItemStyle('#F5A623')}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
-                          </svg>
-                          Desconectar
-                        </button>
+                        <>
+                          <button onClick={() => handleAtualizarPerfil(inst)} style={_menuItemStyle('#1E90FF')}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                            </svg>
+                            Atualizar perfil
+                          </button>
+                          <button onClick={() => handleDesconectar(inst)} style={_menuItemStyle('#F5A623')}>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
+                            </svg>
+                            Desconectar
+                          </button>
+                        </>
                       )}
                       <button onClick={() => handleExcluir(inst)} style={_menuItemStyle('#E5544D')}>
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -5243,6 +5264,9 @@ function useWaInstances() {
   const [instances, setInstances] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const userEmail = (SESSAO?.email || '').toLowerCase().trim();
+  // Memoriza quais instancias ja foram auto-sincronizadas nesta sessao
+  // (evita re-sync infinito quando Realtime trouxer o UPDATE)
+  const syncedRef = React.useRef(new Set());
 
   React.useEffect(() => {
     const cli = getSupa();
@@ -5264,7 +5288,27 @@ function useWaInstances() {
           q = q.is('owner_email', null);
         }
         const { data } = await q;
-        if (alive) { setInstances(data || []); setLoading(false); }
+        if (alive) {
+          setInstances(data || []);
+          setLoading(false);
+          // Auto-sync background: pra cada instancia 'open' que estiver
+          // SEM profile/foto cadastrados, dispara fetchInfo em paralelo.
+          // Garante que toda instancia visivel mostre dados completos
+          // (foto + nome + telefone), mesmo se foi criada antes de termos
+          // o fluxo de sync automatico. Idempotente.
+          (data || []).forEach((inst) => {
+            const precisaSync = inst.status === 'open' && (
+              !inst.profile_pic_url || !inst.owner_jid
+            );
+            const ja = syncedRef.current.has(inst.id);
+            if (precisaSync && !ja) {
+              syncedRef.current.add(inst.id);
+              if (typeof evoAdmin !== 'undefined' && evoAdmin.fetchInfo) {
+                evoAdmin.fetchInfo(inst.evolution_instance_name).catch(() => {});
+              }
+            }
+          });
+        }
       } catch { if (alive) setLoading(false); }
     };
     carregar();
