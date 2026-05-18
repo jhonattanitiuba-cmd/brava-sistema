@@ -2375,7 +2375,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         )}
 
         {/* Mensagens */}
-        <div className="wa-chat-pattern" style={{ flex:1, overflowY:'auto', padding:'16px 5% 16px 4%', display:'flex', flexDirection:'column', gap:4, background:S.chatBg }}>
+        <div className="wa-chat-pattern" style={{ flex:1, overflowY:'auto', padding:'14px 18px 14px 14px', display:'flex', flexDirection:'column', gap:4, background:S.chatBg }}>
           {(buscaMsg ? msgs.filter(m => m.text && m.text.toLowerCase().includes(buscaMsg.toLowerCase())) : msgs).map((m,i,arr) => {
             const dayKey = evoDayKey(m.timestamp);
             const prevDayKey = i > 0 ? evoDayKey(arr[i-1].timestamp) : null;
@@ -3250,23 +3250,47 @@ function useUserPerfil() {
   return perfil;
 }
 
-/* ─── Helper: foto do usuario.
-   Prioridade: 1) upload do user (localStorage)  2) foto do mapa BRAVA_USERS pelo email atual ─── */
+/* ─── Helper: foto do usuario (por email, nao vaza foto de outro user).
+   Prioridade:
+   1) upload do user logado (localStorage 'brava_user_photo:<email>')
+   2) foto default do mapa BRAVA_USERS pelo email
+   3) null (vira iniciais coloridas) ─── */
+function _emailAtual() {
+  try {
+    const s = JSON.parse(localStorage.getItem('brava_sessao') || '{}');
+    return String(s.email || '').toLowerCase().trim();
+  } catch { return ''; }
+}
 function getUserPhoto() {
   try {
-    const local = localStorage.getItem('brava_user_photo');
-    if (local) return local;
-    // Fallback: foto default do mapa BRAVA_USERS baseada no email logado
-    const sessao = JSON.parse(localStorage.getItem('brava_sessao') || '{}');
-    const found = BRAVA_USERS[String(sessao.email || '').toLowerCase()];
+    const email = _emailAtual();
+    // 1) upload local do user atual
+    if (email) {
+      const local = localStorage.getItem('brava_user_photo:' + email);
+      if (local) return local;
+    }
+    // 2) fallback legacy (chave antiga sem email) - so usa se for o user diretoria@
+    //    (pra nao mostrar foto antiga do Jhonattan quando Priscilla logar)
+    if (email === 'diretoria@brava.company') {
+      const legacy = localStorage.getItem('brava_user_photo');
+      if (legacy) return legacy;
+    }
+    // 3) foto default do mapa BRAVA_USERS
+    const found = BRAVA_USERS[email];
     if (found?.foto) return found.foto;
     return null;
   } catch { return null; }
 }
 function setUserPhoto(dataUrl) {
   try {
-    if (dataUrl) localStorage.setItem('brava_user_photo', dataUrl);
-    else localStorage.removeItem('brava_user_photo');
+    const email = _emailAtual();
+    if (!email) {
+      console.warn('Sem email na sessao, nao salvou foto');
+      return;
+    }
+    const key = 'brava_user_photo:' + email;
+    if (dataUrl) localStorage.setItem(key, dataUrl);
+    else localStorage.removeItem(key);
     window.dispatchEvent(new Event('brava_photo_changed'));
   } catch (e) { console.warn('Falha ao salvar foto', e); }
 }
