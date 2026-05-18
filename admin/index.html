@@ -1519,6 +1519,98 @@ const MENSAGENS = {
   ],
 };
 
+/* Label de presenca em tempo real: online/digitando/gravando/visto por ultimo */
+function PresenceLabel({ contato, usandoReal }) {
+  const presence = useEvoPresence(usandoReal ? contato?.id : null);
+  if (!contato) return null;
+  if (!usandoReal) return <span style={{fontSize:12, color:'var(--wa-green)', marginTop:1}}>{contato?.status==='online' ? 'online' : 'visto por último às 22:30'}</span>;
+  if (!presence) return <span style={{fontSize:12, color:'var(--wa-text-secondary)', marginTop:1}}>clique para ver perfil</span>;
+  const s = presence.state;
+  let label = 'online', cor = 'var(--wa-green)';
+  if (s === 'composing')      label = 'digitando...';
+  else if (s === 'recording') label = 'gravando áudio...';
+  else if (s === 'paused')    { label = 'pausou de digitar'; cor = 'var(--wa-text-secondary)'; }
+  else if (s === 'unavailable') { label = 'offline'; cor = 'var(--wa-text-secondary)'; }
+  return <span style={{fontSize:12, color:cor, marginTop:1, fontStyle: (s==='composing' || s==='recording') ? 'italic' : 'normal'}}>{label}</span>;
+}
+
+/* Renderiza imagem inline (baixa base64 sob demanda) */
+function MediaImage({ message, S }) {
+  const m = useEvoMedia(message);
+  const [open, setOpen] = React.useState(false);
+  if (m?.base64) {
+    const src = `data:${m.mimetype || 'image/jpeg'};base64,${m.base64}`;
+    return (
+      <>
+        <img src={src} alt={message.meta?.caption || ''}
+          onClick={() => setOpen(true)}
+          style={{maxWidth:'100%', maxHeight:340, borderRadius:6, display:'block', cursor:'zoom-in'}}/>
+        {open && (
+          <div onClick={()=>setOpen(false)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.92)', zIndex:99999, display:'grid', placeItems:'center', cursor:'zoom-out'}}>
+            <img src={src} alt="" style={{maxWidth:'92vw', maxHeight:'92vh', boxShadow:'0 20px 60px rgba(0,0,0,.6)'}}/>
+          </div>
+        )}
+      </>
+    );
+  }
+  return (
+    <div style={{
+      width:240, height:180, background:'rgba(0,0,0,.18)', borderRadius:6,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      flexDirection:'column', gap:6, color:S.textSec, fontSize:12,
+    }}>
+      <span style={{fontSize:32}}>{m?.error ? '⚠️' : '📷'}</span>
+      <span>{m?.error ? 'Falha ao baixar' : (m?.loading ? 'baixando…' : 'imagem')}</span>
+    </div>
+  );
+}
+
+/* Renderiza audio inline com player HTML5 */
+function MediaAudio({ message, S }) {
+  const m = useEvoMedia(message);
+  if (m?.base64) {
+    const src = `data:${m.mimetype || 'audio/ogg'};base64,${m.base64}`;
+    return <audio controls src={src} style={{height:36, maxWidth:260}}/>;
+  }
+  return (
+    <div style={{display:'flex', alignItems:'center', gap:10, minWidth:200, padding:'2px 0'}}>
+      <div style={{
+        width:36, height:36, borderRadius:'50%',
+        background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        <Icon name="Mic" size={16} style={{color:'#fff'}}/>
+      </div>
+      <div style={{flex:1, fontSize:12, color:S.textSec}}>
+        {m?.error ? '⚠️ ' + m.error.slice(0,40) : (m?.loading ? 'baixando áudio…' : 'áudio')}
+        {message.meta?.seconds ? ` · ${Math.floor(message.meta.seconds/60)}:${String(message.meta.seconds%60).padStart(2,'0')}` : ''}
+      </div>
+    </div>
+  );
+}
+
+/* Renderiza documento com botao de download */
+function MediaDocument({ message, S }) {
+  const m = useEvoMedia(message, false); // nao baixa automatico (pode ser grande)
+  const fileName = message.meta?.fileName || m?.fileName || 'Documento';
+  const sizeMB = message.meta?.fileLength ? (Number(message.meta.fileLength) / (1024*1024)).toFixed(2) + ' MB' : '';
+  return (
+    <div style={{display:'flex', alignItems:'center', gap:10, minWidth:220, padding:'4px 0'}}>
+      <div style={{
+        width:40, height:40, borderRadius:8, background:'rgba(0,0,0,.15)',
+        display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, flexShrink:0,
+      }}>📄</div>
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{fontSize:13, fontWeight:500, color:'inherit', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{fileName}</div>
+        <div style={{fontSize:11, color:S.textSec, marginTop:2}}>{sizeMB || (m?.loading ? 'baixando…' : 'clique p/ baixar')}</div>
+      </div>
+      <button onClick={() => evoDownloadMessage(message)} title="Baixar"
+        style={{background:'rgba(255,255,255,.1)', border:'none', borderRadius:6, padding:'6px 8px', cursor:'pointer', color:'inherit'}}>
+        <Icon name="Upload" size={14} style={{transform:'rotate(180deg)'}}/>
+      </button>
+    </div>
+  );
+}
+
 function Conversas({ pipelineCols, moverNoPipeline }) {
   // Dados reais vs mock — quando Evolution configurada, usa real
   const evoCfg = useEvoConfig();
@@ -1605,11 +1697,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     }
   };
 
-  // Envio de imagem
-  const enviarImagem = async (file) => {
+  // Envio universal (imagem, video, audio, doc — detecta pelo mimetype)
+  const enviarArquivo = async (file) => {
     if (!file || !contato || !usandoReal) return;
-    if (!file.type.startsWith('image/')) { showToast?.('Selecione uma imagem', 'warn'); return; }
-    if (file.size > 16 * 1024 * 1024)   { showToast?.('Imagem muito grande (max 16MB)', 'warn'); return; }
+    if (file.size > 64 * 1024 * 1024) { showToast?.('Arquivo muito grande (max 64MB)', 'warn'); return; }
+    const mime = file.type || 'application/octet-stream';
+    let mediatype = 'document';
+    let kindUI = 'document';
+    if (mime.startsWith('image/')) { mediatype = 'image'; kindUI = 'image'; }
+    else if (mime.startsWith('video/')) { mediatype = 'video'; kindUI = 'video'; }
+    else if (mime.startsWith('audio/')) { mediatype = 'audio'; kindUI = 'audio'; }
     const caption = msg.trim();
     const numero = (contato.id || '').replace('@s.whatsapp.net','').replace('@c.us','');
     const tsAgora = Date.now();
@@ -1620,19 +1717,23 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       setMsgsOtimistas(arr => [...arr, {
         id: 'opt_' + tsAgora, conversaId: contato.id, from:'out',
         text: caption, time: evoTimeFormat(tsAgora), timestamp: tsAgora, pending:true,
-        kind: 'image', meta:{ kind:'image', caption }, previewDataUrl: dataUrl,
+        kind: kindUI, meta:{ kind:kindUI, caption, fileName: file.name, mimetype: mime, fileLength: file.size },
+        previewDataUrl: kindUI === 'image' ? dataUrl : undefined,
       }]);
       setMsg('');
       setEnviando(true);
       try {
-        await evo.sendMedia(numero, base64, 'image', caption, file.name, file.type);
+        await evo.sendMedia(numero, base64, mediatype, caption, file.name, mime);
+        showToast?.(`${file.name} enviado`, 'success');
       } catch (err) {
-        showToast?.('Erro ao enviar imagem: ' + (err.message || ''), 'error');
+        showToast?.('Erro ao enviar: ' + (err.message || ''), 'error');
         setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
       } finally { setEnviando(false); }
     };
     reader.readAsDataURL(file);
   };
+  // alias para compat
+  const enviarImagem = enviarArquivo;
 
   // Gravar e enviar audio (PTT)
   const toggleGravacao = async () => {
@@ -1848,8 +1949,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
             {contato?.status==='online' && !usandoReal && <div style={{ position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.headerBg}` }}/>}
           </div>
           <div style={{ flex:1 }}>
-            <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary }}>{contato?.name}</div>
-            <div style={{ fontSize:12, color:S.green, marginTop:1 }}>{contato?.status==='online' ? 'online' : 'visto por último às 22:30'}</div>
+            <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary, display:'flex', alignItems:'center', gap:8 }}>
+              {contato?.name}
+              {contato?.isGroup && <span style={{fontSize:10, padding:'1px 6px', borderRadius:4, background:'rgba(123,63,228,.18)', color:'var(--purple)', fontFamily:'var(--f-m)', fontWeight:600, letterSpacing:'.04em'}}>GRUPO</span>}
+            </div>
+            <PresenceLabel contato={contato} usandoReal={usandoReal}/>
           </div>
           <div style={{ display:'flex', gap:4, alignItems:'center' }}>
             <button onClick={()=>setIaAtiva(v=>!v)} style={{
@@ -1905,53 +2009,35 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 opacity: m.pending ? .65 : (m.failed ? .8 : 1),
                 position:'relative',
               }}>
+                {/* Sender em grupo */}
+                {m.from==='in' && contato?.isGroup && m.raw?.pushName && (
+                  <div style={{fontSize:11.5, fontWeight:600, color: evoColorFromString(m.raw.key?.participant || m.raw.pushName), marginBottom:2}}>
+                    {m.raw.pushName}
+                  </div>
+                )}
                 {/* Imagem */}
                 {m.kind === 'image' && (
                   <div>
-                    {m.previewDataUrl ? (
-                      <img src={m.previewDataUrl} alt="" style={{maxWidth:'100%', borderRadius:6, display:'block'}}/>
-                    ) : (
-                      <div style={{
-                        width:240, height:180, background:'rgba(0,0,0,.15)', borderRadius:6,
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        flexDirection:'column', gap:6, color:S.textSec, fontSize:12,
-                      }}>
-                        <span style={{fontSize:32}}>📷</span>
-                        <span>Imagem</span>
-                      </div>
-                    )}
+                    {m.previewDataUrl
+                      ? <img src={m.previewDataUrl} alt="" style={{maxWidth:'100%', borderRadius:6, display:'block'}}/>
+                      : <MediaImage message={m} S={S}/>
+                    }
                     {m.meta?.caption && <div style={{padding:'6px 8px 2px'}}>{m.meta.caption}</div>}
                   </div>
                 )}
                 {/* Audio */}
-                {m.kind === 'audio' && (
-                  <div style={{display:'flex', alignItems:'center', gap:10, minWidth:180, padding:'2px 0'}}>
-                    <div style={{
-                      width:36, height:36, borderRadius:'50%',
-                      background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center',
-                    }}>
-                      <Icon name="Mic" size={16} style={{color:'#fff'}}/>
-                    </div>
-                    <div style={{flex:1}}>
-                      <div style={{height:3, background:'rgba(0,0,0,.15)', borderRadius:2, marginBottom:4}}>
-                        <div style={{width:'100%', height:'100%', background:'var(--wa-green)', borderRadius:2, opacity:.6}}/>
-                      </div>
-                      <div style={{fontSize:11, color:S.textSec, fontFamily:'var(--f-m)'}}>
-                        {m.meta?.ptt ? '🎤 Voz' : '🎵 Audio'} {m.meta?.seconds ? `· ${Math.floor(m.meta.seconds/60)}:${String(m.meta.seconds%60).padStart(2,'0')}` : ''}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {/* Outros tipos de midia (documento, sticker, video, etc) */}
-                {(m.kind === 'document' || m.kind === 'video' || m.kind === 'sticker' || m.kind === 'location' || m.kind === 'contact') && (
+                {m.kind === 'audio' && <MediaAudio message={m} S={S}/>}
+                {/* Documento com botao baixar real */}
+                {m.kind === 'document' && <MediaDocument message={m} S={S}/>}
+                {/* Outros tipos (video, sticker, location, contact) */}
+                {(m.kind === 'video' || m.kind === 'sticker' || m.kind === 'location' || m.kind === 'contact') && (
                   <div style={{display:'flex', alignItems:'center', gap:8, padding:'2px 0'}}>
                     <span style={{fontSize:18}}>{
-                      m.kind === 'document' ? '📄' :
                       m.kind === 'video'    ? '🎥' :
                       m.kind === 'location' ? '📍' :
                       m.kind === 'contact'  ? '👤' : '😀'
                     }</span>
-                    <span>{m.text || m.meta?.fileName || m.meta?.displayName || m.kind}</span>
+                    <span>{m.text || m.meta?.displayName || m.kind}</span>
                   </div>
                 )}
                 {/* Texto puro */}
@@ -2010,12 +2096,15 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               <div style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'default', opacity:.5 }} title="Em breve">
                 <Icon name="Smile" size={20}/>
               </div>
-              <input ref={fileImgRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>enviarImagem(e.target.files?.[0])}/>
+              <input ref={fileImgRef} type="file"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,application/*"
+                style={{display:'none'}}
+                onChange={e=>{ const f = e.target.files?.[0]; e.target.value = ''; if (f) enviarArquivo(f); }}/>
               <div onClick={() => usandoReal ? fileImgRef.current?.click() : showToast?.('Configure a Evolution primeiro', 'warn')}
                 style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer', transition:'background .15s' }}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}
-                title="Enviar imagem"
+                title="Anexar imagem, vídeo, áudio ou documento (PDF, Word, Excel...)"
               >
                 <Icon name="Paperclip" size={20}/>
               </div>
@@ -2047,62 +2136,169 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       </div>
 
       {/* ── Coluna 3: Contexto ── */}
-      <div style={{ borderLeft:`1px solid ${S.border}`, overflowY:'auto', background:S.sidebarBg, padding:'16px 14px', display:'flex', flexDirection:'column', gap:14 }}>
-        <div style={{ textAlign:'center', paddingBottom:14, borderBottom:`1px solid ${S.border}` }}>
-          <div style={{margin:'0 auto 10px', display:'flex', justifyContent:'center'}}>
-            {usandoReal
-              ? <EvoAvatar remoteJid={contato?.id} name={contato?.name} init={contato?.init} color={contato?.color} size={60}/>
-              : <div style={{ width:60, height:60, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:20, color:'#fff' }}>{contato?.init}</div>
-            }
+      <PainelContato
+        contato={contato}
+        usandoReal={usandoReal}
+        msgs={msgs}
+        pipelineCols={pipelineCols}
+        faseAtual={faseAtual}
+        mudarFase={mudarFase}
+        S={S}
+      />
+    </div>
+  );
+}
+
+/* Painel direito reativo — dados reais do contato (numero, 1a msg, total),
+   pipeline funcional, suporte a grupos com lista de participantes. */
+function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mudarFase, S }) {
+  const presence = useEvoPresence(usandoReal ? contato?.id : null);
+  const grupo = useEvoGroupMeta(usandoReal && contato?.isGroup ? contato.id : null);
+
+  if (!contato) {
+    return (
+      <div style={{ borderLeft:`1px solid ${S.border}`, overflowY:'auto', background:S.sidebarBg, padding:'16px 14px', color:S.textSec, fontSize:13, textAlign:'center' }}>
+        Nenhuma conversa selecionada
+      </div>
+    );
+  }
+
+  // Dados reais derivados das mensagens carregadas
+  const primMsg = msgs?.[0];
+  const ultMsg = msgs?.[msgs.length-1];
+  const totalMsgs = msgs?.length || 0;
+  const primMsgDate = primMsg?.timestamp ? new Date(primMsg.timestamp) : null;
+  const primMsgFmt = primMsgDate
+    ? `${primMsgDate.toLocaleDateString('pt-BR')} ${primMsgDate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`
+    : '—';
+
+  const telefone = usandoReal ? evoFormatPhone(contato.id) : '+55 11 99999-9999';
+  const origem = contato.isGroup ? 'Grupo WhatsApp' : (contato.ehLid ? 'Linked Device' : 'WhatsApp');
+
+  // Pipeline default + match por nome
+  const colsRender = pipelineCols || [
+    {id:'lead',     nome:'Lead',          cor:'#6E6E78'},
+    {id:'proposta', nome:'Proposta',      cor:'#BA7517'},
+    {id:'impl',     nome:'Implementação', cor:'#7B3FE4'},
+    {id:'ativo',    nome:'Ativo',         cor:'#1E90FF'},
+    {id:'prod',     nome:'Em Produção',   cor:'#1D9E75'},
+  ];
+
+  return (
+    <div style={{ borderLeft:`1px solid ${S.border}`, overflowY:'auto', background:S.sidebarBg, padding:'16px 14px', display:'flex', flexDirection:'column', gap:14 }}>
+      {/* Header avatar + nome + presenca/membros */}
+      <div style={{ textAlign:'center', paddingBottom:14, borderBottom:`1px solid ${S.border}` }}>
+        <div style={{margin:'0 auto 10px', display:'flex', justifyContent:'center'}}>
+          {usandoReal
+            ? <EvoAvatar remoteJid={contato?.id} name={contato?.name} init={contato?.init} color={contato?.color} size={72}/>
+            : <div style={{ width:72, height:72, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:24, color:'#fff' }}>{contato?.init}</div>
+          }
+        </div>
+        <div style={{ fontWeight:600, fontSize:16, color:S.textPrimary, display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+          {contato?.name}
+          {contato?.isGroup && <span style={{fontSize:9.5, padding:'1px 6px', borderRadius:4, background:'rgba(123,63,228,.18)', color:'var(--purple)', fontFamily:'var(--f-m)', fontWeight:600, letterSpacing:'.04em'}}>GRUPO</span>}
+        </div>
+        {usandoReal && !contato.isGroup && (
+          <div style={{ fontSize:12, color:S.textSec, marginTop:4, fontFamily:'var(--f-m)' }}>{telefone}</div>
+        )}
+        {usandoReal && contato.isGroup && grupo?.participants && (
+          <div style={{ fontSize:12, color:S.textSec, marginTop:4 }}>{grupo.participants.length} participantes</div>
+        )}
+        {presence && (
+          <div style={{ fontSize:11.5, color:'var(--wa-green)', marginTop:5, fontWeight:500 }}>
+            {presence.state === 'composing' ? '✏️ digitando...' :
+             presence.state === 'recording' ? '🎤 gravando áudio...' :
+             presence.state === 'available' ? '● online' :
+             presence.state === 'unavailable' ? 'offline' : presence.state}
           </div>
-          <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary }}>{contato?.name}</div>
-          <div style={{ fontSize:12, color:S.textSec, marginTop:3 }}>via {contato?.via}</div>
-          <div style={{ fontSize:12, color:S.green, marginTop:2 }}>{contato?.canal}</div>
-        </div>
+        )}
+      </div>
 
-        {/* Pipeline integrado */}
-        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
-          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em' }}>PIPELINE</div>
-          {(pipelineCols||[{id:'lead',nome:'Lead',cor:'#6E6E78'},{id:'proposta',nome:'Proposta',cor:'#BA7517'},{id:'impl',nome:'Implementação',cor:'#7B3FE4'},{id:'ativo',nome:'Ativo',cor:'#1E90FF'},{id:'prod',nome:'Em Produção',cor:'#1D9E75'}]).map((col) => {
-            const isAtual = faseAtual?.id === col.id;
-            return (
-              <div key={col.id} onClick={()=>mudarFase(col.id)} style={{
-                display:'flex', alignItems:'center', gap:8, marginBottom:6,
-                padding:'6px 8px', borderRadius:7, cursor:'pointer',
-                background: isAtual ? col.cor+'18' : 'transparent',
-                border: isAtual ? `1px solid ${col.cor}44` : '1px solid transparent',
-                transition:'all .15s',
-              }}
-                onMouseEnter={e=>{ if(!isAtual) e.currentTarget.style.background='rgba(128,128,128,.08)'; }}
-                onMouseLeave={e=>{ if(!isAtual) e.currentTarget.style.background='transparent'; }}
-              >
-                <div style={{ width:8, height:8, borderRadius:'50%', background: isAtual ? col.cor : S.border, flexShrink:0, transition:'background .15s' }}/>
-                <span style={{ fontSize:13, color: isAtual ? S.textPrimary : S.textSec, fontWeight: isAtual ? 600 : 400 }}>{col.nome}</span>
-                {isAtual && <span style={{ marginLeft:'auto', fontSize:10, color:col.cor, fontFamily:'var(--f-m)', fontWeight:700 }}>ATUAL</span>}
-              </div>
-            );
-          })}
+      {/* Pipeline */}
+      <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
+        <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em', display:'flex', justifyContent:'space-between' }}>
+          <span>PIPELINE</span>
+          {faseAtual && <span style={{color:faseAtual.cor||'var(--purple)', fontSize:10}}>● {faseAtual.nome}</span>}
         </div>
-
-        {/* Info */}
-        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
-          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em' }}>INFORMAÇÕES</div>
-          {[['Telefone','+55 11 99999-9999'],['Origem',contato?.via||'Direto'],['1ª msg','Hoje, 23:47'],['Total','1 conversa']].map(([k,v]) => (
-            <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-              <span style={{ fontSize:12.5, color:S.textSec }}>{k}</span>
-              <span style={{ fontSize:12.5, color:S.textPrimary, fontWeight:500 }}>{v}</span>
+        {colsRender.map((col) => {
+          const isAtual = faseAtual?.id === col.id;
+          return (
+            <div key={col.id} onClick={()=>mudarFase(col.id)} style={{
+              display:'flex', alignItems:'center', gap:8, marginBottom:6,
+              padding:'7px 9px', borderRadius:7, cursor:'pointer',
+              background: isAtual ? (col.cor||'var(--purple)')+'18' : 'transparent',
+              border: isAtual ? `1px solid ${(col.cor||'var(--purple)')}44` : '1px solid transparent',
+              transition:'all .15s',
+            }}
+              onMouseEnter={e=>{ if(!isAtual) e.currentTarget.style.background='rgba(128,128,128,.08)'; }}
+              onMouseLeave={e=>{ if(!isAtual) e.currentTarget.style.background='transparent'; }}
+            >
+              <div style={{ width:8, height:8, borderRadius:'50%', background: isAtual ? (col.cor||'var(--purple)') : S.border, flexShrink:0, transition:'background .15s' }}/>
+              <span style={{ fontSize:13, color: isAtual ? S.textPrimary : S.textSec, fontWeight: isAtual ? 600 : 400 }}>{col.nome}</span>
+              {isAtual && <span style={{ marginLeft:'auto', fontSize:10, color:col.cor||'var(--purple)', fontFamily:'var(--f-m)', fontWeight:700 }}>ATUAL</span>}
             </div>
-          ))}
-        </div>
+          );
+        })}
+        {!faseAtual && usandoReal && (
+          <div style={{ marginTop:4, fontSize:11, color:S.textSec, fontStyle:'italic' }}>
+            Clique numa fase para adicionar este contato ao pipeline
+          </div>
+        )}
+      </div>
 
-        {/* Notas */}
-        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px', flex:1 }}>
-          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:8, letterSpacing:'.04em' }}>ANOTAÇÕES</div>
-          <textarea placeholder="Adicionar nota..." style={{
-            width:'100%', minHeight:80, background:'transparent', border:'none', outline:'none',
-            fontSize:13, color:S.textPrimary, resize:'none', lineHeight:1.6,
-          }}/>
+      {/* Informacoes reais */}
+      <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
+        <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em' }}>INFORMAÇÕES</div>
+        {[
+          contato.isGroup
+            ? ['Tipo', `Grupo · ${grupo?.participants?.length || '?'} membros`]
+            : ['Telefone', telefone],
+          ['Origem',   origem],
+          ['Não lidas',contato.unread > 0 ? String(contato.unread) : '—'],
+          ['1ª msg',   primMsgFmt],
+          ['Última',   ultMsg?.time || '—'],
+          ['Total',    totalMsgs > 0 ? `${totalMsgs} mensagem${totalMsgs===1?'':'s'}` : '—'],
+        ].map(([k,v]) => (
+          <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:8, gap:8 }}>
+            <span style={{ fontSize:12.5, color:S.textSec, flexShrink:0 }}>{k}</span>
+            <span style={{ fontSize:12.5, color:S.textPrimary, fontWeight:500, textAlign:'right', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{v}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Membros (se for grupo) */}
+      {contato.isGroup && grupo?.participants && grupo.participants.length > 0 && (
+        <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
+          <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:10, letterSpacing:'.04em' }}>MEMBROS · {grupo.participants.length}</div>
+          <div style={{display:'flex', flexDirection:'column', gap:6, maxHeight:200, overflowY:'auto'}}>
+            {grupo.participants.slice(0, 30).map((p, i) => {
+              const jid = p.id || p;
+              const nome = p.notify || p.name || evoFormatPhone(jid);
+              const isAdmin = p.admin === 'admin' || p.admin === 'superadmin';
+              return (
+                <div key={jid+'-'+i} style={{display:'flex', alignItems:'center', gap:8}}>
+                  <EvoAvatar remoteJid={jid} name={nome} size={24}/>
+                  <span style={{fontSize:12.5, color:S.textPrimary, flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{nome}</span>
+                  {isAdmin && <span style={{fontSize:9.5, padding:'1px 5px', borderRadius:3, background:'rgba(123,63,228,.18)', color:'var(--purple)', fontFamily:'var(--f-m)'}}>ADMIN</span>}
+                </div>
+              );
+            })}
+            {grupo.participants.length > 30 && (
+              <div style={{fontSize:11, color:S.textSec, textAlign:'center', paddingTop:6}}>
+                +{grupo.participants.length - 30} outros
+              </div>
+            )}
+          </div>
         </div>
+      )}
+
+      {/* Notas */}
+      <div style={{ background:S.headerBg, borderRadius:10, padding:'12px 14px' }}>
+        <div style={{ fontSize:11, color:S.textSec, fontWeight:600, marginBottom:8, letterSpacing:'.04em' }}>ANOTAÇÕES</div>
+        <textarea placeholder="Adicionar nota..." style={{
+          width:'100%', minHeight:60, background:'transparent', border:'none', outline:'none',
+          fontSize:13, color:S.textPrimary, resize:'vertical', lineHeight:1.6,
+        }}/>
       </div>
     </div>
   );
@@ -2749,6 +2945,164 @@ function useEvoProfilePic(remoteJid) {
   return _evoPicCache.get(remoteJid)?.url || null;
 }
 
+/* ── Presenca (online/digitando/gravando) ── */
+// state: 'available'|'unavailable'|'composing'|'recording'|'paused' | null
+const _evoPresenceCache = new Map(); // remoteJid -> { state, ts, lastSeen? }
+const _evoPresenceSubs = new Set();
+function _evoNotifyPresence() { _evoPresenceSubs.forEach(fn => { try { fn(); } catch {} }); }
+
+// chamada quando socket emite presence.update
+function evoApplyPresenceUpdate(payload) {
+  if (!payload) return;
+  const data = payload.data || payload;
+  const jid = data.id || data.jid || data.remoteJid;
+  const presences = data.presences || {};
+  if (jid && Object.keys(presences).length === 0) return;
+  // O payload pode trazer presences indexadas por participantJid (em grupos)
+  // OU diretamente {lastKnownPresence} sob a propria entry. Aceitamos as duas formas.
+  let state = null;
+  for (const k of Object.keys(presences)) {
+    const p = presences[k];
+    if (p?.lastKnownPresence) { state = p.lastKnownPresence; break; }
+  }
+  if (!state && data.lastKnownPresence) state = data.lastKnownPresence;
+  if (!jid || !state) return;
+  _evoPresenceCache.set(jid, { state, ts: Date.now() });
+  _evoNotifyPresence();
+}
+
+// Tenta assinar presenca de um chat (endpoint varia por versao Evolution; falha silenciosa)
+async function evoSubscribePresence(remoteJid) {
+  if (!remoteJid) return;
+  try {
+    const number = remoteJid.replace('@s.whatsapp.net','').replace('@c.us','');
+    // tenta endpoint v2
+    await evoFetch(`/chat/presence/${encodeURIComponent(getEvoConfig().instance)}`, {
+      method:'POST', body: JSON.stringify({ number, presence:'available' }),
+    }).catch(()=>{});
+  } catch {}
+}
+
+function useEvoPresence(remoteJid) {
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    if (!remoteJid) return;
+    const fn = () => force(x => x+1);
+    _evoPresenceSubs.add(fn);
+    evoSubscribePresence(remoteJid); // best effort
+    return () => { _evoPresenceSubs.delete(fn); };
+  }, [remoteJid]);
+  return _evoPresenceCache.get(remoteJid) || null;
+}
+
+/* ── Download de midia (cache base64 por message id) ── */
+const _evoMediaCache = new Map(); // msgId -> { base64, mimetype, fileName, loading, error }
+const _evoMediaSubs = new Set();
+function _evoNotifyMedia(msgId) { _evoMediaSubs.forEach(fn => { try { fn(msgId); } catch {} }); }
+
+async function evoEnsureMedia(message) {
+  const id = message?.id || message?.key?.id;
+  if (!id) return null;
+  const cached = _evoMediaCache.get(id);
+  if (cached && (cached.base64 || cached.error)) return cached;
+  if (cached?.loading) return cached;
+  _evoMediaCache.set(id, { loading:true });
+  _evoNotifyMedia(id);
+  try {
+    const raw = message.raw || message; // permite passar o normalizado ou o cru
+    const data = await evo.getBase64FromMedia(raw);
+    const base64 = data?.base64 || data?.media || data?.data;
+    const mimetype = data?.mimetype || message.meta?.mimetype || 'application/octet-stream';
+    const fileName = data?.fileName || message.meta?.fileName || `arquivo`;
+    if (!base64) throw new Error('Sem base64 no retorno');
+    _evoMediaCache.set(id, { base64, mimetype, fileName });
+    _evoNotifyMedia(id);
+    return _evoMediaCache.get(id);
+  } catch (e) {
+    _evoMediaCache.set(id, { error: e.message || 'Erro ao baixar' });
+    _evoNotifyMedia(id);
+    return _evoMediaCache.get(id);
+  }
+}
+
+function useEvoMedia(message, autoLoad = true) {
+  const id = message?.id || message?.key?.id;
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    if (!id) return;
+    const fn = (mid) => { if (mid === id) force(x => x+1); };
+    _evoMediaSubs.add(fn);
+    if (autoLoad && !_evoMediaCache.has(id)) evoEnsureMedia(message);
+    return () => { _evoMediaSubs.delete(fn); };
+  }, [id, autoLoad]);
+  return _evoMediaCache.get(id) || null;
+}
+
+// Trigger download no browser (gera <a download> a partir do base64)
+async function evoDownloadMessage(message) {
+  const r = await evoEnsureMedia(message);
+  if (!r?.base64) { showToast?.('Falha ao baixar arquivo: ' + (r?.error||''), 'error'); return; }
+  const blob = await (await fetch(`data:${r.mimetype};base64,${r.base64}`)).blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = r.fileName || 'arquivo';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ── Metadados de grupo (cache) ── */
+const _evoGroupCache = new Map(); // groupJid -> { subject, owner, participants, desc }
+const _evoGroupSubs = new Set();
+function _evoNotifyGroup() { _evoGroupSubs.forEach(fn => { try { fn(); } catch {} }); }
+
+async function evoEnsureGroupMeta(groupJid) {
+  if (!groupJid?.endsWith('@g.us')) return null;
+  const cached = _evoGroupCache.get(groupJid);
+  if (cached) return cached;
+  _evoGroupCache.set(groupJid, { loading:true });
+  try {
+    // Tenta endpoint v2
+    const data = await evoFetch(`/group/findGroupInfos/${encodeURIComponent(getEvoConfig().instance)}?groupJid=${encodeURIComponent(groupJid)}`).catch(async () => {
+      return evoFetch(`/group/fetchAllGroups/${encodeURIComponent(getEvoConfig().instance)}`).then(arr => (Array.isArray(arr) ? arr.find(g => g.id === groupJid) : null));
+    });
+    if (data) {
+      _evoGroupCache.set(groupJid, {
+        subject: data.subject,
+        owner: data.owner,
+        participants: data.participants || [],
+        desc: data.desc,
+      });
+      _evoNotifyGroup();
+    }
+    return _evoGroupCache.get(groupJid);
+  } catch (e) {
+    _evoGroupCache.set(groupJid, { error: e.message });
+    return _evoGroupCache.get(groupJid);
+  }
+}
+
+function useEvoGroupMeta(groupJid) {
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    if (!groupJid?.endsWith('@g.us')) return;
+    const fn = () => force(x => x+1);
+    _evoGroupSubs.add(fn);
+    if (!_evoGroupCache.has(groupJid)) evoEnsureGroupMeta(groupJid);
+    return () => { _evoGroupSubs.delete(fn); };
+  }, [groupJid]);
+  return _evoGroupCache.get(groupJid) || null;
+}
+
+/* ── Formatar numero de telefone (5511996334254 -> +55 11 99633-4254) ── */
+function evoFormatPhone(jid) {
+  if (!jid) return '';
+  const n = jid.replace('@s.whatsapp.net','').replace('@c.us','').replace('@g.us','').replace('@lid','');
+  // Brasil: 55 + DDD(2) + 8 ou 9 digitos
+  const m = n.match(/^55(\d{2})(\d{4,5})(\d{4})$/);
+  if (m) return `+55 ${m[1]} ${m[2]}-${m[3]}`;
+  return '+' + n;
+}
+
 /* ── WebSocket Socket.IO da Evolution (real-time) ── */
 const _evoSocketState = { socket:null, cfgKey:null, listeners:new Set(), connected:false };
 function _evoSocketEmit(evt) { _evoSocketState.listeners.forEach(fn => { try { fn(evt); } catch {} }); }
@@ -2785,8 +3139,10 @@ function evoSocketConnect(cfg) {
     _evoSocketEmit({ type:'error', error: err?.message || 'connect error' });
   });
   // Eventos Evolution v2 (chegam tanto no namespace quanto direto)
-  ['messages.upsert','messages.update','chats.upsert','chats.update','chats.delete','connection.update','contacts.upsert','contacts.update','send.message']
+  ['messages.upsert','messages.update','chats.upsert','chats.update','chats.delete','connection.update','contacts.upsert','contacts.update','send.message','presence.update']
     .forEach(evt => socket.on(evt, (payload) => _evoSocketEmit({ type:'message', event:evt, payload })));
+  // Auto-aplica presenca quando chegar
+  socket.on('presence.update', (payload) => evoApplyPresenceUpdate(payload));
 
   // Wildcard listener (alguns servidores emitem por evento literal)
   socket.onAny?.((evt, payload) => _evoSocketEmit({ type:'any', event:evt, payload }));
@@ -3211,21 +3567,36 @@ function EvoConfigModal({ onClose }) {
   );
 }
 
-/* Avatar reativo que carrega foto de perfil real do contato */
+/* Avatar reativo que carrega foto de perfil real do contato.
+   Usa <img> com onError pra invalidar cache quando URL expirar (S3 do WhatsApp).
+*/
 function EvoAvatar({ remoteJid, size = 40, name, init, color, fallbackUrl }) {
   const pic = useEvoProfilePic(remoteJid);
   const src = fallbackUrl || pic;
   const i = init || evoInitials(name);
   const c = color || evoColorFromString(remoteJid || name || '');
+  const [erro, setErro] = React.useState(false);
+  React.useEffect(() => { setErro(false); }, [src]);
+  const isGroup = remoteJid?.endsWith('@g.us');
   return (
     <div style={{
       width:size, height:size, borderRadius:'50%',
-      background: src ? `${c} center/cover no-repeat url(${JSON.stringify(src)})` : c,
+      background: c,
       display:'flex', alignItems:'center', justifyContent:'center',
       fontFamily:'var(--f-d)', fontWeight:700, fontSize: Math.round(size*0.34),
-      color: src ? 'transparent' : '#fff',
+      color:'#fff',
       flexShrink:0, overflow:'hidden',
-    }}>{i}</div>
+      position:'relative',
+    }}>
+      {src && !erro
+        ? <img src={src} alt={name||''}
+            onError={() => { setErro(true); _evoPicCache.delete(remoteJid); }}
+            style={{position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover'}}/>
+        : (isGroup
+          ? <span style={{fontSize: Math.round(size*0.5)}}>👥</span>
+          : i
+        )}
+    </div>
   );
 }
 
