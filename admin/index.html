@@ -1916,13 +1916,13 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 {c.status==='online' && !usandoReal && <div style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.sidebarBg}` }}/>}
               </div>
               <div style={{ flex:1, minWidth:0 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
-                  <span style={{ fontSize:14.5, fontWeight:500, color:S.textPrimary }}>{c.name}</span>
-                  <span style={{ fontSize:11, color: c.unread>0 ? S.green : S.textSec }}>{c.time}</span>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:8 }}>
+                  <span style={{ fontSize:14.5, fontWeight:500, color:S.textPrimary, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</span>
+                  <span style={{ fontSize:11, color: c.unread>0 ? S.green : S.textSec, whiteSpace:'nowrap', flexShrink:0, textTransform:'lowercase' }}>{c.time}</span>
                 </div>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:3 }}>
-                  <span style={{ fontSize:13, color:S.textSec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', maxWidth:180 }}>{c.preview}</span>
-                  {c.unread > 0 && <span style={{ minWidth:19, height:19, borderRadius:999, background:S.unread, color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 4px', flexShrink:0 }}>{c.unread}</span>}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:3, gap:8 }}>
+                  <span style={{ fontSize:13, color:S.textSec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, minWidth:0 }}>{c.preview}</span>
+                  {c.unread > 0 && <span style={{ minWidth:19, height:19, borderRadius:999, background:S.unread, color:'#fff', fontSize:11, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', padding:'0 5px', flexShrink:0 }}>{c.unread}</span>}
                 </div>
               </div>
             </div>
@@ -3258,7 +3258,11 @@ function evoInitials(name) {
   if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
   return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
 }
-// Formato para LISTA de conversas (mostra "ontem", dia da semana, ou data)
+// Formato para LISTA de conversas (igual WhatsApp Web):
+//  - hoje      -> HH:MM (ex: 01:00)
+//  - ontem     -> "ontem"
+//  - <7 dias   -> dia da semana COMPLETO (sexta-feira, quarta-feira)
+//  - mais antigo -> DD/MM/YYYY (06/05/2026)
 function evoTimeFormat(ts) {
   if (!ts) return '';
   const d = typeof ts === 'number' ? new Date(ts < 1e12 ? ts*1000 : ts) : new Date(ts);
@@ -3269,8 +3273,8 @@ function evoTimeFormat(ts) {
   const ontem = new Date(now); ontem.setDate(ontem.getDate()-1);
   if (d.toDateString() === ontem.toDateString()) return 'ontem';
   const diasAtras = Math.floor((now - d) / (24*60*60*1000));
-  if (diasAtras < 7) return d.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3);
-  return d.toLocaleDateString('pt-BR',{day:'2-digit', month:'2-digit'});
+  if (diasAtras < 7) return d.toLocaleDateString('pt-BR',{weekday:'long'}); // sexta-feira
+  return d.toLocaleDateString('pt-BR',{day:'2-digit', month:'2-digit', year:'numeric'}); // 06/05/2026
 }
 
 // Formato para BOLHA de mensagem (SEMPRE HH:MM como o WhatsApp)
@@ -3351,22 +3355,50 @@ function evoMessageMeta(msg) {
   return { kind: 'text' };
 }
 
-// Converte um chat do Evolution v2 para o shape do UI
+// Converte um chat do Evolution v2 para o shape do UI (espelhamento WhatsApp Web)
 function evoNormalizeChat(c) {
   const remoteJid = c.remoteJid || c.id || c.key?.remoteJid || '';
   const isGroup = remoteJid.endsWith('@g.us');
   const ehLid = remoteJid.includes('@lid');
-  const numero = remoteJid.replace('@s.whatsapp.net','').replace('@g.us','').replace('@lid','').replace('@c.us','');
-  const rawName = c.pushName || c.name || c.profileName || '';
-  const name = rawName || (isGroup ? `Grupo ${numero.slice(-6)}` : ehLid ? `Contato ${numero.slice(-6)}` : numero);
-  const preview = evoExtractText(c.lastMessage) || (c.lastMessage?.message ? evoExtractText(c.lastMessage.message) : '');
-  const ts = c.updatedAt || c.lastMessage?.messageTimestamp || c.messageTimestamp;
+  const rawName = c.pushName || c.name || c.profileName || c.subject || '';
+
+  // Nome final (igual WhatsApp):
+  //  - Grupo COM subject -> usa o nome do grupo
+  //  - Grupo SEM subject -> "Grupo" generico
+  //  - Contato COM pushName -> usa pushName
+  //  - Contato SEM pushName -> telefone formatado (+55 11 99633-4254)
+  let name;
+  if (isGroup) {
+    name = rawName || 'Grupo';
+  } else if (rawName) {
+    name = rawName;
+  } else {
+    name = evoFormatPhone(remoteJid);
+  }
+
+  // Preview com prefixo igual WhatsApp:
+  //  - Voce enviou      -> "Voce: <texto>"
+  //  - Outro em grupo   -> "Primeiro Nome: <texto>"
+  //  - Outro em direto  -> "<texto>"
+  const lm = c.lastMessage;
+  let preview = lm ? evoExtractText(lm) : '';
+  if (lm) {
+    if (lm.key?.fromMe || lm.fromMe) {
+      preview = `Você: ${preview || ''}`;
+    } else if (isGroup && lm.pushName) {
+      const primeiroNome = String(lm.pushName).split(/\s+/)[0];
+      preview = `${primeiroNome}: ${preview || ''}`;
+    }
+  }
+  preview = (preview || '').trim() || '...';
+
+  const ts = c.updatedAt || lm?.messageTimestamp || c.messageTimestamp;
   return {
-    id: remoteJid,                              // usamos remoteJid como id (string)
+    id: remoteJid,
     name,
     init: evoInitials(name),
     color: evoColorFromString(remoteJid),
-    preview: preview || (c.lastMessage?.fromMe ? 'Você: ...' : '...'),
+    preview,
     time: evoTimeFormat(ts),
     timestamp: typeof ts === 'number' ? ts : (ts ? new Date(ts).getTime() : 0),
     unread: c.unreadCount || 0,
