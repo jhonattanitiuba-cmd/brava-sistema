@@ -213,8 +213,11 @@ a { color: inherit; text-decoration: none; }
 .bv-input--with-suffix { padding-right: 110px; }
 .bv-input-icon {
   position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-  color: var(--text-3); pointer-events: none;
+  color: var(--text-2); pointer-events: none;
+  opacity: .85;
+  display: inline-flex; align-items: center; justify-content: center;
 }
+.bv-input-wrap:focus-within .bv-input-icon { color: var(--brava-purple); opacity: 1; }
 .bv-input-suffix {
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
   display: inline-flex; align-items: center; gap: 4px;
