@@ -2289,6 +2289,363 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
   );
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   EVOLUTION API — cliente client-side (FASE 1: testes locais)
+   - Config (url + instance + apikey) salva em localStorage
+   - Helpers fetch + hooks reativos
+   - AVISO: nesta fase a apikey vive no browser. Funciona pra validacao
+     end-to-end, mas pra producao multi-usuario migrar para um proxy
+     (Supabase Edge Function ou similar)
+   ══════════════════════════════════════════════════════════════════════════ */
+const EVO_KEY_CFG = 'brava_evolution_config';
+const fireEvoChanged = () => window.dispatchEvent(new Event('brava_evo_changed'));
+
+function getEvoConfig() {
+  try { return JSON.parse(localStorage.getItem(EVO_KEY_CFG) || 'null'); } catch { return null; }
+}
+function setEvoConfigStore(cfg) {
+  if (cfg) localStorage.setItem(EVO_KEY_CFG, JSON.stringify(cfg));
+  else     localStorage.removeItem(EVO_KEY_CFG);
+  fireEvoChanged();
+}
+function useEvoConfig() {
+  const [cfg, setCfg] = React.useState(() => getEvoConfig());
+  React.useEffect(() => {
+    const refresh = () => setCfg(getEvoConfig());
+    window.addEventListener('brava_evo_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_evo_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return cfg;
+}
+
+// Garante URL com schema (https) e sem barra final
+function evoNormalizeUrl(u) {
+  if (!u) return '';
+  let s = u.trim();
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  return s.replace(/\/+$/, '');
+}
+
+async function evoFetch(path, opts = {}, overrideCfg = null) {
+  const cfg = overrideCfg || getEvoConfig();
+  if (!cfg) throw new Error('Evolution nao configurada');
+  const url = evoNormalizeUrl(cfg.url) + path;
+  const res = await fetch(url, {
+    method: opts.method || 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': cfg.apikey,
+      ...(opts.headers || {}),
+    },
+    body: opts.body,
+  });
+  const text = await res.text();
+  let data; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || text || `HTTP ${res.status}`;
+    const e = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    e.status = res.status; e.data = data;
+    throw e;
+  }
+  return data;
+}
+
+const evo = {
+  // Estado da conexao da instancia (open/close/connecting)
+  connectionState: (cfg) => evoFetch(`/instance/connectionState/${encodeURIComponent((cfg||getEvoConfig()).instance)}`, {}, cfg),
+  // Lista todas instancias (usado tambem como "ping" / "test" autenticado)
+  fetchInstances: (cfg) => evoFetch('/instance/fetchInstances', {}, cfg),
+  // Lista conversas
+  findChats: () => evoFetch(`/chat/findChats/${encodeURIComponent(getEvoConfig().instance)}`, { method:'POST', body:'{}' }),
+  // Mensagens de uma conversa especifica (remoteJid ex: 5511999999999@s.whatsapp.net)
+  findMessages: (remoteJid, limit = 50) => evoFetch(`/chat/findMessages/${encodeURIComponent(getEvoConfig().instance)}`, {
+    method:'POST',
+    body: JSON.stringify({ where: { key: { remoteJid } }, limit }),
+  }),
+  // Enviar texto
+  sendText: (number, text) => evoFetch(`/message/sendText/${encodeURIComponent(getEvoConfig().instance)}`, {
+    method:'POST',
+    body: JSON.stringify({ number, text }),
+  }),
+};
+
+// Hook: polling do estado de conexao da instancia
+function useEvoStatus(intervalMs = 15000) {
+  const cfg = useEvoConfig();
+  const [state, setState] = React.useState({ loading:false, status:null, error:null, instanceInfo:null });
+  React.useEffect(() => {
+    if (!cfg) { setState({ loading:false, status:null, error:null, instanceInfo:null }); return; }
+    let alive = true;
+    const tick = async () => {
+      if (!alive) return;
+      setState(s => ({...s, loading:true}));
+      try {
+        // 1. connectionState (status open/close/connecting)
+        const cs = await evo.connectionState(cfg);
+        const status = cs?.instance?.state || cs?.state || cs?.status || 'unknown';
+        // 2. fetchInstances (puxa profile, contatos, msgs)
+        const all = await evo.fetchInstances(cfg);
+        const list = Array.isArray(all) ? all : (all?.instance ? [all.instance] : []);
+        const found = list.find(i =>
+          (i.name && i.name === cfg.instance) ||
+          (i.instance && i.instance.instanceName === cfg.instance) ||
+          (i.instanceName === cfg.instance)
+        ) || list[0];
+        if (alive) setState({ loading:false, status, error:null, instanceInfo: found || null });
+      } catch (e) {
+        if (alive) setState({ loading:false, status:null, error: e.message || 'Erro', instanceInfo:null });
+      }
+    };
+    tick();
+    const id = setInterval(tick, intervalMs);
+    return () => { alive = false; clearInterval(id); };
+  }, [cfg?.url, cfg?.instance, cfg?.apikey, intervalMs]);
+  return state;
+}
+
+/* Modal: configurar conexao com a Evolution */
+function EvoConfigModal({ onClose }) {
+  const cur = getEvoConfig() || { url:'', instance:'', apikey:'' };
+  const [form, setForm] = useState({ url: cur.url, instance: cur.instance, apikey: cur.apikey });
+  const [testando, setTestando] = useState(false);
+  const [resultado, setResultado] = useState(null); // {ok, msg, detail}
+  const set = (k,v) => { setForm(f => ({...f, [k]:v})); setResultado(null); };
+
+  const testar = async () => {
+    if (!form.url || !form.instance || !form.apikey) {
+      setResultado({ ok:false, msg:'Preencha URL, instancia e token' }); return;
+    }
+    setTestando(true); setResultado(null);
+    try {
+      const all = await evo.fetchInstances({ url: form.url, instance: form.instance, apikey: form.apikey });
+      const list = Array.isArray(all) ? all : (all?.instance ? [all.instance] : []);
+      const found = list.find(i =>
+        (i.name && i.name === form.instance) ||
+        (i.instance && i.instance.instanceName === form.instance) ||
+        (i.instanceName === form.instance)
+      );
+      if (!found) {
+        const nomes = list.map(i => i.name || i.instanceName || i.instance?.instanceName).filter(Boolean).slice(0,8).join(', ');
+        setResultado({ ok:false, msg:`Conectou na API mas nao achou a instancia "${form.instance}". Instancias disponiveis: ${nomes || '(nenhuma)'}` });
+      } else {
+        const num = found.ownerJid || found.owner || found.number || '';
+        setResultado({ ok:true, msg:`Conectado! Instancia encontrada${num ? ' · ' + num : ''}` });
+      }
+    } catch (e) {
+      const isCORS = /Failed to fetch|NetworkError|CORS/i.test(e.message || '');
+      setResultado({
+        ok:false,
+        msg: isCORS
+          ? 'Falha de rede/CORS. A Evolution precisa permitir requisicoes deste dominio. Verifique a config CORS_ORIGIN da Evolution.'
+          : (e.message || 'Erro desconhecido'),
+        detail: e.status ? `Status HTTP ${e.status}` : null,
+      });
+    } finally {
+      setTestando(false);
+    }
+  };
+
+  const salvar = () => {
+    if (!form.url || !form.instance || !form.apikey) {
+      setResultado({ ok:false, msg:'Preencha todos os campos antes de salvar' }); return;
+    }
+    setEvoConfigStore({ url: evoNormalizeUrl(form.url), instance: form.instance.trim(), apikey: form.apikey.trim() });
+    showToast?.('Evolution configurada', 'success');
+    onClose();
+  };
+
+  const limpar = () => {
+    if (!confirm('Remover configuracao da Evolution?')) return;
+    setEvoConfigStore(null);
+    onClose();
+  };
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'min(560px, 94vw)', maxHeight:'90vh', overflow:'auto',
+        background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:14, padding:'22px 24px', boxShadow:'0 24px 60px rgba(0,0,0,.5)'
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>Conectar Evolution API</div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:3, lineHeight:1.5}}>
+              Token armazenado localmente no seu navegador (fase de teste).
+              Para producao migrar para proxy backend.
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{display:'grid', gap:14}}>
+          <div>
+            <label style={lbl}>URL da Evolution</label>
+            <input style={inp} value={form.url} onChange={e=>set('url', e.target.value)} placeholder="lickingbuffalo-evolution.cloudfy.live" autoFocus/>
+          </div>
+          <div>
+            <label style={lbl}>Nome da Instancia</label>
+            <input style={inp} value={form.instance} onChange={e=>set('instance', e.target.value)} placeholder="SistemaBravaCompany"/>
+          </div>
+          <div>
+            <label style={lbl}>Token (apikey)</label>
+            <input style={inp} type="password" value={form.apikey} onChange={e=>set('apikey', e.target.value)} placeholder="token da instancia"/>
+            <div style={{fontSize:11, color:'var(--t3)', marginTop:6}}>Pode ser a apikey global ou o token especifico da instancia.</div>
+          </div>
+
+          {resultado && (
+            <div style={{
+              padding:'10px 14px', borderRadius:8,
+              background: resultado.ok ? 'rgba(29,158,117,.12)' : 'rgba(163,45,45,.12)',
+              border: `1px solid ${resultado.ok ? '#1D9E7555' : '#A32D2D55'}`,
+              color: resultado.ok ? '#6ee7b7' : '#ff8585',
+              fontSize:13, lineHeight:1.5,
+            }}>
+              <div style={{display:'flex', alignItems:'flex-start', gap:8}}>
+                <Icon name={resultado.ok ? 'CheckCircle2' : 'AlertCircle'} size={15} style={{marginTop:2, flexShrink:0}}/>
+                <div>
+                  {resultado.msg}
+                  {resultado.detail && <div style={{fontSize:11, opacity:.7, marginTop:3, fontFamily:'var(--f-m)'}}>{resultado.detail}</div>}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:20, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+          <div>
+            {cur.url && <button onClick={limpar} className="btn" style={{background:'transparent', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Desconectar</button>}
+          </div>
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={testar} disabled={testando} className="btn btn-outline">
+              {testando ? 'Testando...' : <><Icon name="Activity" size={14}/>Testar conexao</>}
+            </button>
+            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Card status (mostrado dentro da aba Integracoes quando Evolution configurada) */
+function EvoStatusPanel() {
+  const cfg = useEvoConfig();
+  const { loading, status, error, instanceInfo } = useEvoStatus(15000);
+  if (!cfg) return null;
+
+  const statusOk = status === 'open' || status === 'connected';
+  const cor = statusOk ? '#1D9E75' : status === 'connecting' ? '#BA7517' : '#A32D2D';
+  const label = statusOk ? 'CONECTADO' : (status || 'DESCONHECIDO').toUpperCase();
+  const num = instanceInfo?.ownerJid || instanceInfo?.owner || instanceInfo?.number || '';
+  const numFmt = num.replace('@s.whatsapp.net','').replace(/^(\d{2})(\d{2})(\d{5})(\d{4})$/, '+$1 $2 $3-$4');
+  const profileName = instanceInfo?.profileName || instanceInfo?.profile?.name || '';
+
+  return (
+    <div style={{
+      marginTop:14, padding:'16px 18px', borderRadius:10,
+      background:'var(--bg-3)', border:`1px solid ${cor}55`,
+    }}>
+      <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:14}}>
+        <div style={{width:8, height:8, borderRadius:'50%', background:cor, boxShadow:`0 0 8px ${cor}`}}/>
+        <div style={{fontSize:13, fontFamily:'var(--f-m)', color:cor, fontWeight:700, letterSpacing:'.04em'}}>{label}</div>
+        {loading && <div style={{fontSize:11, color:'var(--t3)'}}>atualizando...</div>}
+        {error && <div style={{fontSize:11, color:'#ff8585'}} title={error}>· erro: {error.slice(0,60)}</div>}
+        <div style={{marginLeft:'auto', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)'}}>polling a cada 15s</div>
+      </div>
+
+      {(profileName || numFmt) && (
+        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
+          <div style={{
+            width:38, height:38, borderRadius:'50%',
+            background:'linear-gradient(135deg, var(--purple), var(--blue))',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            color:'#fff', fontFamily:'var(--f-d)', fontWeight:700, fontSize:14,
+          }}>{(profileName || 'WA').slice(0,2).toUpperCase()}</div>
+          <div>
+            <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>{profileName || cfg.instance}</div>
+            <div style={{fontSize:12, color:'var(--t3)', fontFamily:'var(--f-m)'}}>{numFmt || num || cfg.instance}</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+        {[
+          {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '—'},
+          {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '—'},
+          {l:'Mensagens', v: instanceInfo?._count?.Message ?? instanceInfo?.messageCount ?? '—'},
+        ].map((s,i) => (
+          <div key={i} style={{padding:'10px 12px', background:'var(--bg-2)', borderRadius:8, border:'1px solid var(--border-soft)'}}>
+            <div style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em'}}>{s.l}</div>
+            <div style={{fontSize:18, fontFamily:'var(--f-d)', fontWeight:600, color:'var(--t1)', marginTop:2}}>{typeof s.v === 'number' ? s.v.toLocaleString('pt-BR') : s.v}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Configuracoes > Aba Integracoes ─── */
+function ConfigIntegracoesTab() {
+  const evoCfg = useEvoConfig();
+  const [modalAberto, setModalAberto] = useState(false);
+
+  const isEvoConectado = !!evoCfg;
+
+  const itens = [
+    {
+      nome:'Evolution API', desc:'WhatsApp via Baileys (auto-host)', icon:'MessageCircle', cor:'#25D366',
+      key:'evolution',
+      conectado: isEvoConectado,
+      onAction: () => setModalAberto(true),
+    },
+    {nome:'Stripe',          desc:'Pagamentos e assinaturas',     icon:'CreditCard',    cor:'#635BFF', key:'stripe',  conectado:false},
+    {nome:'WhatsApp Cloud',  desc:'WhatsApp oficial Meta',         icon:'MessageCircle', cor:'#25D366', key:'wacloud', conectado:false},
+    {nome:'Resend',          desc:'E-mail transacional',           icon:'Mail',          cor:'#000000', key:'resend',  conectado:true},
+    {nome:'n8n',             desc:'Automacoes e workflows',         icon:'Plug',          cor:'#EA4B71', key:'n8n',     conectado:false},
+    {nome:'Claude API',      desc:'Agente IA',                     icon:'Sparkles',      cor:'#7B3FE4', key:'claude',  conectado:true},
+  ];
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:12}}>
+      <div className="card__title" style={{marginBottom:6}}>Integracoes disponiveis</div>
+      {itens.map((i,k) => (
+        <div key={k}>
+          <div style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
+            <div style={{width:40, height:40, borderRadius:10, background:i.cor+'22', display:'flex', alignItems:'center', justifyContent:'center'}}>
+              <Icon name={i.icon} size={18} style={{color:i.cor}}/>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>{i.nome}</div>
+              <div style={{fontSize:12, color:'var(--t3)', marginTop:1}}>{i.desc}</div>
+            </div>
+            <span style={{
+              fontSize:11, padding:'3px 10px', borderRadius:999,
+              background: i.conectado ? 'rgba(29,158,117,.18)' : 'rgba(110,110,120,.15)',
+              color: i.conectado ? '#1D9E75' : 'var(--t3)',
+              fontFamily:'var(--f-m)', fontWeight:500,
+            }}>{i.conectado ? 'CONECTADO' : 'DESCONECTADO'}</span>
+            <button
+              className={i.conectado ? 'btn btn-outline' : 'btn btn-primary'}
+              onClick={i.onAction || (()=>showToast?.(`${i.nome} ainda nao implementado`, 'info'))}
+            >{i.conectado ? 'Configurar' : 'Conectar'}</button>
+          </div>
+          {/* Painel de status logo abaixo da Evolution quando configurada */}
+          {i.key === 'evolution' && isEvoConectado && <EvoStatusPanel/>}
+        </div>
+      ))}
+      {modalAberto && <EvoConfigModal onClose={()=>setModalAberto(false)}/>}
+    </div>
+  );
+}
+
 /* ─── Configurações > Aba Geral (componente separado p/ hooks isolados) ─── */
 function ConfigGeralTab() {
   const CAMPOS = [
@@ -2579,31 +2936,7 @@ function Config() {
             </div>
           )}
           {aba==='geral' && <ConfigGeralTab/>}
-          {aba==='integracoes' && (
-            <div style={{display:'flex', flexDirection:'column', gap:12}}>
-              <div className="card__title" style={{marginBottom:6}}>Integrações disponíveis</div>
-              {[
-                {nome:'Stripe',          desc:'Pagamentos e assinaturas',     status:'desconectado', icon:'CreditCard', cor:'#635BFF'},
-                {nome:'Evolution API',   desc:'WhatsApp não-oficial',          status:'desconectado', icon:'MessageCircle', cor:'#25D366'},
-                {nome:'WhatsApp Cloud',  desc:'WhatsApp oficial Meta',         status:'desconectado', icon:'MessageCircle', cor:'#25D366'},
-                {nome:'Resend',          desc:'E-mail transacional',           status:'conectado',   icon:'Mail',       cor:'#000000'},
-                {nome:'n8n',             desc:'Automações e workflows',         status:'desconectado', icon:'Plug',       cor:'#EA4B71'},
-                {nome:'Claude API',      desc:'Agente IA',                     status:'conectado',   icon:'Sparkles',   cor:'#7B3FE4'},
-              ].map((i,k) => (
-                <div key={k} style={{display:'flex', alignItems:'center', gap:14, padding:'14px 16px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
-                  <div style={{width:40, height:40, borderRadius:10, background:i.cor+'22', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                    <Icon name={i.icon} size={18} style={{color:i.cor}}/>
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>{i.nome}</div>
-                    <div style={{fontSize:12, color:'var(--t3)', marginTop:1}}>{i.desc}</div>
-                  </div>
-                  <span style={{fontSize:11, padding:'3px 10px', borderRadius:999, background:i.status==='conectado'?'rgba(29,158,117,.18)':'rgba(110,110,120,.15)', color:i.status==='conectado'?'#1D9E75':'var(--t3)', fontFamily:'var(--f-m)', fontWeight:500}}>{i.status.toUpperCase()}</span>
-                  <button className={i.status==='conectado'?'btn btn-outline':'btn btn-primary'}>{i.status==='conectado'?'Configurar':'Conectar'}</button>
-                </div>
-              ))}
-            </div>
-          )}
+          {aba==='integracoes' && <ConfigIntegracoesTab/>}
           {aba==='webhooks' && (
             <div>
               <div className="card__title" style={{marginBottom:14}}>Webhooks ativos</div>
