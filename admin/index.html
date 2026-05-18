@@ -252,9 +252,21 @@ svg{display:block;flex-shrink:0;}
 .kpi__delta.down{color:var(--danger);}
 .kpi__icon{float:right;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-top:-4px;}
 
+/* Responsivo: 4 col → 2 col em tablet → 1 col em mobile */
+@media (max-width: 1080px){
+  .kpi-grid{grid-template-columns:repeat(2,1fr);}
+  .kpi__value{font-size:26px;}
+}
+@media (max-width: 560px){
+  .kpi-grid{grid-template-columns:1fr;gap:10px;}
+  .kpi{padding:16px 18px;}
+  .kpi__value{font-size:24px;}
+}
+
 /* ─── Grid 2 colunas ─── */
 .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;margin-bottom:14px;}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
+@media (max-width: 1080px){ .grid-2{grid-template-columns:1fr;} .grid-3{grid-template-columns:1fr;} }
 
 /* ─── Card genérico ─── */
 .card{background:var(--bg-2);border:1px solid var(--border-soft);border-radius:14px;padding:22px;}
@@ -476,16 +488,18 @@ const TENANT = {
 };
 
 /* ─── Counter animado ─── */
-function useCount(target, duration = 1600) {
+// useCount com suporte a delay (stagger) e transicoes suaves em updates
+// Primeira renderizacao: anima 0 -> target apos `delay`ms (entrada elegante)
+// Atualizacoes (target muda depois): interpola valor anterior -> novo (~420ms)
+function useCount(target, duration = 1200, delay = 0) {
   const [v, setV] = useState(0);
   const fromRef = React.useRef(0);
   const firstRef = React.useRef(true);
   useEffect(() => {
-    let s = null, raf;
-    // Primeira vez: anima da 0 ate o target (entrada do dashboard).
-    // Atualizacoes posteriores: anima do valor atual ate o novo (transicao rapida).
+    let s = null, raf, timer;
     const from = firstRef.current ? 0 : fromRef.current;
     const dur  = firstRef.current ? duration : 420;
+    const wait = firstRef.current ? delay : 0;
     firstRef.current = false;
     const step = ts => {
       if (!s) s = ts;
@@ -496,9 +510,9 @@ function useCount(target, duration = 1600) {
       fromRef.current = val;
       if (p < 1) raf = requestAnimationFrame(step);
     };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [target, duration]);
+    timer = setTimeout(() => { raf = requestAnimationFrame(step); }, wait);
+    return () => { clearTimeout(timer); if (raf) cancelAnimationFrame(raf); };
+  }, [target, duration, delay]);
   return v;
 }
 
@@ -687,12 +701,13 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       .reduce((s, r) => s + (r.mensal || 0), 0);
   }, [recorrencia]);
 
-  // Contadores em cascata: todos comecam juntos, mas terminam em ordem
-  // 1. Clientes ativos -> 2. MRR -> 3. Conversas -> 4. Chamados
-  const clientes   = useCount(21,            2200);
-  const mrr        = useCount(mrrTotalAtivo, 3000);
-  const conversas  = useCount(1247,          3800);
-  const chamados   = useCount(3,             4600);
+  // Contadores em cascata escalonada — sincronizada com o fade-in dos cards
+  // KPI cards aparecem em 80/160/240/320ms; cada contador comeca a animar
+  // exatamente quando o card termina de entrar, em ordem, com duracao curta.
+  const clientes   = useCount(21,             950,  80);
+  const mrr        = useCount(mrrTotalAtivo, 1150, 220);
+  const conversas  = useCount(1247,          1200, 360);
+  const chamados   = useCount(3,              750, 500);
 
   // MRR dinamico: mesma fonte do KPI, mas usado pro grafico 7d
   const mrrAtivoHoje = mrrTotalAtivo;
