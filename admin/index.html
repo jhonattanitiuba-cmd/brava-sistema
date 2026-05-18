@@ -3736,7 +3736,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               fontFamily:'Montserrat,sans-serif', fontWeight:300, fontSize:30,
               color:S.textPrimary, marginBottom:8, letterSpacing:'-.01em',
             }}>
-              {(activeInstance?.nome || 'Brava').replace(/^WhatsApp\s+/i, '')} Inbox
+              {/* Prioriza profile_name (puxado do perfil WhatsApp real),
+                  fallback pro nome da instancia no admin */}
+              {(activeInstance?.profile_name
+                || (activeInstance?.nome || 'Brava').replace(/^WhatsApp\s+/i, ''))
+              } Inbox
             </h2>
             {activeInstance?.owner_jid && (
               <p style={{
