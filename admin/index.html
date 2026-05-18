@@ -1635,7 +1635,8 @@ function WhatsAppSwitcher({ setPage }) {
         {/* Logo WhatsApp oficial (balao com telefone no centro) */}
         <WhatsAppLogo size={15} color="#25D366" filled/>
         <span style={{maxWidth:160, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
-          {active?.nome || 'WhatsApp'}
+          {/* Remove o prefixo 'WhatsApp ' do nome no botao (redundante com o logo ao lado) */}
+          {(active?.nome || 'WhatsApp').replace(/^WhatsApp\s+/i, '')}
         </span>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{color:'var(--t3)',transition:'transform .2s',transform:aberto?'rotate(180deg)':'rotate(0)'}}>
           <polyline points="6 9 12 15 18 9"/>
