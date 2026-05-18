@@ -554,6 +554,7 @@ const NAV = [
   { key:'dashboard',  label:'Dashboard',   icon:'LayoutDashboard', badge:null },
   { key:'clientes',   label:'WhatsApp',    icon:'MessageCircle',   badge:23 },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
+  { key:'agenda',     label:'Agenda',      icon:'CalendarCheck',   badge:null },
   { key:'mrr',        label:'MRR',         icon:'TrendingUp',      badge:null },
   { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
   { key:'chamados',   label:'Chamados',    icon:'LifeBuoy',        badge:3 },
@@ -644,7 +645,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
 
 /* ─── Header ─── */
 function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notifAberta, setNotifAberta }) {
-  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', pipeline:'Pipeline', mrr:'MRR', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
+  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', pipeline:'Pipeline', agenda:'Agenda', mrr:'MRR', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
   return (
     <header className="header" style={{borderBottom:'1px solid var(--border-soft)'}}>
       {collapsed && (
@@ -4220,6 +4221,663 @@ function exportarCSV() {
   showToast('Relatório exportado com sucesso', 'success');
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   AGENDA — inspirada no Google Calendar
+   - Store reativo de eventos com persistencia em localStorage
+   - Visualizacoes: Mes / Semana / Dia
+   - Mini-calendario lateral (sidebar)
+   - Modal de criar/editar evento com cor, hora inicio/fim, descricao
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const AGENDA_KEY = 'brava_agenda_events';
+const fireAgendaChanged = () => window.dispatchEvent(new Event('brava_agenda_changed'));
+
+function _readAgenda() {
+  try { return JSON.parse(localStorage.getItem(AGENDA_KEY) || '[]'); } catch { return []; }
+}
+function _writeAgenda(arr) {
+  localStorage.setItem(AGENDA_KEY, JSON.stringify(arr));
+  fireAgendaChanged();
+}
+function addAgendaEvent(ev) {
+  const arr = _readAgenda();
+  const novo = { id: `ev_${Date.now()}_${Math.random().toString(36).slice(2,7)}`, ...ev };
+  arr.push(novo);
+  _writeAgenda(arr);
+  return novo.id;
+}
+function updateAgendaEvent(id, patch) {
+  const arr = _readAgenda();
+  const i = arr.findIndex(e => e.id === id);
+  if (i < 0) return;
+  arr[i] = { ...arr[i], ...patch };
+  _writeAgenda(arr);
+}
+function deleteAgendaEvent(id) {
+  _writeAgenda(_readAgenda().filter(e => e.id !== id));
+}
+function useAgenda() {
+  const [list, setList] = React.useState(() => _readAgenda());
+  React.useEffect(() => {
+    const refresh = () => setList(_readAgenda());
+    window.addEventListener('brava_agenda_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_agenda_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return list;
+}
+
+/* ── Helpers de data ── */
+const AG_MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const AG_MESES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+const AG_DIAS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const AG_DIAS_LONGO = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const agISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const agParseISO = s => { if (!s) return new Date(); const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+const agSameDay = (a,b) => a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+const agAddDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const agStartOfWeek = d => { const x = new Date(d); x.setDate(x.getDate() - x.getDay()); x.setHours(0,0,0,0); return x; };
+const agStartOfMonth = d => new Date(d.getFullYear(), d.getMonth(), 1);
+const agEndOfMonth = d => new Date(d.getFullYear(), d.getMonth()+1, 0);
+const agMinutosDoDia = hhmm => { if (!hhmm) return 0; const [h,m]=hhmm.split(':').map(Number); return h*60 + (m||0); };
+const agMinAHHMM = min => `${String(Math.floor(min/60)).padStart(2,'0')}:${String(min%60).padStart(2,'0')}`;
+
+const AG_CORES = [
+  { id:'roxo',    nome:'Roxo Brava', hex:'#7B3FE4' },
+  { id:'azul',    nome:'Azul',       hex:'#1E90FF' },
+  { id:'verde',   nome:'Verde',      hex:'#1D9E75' },
+  { id:'laranja', nome:'Laranja',    hex:'#BA7517' },
+  { id:'vermelho',nome:'Vermelho',   hex:'#A32D2D' },
+  { id:'rosa',    nome:'Rosa',       hex:'#E040FB' },
+  { id:'cinza',   nome:'Cinza',      hex:'#6E6E78' },
+];
+const AG_COR_HEX = id => (AG_CORES.find(c => c.id === id) || AG_CORES[0]).hex;
+
+/* ── Modal de evento ── */
+function AgendaEventoModal({ ev, onClose }) {
+  const novo = !ev.id;
+  const [form, setForm] = useState({
+    titulo:    ev.titulo || '',
+    data:      ev.data || agISO(new Date()),
+    inicio:    ev.inicio || '09:00',
+    fim:       ev.fim || '10:00',
+    diaTodo:   ev.diaTodo || false,
+    cor:       ev.cor || 'roxo',
+    descricao: ev.descricao || '',
+    local:     ev.local || '',
+  });
+  const set = (k,v) => setForm(f => ({...f, [k]:v}));
+
+  const salvar = () => {
+    if (!form.titulo.trim()) { showToast?.('Informe um titulo', 'warn'); return; }
+    if (!form.diaTodo && agMinutosDoDia(form.fim) <= agMinutosDoDia(form.inicio)) {
+      showToast?.('O horario final deve ser maior que o inicial', 'warn'); return;
+    }
+    if (novo) addAgendaEvent(form);
+    else      updateAgendaEvent(ev.id, form);
+    showToast?.(novo ? 'Evento criado' : 'Evento atualizado', 'success');
+    onClose();
+  };
+
+  const remover = () => {
+    if (!confirm(`Excluir "${ev.titulo}"?`)) return;
+    deleteAgendaEvent(ev.id);
+    showToast?.('Evento excluido', 'success');
+    onClose();
+  };
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'min(540px, 92vw)', maxHeight:'90vh', overflow:'auto',
+        background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:14, padding:'22px 24px', boxShadow:'0 24px 60px rgba(0,0,0,.5)'
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>
+              {novo ? 'Novo evento' : 'Editar evento'}
+            </div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Salvo automaticamente em sua agenda</div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{display:'grid', gap:14}}>
+          <div>
+            <label style={lbl}>Título</label>
+            <input style={{...inp, fontSize:16, fontWeight:600}} value={form.titulo} onChange={e=>set('titulo', e.target.value)} placeholder="Reunião, ligação, demo..." autoFocus/>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns: form.diaTodo?'1fr':'1fr auto auto', gap:10}}>
+            <div>
+              <label style={lbl}>Data</label>
+              <input style={inp} type="date" value={form.data} onChange={e=>set('data', e.target.value)}/>
+            </div>
+            {!form.diaTodo && <>
+              <div>
+                <label style={lbl}>Início</label>
+                <input style={inp} type="time" value={form.inicio} onChange={e=>set('inicio', e.target.value)}/>
+              </div>
+              <div>
+                <label style={lbl}>Fim</label>
+                <input style={inp} type="time" value={form.fim} onChange={e=>set('fim', e.target.value)}/>
+              </div>
+            </>}
+          </div>
+
+          <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--t2)', cursor:'pointer'}}>
+            <input type="checkbox" checked={form.diaTodo} onChange={e=>set('diaTodo', e.target.checked)}/>
+            Dia inteiro
+          </label>
+
+          <div>
+            <label style={lbl}>Cor</label>
+            <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+              {AG_CORES.map(c => (
+                <button key={c.id} onClick={()=>set('cor', c.id)} title={c.nome} style={{
+                  width:30, height:30, borderRadius:'50%',
+                  background:c.hex,
+                  border: form.cor===c.id ? '2px solid var(--t1)' : '2px solid transparent',
+                  boxShadow: form.cor===c.id ? `0 0 0 2px ${c.hex}55` : 'none',
+                  cursor:'pointer', transition:'transform .15s',
+                }}/>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label style={lbl}>Local <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+            <input style={inp} value={form.local} onChange={e=>set('local', e.target.value)} placeholder="Sala de reuniao, link, endereco..."/>
+          </div>
+
+          <div>
+            <label style={lbl}>Descrição <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+            <textarea style={{...inp, minHeight:80, fontFamily:'var(--f-b)', resize:'vertical'}} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Notas, pauta, links..."/>
+          </div>
+        </div>
+
+        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+          {!novo
+            ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Excluir</button>
+            : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
+            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Criar' : 'Salvar'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Mini calendario na sidebar ── */
+function AgendaMiniCal({ refDate, selected, onPick, events }) {
+  const inicioMes = agStartOfMonth(refDate);
+  const fimMes = agEndOfMonth(refDate);
+  const firstWeekday = inicioMes.getDay();
+  const totalDias = fimMes.getDate();
+  const cells = [];
+  for (let i = 0; i < firstWeekday; i++) cells.push(null);
+  for (let i = 1; i <= totalDias; i++) cells.push(new Date(refDate.getFullYear(), refDate.getMonth(), i));
+  while (cells.length % 7) cells.push(null);
+
+  const hoje = new Date();
+  const eventDays = new Set(events.map(e => e.data));
+
+  return (
+    <div style={{marginBottom:18}}>
+      <div style={{
+        display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2, marginBottom:6,
+      }}>
+        {AG_DIAS.map(d => (
+          <div key={d} style={{textAlign:'center', fontSize:10, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', padding:'4px 0'}}>{d[0]}</div>
+        ))}
+      </div>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2}}>
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} style={{aspectRatio:'1', }}/>;
+          const isHoje = agSameDay(d, hoje);
+          const isSel  = agSameDay(d, selected);
+          const tem    = eventDays.has(agISO(d));
+          return (
+            <button key={i} onClick={()=>onPick(d)} style={{
+              aspectRatio:'1', minHeight:28,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:11.5, fontFamily:'var(--f-b)',
+              borderRadius:'50%',
+              background: isSel ? 'var(--purple)' : isHoje ? 'rgba(123,63,228,.15)' : 'transparent',
+              color: isSel ? '#fff' : isHoje ? 'var(--purple)' : 'var(--t1)',
+              border:'none', cursor:'pointer',
+              fontWeight: isSel || isHoje ? 700 : 500,
+              position:'relative',
+              transition:'background .15s',
+            }}
+              onMouseEnter={e => { if (!isSel) e.currentTarget.style.background = 'rgba(255,255,255,.06)'; }}
+              onMouseLeave={e => { if (!isSel) e.currentTarget.style.background = isHoje ? 'rgba(123,63,228,.15)' : 'transparent'; }}
+            >
+              {d.getDate()}
+              {tem && !isSel && <span style={{position:'absolute', bottom:3, width:3, height:3, borderRadius:'50%', background:'var(--blue)'}}/>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ── Vista MES ── */
+function AgendaVistaMes({ refDate, events, onSelectDay, onEditEvent, onNew }) {
+  const inicio = agStartOfMonth(refDate);
+  const fim = agEndOfMonth(refDate);
+  const inicioGrade = agAddDays(inicio, -inicio.getDay());
+  const semanas = [];
+  let d = new Date(inicioGrade);
+  while (d <= fim || semanas.length < 5 || (semanas.length === 5 && d.getDay() !== 0)) {
+    const linha = [];
+    for (let i = 0; i < 7; i++) { linha.push(new Date(d)); d = agAddDays(d, 1); }
+    semanas.push(linha);
+    if (semanas.length >= 6) break;
+  }
+
+  const hoje = new Date();
+  const evPorDia = {};
+  events.forEach(e => {
+    (evPorDia[e.data] = evPorDia[e.data] || []).push(e);
+  });
+  Object.values(evPorDia).forEach(arr => arr.sort((a,b) => agMinutosDoDia(a.inicio) - agMinutosDoDia(b.inicio)));
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', height:'100%', minHeight:0}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom:'1px solid var(--border-soft)'}}>
+        {AG_DIAS_LONGO.map((d,i) => (
+          <div key={d} style={{padding:'10px 12px', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.08em'}}>
+            {d.slice(0,3)}
+          </div>
+        ))}
+      </div>
+      <div style={{flex:1, display:'grid', gridTemplateRows:`repeat(${semanas.length}, 1fr)`, minHeight:0}}>
+        {semanas.map((semana, si) => (
+          <div key={si} style={{display:'grid', gridTemplateColumns:'repeat(7,1fr)', borderBottom: si===semanas.length-1 ? 'none' : '1px solid var(--border-soft)'}}>
+            {semana.map((dia, di) => {
+              const isHoje = agSameDay(dia, hoje);
+              const isMesAtual = dia.getMonth() === refDate.getMonth();
+              const evs = evPorDia[agISO(dia)] || [];
+              const visiveis = evs.slice(0,3);
+              const ocultos  = evs.length - visiveis.length;
+              return (
+                <div key={di} onClick={()=>onSelectDay(dia)} style={{
+                  borderRight: di===6 ? 'none' : '1px solid var(--border-soft)',
+                  padding:'6px 6px 4px',
+                  background: isHoje ? 'rgba(123,63,228,.05)' : 'transparent',
+                  cursor:'pointer',
+                  overflow:'hidden',
+                  display:'flex', flexDirection:'column',
+                  minHeight:0,
+                }}
+                  onDoubleClick={(e) => { e.stopPropagation(); onNew(dia); }}>
+                  <div style={{display:'flex', justifyContent:'flex-end', marginBottom:4}}>
+                    <span style={{
+                      width:24, height:24, borderRadius:'50%',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:12, fontWeight: isHoje?700:500,
+                      background: isHoje ? 'var(--purple)' : 'transparent',
+                      color: isHoje ? '#fff' : isMesAtual ? 'var(--t1)' : 'var(--t3)',
+                      fontFamily:'var(--f-m)',
+                    }}>{dia.getDate()}</span>
+                  </div>
+                  <div style={{display:'flex', flexDirection:'column', gap:2, overflow:'hidden'}}>
+                    {visiveis.map(ev => {
+                      const hex = AG_COR_HEX(ev.cor);
+                      return (
+                        <button key={ev.id} onClick={e => { e.stopPropagation(); onEditEvent(ev); }} style={{
+                          textAlign:'left', display:'flex', alignItems:'center', gap:5,
+                          background: ev.diaTodo ? hex : 'transparent',
+                          color: ev.diaTodo ? '#fff' : 'var(--t1)',
+                          border:'none', padding: ev.diaTodo ? '2px 6px' : '1px 4px',
+                          borderRadius:4, cursor:'pointer',
+                          fontSize:11.5, fontWeight:500, fontFamily:'var(--f-b)',
+                          whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                        }}>
+                          {!ev.diaTodo && <span style={{width:6, height:6, borderRadius:'50%', background:hex, flexShrink:0}}/>}
+                          {!ev.diaTodo && <span style={{color:'var(--t2)', fontSize:11}}>{ev.inicio}</span>}
+                          <span style={{overflow:'hidden', textOverflow:'ellipsis'}}>{ev.titulo}</span>
+                        </button>
+                      );
+                    })}
+                    {ocultos > 0 && (
+                      <button onClick={e=>{e.stopPropagation(); onSelectDay(dia);}} style={{
+                        background:'transparent', border:'none', cursor:'pointer',
+                        textAlign:'left', padding:'1px 4px',
+                        fontSize:11, color:'var(--t3)', fontWeight:500,
+                      }}>+ {ocultos} mais</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ── Vista SEMANA / DIA (timeline) ── */
+function AgendaVistaTimeline({ refDate, events, onEditEvent, onNew, dias = 7 }) {
+  const inicio = dias === 7 ? agStartOfWeek(refDate) : new Date(refDate);
+  const colunas = Array.from({length:dias}, (_,i) => agAddDays(inicio, i));
+  const horas = Array.from({length:24}, (_,i) => i); // 0-23
+  const ROW_H = 48; // altura de cada hora
+  const hoje = new Date();
+  const agora = hoje.getHours() * 60 + hoje.getMinutes();
+
+  // Mapeia eventos por coluna (data ISO)
+  const porData = {};
+  events.forEach(e => { (porData[e.data] = porData[e.data] || []).push(e); });
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', height:'100%', minHeight:0, overflow:'hidden'}}>
+      {/* Cabecalho dias */}
+      <div style={{display:'grid', gridTemplateColumns:`60px repeat(${dias}, 1fr)`, borderBottom:'1px solid var(--border-soft)', flexShrink:0}}>
+        <div/>
+        {colunas.map((d,i) => {
+          const isHoje = agSameDay(d, hoje);
+          return (
+            <div key={i} style={{padding:'10px 8px', textAlign:'center', borderLeft:'1px solid var(--border-soft)'}}>
+              <div style={{fontSize:11, color:'var(--t3)', textTransform:'uppercase', fontFamily:'var(--f-m)', letterSpacing:'.06em'}}>{AG_DIAS[d.getDay()]}</div>
+              <div style={{
+                marginTop:4, fontSize:22, fontFamily:'var(--f-d)', fontWeight:600,
+                color: isHoje ? 'var(--purple)' : 'var(--t1)',
+                display:'inline-flex', alignItems:'center', justifyContent:'center',
+                width:34, height:34, borderRadius:'50%',
+                background: isHoje ? 'rgba(123,63,228,.15)' : 'transparent',
+              }}>{d.getDate()}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Grid de horas com scroll */}
+      <div className="agenda-timeline-grid" style={{flex:1, overflow:'auto', position:'relative'}}>
+        <div style={{display:'grid', gridTemplateColumns:`60px repeat(${dias}, 1fr)`, position:'relative'}}>
+          {/* Coluna de horas */}
+          <div>
+            {horas.map(h => (
+              <div key={h} style={{height:ROW_H, borderBottom:'1px solid var(--border-soft)', position:'relative'}}>
+                <span style={{
+                  position:'absolute', top:-7, right:8,
+                  fontSize:10, color:'var(--t3)', fontFamily:'var(--f-m)',
+                  background:'var(--bg-2)', padding:'0 4px',
+                }}>{String(h).padStart(2,'0')}:00</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Colunas dos dias */}
+          {colunas.map((dia, ci) => {
+            const isoData = agISO(dia);
+            const evs = (porData[isoData] || []).filter(e => !e.diaTodo);
+            const isHoje = agSameDay(dia, hoje);
+            return (
+              <div key={ci} style={{borderLeft:'1px solid var(--border-soft)', position:'relative'}}>
+                {horas.map(h => (
+                  <div key={h} onClick={()=>onNew({data: isoData, inicio: agMinAHHMM(h*60), fim: agMinAHHMM((h+1)*60)})}
+                    style={{
+                      height:ROW_H, borderBottom:'1px solid var(--border-soft)',
+                      cursor:'pointer', transition:'background .12s',
+                    }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(123,63,228,.04)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  />
+                ))}
+                {/* Linha "agora" */}
+                {isHoje && (
+                  <div style={{
+                    position:'absolute', left:0, right:0,
+                    top: (agora / 60) * ROW_H,
+                    borderTop:'2px solid #A32D2D',
+                    zIndex:2, pointerEvents:'none',
+                  }}>
+                    <div style={{width:8, height:8, borderRadius:'50%', background:'#A32D2D', marginLeft:-4, marginTop:-5}}/>
+                  </div>
+                )}
+                {/* Eventos posicionados absolute */}
+                {evs.map(ev => {
+                  const ini = agMinutosDoDia(ev.inicio);
+                  const fim = agMinutosDoDia(ev.fim);
+                  const top = (ini / 60) * ROW_H;
+                  const altura = Math.max(((fim - ini) / 60) * ROW_H - 2, 22);
+                  const hex = AG_COR_HEX(ev.cor);
+                  return (
+                    <button key={ev.id} onClick={e=>{e.stopPropagation(); onEditEvent(ev);}} style={{
+                      position:'absolute', left:4, right:4,
+                      top, height:altura,
+                      background: `${hex}22`,
+                      borderLeft: `3px solid ${hex}`,
+                      borderRadius:6,
+                      padding:'4px 8px',
+                      textAlign:'left',
+                      display:'flex', flexDirection:'column', gap:2,
+                      overflow:'hidden',
+                      cursor:'pointer',
+                      transition:'background .15s, box-shadow .15s',
+                    }}
+                      onMouseEnter={e=>{e.currentTarget.style.background = `${hex}33`; e.currentTarget.style.boxShadow=`0 4px 12px ${hex}33`;}}
+                      onMouseLeave={e=>{e.currentTarget.style.background = `${hex}22`; e.currentTarget.style.boxShadow='none';}}
+                    >
+                      <div style={{fontSize:12, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{ev.titulo}</div>
+                      <div style={{fontSize:11, color:'var(--t2)', fontFamily:'var(--f-m)'}}>{ev.inicio} - {ev.fim}</div>
+                      {ev.local && altura > 50 && (
+                        <div style={{fontSize:10.5, color:'var(--t3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>📍 {ev.local}</div>
+                      )}
+                    </button>
+                  );
+                })}
+                {/* Eventos dia inteiro no topo */}
+                {(porData[isoData] || []).filter(e => e.diaTodo).slice(0,2).map((ev, idx) => {
+                  const hex = AG_COR_HEX(ev.cor);
+                  return (
+                    <button key={ev.id} onClick={e=>{e.stopPropagation(); onEditEvent(ev);}} style={{
+                      position:'absolute', left:4, right:4, top: 2 + idx*22,
+                      background:hex, color:'#fff',
+                      border:'none', borderRadius:4,
+                      padding:'2px 6px',
+                      textAlign:'left',
+                      fontSize:11, fontWeight:600,
+                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                      cursor:'pointer', zIndex:3,
+                    }}>{ev.titulo}</button>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Componente principal Agenda ── */
+function Agenda() {
+  const events = useAgenda();
+  const [refDate, setRefDate] = useState(() => new Date());
+  const [vista, setVista] = useState(() => localStorage.getItem('brava_agenda_vista') || 'semana'); // mes / semana / dia
+  const [editando, setEditando] = useState(null);
+
+  React.useEffect(() => { localStorage.setItem('brava_agenda_vista', vista); }, [vista]);
+
+  // Scroll inicial pra hora 7h na timeline
+  React.useEffect(() => {
+    if (vista === 'semana' || vista === 'dia') {
+      const t = setTimeout(() => {
+        const scroller = document.querySelector('.agenda-timeline-grid');
+        if (scroller) scroller.scrollTop = 7 * 48; // 7h * 48px
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [vista, refDate]);
+
+  const tituloPeriodo = React.useMemo(() => {
+    if (vista === 'mes') {
+      return `${AG_MESES[refDate.getMonth()]} de ${refDate.getFullYear()}`;
+    }
+    if (vista === 'dia') {
+      return `${AG_DIAS_LONGO[refDate.getDay()]}, ${refDate.getDate()} de ${AG_MESES[refDate.getMonth()]}`;
+    }
+    // semana
+    const ini = agStartOfWeek(refDate);
+    const fim = agAddDays(ini, 6);
+    if (ini.getMonth() === fim.getMonth()) {
+      return `${ini.getDate()} a ${fim.getDate()} de ${AG_MESES[ini.getMonth()]} de ${ini.getFullYear()}`;
+    }
+    return `${ini.getDate()} ${AG_MESES_CURTO[ini.getMonth()]} – ${fim.getDate()} ${AG_MESES_CURTO[fim.getMonth()]} de ${fim.getFullYear()}`;
+  }, [refDate, vista]);
+
+  const navPeriodo = (d) => {
+    const x = new Date(refDate);
+    if (vista === 'mes') x.setMonth(x.getMonth() + d);
+    else if (vista === 'semana') x.setDate(x.getDate() + 7*d);
+    else x.setDate(x.getDate() + d);
+    setRefDate(x);
+  };
+
+  const novoEvento = (preset = {}) => {
+    const base = { data: agISO(refDate), inicio:'09:00', fim:'10:00', cor:'roxo' };
+    setEditando({ ...base, ...preset });
+  };
+
+  return (
+    <div className="page" style={{display:'flex', flexDirection:'column', minHeight:'calc(100vh - 130px)', paddingBottom:0}}>
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Agenda</div>
+          <div className="page-head__sub">
+            {events.length === 0
+              ? 'Crie seu primeiro evento clicando em uma data ou no botao abaixo'
+              : `${events.length} evento${events.length===1?'':'s'} na sua agenda`}
+          </div>
+        </div>
+        <div className="page-head__actions" style={{display:'flex', gap:10}}>
+          <button onClick={()=>setRefDate(new Date())} className="btn btn-outline">Hoje</button>
+          <button onClick={()=>novoEvento()} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo evento</button>
+        </div>
+      </div>
+
+      {/* Toolbar de navegacao */}
+      <div style={{display:'flex', alignItems:'center', gap:14, marginBottom:14, flexWrap:'wrap'}}>
+        <div style={{display:'flex', alignItems:'center', gap:4}}>
+          <button onClick={()=>navPeriodo(-1)} title="Anterior" style={{
+            width:34, height:34, borderRadius:'50%', border:'1px solid var(--border)',
+            background:'transparent', color:'var(--t1)', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}><Icon name="ChevronLeft" size={16}/></button>
+          <button onClick={()=>navPeriodo(1)} title="Próximo" style={{
+            width:34, height:34, borderRadius:'50%', border:'1px solid var(--border)',
+            background:'transparent', color:'var(--t1)', cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}><Icon name="ChevronRight" size={16}/></button>
+        </div>
+        <div style={{fontFamily:'var(--f-d)', fontSize:20, fontWeight:600, color:'var(--t1)', textTransform:'capitalize', flex:1}}>
+          {tituloPeriodo}
+        </div>
+        <div style={{display:'flex', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, padding:3}}>
+          {[
+            {k:'dia',    l:'Dia'},
+            {k:'semana', l:'Semana'},
+            {k:'mes',    l:'Mês'},
+          ].map(o => (
+            <button key={o.k} onClick={()=>setVista(o.k)} style={{
+              padding:'6px 14px', borderRadius:6,
+              border:'none', cursor:'pointer',
+              fontSize:13, fontWeight:500, fontFamily:'var(--f-b)',
+              background: vista===o.k ? 'var(--purple)' : 'transparent',
+              color:    vista===o.k ? '#fff' : 'var(--t2)',
+              transition:'all .15s',
+            }}>{o.l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Layout: sidebar (mini-cal) + main */}
+      <div style={{display:'grid', gridTemplateColumns:'240px 1fr', gap:16, flex:1, minHeight:0}} className="agenda-layout">
+        {/* Sidebar */}
+        <aside style={{
+          background:'var(--bg-2)', border:'1px solid var(--border-soft)',
+          borderRadius:12, padding:14,
+          display:'flex', flexDirection:'column',
+          minHeight:0, overflow:'hidden',
+        }}>
+          <button onClick={()=>novoEvento()} className="btn btn-primary" style={{marginBottom:14, justifyContent:'center'}}>
+            <Icon name="Plus" size={14}/>Criar
+          </button>
+          <AgendaMiniCal refDate={refDate} selected={refDate} onPick={d=>setRefDate(d)} events={events}/>
+
+          <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:8}}>Próximos eventos</div>
+          <div style={{flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:6}}>
+            {events
+              .filter(e => agParseISO(e.data) >= new Date(new Date().setHours(0,0,0,0)))
+              .sort((a,b) => agParseISO(a.data) - agParseISO(b.data) || agMinutosDoDia(a.inicio) - agMinutosDoDia(b.inicio))
+              .slice(0,8)
+              .map(ev => {
+                const hex = AG_COR_HEX(ev.cor);
+                const d = agParseISO(ev.data);
+                return (
+                  <button key={ev.id} onClick={()=>setEditando(ev)} style={{
+                    display:'flex', gap:8, alignItems:'flex-start',
+                    background:'transparent', border:'none', cursor:'pointer',
+                    textAlign:'left', padding:'6px 4px', borderRadius:6,
+                  }}
+                    onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.04)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                  >
+                    <div style={{width:3, alignSelf:'stretch', background:hex, borderRadius:2, flexShrink:0}}/>
+                    <div style={{minWidth:0, flex:1}}>
+                      <div style={{fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{ev.titulo}</div>
+                      <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', marginTop:1}}>
+                        {d.getDate()}/{String(d.getMonth()+1).padStart(2,'0')} · {ev.diaTodo ? 'Dia todo' : ev.inicio}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            {events.length === 0 && (
+              <div style={{fontSize:12, color:'var(--t3)', padding:'12px 0', textAlign:'center'}}>Nenhum evento agendado</div>
+            )}
+          </div>
+        </aside>
+
+        {/* Main view */}
+        <section style={{
+          background:'var(--bg-2)', border:'1px solid var(--border-soft)',
+          borderRadius:12, overflow:'hidden',
+          display:'flex', flexDirection:'column', minHeight:0,
+        }}>
+          {vista === 'mes' && <AgendaVistaMes refDate={refDate} events={events} onSelectDay={d=>{setRefDate(d); setVista('dia');}} onEditEvent={setEditando} onNew={(d)=>novoEvento({data: agISO(d)})}/>}
+          {vista === 'semana' && <AgendaVistaTimeline refDate={refDate} events={events} onEditEvent={setEditando} onNew={novoEvento} dias={7}/>}
+          {vista === 'dia' && <AgendaVistaTimeline refDate={refDate} events={events} onEditEvent={setEditando} onNew={novoEvento} dias={1}/>}
+        </section>
+      </div>
+
+      <style>{`
+        @media (max-width: 980px) {
+          .agenda-layout { grid-template-columns: 1fr !important; }
+          .agenda-layout > aside { display: none !important; }
+        }
+      `}</style>
+
+      {editando && <AgendaEventoModal ev={editando} onClose={()=>setEditando(null)}/>}
+    </div>
+  );
+}
+
 /* ─── App ─── */
 function App() {
   // Persistência via localStorage
@@ -4312,6 +4970,7 @@ function App() {
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
           : page === 'mrr'      ? <MRR/>
           : page === 'pipeline' ? <Pipeline cols={pipelineCols} setCols={setPipelineCols}/>
+          : page === 'agenda'   ? <Agenda/>
           : page === 'analytics'? <Analytics/>
           : page === 'chamados' ? <Chamados/>
           : page === 'equipe'   ? <Equipe/>
