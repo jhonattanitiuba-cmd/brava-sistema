@@ -576,6 +576,20 @@ const NAV_BOTTOM = [
 ];
 
 /* ─── Sidebar ─── */
+/* Badge que mostra total de nao-lidas reais do WhatsApp (Evolution).
+   Quando Evolution nao esta configurada, usa o fallback (mock numerico). */
+function SidebarUnreadBadge({ fallback }) {
+  const cfg = useEvoConfig();
+  const total = useEvoUnreadTotal();
+  // Tambem dispara notificacoes do browser para mensagens novas que chegam
+  useEvoMessageNotifications();
+  if (cfg) {
+    if (total <= 0) return null;
+    return <span className="nav-badge">{total > 99 ? '99+' : total}</span>;
+  }
+  return fallback ? <span className="nav-badge">{fallback}</span> : null;
+}
+
 function Sidebar({ page, setPage, collapsed, setCollapsed }) {
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
@@ -621,13 +635,19 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV.map(n => (
-          <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => setPage(n.key)}>
-            <Icon name={n.icon} size={16} />
-            {n.label}
-            {n.badge && <span className="nav-badge">{n.badge}</span>}
-          </div>
-        ))}
+        {NAV.map(n => {
+          const isWA = n.key === 'clientes';
+          // badge real: total de nao-lidas do WhatsApp quando Evolution configurada;
+          // senao usa o badge mock pra outras abas
+          const realBadge = isWA ? <SidebarUnreadBadge fallback={n.badge}/> : (n.badge ? <span className="nav-badge">{n.badge}</span> : null);
+          return (
+            <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => setPage(n.key)}>
+              <Icon name={n.icon} size={16} />
+              {n.label}
+              {realBadge}
+            </div>
+          );
+        })}
 
         <div className="nav-divider" />
 
@@ -1855,15 +1875,30 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           </div>
           {/* Filtros */}
           <div style={{ display:'flex', gap:4, marginTop:8 }}>
-            {[['todas','Todas'],['nao_lidas','Não lidas'],['ia','IA'],['minhas','Minhas']].map(([k,l]) => (
-              <button key={k} onClick={()=>setFiltro(k)} style={{
-                padding:'4px 10px', borderRadius:999, fontSize:11.5, fontWeight:500, cursor:'pointer',
-                background: filtro===k ? 'rgba(37,211,102,.15)' : 'transparent',
-                color: filtro===k ? 'var(--wa-green)' : S.textSec,
-                border: filtro===k ? '1px solid rgba(37,211,102,.3)' : '1px solid transparent',
-                transition:'all .15s',
-              }}>{l}</button>
-            ))}
+            {(() => {
+              const naoLidasCount = fonteContatos.reduce((s,c) => s + (c.unread > 0 ? 1 : 0), 0);
+              return [['todas','Todas'],['nao_lidas','Não lidas'],['ia','IA'],['minhas','Minhas']].map(([k,l]) => {
+                const showCount = k === 'nao_lidas' && naoLidasCount > 0;
+                return (
+                  <button key={k} onClick={()=>setFiltro(k)} style={{
+                    padding:'4px 10px', borderRadius:999, fontSize:11.5, fontWeight:500, cursor:'pointer',
+                    display:'inline-flex', alignItems:'center', gap:5,
+                    background: filtro===k ? 'rgba(37,211,102,.15)' : 'transparent',
+                    color: filtro===k ? 'var(--wa-green)' : S.textSec,
+                    border: filtro===k ? '1px solid rgba(37,211,102,.3)' : '1px solid transparent',
+                    transition:'all .15s',
+                  }}>
+                    {l}
+                    {showCount && <span style={{
+                      minWidth:18, height:18, borderRadius:999,
+                      background:'var(--wa-green)', color:'#fff',
+                      fontSize:10.5, fontWeight:700, fontFamily:'var(--f-m)',
+                      display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'0 5px',
+                    }}>{naoLidasCount}</span>}
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
 
@@ -3649,6 +3684,55 @@ function useEvoChats(intervalMs = 15000) {
   // Aplica filtro de ruido reativamente
   const chats = escondeRuido ? state.chats : state.chatsAll;
   return { ...state, chats };
+}
+
+// Hook lightweight: retorna total de mensagens nao lidas (para badge global)
+function useEvoUnreadTotal() {
+  const { chats } = useEvoChats(30000); // intervalo mais longo (o socket atualiza tb)
+  return React.useMemo(() => chats.reduce((s,c) => s + (c.unread || 0), 0), [chats]);
+}
+
+/* Notificacao do navegador quando chega mensagem nova (com permissao) */
+const _evoNotifSeen = new Set(); // dedup por message id
+function evoBrowserNotify(titulo, corpo, tag, icone) {
+  try {
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'granted') return;
+    if (document.hasFocus()) return; // nao incomodar se a aba ja esta aberta
+    const n = new Notification(titulo, { body: corpo, tag: tag || titulo, icon: icone || '/admin/app/brava-logo-white.png' });
+    n.onclick = () => { window.focus(); n.close(); };
+    setTimeout(() => n.close(), 7000);
+  } catch {}
+}
+function evoPedirPermissaoNotif() {
+  try {
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission === 'default') Notification.requestPermission();
+  } catch {}
+}
+
+// Hook que escuta socket e dispara notificacoes ao receber mensagem nova de outros
+function useEvoMessageNotifications() {
+  React.useEffect(() => { evoPedirPermissaoNotif(); }, []);
+  const cb = React.useCallback((evt, payload) => {
+    const data = payload?.data || payload;
+    const arr = Array.isArray(data) ? data : (data?.messages ? data.messages : [data]);
+    arr.forEach(m => {
+      if (!m || m.key?.fromMe || m.fromMe) return; // so notifica entrada
+      const id = m.key?.id || m.id;
+      if (!id || _evoNotifSeen.has(id)) return;
+      _evoNotifSeen.add(id);
+      const remoteJid = m.key?.remoteJid || m.remoteJid;
+      const contato = remoteJid ? evoGetContact(remoteJid) : null;
+      const isGroup = remoteJid?.endsWith('@g.us');
+      const senderName = m.pushName
+        || contato?.pushName || contato?.profileName || contato?.verifiedName
+        || (isGroup ? 'Grupo' : evoFormatPhone(remoteJid) || 'Contato');
+      const texto = evoExtractText(m) || '';
+      evoBrowserNotify(senderName, texto.slice(0, 140), remoteJid);
+    });
+  }, []);
+  useEvoSocketEvent(['messages.upsert'], cb);
 }
 
 // Hook: mensagens de uma conversa especifica (polling fallback + websocket pra real-time)
