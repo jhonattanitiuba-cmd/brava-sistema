@@ -1069,8 +1069,7 @@ function WhatsAppPairingModal({ instance, onClose }) {
             }
           } catch (e) { console.warn('Falha ao atualizar status no Supabase:', e); }
           showToast?.(`${instance.nome} conectado com sucesso!`, 'success');
-          // Fecha modal apos 1.5s pra mostrar a tela de sucesso
-          setTimeout(() => { if (alive) onClose(); }, 1800);
+          // Nao auto-fecha mais — usuario clica no botao "Abrir conversas" pra fechar
         } else if (real === 'connecting') {
           setState('connecting');
         }
@@ -1084,23 +1083,23 @@ function WhatsAppPairingModal({ instance, onClose }) {
   const lbl = { fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em' };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.75)', display:'grid', placeItems:'center', zIndex:9999, animation:'fade-in .15s'}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.85)', display:'grid', placeItems:'center', zIndex:9999, animation:'fade-in .15s'}}>
       <div onClick={e=>e.stopPropagation()} style={{
-        width:'min(440px, 94vw)', background:'var(--bg-2)',
-        border:'1px solid var(--border)', borderRadius:14,
-        padding:'24px 28px', boxShadow:'0 24px 60px rgba(0,0,0,.6)',
+        width:'min(440px, 94vw)', background:'#000',
+        border:'1px solid #1F1F2A', borderRadius:14,
+        padding:'24px 28px', boxShadow:'0 24px 80px rgba(0,0,0,.85), 0 0 0 1px rgba(30,144,255,.06)',
       }}>
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
           <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>
-              Conectar {instance.nome}
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'#F5F5F7'}}>
+              Conectar {(instance.nome || '').replace(/^WhatsApp\s+/i, '')}
             </div>
-            <div style={{fontSize:12, color:'var(--t3)', marginTop:4}}>
+            <div style={{fontSize:12, color:'#A0A0AA', marginTop:4}}>
               Escaneie o QR code com o WhatsApp do seu celular
             </div>
           </div>
           <button onClick={onClose} style={{
-            background:'transparent', border:'none', color:'var(--t3)',
+            background:'transparent', border:'none', color:'#6E6E78',
             cursor:'pointer', padding:6, lineHeight:1, fontSize:20,
           }}>×</button>
         </div>
@@ -1114,39 +1113,58 @@ function WhatsAppPairingModal({ instance, onClose }) {
           {state === 'checking' && (
             <>
               <div style={{
-                width:48, height:48, border:'3px solid rgba(123,63,228,.2)',
-                borderTopColor:'var(--purple)', borderRadius:'50%',
+                width:48, height:48, border:'3px solid rgba(30,144,255,.18)',
+                borderTopColor:'#1E90FF', borderRadius:'50%',
                 animation:'spin 1s linear infinite',
               }}/>
-              <div style={{fontSize:13, color:'var(--t2)'}}>Verificando instância...</div>
+              <div style={{fontSize:13, color:'#A0A0AA'}}>Verificando instância...</div>
             </>
           )}
 
           {state === 'setup' && (
             <div style={{width:'100%', maxWidth:340}}>
+              {/* Avatar do agente com sabre azul circulando (ref ao "circulo de IA") */}
               <div style={{
-                width:64, height:64, borderRadius:'50%',
-                background:'rgba(123,63,228,.12)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-                margin:'0 auto 14px',
+                position:'relative', width:80, height:80, margin:'0 auto 18px',
               }}>
-                <Icon name="MessageCircle" size={28} style={{color:'var(--purple)'}}/>
+                {/* Ring sabre rotacionando */}
+                <div style={{
+                  position:'absolute', inset:0, borderRadius:'50%',
+                  background:'conic-gradient(from 0deg, transparent 0%, transparent 60%, rgba(30,144,255,.6) 80%, #1E90FF 95%, rgba(30,144,255,.6) 100%)',
+                  animation:'agentSabre 2.2s linear infinite',
+                  filter:'blur(.5px)',
+                }}/>
+                {/* Glow externo */}
+                <div style={{
+                  position:'absolute', inset:-6, borderRadius:'50%',
+                  background:'radial-gradient(circle, rgba(30,144,255,.18) 0%, transparent 70%)',
+                  animation:'agentPulse 2.4s ease-in-out infinite',
+                }}/>
+                {/* Circulo interior */}
+                <div style={{
+                  position:'absolute', inset:4, borderRadius:'50%',
+                  background:'#000',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  zIndex:1,
+                }}>
+                  <Icon name="MessageCircle" size={30} style={{color:'#1E90FF'}}/>
+                </div>
               </div>
               <div style={{
                 textAlign:'center', fontSize:14, fontWeight:600,
-                color:'var(--t1)', marginBottom:6,
+                color:'#F5F5F7', marginBottom:6,
               }}>
                 Configurar nova instância
               </div>
               <div style={{
-                textAlign:'center', fontSize:12, color:'var(--t3)',
+                textAlign:'center', fontSize:12, color:'#A0A0AA',
                 marginBottom:18, lineHeight:1.5,
               }}>
                 Escolha um nome para identificar este WhatsApp no servidor.
                 <br/>Sem espaços. Apenas letras, números, _ ou -.
               </div>
               <label style={{
-                display:'block', fontSize:11, color:'var(--t3)',
+                display:'block', fontSize:11, color:'#6E6E78',
                 fontFamily:'var(--f-m)', textTransform:'uppercase',
                 letterSpacing:'.06em', marginBottom:6,
               }}>
@@ -1162,16 +1180,16 @@ function WhatsAppPairingModal({ instance, onClose }) {
                 onKeyDown={(e) => { if (e.key === 'Enter' && nomeValido) confirmarSetup(); }}
                 style={{
                   width:'100%', padding:'10px 12px',
-                  background:'var(--bg-3)',
-                  border:'1px solid ' + (customName && !nomeValido ? '#A32D2D' : 'var(--border)'),
-                  borderRadius:8, color:'var(--t1)', fontSize:14,
+                  background:'#0A0A12',
+                  border:'1px solid ' + (customName && !nomeValido ? '#A32D2D' : '#1F1F2A'),
+                  borderRadius:8, color:'#F5F5F7', fontSize:14,
                   outline:'none', fontFamily:'var(--f-b)',
                   transition:'border-color .15s',
                   boxSizing:'border-box',
                 }}
               />
               <div style={{
-                fontSize:11, color: customName && !nomeValido ? '#A32D2D' : 'var(--t3)',
+                fontSize:11, color: customName && !nomeValido ? '#A32D2D' : '#6E6E78',
                 marginTop:6, minHeight:14,
               }}>
                 {customName && !nomeValido
@@ -1195,13 +1213,15 @@ function WhatsAppPairingModal({ instance, onClose }) {
                 style={{
                   width:'100%', marginTop:14,
                   padding:'10px 16px',
-                  background: nomeValido ? 'var(--purple)' : 'var(--bg-3)',
-                  border:'none', borderRadius:8,
-                  color: nomeValido ? '#fff' : 'var(--t3)',
+                  background: nomeValido ? '#1E90FF' : '#0A0A12',
+                  border:'1px solid ' + (nomeValido ? '#1E90FF' : '#1F1F2A'),
+                  borderRadius:8,
+                  color: nomeValido ? '#fff' : '#6E6E78',
                   cursor: nomeValido && !validandoNome ? 'pointer' : 'not-allowed',
                   fontSize:13, fontWeight:600, fontFamily:'var(--f-b)',
                   opacity: validandoNome ? 0.7 : 1,
                   transition:'background .15s, opacity .15s',
+                  boxShadow: nomeValido ? '0 6px 20px rgba(30,144,255,.30)' : 'none',
                 }}
               >
                 {validandoNome ? 'Criando...' : 'Criar e gerar QR Code'}
@@ -1212,11 +1232,11 @@ function WhatsAppPairingModal({ instance, onClose }) {
           {state === 'loading' && (
             <>
               <div style={{
-                width:48, height:48, border:'3px solid rgba(123,63,228,.2)',
-                borderTopColor:'var(--purple)', borderRadius:'50%',
+                width:48, height:48, border:'3px solid rgba(30,144,255,.18)',
+                borderTopColor:'#1E90FF', borderRadius:'50%',
                 animation:'spin 1s linear infinite',
               }}/>
-              <div style={{fontSize:13, color:'var(--t2)'}}>Gerando QR code...</div>
+              <div style={{fontSize:13, color:'#A0A0AA'}}>Gerando QR code...</div>
             </>
           )}
 
@@ -1228,8 +1248,8 @@ function WhatsAppPairingModal({ instance, onClose }) {
               }}>
                 <img src={qrBase64} alt="QR Code" style={{width:240, height:240, display:'block'}}/>
               </div>
-              <div style={{textAlign:'center', fontSize:12, color:'var(--t2)', lineHeight:1.6, maxWidth:340}}>
-                <div style={{marginBottom:8, color:'var(--t1)', fontWeight:600}}>Como conectar:</div>
+              <div style={{textAlign:'center', fontSize:12, color:'#A0A0AA', lineHeight:1.6, maxWidth:340}}>
+                <div style={{marginBottom:8, color:'#F5F5F7', fontWeight:600}}>Como conectar:</div>
                 <div>1. Abra o <b>WhatsApp</b> no seu celular</div>
                 <div>2. Menu → <b>Aparelhos conectados</b></div>
                 <div>3. Toque em <b>Conectar um aparelho</b></div>
@@ -1248,8 +1268,8 @@ function WhatsAppPairingModal({ instance, onClose }) {
               )}
               <button onClick={() => setAttempt(a => a+1)} style={{
                 marginTop:6, padding:'6px 14px',
-                background:'transparent', border:'1px solid var(--border)',
-                borderRadius:8, color:'var(--t2)', cursor:'pointer',
+                background:'transparent', border:'1px solid #1F1F2A',
+                borderRadius:8, color:'#A0A0AA', cursor:'pointer',
                 fontSize:12, fontFamily:'var(--f-b)',
               }}>
                 Gerar novo QR
@@ -1260,16 +1280,41 @@ function WhatsAppPairingModal({ instance, onClose }) {
           {state === 'open' && (
             <>
               <div style={{
-                width:72, height:72, borderRadius:'50%',
-                background:'rgba(37,211,102,.15)',
-                display:'flex', alignItems:'center', justifyContent:'center',
+                position:'relative', width:80, height:80,
               }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
+                {/* Glow externo verde */}
+                <div style={{
+                  position:'absolute', inset:-6, borderRadius:'50%',
+                  background:'radial-gradient(circle, rgba(37,211,102,.25) 0%, transparent 70%)',
+                }}/>
+                <div style={{
+                  position:'absolute', inset:0, borderRadius:'50%',
+                  background:'rgba(37,211,102,.18)',
+                  border:'1px solid rgba(37,211,102,.40)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                }}>
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </div>
               </div>
-              <div style={{fontSize:16, fontWeight:600, color:'var(--t1)'}}>Conectado!</div>
-              <div style={{fontSize:12, color:'var(--t3)'}}>{instance.nome} pronto para usar</div>
+              <div style={{fontSize:17, fontWeight:600, color:'#F5F5F7', marginTop:8}}>Conectado!</div>
+              <div style={{fontSize:12, color:'#A0A0AA'}}>
+                {(instance.nome || '').replace(/^WhatsApp\s+/i, '')} pronto para usar
+              </div>
+              <button onClick={onClose} style={{
+                marginTop:14, padding:'10px 28px',
+                background:'#1E90FF', border:'1px solid #1E90FF', borderRadius:8,
+                color:'#fff', cursor:'pointer',
+                fontSize:13, fontWeight:600, fontFamily:'var(--f-b)',
+                boxShadow:'0 6px 20px rgba(30,144,255,.30)',
+                transition:'transform .12s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
+                onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
+              >
+                Abrir conversas
+              </button>
             </>
           )}
 
@@ -1278,31 +1323,33 @@ function WhatsAppPairingModal({ instance, onClose }) {
               <div style={{
                 width:60, height:60, borderRadius:'50%',
                 background:'rgba(163,45,45,.15)',
+                border:'1px solid rgba(163,45,45,.30)',
                 display:'flex', alignItems:'center', justifyContent:'center',
               }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#A32D2D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#E5544D" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="17" x2="12" y2="17.01"/>
                   <circle cx="12" cy="12" r="10"/>
                 </svg>
               </div>
-              <div style={{fontSize:14, fontWeight:600, color:'var(--t1)'}}>Erro ao gerar QR</div>
-              <div style={{fontSize:11, color:'var(--t3)', textAlign:'center', maxWidth:340, lineHeight:1.5}}>
+              <div style={{fontSize:14, fontWeight:600, color:'#F5F5F7'}}>Erro ao gerar QR</div>
+              <div style={{fontSize:11, color:'#A0A0AA', textAlign:'center', maxWidth:340, lineHeight:1.5}}>
                 {errorMsg}
               </div>
               <div style={{display:'flex', gap:8, marginTop:6}}>
                 <button onClick={() => { setState('setup'); setErrorMsg(''); }} style={{
                   padding:'8px 16px',
-                  background:'transparent', border:'1px solid var(--border)',
-                  borderRadius:8, color:'var(--t2)', cursor:'pointer',
+                  background:'transparent', border:'1px solid #1F1F2A',
+                  borderRadius:8, color:'#A0A0AA', cursor:'pointer',
                   fontSize:13, fontWeight:500, fontFamily:'var(--f-b)',
                 }}>
                   Trocar nome
                 </button>
                 <button onClick={() => setAttempt(a => a+1)} style={{
                   padding:'8px 18px',
-                  background:'var(--purple)', border:'none', borderRadius:8,
+                  background:'#1E90FF', border:'1px solid #1E90FF', borderRadius:8,
                   color:'#fff', cursor:'pointer', fontSize:13, fontWeight:600,
                   fontFamily:'var(--f-b)',
+                  boxShadow:'0 6px 20px rgba(30,144,255,.30)',
                 }}>
                   Tentar de novo
                 </button>
@@ -1311,34 +1358,57 @@ function WhatsAppPairingModal({ instance, onClose }) {
           )}
         </div>
 
-        <div style={{
-          marginTop:14, paddingTop:14, borderTop:'1px solid var(--border-soft)',
-          display:'flex', justifyContent:'space-between', alignItems:'center',
-          fontSize:11, color:'var(--t3)',
-        }}>
-          <div>
-            Instância: <span style={{color:'var(--t2)', fontFamily:'var(--f-m)'}}>{activeName || '(definir nome)'}</span>
-            {state !== 'setup' && state !== 'open' && (
-              <button
-                onClick={() => { setState('setup'); setErrorMsg(''); }}
-                title="Trocar nome da instância"
-                style={{
-                  marginLeft:8, padding:'2px 8px',
-                  background:'transparent', border:'1px solid var(--border)',
-                  borderRadius:10, color:'var(--blue)', cursor:'pointer',
-                  fontSize:10, fontFamily:'var(--f-m)',
-                }}
-              >
-                Editar
-              </button>
-            )}
-          </div>
-          <div style={{fontFamily:'var(--f-m)'}}>{state.toUpperCase()}</div>
-        </div>
+        {/* Footer com labels PT-BR (em vez de SETUP/OPEN tecnico) */}
+        {(() => {
+          const STATE_LABEL = {
+            checking:   { txt: 'Verificando', color: '#A0A0AA' },
+            setup:      { txt: 'Configurar',  color: '#1E90FF' },
+            loading:    { txt: 'Gerando QR',  color: '#A0A0AA' },
+            qr:         { txt: 'Aguardando leitura', color: '#1E90FF' },
+            connecting: { txt: 'Conectando',  color: '#F5A623' },
+            open:       { txt: 'Conectado',   color: '#25D366' },
+            error:      { txt: 'Erro',        color: '#E5544D' },
+          };
+          const cur = STATE_LABEL[state] || { txt: state, color: '#A0A0AA' };
+          return (
+            <div style={{
+              marginTop:14, paddingTop:14, borderTop:'1px solid #1F1F2A',
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              fontSize:11, color:'#6E6E78',
+            }}>
+              <div>
+                Instância: <span style={{color:'#A0A0AA', fontFamily:'var(--f-m)'}}>{activeName || '(definir nome)'}</span>
+                {state !== 'setup' && state !== 'open' && (
+                  <button
+                    onClick={() => { setState('setup'); setErrorMsg(''); }}
+                    title="Trocar nome da instância"
+                    style={{
+                      marginLeft:8, padding:'2px 8px',
+                      background:'transparent', border:'1px solid #1F1F2A',
+                      borderRadius:10, color:'#1E90FF', cursor:'pointer',
+                      fontSize:10, fontFamily:'var(--f-m)',
+                    }}
+                  >
+                    Editar
+                  </button>
+                )}
+              </div>
+              <div style={{display:'flex', alignItems:'center', gap:6, fontFamily:'var(--f-m)', color:cur.color}}>
+                <span style={{
+                  width:6, height:6, borderRadius:'50%', background:cur.color,
+                  boxShadow:`0 0 6px ${cur.color}`,
+                }}/>
+                {cur.txt}
+              </div>
+            </div>
+          );
+        })()}
       </div>
       <style>{`
         @keyframes spin { from {transform:rotate(0)} to {transform:rotate(360deg)} }
         @keyframes pulse { 0%,100% {opacity:1} 50% {opacity:.3} }
+        @keyframes agentSabre { from {transform:rotate(0deg)} to {transform:rotate(360deg)} }
+        @keyframes agentPulse { 0%,100% {opacity:.6; transform:scale(1)} 50% {opacity:1; transform:scale(1.06)} }
       `}</style>
     </div>
   );
@@ -9754,32 +9824,47 @@ function Agenda() {
    troca de WhatsApp via switcher OU quando o app monta.
    Tambem: se a instancia ativa nao for visivel pro user logado (ex: user
    trocou e o admin tem instancia privada de outro user no localStorage),
-   reseta pra primeira instancia visivel (Brava Principal por padrao). */
+   reseta pra primeira instancia visivel (Brava Principal por padrao).
+
+   CUIDADO COM RACE: ao criar uma nova instancia, o switcher chama
+   setActiveInstanceId(novoId) ANTES do useWaInstances receber o INSERT
+   via Realtime. Pra nao forcar fallback prematuro, esperamos:
+   1. loading == false (lista ja carregou pelo menos uma vez)
+   2. grace period de 1.5s desde a ultima mudanca de activeId
+   Se depois disso a instancia ainda nao apareceu, ai sim faz fallback. */
 function useSyncEvoConfig() {
-  const { instances } = useWaInstances();
+  const { instances, loading } = useWaInstances();
   const activeId = useActiveInstanceId();
   React.useEffect(() => {
+    if (loading) return;                              // ainda carregando lista
     if (!instances || instances.length === 0) return;
     let inst = instances.find(i => i.id === activeId);
-    // Se a instancia ativa nao esta na lista visivel (privada de outro user),
-    // forca volta pra primeira disponivel
-    if (!inst) {
-      inst = instances[0];
-      if (inst) {
-        setActiveInstanceId(inst.id);
-        showToast?.(`Trocou pra ${inst.nome} (instancia anterior nao disponivel)`, 'info');
+    if (inst) {
+      // Instancia encontrada — sincroniza EVO_KEY_CFG se mudou
+      const cur = getEvoConfig();
+      if (!cur || cur.url !== inst.evolution_url || cur.instance !== inst.evolution_instance_name || cur.apikey !== inst.evolution_apikey) {
+        setEvoConfigStore({
+          url: inst.evolution_url,
+          instance: inst.evolution_instance_name,
+          apikey: inst.evolution_apikey,
+        });
       }
-      return; // proximo render vai sincronizar
+      return;
     }
-    const cur = getEvoConfig();
-    if (!cur || cur.url !== inst.evolution_url || cur.instance !== inst.evolution_instance_name || cur.apikey !== inst.evolution_apikey) {
-      setEvoConfigStore({
-        url: inst.evolution_url,
-        instance: inst.evolution_instance_name,
-        apikey: inst.evolution_apikey,
-      });
-    }
-  }, [instances, activeId]);
+    // Instancia nao encontrada — espera grace period pra ver se aparece via Realtime
+    // (cobre o caso de INSERT recente que ainda nao propagou)
+    const graceTimer = setTimeout(() => {
+      // Re-checa: alguma instancia com esse id apareceu?
+      const ainda = (instances || []).find(i => i.id === activeId);
+      if (ainda) return; // ja foi pego no proximo render
+      const fallback = instances[0];
+      if (fallback) {
+        setActiveInstanceId(fallback.id);
+        showToast?.(`Trocou pra ${fallback.nome} (instancia anterior nao disponivel)`, 'info');
+      }
+    }, 1500);
+    return () => clearTimeout(graceTimer);
+  }, [instances, activeId, loading]);
 }
 
 function App() {
