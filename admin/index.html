@@ -1588,7 +1588,7 @@ function PresenceLabel({ contato, usandoReal, iaProcessando }) {
   // Prioridade maxima: IA processando (sobrescreve qualquer outro estado)
   if (iaProcessando) {
     return (
-      <span style={{fontSize:12, color:'var(--wa-green)', marginTop:1, fontStyle:'italic', display:'inline-flex', alignItems:'center', gap:4}}>
+      <span style={{fontSize:12, color:'var(--wa-green)', marginTop:1, display:'inline-flex', alignItems:'center', gap:4}}>
         <Icon name="Sparkles" size={11}/> IA digitando<DotsAnim color="var(--wa-green)"/>
       </span>
     );
@@ -1601,7 +1601,7 @@ function PresenceLabel({ contato, usandoReal, iaProcessando }) {
   else if (s === 'recording') label = 'gravando áudio...';
   else if (s === 'paused')    { label = 'pausou de digitar'; cor = 'var(--wa-text-secondary)'; }
   else if (s === 'unavailable') { label = 'offline'; cor = 'var(--wa-text-secondary)'; }
-  return <span style={{fontSize:12, color:cor, marginTop:1, fontStyle: (s==='composing' || s==='recording') ? 'italic' : 'normal'}}>{label}</span>;
+  return <span style={{fontSize:12, color:cor, marginTop:1}}>{label}</span>;
 }
 
 /* Renderiza imagem inline (baixa base64 sob demanda) */
@@ -1688,7 +1688,13 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   // === Backend toggle: Supabase (Realtime) vs Evolution direto (legado) ===
   const [supaEnabled, setSupaEnabled] = useSupaEnabled();
   const supaChatsState = useSupaChats();        // sempre roda (cheap), mas so usa se supaEnabled
-  const supaChats = React.useMemo(() => supaChatsState.chats.map(supaNormalizeChat), [supaChatsState.chats]);
+  const supaChats = React.useMemo(() => {
+    // Filtro de seguranca: descarta chats fantasma (sem ultima msg E sem unread)
+    // Tipicamente sao @lid de Linked Devices sem conversa real.
+    return supaChatsState.chats
+      .filter(c => c.last_message_ts || c.last_message_text || (c.unread_count > 0))
+      .map(supaNormalizeChat);
+  }, [supaChatsState.chats]);
 
   // === Fluxo Evolution direto (legado) ===
   const evoCfg = useEvoConfig();
@@ -1934,6 +1940,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               })()}
             </span>
             <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              {/* Atualizar (forca recarregar a pagina) */}
+              <button onClick={()=>window.location.reload()} title="Atualizar conversas" style={{
+                width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                color: S.textSec, background:'none', border:'none', cursor:'pointer', transition:'background .15s',
+              }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <Icon name="RefreshCw" size={16}/>
+              </button>
               <button onClick={()=>setEscondeRuido(!escondeRuido)} title={escondeRuido ? 'Mostrando apenas conversas reais' : 'Mostrar tudo (inclusive ruido tecnico)'} style={{
                 width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
                 color: escondeRuido ? 'var(--wa-green)' : S.textSec,
@@ -2428,14 +2444,14 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
           {contato?.name}
           {contato?.isGroup && <span style={{fontSize:9.5, padding:'1px 6px', borderRadius:4, background:'rgba(123,63,228,.18)', color:'var(--purple)', fontFamily:'var(--f-m)', fontWeight:600, letterSpacing:'.04em'}}>GRUPO</span>}
         </div>
-        {usandoReal && !contato.isGroup && (
+        {usandoReal && !contato.isGroup && telefone && telefone !== '—' && telefone !== contato?.name && (
           <div style={{ fontSize:12, color:S.textSec, marginTop:4, fontFamily:'var(--f-m)' }}>{telefone}</div>
         )}
         {usandoReal && contato.isGroup && grupo?.participants && (
           <div style={{ fontSize:12, color:S.textSec, marginTop:4 }}>{grupo.participants.length} participantes</div>
         )}
         {iaProcessando ? (
-          <div style={{ fontSize:11.5, color:'var(--wa-green)', marginTop:5, fontWeight:500, display:'inline-flex', alignItems:'center', gap:5, fontStyle:'italic' }}>
+          <div style={{ fontSize:11.5, color:'var(--wa-green)', marginTop:5, fontWeight:500, display:'inline-flex', alignItems:'center', gap:5 }}>
             <Icon name="Sparkles" size={11}/> IA digitando<DotsAnim color="var(--wa-green)"/>
           </div>
         ) : presence && (() => {
@@ -2497,7 +2513,7 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
           );
         })}
         {!faseAtual && usandoReal && (
-          <div style={{ marginTop:4, fontSize:11, color:S.textSec, fontStyle:'italic' }}>
+          <div style={{ marginTop:4, fontSize:11, color:S.textSec }}>
             Clique numa fase para adicionar este contato ao pipeline
           </div>
         )}
