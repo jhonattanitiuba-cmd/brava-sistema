@@ -16,12 +16,18 @@ const translateAuthError = (msg = '') => {
 // Helper: redireciona pra /admin/ com os dados do workspace
 const irParaAdmin = (user, workspace, member) => {
   const tema = document.documentElement.getAttribute('data-theme') || 'dark';
+  // Nome real do usuario: prioridade pra user_metadata.nome (setado no signup), depois name, depois email
+  const nomeReal = user?.user_metadata?.nome
+                || user?.user_metadata?.name
+                || user?.user_metadata?.full_name
+                || (user?.email || '').split('@')[0];
   const params = new URLSearchParams({
-    user:  workspace?.name || user.email,
+    user:  nomeReal,
     email: user.email,
     plano: workspace?.plan || 'trial',
     role:  member?.role === 'owner' ? 'Owner' : (member?.role === 'admin' ? 'Admin' : 'Atendente'),
     slug:  workspace?.slug || '',
+    workspace_name: workspace?.name || '',
     theme: tema,
   });
   window.location.href = `/admin/?${params.toString()}`;

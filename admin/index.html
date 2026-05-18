@@ -508,6 +508,20 @@ function carregarSessao() {
       const tema = url.get('theme');
       if (tema) document.documentElement.setAttribute('data-theme', tema);
       localStorage.setItem('brava_sessao', JSON.stringify(sessao));
+      // SINCRONIZA tambem o perfil rico (nome, cargo, email) usado pela aba Perfil
+      try {
+        const perfilExistente = JSON.parse(localStorage.getItem('brava_user_perfil') || '{}');
+        // So sobrescreve nome/email/cargo se mudou OU se perfil esta vazio
+        if (perfilExistente.email !== emailUrl) {
+          const novoPerfil = {
+            nome: userUrl,
+            email: emailUrl,
+            cargo: url.get('role') || 'Owner',
+            telefone: perfilExistente.telefone || '',
+          };
+          localStorage.setItem('brava_user_perfil', JSON.stringify(novoPerfil));
+        }
+      } catch {}
       window.history.replaceState({}, '', '/');
       return sessao;
     }
