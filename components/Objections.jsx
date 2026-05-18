@@ -11,11 +11,11 @@ const OBJECTIONS = [
   },
   {
     q: 'Já tentei outro CRM e meu time não usou…',
-    a: 'Provavelmente porque era genérico — feito pra todo mundo, configurado pra ninguém. A Brava entra com configuração guiada: a gente coleta como sua empresa funciona e deixa os agentes prontos. Sua equipe usa porque os agentes já respondem do jeito de vocês.'
+    a: 'Provavelmente porque era genérico, feito pra todo mundo, configurado pra ninguém. A Brava entra com configuração guiada: a gente coleta como sua empresa funciona e deixa os agentes prontos. Sua equipe usa porque os agentes já respondem do jeito de vocês.'
   },
   {
     q: 'Vou ter que treinar a equipe?',
-    a: 'A interface é parecida com o WhatsApp Web — quem usa WhatsApp já sabe usar. E entregamos o sistema configurado. Em poucos dias todo mundo está operando.'
+    a: 'A interface é parecida com o WhatsApp Web. Quem usa WhatsApp já sabe usar. E entregamos o sistema configurado. Em poucos dias todo mundo está operando.'
   },
   {
     q: 'Estou usando Evolution API. Vou tomar ban?',
@@ -23,7 +23,7 @@ const OBJECTIONS = [
   },
   {
     q: 'Eu já tenho site. Não preciso de outro.',
-    a: 'Tudo bem. O site é um bônus do plano Performance, não obrigação. Se você já tem um site funcionando, integramos com o CRM da Brava sem trocar nada. Mas é comum o cliente decidir migrar depois — porque o nosso é construído pra converter, não só pra ser vitrine.'
+    a: 'Tudo bem. O site é um bônus do plano Performance, não obrigação. Se você já tem um site funcionando, integramos com o CRM da Brava sem trocar nada. Mas é comum o cliente decidir migrar depois, porque o nosso é construído pra converter, não só pra ser vitrine.'
   }
 ];
 
@@ -121,7 +121,7 @@ function Guarantee() {
                 Se em 7 dias você sentir que a Brava não é o que sua empresa precisa, devolvemos 100% do que você pagou. Sem perguntas, sem burocracia, sem aquela conversa de "tem certeza?".
               </p>
               <p style={{ marginTop: 16, fontSize: 15, color: 'var(--text-tertiary)', fontStyle: 'italic', lineHeight: 1.5 }}>
-                Prefiro perder uma venda do que ganhar um cliente insatisfeito. É assim que a Brava cresce — com clientes que ficam porque a plataforma entrega, não porque assinaram contrato preso.
+                Prefiro perder uma venda do que ganhar um cliente insatisfeito. É assim que a Brava cresce: com clientes que ficam porque a plataforma entrega, não porque assinaram contrato preso.
               </p>
             </div>
           </div>
@@ -162,7 +162,7 @@ function Urgency() {
                 Atendemos um número limitado de <span className="gradient-text">implementações por mês</span>.
               </h2>
               <p style={{ marginTop: 20, fontSize: 17, color: 'var(--text-on-light-secondary)', lineHeight: 1.55 }}>
-                Não é firula de marketing. A Brava entra em cada cliente com configuração guiada — nosso time entende sua operação <em>antes</em> do agente IA começar a responder. Por isso abrimos 8 vagas por mês.
+                Não é firula de marketing. A Brava entra em cada cliente com configuração guiada: nosso time entende sua operação <em>antes</em> do agente IA começar a responder. Por isso abrimos 8 vagas por mês.
               </p>
               <p style={{ marginTop: 16, fontSize: 16, fontWeight: 600 }}>
                 Hoje ainda tem vaga. Amanhã eu não sei.

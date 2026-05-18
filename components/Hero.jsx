@@ -28,7 +28,7 @@ function Nav() {
 const HEADLINES = {
   A: {
     h1: <>Pare de perder venda no <span className="gradient-text">WhatsApp bagunçado</span>.</>,
-    sub: 'Tenha agentes de IA treinados pra responder, vender e organizar tudo no seu lugar — com seu logo, suas regras e seu time no comando.'
+    sub: 'Tenha agentes de IA treinados pra responder, vender e organizar tudo no seu lugar, com seu logo, suas regras e seu time no comando.'
   },
   B: {
     h1: <>O WhatsApp da sua empresa virou uma <span className="gradient-text">fábrica de venda perdida</span>?</>,
@@ -36,7 +36,7 @@ const HEADLINES = {
   },
   C: {
     h1: <>Pare de juntar agência, CRM, automação e <span className="gradient-text">suporte</span>.</>,
-    sub: 'A Brava é o setor de tecnologia integrado da sua empresa: site, CRM, agentes de IA e suporte — tudo num só parceiro, com seu logo.'
+    sub: 'A Brava é o setor de tecnologia integrado da sua empresa: site, CRM, agentes de IA e suporte. Tudo num só parceiro, com seu logo.'
   }
 };
 

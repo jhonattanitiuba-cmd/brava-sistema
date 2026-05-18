@@ -32,7 +32,7 @@ const CLIENTS = ['EstacionePark', 'Master Aviação', 'PHS Incorporadora', 'Garc
 
 const TESTIMONIALS = [
   {
-    quote: 'Antes a gente perdia mensagem direto, principalmente fim de semana. Hoje todo cliente recebe resposta em segundos — mesmo às 23h. O agente de vendas da Brava virou nosso melhor "atendente" e não tira férias.',
+    quote: 'Antes a gente perdia mensagem direto, principalmente fim de semana. Hoje todo cliente recebe resposta em segundos, mesmo às 23h. O agente de vendas da Brava virou nosso melhor "atendente" e não tira férias.',
     name: 'Camila Bertolucci',
     role: 'Diretora Comercial',
     company: 'EstacionePark',
@@ -48,7 +48,7 @@ const TESTIMONIALS = [
     metric: 'Visibilidade do pipeline'
   },
   {
-    quote: 'A Brava paga a mensalidade no primeiro orçamento aprovado do mês. O resto é margem. Em 2 meses recuperei o investimento. E não tem mais aquela história de atendente saindo e levando contato — agora tudo fica.',
+    quote: 'A Brava paga a mensalidade no primeiro orçamento aprovado do mês. O resto é margem. Em 2 meses recuperei o investimento. E não tem mais aquela história de atendente saindo e levando contato: agora tudo fica.',
     name: 'Patrícia Marinho',
     role: 'Gestora de Marketing',
     company: 'Grupo Marinho',
@@ -135,7 +135,7 @@ function SocialProof() {
           <div>
             <h3 className="h3">Empresa real, com endereço, telefone e nota 5★ no Google.</h3>
             <p style={{ marginTop: 14, color: 'var(--text-on-light-secondary)', fontSize: 16, lineHeight: 1.55 }}>
-              A <strong>Brava Company S.A.</strong> é uma agência de tecnologia B2B sediada em <strong>Alphaville, Barueri/SP</strong> — região que concentra as maiores empresas de tecnologia do Brasil. Endereço físico, CNPJ ativo, equipe presencial.
+              A <strong>Brava Company S.A.</strong> é uma agência de tecnologia B2B sediada em <strong>Alphaville, Barueri/SP</strong>, região que concentra as maiores empresas de tecnologia do Brasil. Endereço físico, CNPJ ativo, equipe presencial.
             </p>
             <p style={{ marginTop: 14, color: 'var(--text-on-light-tertiary)', fontSize: 14, fontStyle: 'italic' }}>
               Sem operação fantasma. Sem desaparecer depois da venda. Você liga, a gente atende.
@@ -166,7 +166,7 @@ function SocialProof() {
               </div>
               <div>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--text-on-light-tertiary)', letterSpacing: '0.08em' }}>GOOGLE</div>
-                <div style={{ marginTop: 2, fontSize: 15 }}>5,0 — perfil verificado</div>
+                <div style={{ marginTop: 2, fontSize: 15 }}>5,0 · perfil verificado</div>
               </div>
             </div>
           </div>

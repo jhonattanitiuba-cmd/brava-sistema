@@ -2,7 +2,7 @@
 
 const FAQS = [
   { q: 'Quanto tempo leva pra estar rodando?', a: 'Entre 3 e 7 dias úteis. A configuração começa imediatamente após o fechamento, e seu agente IA está respondendo em poucos dias.' },
-  { q: 'Funciona pra qualquer tipo de negócio?', a: 'Sim. A plataforma foi construída pra resolver a dor do atendimento — independente da vertical. Hoje atendemos saúde, agro, automotivo, imobiliário, estacionamento, e-commerce, indústria, turismo, construção e outros.' },
+  { q: 'Funciona pra qualquer tipo de negócio?', a: 'Sim. A plataforma foi construída pra resolver a dor do atendimento, independente da vertical. Hoje atendemos saúde, agro, automotivo, imobiliário, estacionamento, e-commerce, indústria, turismo, construção e outros.' },
   { q: 'E se minha equipe não tem traquejo com tecnologia?', a: 'A interface é parecida com WhatsApp Web. E entregamos o sistema configurado e pronto. Quem usa WhatsApp consegue usar a Brava.' },
   { q: 'Como funciona o suporte?', a: 'Tem uma aba de Suporte direto dentro do sistema. Você abre chamado, sugere melhoria ou tira dúvida e fala diretamente com o time da Brava. Tempo de resposta varia conforme o plano: de 30 minutos (Enterprise) a 1 dia útil (Essencial).' },
   { q: 'Posso usar com mais de um número de WhatsApp?', a: 'Sim. Plano Essencial libera 1 número, Performance libera 2, Scale libera 5, Enterprise libera ilimitado.' },
@@ -30,7 +30,7 @@ function FAQ() {
               Perguntas que <span className="gradient-text">a gente mais recebe</span>.
             </h2>
             <p style={{ marginTop: 16, color: 'var(--text-on-light-secondary)', fontSize: 16, lineHeight: 1.55 }}>
-              Não achou o que procurava? Manda pra gente no WhatsApp — respondemos em até 30 minutos no horário comercial.
+              Não achou o que procurava? Manda pra gente no WhatsApp. Respondemos em até 30 minutos no horário comercial.
             </p>
             <a href={WA_LINK} className="btn btn-primary" style={{ marginTop: 24 }}>
               Tirar dúvida no WhatsApp

@@ -4,14 +4,14 @@ function ProposalBlock() {
   const metrics = [
     { num: '+22', label: 'empresas ativas',     desc: 'de diferentes segmentos usando a plataforma hoje' },
     { num: '24h', label: 'atendimento com IA',  desc: 'sem depender de equipe humana fora do horário comercial' },
-    { num: '1',   label: 'plataforma única',    desc: 'site, CRM, IA e suporte — sem empilhar ferramentas avulsas' },
+    { num: '1',   label: 'plataforma única',    desc: 'site, CRM, IA e suporte sem empilhar ferramentas avulsas' },
   ];
 
   const pillars = [
     {
       icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
       title: 'Velocidade de resposta',
-      text: 'Agentes de IA respondem em segundos, qualificam o lead e agendam — enquanto sua equipe dorme.'
+      text: 'Agentes de IA respondem em segundos, qualificam o lead e agendam enquanto sua equipe dorme.'
     },
     {
       icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
@@ -43,10 +43,10 @@ function ProposalBlock() {
           </h2>
           <div className="proposal-copy">
             <p className="proposal-copy__p">
-              Mensagem perdida, atendente respondendo do celular pessoal, lead virando fantasma. A cada conversa sem resposta, você perde dinheiro — e nem sabe quanto.
+              Mensagem perdida, atendente respondendo do celular pessoal, lead virando fantasma. A cada conversa sem resposta, você perde dinheiro. E nem sabe quanto.
             </p>
             <p className="proposal-copy__p">
-              A Brava organiza tudo em um único sistema — com seu logo, sua equipe e agentes de IA treinados pra sua operação.
+              A Brava organiza tudo em um único sistema, com seu logo, sua equipe e agentes de IA treinados pra sua operação.
             </p>
             <a href="#planos" className="proposal-cta">
               Ver como funciona
@@ -135,25 +135,43 @@ function ProposalBlock() {
         .proposal-cta svg { transition: transform .25s ease; }
         .proposal-cta:hover svg { transform: translateX(3px); }
 
-        /* Metricas — sem caixa, separadas por linha vertical */
+        /* ============================================================
+           PADRAO DE DESIGN BRAVA - SECAO CLARA
+           - Box PEQUENO em fundo branco-gelo: card com accent AZUL
+             (fundo branco puro, borda azul sutil, numero/icone azul solido)
+           - Box GRANDE de destaque: PRETO com borda fina AZUL
+             (igual ao card destacado do bloco Planos)
+           ============================================================ */
+
+        /* Metricas (boxes pequenos) - card branco com accent azul */
         .proposal-metrics {
           display: grid; grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
           margin-bottom: 88px;
-          border-top: 1px solid rgba(0,0,0,.08);
-          border-bottom: 1px solid rgba(0,0,0,.08);
         }
         .proposal-metric {
-          padding: 36px 32px;
-          border-right: 1px solid rgba(0,0,0,.06);
+          position: relative;
+          padding: 28px 26px 26px;
+          background: #FFFFFF;
+          border: 1px solid rgba(30,144,255,.18);
+          border-radius: 14px;
+          transition: border-color .25s ease, transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
         }
-        .proposal-metric:last-child { border-right: none; }
+        .proposal-metric::before {
+          content: ''; position: absolute; left: 0; top: 18px; bottom: 18px;
+          width: 2px; border-radius: 2px;
+          background: #1E90FF;
+        }
+        .proposal-metric:hover {
+          border-color: rgba(30,144,255,.45);
+          transform: translateY(-2px);
+          box-shadow: 0 14px 32px -16px rgba(30,144,255,.35);
+        }
         .proposal-metric__num {
           font-family: 'Space Grotesk', sans-serif;
-          font-size: 38px; font-weight: 500;
+          font-size: 38px; font-weight: 600;
           letter-spacing: -0.035em; line-height: 1;
-          background: linear-gradient(135deg, #7B3FE4, #1E90FF);
-          -webkit-background-clip: text; background-clip: text;
-          -webkit-text-fill-color: transparent;
+          color: #1E90FF;
         }
         .proposal-metric__label {
           font-family: 'Inter', sans-serif;
@@ -165,48 +183,56 @@ function ProposalBlock() {
           font-family: 'Inter', sans-serif;
           font-size: 13px; line-height: 1.55;
           color: var(--text-on-light-tertiary);
-          max-width: 280px;
         }
 
-        /* Pilares */
+        /* Pilares (boxes grandes) - PRETO com borda fina azul */
         .proposal-pillars {
-          display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
         }
         .proposal-pillar {
-          padding: 30px 26px;
-          background: #FAFAFA;
-          border: 1px solid rgba(0,0,0,.06);
-          border-radius: 14px;
+          padding: 32px 28px;
+          background: #0A0A0F;
+          border: 1px solid rgba(30,144,255,.35);
+          border-radius: 16px;
+          position: relative;
+          overflow: hidden;
           transition: border-color .25s ease, transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
         }
+        .proposal-pillar::after {
+          content: ''; position: absolute; inset: 0;
+          border-radius: inherit; pointer-events: none;
+          background: radial-gradient(120% 80% at 50% -20%, rgba(30,144,255,.10), transparent 60%);
+        }
         .proposal-pillar:hover {
-          border-color: rgba(123,63,228,.35);
+          border-color: #1E90FF;
           transform: translateY(-3px);
-          box-shadow: 0 16px 36px -12px rgba(0,0,0,.12);
+          box-shadow: 0 18px 40px -14px rgba(30,144,255,.4);
         }
         .proposal-pillar__icon {
-          width: 40px; height: 40px; border-radius: 10px;
-          background: #fff;
-          border: 1px solid rgba(123,63,228,.18);
+          width: 42px; height: 42px; border-radius: 10px;
+          background: rgba(30,144,255,.12);
+          border: 1px solid rgba(30,144,255,.35);
           display: inline-flex; align-items: center; justify-content: center;
-          color: #7B3FE4;
+          color: #1E90FF;
           margin-bottom: 20px;
+          position: relative; z-index: 1;
           transition: background .25s ease, color .25s ease, border-color .25s ease;
         }
         .proposal-pillar:hover .proposal-pillar__icon {
-          background: linear-gradient(135deg, #7B3FE4, #1E90FF);
-          color: #fff; border-color: transparent;
+          background: #1E90FF; color: #fff; border-color: #1E90FF;
         }
         .proposal-pillar__title {
           font-family: 'Space Grotesk', sans-serif;
-          font-weight: 600; font-size: 17px; letter-spacing: -0.015em;
-          color: var(--text-on-light-primary);
-          margin-bottom: 8px;
+          font-weight: 600; font-size: 18px; letter-spacing: -0.015em;
+          color: #F5F5F7;
+          margin-bottom: 10px;
+          position: relative; z-index: 1;
         }
         .proposal-pillar__text {
           font-family: 'Inter', sans-serif;
           font-size: 14px; line-height: 1.6;
-          color: var(--text-on-light-secondary);
+          color: #A0A0AA;
+          position: relative; z-index: 1;
         }
 
         /* Responsivo */
@@ -219,15 +245,7 @@ function ProposalBlock() {
         }
         @media (max-width: 720px) {
           .proposal-section { padding: 72px 0 !important; }
-          .proposal-metrics {
-            grid-template-columns: 1fr;
-          }
-          .proposal-metric {
-            border-right: none;
-            border-bottom: 1px solid rgba(0,0,0,.06);
-            padding: 28px 0;
-          }
-          .proposal-metric:last-child { border-bottom: none; }
+          .proposal-metrics { grid-template-columns: 1fr; }
           .proposal-pillars { grid-template-columns: 1fr; }
         }
       `}</style>
@@ -237,12 +255,12 @@ function ProposalBlock() {
 
 function PainBlock() {
   const pains = [
-    'Cliente manda mensagem de manhã, sua equipe responde só de tarde — quando responde',
+    'Cliente manda mensagem de manhã, sua equipe responde só de tarde. Quando responde',
     'Atendente atende pelo WhatsApp pessoal e leva todos os contatos quando sai da empresa',
     'Você não tem ideia de quantos leads chegaram esse mês, nem quantos viraram venda',
-    'Cada atendente responde de um jeito diferente — alguns vendem, outros espantam',
+    'Cada atendente responde de um jeito diferente: alguns vendem, outros espantam',
     'Já tentou outro CRM e a equipe parou de usar depois de 2 semanas',
-    'Cliente pergunta sobre serviço, preço, horário — e quem responde é você, no WhatsApp pessoal, às 22h',
+    'Cliente pergunta sobre serviço, preço, horário, e quem responde é você, no WhatsApp pessoal, às 22h',
     'Sua empresa não tem site, ou tem um site abandonado de 3 anos atrás',
     'Você sabe que precisa "investir em tecnologia" mas não sabe por onde começar nem com quem falar',
   ];
@@ -295,14 +313,14 @@ function SolutionBlock() {
       icon: '',
       title: 'Site institucional profissional',
       tag: 'PERFORMANCE+',
-      copy: 'Construído pela Brava, integrado direto ao CRM. Cada visitante vira lead automaticamente no funil. Não é "site bonito que não converte" — é parte da máquina de vendas.'
+      copy: 'Construído pela Brava, integrado direto ao CRM. Cada visitante vira lead automaticamente no funil. Não é "site bonito que não converte". É parte da máquina de vendas.'
     },
     {
       icon: '',
       title: 'Agentes de IA treinados pra sua operação',
       tag: 'CORE',
-      copy: 'Vendas, suporte, agendamento e pós-venda — cada um configurado de forma independente pelo seu time. Treinados com seus serviços, horários, objeções e tom de marca.',
-      sub: ['Vendas — qualifica lead, tira dúvida de preço, agenda visita', 'Suporte — resolve dúvida de quem já comprou', 'Agendamento — marca horário sem precisar de ninguém', 'Pós-venda — follow-up e reativação de cliente sumido']
+      copy: 'Vendas, suporte, agendamento e pós-venda, cada um configurado de forma independente pelo seu time. Treinados com seus serviços, horários, objeções e tom de marca.',
+      sub: ['Vendas: qualifica lead, tira dúvida de preço, agenda visita', 'Suporte: resolve dúvida de quem já comprou', 'Agendamento: marca horário sem precisar de ninguém', 'Pós-venda: follow-up e reativação de cliente sumido']
     },
     {
       icon: '',
@@ -314,7 +332,7 @@ function SolutionBlock() {
       icon: '🛠️',
       title: 'Suporte de gente que entende',
       tag: 'INCLUSO',
-      copy: 'Direto dentro do produto. Bug, dúvida, sugestão — você fala com a Brava sem sair da plataforma. SLA visível. Resposta em horas, não em dias.'
+      copy: 'Direto dentro do produto. Bug, dúvida, sugestão: você fala com a Brava sem sair da plataforma. SLA visível. Resposta em horas, não em dias.'
     }
   ];
 
@@ -328,7 +346,7 @@ function SolutionBlock() {
               A Brava é o <span className="gradient-text">setor de tecnologia integrado</span> da sua empresa.
             </h2>
             <p className="lead" style={{ marginTop: 24 }}>
-              Não somos mais um CRM genérico. Somos uma agência de tecnologia B2B que age como parte da sua operação — entregando tudo que sua empresa precisa pra crescer no digital, em uma única plataforma, por um único custo mensal.
+              Não somos mais um CRM genérico. Somos uma agência de tecnologia B2B que age como parte da sua operação, entregando tudo que sua empresa precisa pra crescer no digital, em uma única plataforma, por um único custo mensal.
             </p>
             <div style={{
               marginTop: 32, padding: 24,
@@ -394,14 +412,14 @@ function BenefitsBlock() {
   const benefits = [
     { t: 'Você dorme tranquilo', d: 'Os agentes de IA respondem cliente às 23h e no domingo, sem você precisar levantar.' },
     { t: 'Sua equipe vira muito mais produtiva', d: 'Atendente para de trocar de tela e responde várias conversas no tempo que respondia uma.' },
-    { t: 'Você nunca mais perde lead', d: 'Toda mensagem cai no funil. Ninguém esquece de dar follow-up — o sistema cobra.' },
+    { t: 'Você nunca mais perde lead', d: 'Toda mensagem cai no funil. Ninguém esquece de dar follow-up. O sistema cobra.' },
     { t: 'Você descobre quanto vale cada anúncio', d: 'Sabe de onde veio o cliente, quanto converteu, qual canal dá dinheiro e qual queima.' },
     { t: 'Atendente que sai não leva sua carteira', d: 'Todos os contatos ficam no sistema, com seu logo, na sua empresa.' },
     { t: 'Você atende em padrão grande empresa', d: 'Mesmo sendo PME, o cliente não percebe a diferença.' },
     { t: 'Aumenta ticket médio sem aumentar custo', d: 'Pipeline organizado, upsell fácil, recuperação de carrinho, oferta de outros serviços.' },
     { t: 'Sua marca aparece em cada interação', d: 'Não a marca de uma plataforma terceira. A sua.' },
     { t: 'Economia com fornecedor', d: 'Em vez de pagar agência + CRM + automação + suporte avulso, paga uma assinatura só.' },
-    { t: 'Tudo conversa entre si', d: 'Site captura lead → cai no CRM → IA responde → vira venda. Nada de "exportar do A pra importar no B".' },
+    { t: 'Tudo conversa entre si', d: 'Site captura lead → cai no CRM → IA responde → vira venda. Sem "exportar do A pra importar no B".' },
   ];
 
   return (

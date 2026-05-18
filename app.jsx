@@ -109,7 +109,7 @@ function App() {
         fontSize: 12.5, color: '#6E6E78', textAlign: 'center',
       }}>
         <span style={{ color: '#F5F5F7', fontWeight: 500, fontSize: 13 }}>
-          Brava Company © Todos os direitos reservados — CNPJ 34.454.770/0001-26
+          Brava Company © Todos os direitos reservados · CNPJ 34.454.770/0001-26
         </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
           {['comercial','financeiro','suporte'].map((dep, i, arr) => (
