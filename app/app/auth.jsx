@@ -9,7 +9,14 @@ const translateAuthError = (msg = '') => {
   if (m.includes('email not confirmed'))          return 'Confirme seu e-mail antes de entrar (cheque sua caixa de entrada).';
   if (m.includes('password should be at least'))  return 'A senha precisa ter no mínimo 8 caracteres.';
   if (m.includes('email rate limit'))             return 'Muitas tentativas seguidas. Aguarde 1 minuto e tente de novo.';
+  // "Failed to fetch" e variantes = servidor de Auth do Supabase fora do ar
+  // (HTTP 522/503 do Cloudflare). Nao confundir o user com "credencial errada".
+  if (m.includes('failed to fetch') || m.includes('networkerror') || m.includes('load failed')) {
+    return 'Servidor de autenticação temporariamente indisponível. Aguarde alguns segundos e tente de novo.';
+  }
   if (m.includes('network'))                      return 'Sem conexão. Verifique sua internet.';
+  if (m.includes('timeout'))                      return 'Conexão lenta com o servidor. Tente de novo.';
+  if (m.includes('522') || m.includes('503'))     return 'Servidor temporariamente indisponível. Aguarde alguns segundos.';
   return msg || 'Erro ao processar. Tente novamente.';
 };
 
