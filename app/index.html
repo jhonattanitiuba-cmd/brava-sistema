@@ -1831,7 +1831,8 @@ a { color: inherit; text-decoration: none; }
 <body>
 <div id="brava-loading-crm" style="position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:24px;z-index:99999;transition:opacity .4s ease;">
   <img src="app/assets/brava-logo-white.png" alt="Brava" style="height:36px;animation:brava-pulse 1.6s ease-in-out infinite;"/>
-  <div style="width:140px;height:2px;background:#1F1F2A;border-radius:99px;overflow:hidden;">
+  <!-- Barra alinhada com a largura da logo (36px * 5.14 ratio ≈ 185px) -->
+  <div style="width:185px;height:2px;background:#1F1F2A;border-radius:99px;overflow:hidden;">
     <div style="width:40%;height:100%;background:linear-gradient(90deg,#7B3FE4,#1E90FF);border-radius:99px;animation:brava-bar 1.2s ease infinite;"></div>
   </div>
   <div style="font-family:Inter,sans-serif;font-size:13px;color:#A0A0AA;margin-top:6px;letter-spacing:.02em;">Preparando seu workspace...</div>

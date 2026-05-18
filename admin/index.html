@@ -471,7 +471,8 @@ if (!document.documentElement.getAttribute('data-theme')) {
 <div id="brava-loading" style="position:fixed;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity .4s ease;">
   <div style="display:flex;flex-direction:column;align-items:center;gap:18px;">
     <img src="/admin/app/brava-logo-white.png" alt="Brava" style="height:32px;animation:brava-pulse 1.6s ease-in-out infinite;" onerror="this.onerror=null;this.src='app/brava-logo-white.png'"/>
-    <div style="width:120px;height:2px;background:#1F1F2A;border-radius:99px;overflow:hidden;">
+    <!-- Barra alinhada com a largura da logo (32px * 5.14 ratio ≈ 164px) -->
+    <div style="width:164px;height:2px;background:#1F1F2A;border-radius:99px;overflow:hidden;">
       <div style="width:40%;height:100%;background:linear-gradient(90deg,#7B3FE4,#1E90FF);border-radius:99px;animation:brava-bar 1.2s ease infinite;"></div>
     </div>
   </div>
