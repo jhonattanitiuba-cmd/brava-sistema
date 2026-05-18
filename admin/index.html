@@ -883,20 +883,84 @@ function tempoRelativo(ts) {
    5. Quando state === 'open', UPDATE no wa_instancias e fecha modal */
 function WhatsAppPairingModal({ instance, onClose }) {
   const [qrBase64, setQrBase64] = React.useState(null);
-  const [state, setState] = React.useState('loading'); // loading | qr | connecting | open | error
+  // setup = escolhendo nome | loading | qr | connecting | open | error
+  const [state, setState] = React.useState('checking');
   const [errorMsg, setErrorMsg] = React.useState('');
   const [attempt, setAttempt] = React.useState(0); // pra forcar re-fetch do QR
+  // Nome editavel da instancia (default vem do banco, user pode trocar antes de criar)
+  const [customName, setCustomName] = React.useState(instance.evolution_instance_name || '');
+  // Nome efetivamente usado (so muda ao confirmar no setup)
+  const [activeName, setActiveName] = React.useState(instance.evolution_instance_name || '');
+  const [validandoNome, setValidandoNome] = React.useState(false);
 
   const cfg = React.useMemo(() => ({
     url: instance.evolution_url,
-    instance: instance.evolution_instance_name,
+    instance: activeName,
     apikey: instance.evolution_apikey,
-  }), [instance.id]);
+  }), [instance.id, activeName]);
 
-  // 1) Buscar QR ao montar
+  // 0) Checagem inicial: instancia ja existe na Evolution? Se sim, pula direto pro QR.
+  //    Se nao, mostra a tela de setup pro user escolher o nome.
   React.useEffect(() => {
     let alive = true;
-    setQrBase64(null); setState('loading'); setErrorMsg('');
+    if (attempt > 0) return; // re-tentativas pulam essa checagem
+    (async () => {
+      try {
+        const st = await evo.connectionState(cfg).catch(e => ({ _err: e }));
+        if (!alive) return;
+        const stReal = st?.instance?.state || st?.state;
+        if (stReal === 'open') {
+          setState('open');
+          return;
+        }
+        if (stReal === 'close' || stReal === 'connecting') {
+          // Ja existe na Evolution, so falta parear
+          setState('loading');
+          return;
+        }
+        // 404 ou nao identificado: precisa setup
+        setState('setup');
+      } catch {
+        if (alive) setState('setup');
+      }
+    })();
+    return () => { alive = false; };
+  }, [instance.id]);
+
+  // Validacao do nome: alfanumerico, underscore, hifen. Sem espacos.
+  const nomeValido = /^[A-Za-z0-9_-]{3,32}$/.test(customName.trim());
+
+  // Submit do setup: cria instancia na Evolution + atualiza Supabase com o nome escolhido
+  const confirmarSetup = async () => {
+    const nomeFinal = customName.trim();
+    if (!nomeValido) return;
+    setValidandoNome(true); setErrorMsg('');
+    try {
+      // 1. Se o nome mudou, atualiza no Supabase
+      if (nomeFinal !== instance.evolution_instance_name) {
+        const cli = getSupa();
+        if (cli) {
+          await cli.from('wa_instancias').update({
+            evolution_instance_name: nomeFinal,
+          }).eq('id', instance.id);
+        }
+      }
+      // 2. Atualiza activeName -> dispara o useEffect de busca de QR com nome novo
+      setActiveName(nomeFinal);
+      setState('loading');
+      setAttempt(a => a + 1);
+    } catch (e) {
+      setErrorMsg(e.message || 'Erro ao atualizar nome');
+    } finally {
+      setValidandoNome(false);
+    }
+  };
+
+  // 1) Buscar QR (so quando state === 'loading')
+  React.useEffect(() => {
+    if (state !== 'loading') return;
+    let alive = true;
+    setQrBase64(null); setErrorMsg('');
 
     const buscarQR = async () => {
       try {
@@ -917,8 +981,6 @@ function WhatsAppPairingModal({ instance, onClose }) {
           }
         }
         // Garantia extra: aplica template via setWebhook/setSettings em background.
-        // Cobre o caso da Evolution nao ter aceito inline na criacao OU a instancia
-        // ja existir mas com config errada (drift). E idempotente.
         if (!foiCriada) {
           (async () => {
             try {
@@ -957,7 +1019,7 @@ function WhatsAppPairingModal({ instance, onClose }) {
     };
     buscarQR();
     return () => { alive = false; };
-  }, [instance.id, attempt]);
+  }, [state, activeName, attempt]);
 
   // 2) Polling do connectionState (a cada 2s enquanto estiver no estado qr/connecting)
   React.useEffect(() => {
@@ -1029,6 +1091,104 @@ function WhatsAppPairingModal({ instance, onClose }) {
           alignItems:'center', justifyContent:'center',
           padding:'16px 0', gap:14,
         }}>
+          {state === 'checking' && (
+            <>
+              <div style={{
+                width:48, height:48, border:'3px solid rgba(123,63,228,.2)',
+                borderTopColor:'var(--purple)', borderRadius:'50%',
+                animation:'spin 1s linear infinite',
+              }}/>
+              <div style={{fontSize:13, color:'var(--t2)'}}>Verificando instância...</div>
+            </>
+          )}
+
+          {state === 'setup' && (
+            <div style={{width:'100%', maxWidth:340}}>
+              <div style={{
+                width:64, height:64, borderRadius:'50%',
+                background:'rgba(123,63,228,.12)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                margin:'0 auto 14px',
+              }}>
+                <Icon name="MessageCircle" size={28} style={{color:'var(--purple)'}}/>
+              </div>
+              <div style={{
+                textAlign:'center', fontSize:14, fontWeight:600,
+                color:'var(--t1)', marginBottom:6,
+              }}>
+                Configurar nova instância
+              </div>
+              <div style={{
+                textAlign:'center', fontSize:12, color:'var(--t3)',
+                marginBottom:18, lineHeight:1.5,
+              }}>
+                Escolha um nome para identificar este WhatsApp no servidor.
+                <br/>Sem espaços. Apenas letras, números, _ ou -.
+              </div>
+              <label style={{
+                display:'block', fontSize:11, color:'var(--t3)',
+                fontFamily:'var(--f-m)', textTransform:'uppercase',
+                letterSpacing:'.06em', marginBottom:6,
+              }}>
+                Nome da instância
+              </label>
+              <input
+                type="text"
+                value={customName}
+                onChange={(e) => setCustomName(e.target.value.replace(/[^A-Za-z0-9_-]/g, ''))}
+                placeholder="ex: JhonattanItiuba"
+                maxLength={32}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter' && nomeValido) confirmarSetup(); }}
+                style={{
+                  width:'100%', padding:'10px 12px',
+                  background:'var(--bg-3)',
+                  border:'1px solid ' + (customName && !nomeValido ? '#A32D2D' : 'var(--border)'),
+                  borderRadius:8, color:'var(--t1)', fontSize:14,
+                  outline:'none', fontFamily:'var(--f-b)',
+                  transition:'border-color .15s',
+                  boxSizing:'border-box',
+                }}
+              />
+              <div style={{
+                fontSize:11, color: customName && !nomeValido ? '#A32D2D' : 'var(--t3)',
+                marginTop:6, minHeight:14,
+              }}>
+                {customName && !nomeValido
+                  ? 'Nome inválido. Use 3-32 caracteres alfanuméricos, _ ou -.'
+                  : (customName ? `${customName.length}/32 caracteres` : 'Mínimo 3 caracteres')
+                }
+              </div>
+              {errorMsg && (
+                <div style={{
+                  marginTop:10, padding:'8px 12px',
+                  background:'rgba(163,45,45,.10)',
+                  border:'1px solid rgba(163,45,45,.30)',
+                  borderRadius:6, fontSize:11, color:'#E5544D',
+                }}>
+                  {errorMsg}
+                </div>
+              )}
+              <button
+                onClick={confirmarSetup}
+                disabled={!nomeValido || validandoNome}
+                style={{
+                  width:'100%', marginTop:14,
+                  padding:'10px 16px',
+                  background: nomeValido ? 'var(--purple)' : 'var(--bg-3)',
+                  border:'none', borderRadius:8,
+                  color: nomeValido ? '#fff' : 'var(--t3)',
+                  cursor: nomeValido && !validandoNome ? 'pointer' : 'not-allowed',
+                  fontSize:13, fontWeight:600, fontFamily:'var(--f-b)',
+                  opacity: validandoNome ? 0.7 : 1,
+                  transition:'background .15s, opacity .15s',
+                }}
+              >
+                {validandoNome ? 'Criando...' : 'Criar e gerar QR Code'}
+              </button>
+            </div>
+          )}
+
           {state === 'loading' && (
             <>
               <div style={{
@@ -1109,14 +1269,24 @@ function WhatsAppPairingModal({ instance, onClose }) {
               <div style={{fontSize:11, color:'var(--t3)', textAlign:'center', maxWidth:340, lineHeight:1.5}}>
                 {errorMsg}
               </div>
-              <button onClick={() => setAttempt(a => a+1)} style={{
-                marginTop:6, padding:'8px 18px',
-                background:'var(--purple)', border:'none', borderRadius:8,
-                color:'#fff', cursor:'pointer', fontSize:13, fontWeight:600,
-                fontFamily:'var(--f-b)',
-              }}>
-                Tentar de novo
-              </button>
+              <div style={{display:'flex', gap:8, marginTop:6}}>
+                <button onClick={() => { setState('setup'); setErrorMsg(''); }} style={{
+                  padding:'8px 16px',
+                  background:'transparent', border:'1px solid var(--border)',
+                  borderRadius:8, color:'var(--t2)', cursor:'pointer',
+                  fontSize:13, fontWeight:500, fontFamily:'var(--f-b)',
+                }}>
+                  Trocar nome
+                </button>
+                <button onClick={() => setAttempt(a => a+1)} style={{
+                  padding:'8px 18px',
+                  background:'var(--purple)', border:'none', borderRadius:8,
+                  color:'#fff', cursor:'pointer', fontSize:13, fontWeight:600,
+                  fontFamily:'var(--f-b)',
+                }}>
+                  Tentar de novo
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -1126,7 +1296,23 @@ function WhatsAppPairingModal({ instance, onClose }) {
           display:'flex', justifyContent:'space-between', alignItems:'center',
           fontSize:11, color:'var(--t3)',
         }}>
-          <div>Instância: <span style={{color:'var(--t2)', fontFamily:'var(--f-m)'}}>{cfg.instance}</span></div>
+          <div>
+            Instância: <span style={{color:'var(--t2)', fontFamily:'var(--f-m)'}}>{activeName || '(definir nome)'}</span>
+            {state !== 'setup' && state !== 'open' && (
+              <button
+                onClick={() => { setState('setup'); setErrorMsg(''); }}
+                title="Trocar nome da instância"
+                style={{
+                  marginLeft:8, padding:'2px 8px',
+                  background:'transparent', border:'1px solid var(--border)',
+                  borderRadius:10, color:'var(--blue)', cursor:'pointer',
+                  fontSize:10, fontFamily:'var(--f-m)',
+                }}
+              >
+                Editar
+              </button>
+            )}
+          </div>
           <div style={{fontFamily:'var(--f-m)'}}>{state.toUpperCase()}</div>
         </div>
       </div>
