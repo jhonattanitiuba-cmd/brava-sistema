@@ -5790,15 +5790,15 @@ const BRAVA_INSTANCE_TEMPLATE = {
       'TYPEBOT_START', 'TYPEBOT_CHANGE_STATUS',
     ],
   },
-  // Comportamento Baileys (mesmas da Brava Principal)
+  // Comportamento Baileys — IDENTICO a Brava Principal em producao
   settings: {
     reject_call: false,         // permite chamadas (nao rejeita auto)
     msg_call: '',               // sem msg auto pra chamadas
-    groups_ignore: false,       // espelha grupos tambem
-    always_online: true,        // mantem o numero "online" 24/7
+    groups_ignore: true,        // ignora grupos (Brava igual). Reduz ruido no inbox
+    always_online: true,        // mantem online 24/7 (critico pra envio nao falhar)
     read_messages: false,       // NAO marca como lida automaticamente
     read_status: false,         // nao le status do contato
-    sync_full_history: false,   // soft sync (puxa apenas conversas recentes ao parear)
+    sync_full_history: true,    // sync completo: contatos antigos + fotos de perfil + historico
   },
 };
 
