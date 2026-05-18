@@ -2084,7 +2084,24 @@ function getUserPerfil() {
 }
 function setUserPerfilStore(perfil) {
   try {
+    // 1. Persiste perfil "rico" (nome, cargo, email, telefone)
     localStorage.setItem('brava_user_perfil', JSON.stringify(perfil));
+    // 2. Sincroniza com a SESSAO em memoria + storage (para SaudacaoDinamica
+    //    e tudo que le SESSAO.nome / SESSAO.email ver o valor novo na hora
+    //    e tambem apos um reload).
+    if (typeof SESSAO === 'object' && SESSAO) {
+      if (perfil.nome)     SESSAO.nome  = perfil.nome;
+      if (perfil.email)    SESSAO.email = perfil.email;
+      if (perfil.cargo)    SESSAO.role  = perfil.cargo;
+    }
+    try {
+      const s = JSON.parse(localStorage.getItem('brava_sessao') || '{}');
+      if (perfil.nome)  s.nome  = perfil.nome;
+      if (perfil.email) s.email = perfil.email;
+      if (perfil.cargo) s.role  = perfil.cargo;
+      localStorage.setItem('brava_sessao', JSON.stringify(s));
+    } catch {}
+    // 3. Notifica componentes
     window.dispatchEvent(new Event('brava_perfil_changed'));
   } catch (e) { console.warn('Falha ao salvar perfil', e); }
 }
@@ -2104,6 +2121,29 @@ function useNomeExibicao() {
     };
   }, []);
   return nome;
+}
+// Hook generico: retorna o perfil completo reativo (nome, cargo, email, telefone)
+function useUserPerfil() {
+  const get = () => {
+    const p = getUserPerfil();
+    return {
+      nome:     p.nome     || SESSAO.nome  || 'Jhonattan Itiuba',
+      cargo:    p.cargo    || SESSAO.role  || 'Diretoria',
+      email:    p.email    || SESSAO.email || 'diretoria@brava.company',
+      telefone: p.telefone || '+55 11 96334-2541',
+    };
+  };
+  const [perfil, setPerfil] = React.useState(get);
+  React.useEffect(() => {
+    const refresh = () => setPerfil(get());
+    window.addEventListener('brava_perfil_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_perfil_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return perfil;
 }
 
 /* ─── Helper: foto do usuario (localStorage agora, Supabase Storage depois) ─── */
@@ -2130,8 +2170,8 @@ function HeaderUserAvatar() {
       window.removeEventListener('storage', handler);
     };
   }, []);
-  const nome = SESSAO.nome || 'Jhonattan Itiuba';
-  const iniciais = nome.split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+  const { nome } = useUserPerfil();
+  const iniciais = (nome || 'JI').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
   return (
     <div className="header__avatar" style={{
       background: foto
@@ -2332,7 +2372,22 @@ function Config() {
   const [salvando, setSalvando] = useState(false);
   const [msg, setMsg] = useState('');
   const fileRef = React.useRef(null);
-  const perfilRefs = React.useRef({}); // refs dos inputs nome/cargo/email/telefone
+
+  // Inputs CONTROLADOS pelo perfil reativo: ao salvar, o store atualiza,
+  // o evento brava_perfil_changed dispara e o campo reflete o valor salvo
+  const perfilStore = useUserPerfil();
+  const [perfilForm, setPerfilForm] = useState({
+    nome: perfilStore.nome, cargo: perfilStore.cargo,
+    email: perfilStore.email, telefone: perfilStore.telefone,
+  });
+  // Quando o store muda (saved!), reflete nos inputs
+  useEffect(() => {
+    setPerfilForm({
+      nome: perfilStore.nome, cargo: perfilStore.cargo,
+      email: perfilStore.email, telefone: perfilStore.telefone,
+    });
+  }, [perfilStore.nome, perfilStore.cargo, perfilStore.email, perfilStore.telefone]);
+  const setPF = (k,v) => setPerfilForm(p => ({...p, [k]:v}));
 
   const onSelectFile = (file) => {
     if (!file) return;
@@ -2360,7 +2415,7 @@ function Config() {
     setTimeout(() => setMsg(''), 3000);
   };
 
-  const iniciais = (SESSAO.nome || 'JI').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
+  const iniciais = (perfilStore.nome || 'JI').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
 
   return (
     <div className="page">
@@ -2460,27 +2515,23 @@ function Config() {
                 </div>
               </div>
 
-              {/* Dados pessoais */}
+              {/* Dados pessoais — inputs controlados pelo state */}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
-                {(() => {
-                  const perfilSaved = getUserPerfil();
-                  const CAMPOS = [
-                    ['nome',     'Nome completo',          perfilSaved.nome     || SESSAO.nome    || 'Jhonattan Itiuba'],
-                    ['cargo',    'Cargo / Função',         perfilSaved.cargo    || SESSAO.role    || 'Diretoria'],
-                    ['email',    'E-mail',                 perfilSaved.email    || SESSAO.email   || 'diretoria@brava.company'],
-                    ['telefone', 'Telefone / WhatsApp',    perfilSaved.telefone || '+55 11 96334-2541'],
-                  ];
-                  return CAMPOS.map(([k, label, v]) => (
-                    <div key={k}>
-                      <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
-                      <input
-                        ref={el => { if (el) perfilRefs.current[k] = el; }}
-                        defaultValue={v}
-                        style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}
-                      />
-                    </div>
-                  ));
-                })()}
+                {[
+                  ['nome',     'Nome completo'],
+                  ['cargo',    'Cargo / Função'],
+                  ['email',    'E-mail'],
+                  ['telefone', 'Telefone / WhatsApp'],
+                ].map(([k, label]) => (
+                  <div key={k}>
+                    <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
+                    <input
+                      value={perfilForm[k] || ''}
+                      onChange={e => setPF(k, e.target.value)}
+                      style={{width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none'}}
+                    />
+                  </div>
+                ))}
               </div>
 
               {/* Senha */}
@@ -2495,27 +2546,35 @@ function Config() {
                   className="btn btn-primary"
                   disabled={salvando}
                   onClick={() => {
-                    setSalvando(true); setMsg('');
-                    const dados = {
-                      nome:     perfilRefs.current.nome?.value     || '',
-                      cargo:    perfilRefs.current.cargo?.value    || '',
-                      email:    perfilRefs.current.email?.value    || '',
-                      telefone: perfilRefs.current.telefone?.value || '',
-                    };
+                    if (!perfilForm.nome?.trim()) { setMsg('Erro: nome nao pode ficar em branco.'); return; }
+                    setSalvando(true);
                     try {
+                      const dados = {
+                        nome:     perfilForm.nome.trim(),
+                        cargo:    perfilForm.cargo?.trim()    || '',
+                        email:    perfilForm.email?.trim()    || '',
+                        telefone: perfilForm.telefone?.trim() || '',
+                      };
                       setUserPerfilStore(dados);
-                      setTimeout(() => {
-                        setSalvando(false);
-                        setMsg('Perfil salvo. Saudação e dados atualizados.');
-                        setTimeout(() => setMsg(''), 2500);
-                      }, 400);
-                    } catch (e) {
                       setSalvando(false);
-                      setMsg('Erro ao salvar.');
+                      setMsg(`Perfil salvo. Agora aparece como "${dados.nome.split(' ')[0]}" na saudacao.`);
+                      showToast?.(`Perfil atualizado`, 'success');
+                      setTimeout(() => setMsg(''), 3500);
+                    } catch (e) {
+                      console.error(e);
+                      setSalvando(false);
+                      setMsg('Erro ao salvar: ' + e.message);
                     }
                   }}
-                ><Icon name={salvando ? 'Loader' : 'Check'} size={14}/>{salvando ? 'Salvando…' : 'Salvar alterações'}</button>
-                <button className="btn btn-ghost" onClick={() => setMsg('')}>Cancelar</button>
+                ><Icon name="Check" size={14}/>{salvando ? 'Salvando…' : 'Salvar alterações'}</button>
+                <button className="btn btn-ghost" onClick={() => {
+                  // Reseta o form para os valores salvos
+                  setPerfilForm({
+                    nome: perfilStore.nome, cargo: perfilStore.cargo,
+                    email: perfilStore.email, telefone: perfilStore.telefone,
+                  });
+                  setMsg('');
+                }}>Cancelar</button>
               </div>
             </div>
           )}
