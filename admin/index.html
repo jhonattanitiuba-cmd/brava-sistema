@@ -446,6 +446,7 @@ if (!document.documentElement.getAttribute('data-theme')) {
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
 <script type="text/babel" src="app/icons.jsx"></script>
 <script type="text/babel" src="app/components.jsx"></script>
 <script type="text/babel">
@@ -1521,7 +1522,9 @@ const MENSAGENS = {
 function Conversas({ pipelineCols, moverNoPipeline }) {
   // Dados reais vs mock — quando Evolution configurada, usa real
   const evoCfg = useEvoConfig();
-  const { chats: realChats, loading: realChatsLoading, error: realChatsError } = useEvoChats(8000);
+  const { chats: realChats, loading: realChatsLoading, error: realChatsError } = useEvoChats(15000);
+  const { connected: socketConnected } = useEvoSocket();
+  const [escondeRuido, setEscondeRuido] = useEvoEscondeRuido();
   const usandoReal = !!evoCfg;
   const fonteContatos = usandoReal ? realChats : CONTATOS;
 
@@ -1541,6 +1544,10 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const [busca, setBusca] = useState('');
   const [sidebarAberta, setSidebarAberta] = useState(true);
   const [enviando, setEnviando] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const [gravandoSec, setGravandoSec] = useState(0);
+  const recorderRef = useRef(null);
+  const fileImgRef = useRef(null);
   const [msgsOtimistas, setMsgsOtimistas] = useState([]); // adicionadas localmente antes de confirmar no servidor
   const bottomRef = useRef(null);
   const contato = fonteContatos.find(c => c.id === ativo);
@@ -1584,6 +1591,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       time: evoTimeFormat(tsAgora),
       timestamp: tsAgora,
       pending: true,
+      kind: 'text',
     }]);
     setMsg('');
     setEnviando(true);
@@ -1591,11 +1599,101 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       await evo.sendText(numero, texto);
     } catch (e) {
       showToast?.('Erro ao enviar: ' + (e.message || 'desconhecido'), 'error');
-      // marca otimista como falhada
       setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
     } finally {
       setEnviando(false);
     }
+  };
+
+  // Envio de imagem
+  const enviarImagem = async (file) => {
+    if (!file || !contato || !usandoReal) return;
+    if (!file.type.startsWith('image/')) { showToast?.('Selecione uma imagem', 'warn'); return; }
+    if (file.size > 16 * 1024 * 1024)   { showToast?.('Imagem muito grande (max 16MB)', 'warn'); return; }
+    const caption = msg.trim();
+    const numero = (contato.id || '').replace('@s.whatsapp.net','').replace('@c.us','');
+    const tsAgora = Date.now();
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+      const base64  = dataUrl.split(',')[1];
+      setMsgsOtimistas(arr => [...arr, {
+        id: 'opt_' + tsAgora, conversaId: contato.id, from:'out',
+        text: caption, time: evoTimeFormat(tsAgora), timestamp: tsAgora, pending:true,
+        kind: 'image', meta:{ kind:'image', caption }, previewDataUrl: dataUrl,
+      }]);
+      setMsg('');
+      setEnviando(true);
+      try {
+        await evo.sendMedia(numero, base64, 'image', caption, file.name, file.type);
+      } catch (err) {
+        showToast?.('Erro ao enviar imagem: ' + (err.message || ''), 'error');
+        setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
+      } finally { setEnviando(false); }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Gravar e enviar audio (PTT)
+  const toggleGravacao = async () => {
+    if (!usandoReal || !contato) { showToast?.('Configure a Evolution primeiro', 'warn'); return; }
+    if (gravando) {
+      // Parar gravacao
+      try { recorderRef.current?.mediaRecorder?.stop(); } catch {}
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+      const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+                 : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')  ? 'audio/ogg;codecs=opus'
+                 : 'audio/webm';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: mime });
+      const chunks = [];
+      const inicioTs = Date.now();
+      recorderRef.current = { mediaRecorder, stream, inicioTs };
+      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        setGravando(false); setGravandoSec(0);
+        if (!chunks.length) return;
+        const blob = new Blob(chunks, { type: mime });
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          const dataUrl = ev.target.result;
+          const base64 = dataUrl.split(',')[1];
+          const numero = (contato.id || '').replace('@s.whatsapp.net','').replace('@c.us','');
+          const tsAgora = Date.now();
+          const dur = Math.round((Date.now() - inicioTs) / 1000);
+          setMsgsOtimistas(arr => [...arr, {
+            id: 'opt_' + tsAgora, conversaId: contato.id, from:'out',
+            text:'', time: evoTimeFormat(tsAgora), timestamp: tsAgora, pending:true,
+            kind:'audio', meta:{ kind:'audio', ptt:true, seconds: dur },
+          }]);
+          setEnviando(true);
+          try {
+            await evo.sendWhatsAppAudio(numero, base64);
+          } catch (err) {
+            showToast?.('Erro ao enviar audio: ' + (err.message || ''), 'error');
+            setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
+          } finally { setEnviando(false); }
+        };
+        reader.readAsDataURL(blob);
+      };
+      mediaRecorder.start();
+      setGravando(true);
+      setGravandoSec(0);
+      const timerId = setInterval(() => {
+        if (!recorderRef.current) { clearInterval(timerId); return; }
+        setGravandoSec(Math.round((Date.now() - recorderRef.current.inicioTs) / 1000));
+      }, 250);
+    } catch (e) {
+      showToast?.('Permissao de microfone negada', 'warn');
+    }
+  };
+  const cancelarGravacao = () => {
+    try { recorderRef.current?.stream?.getTracks().forEach(t => t.stop()); } catch {}
+    recorderRef.current = null;
+    setGravando(false); setGravandoSec(0);
   };
 
   const filtrados = fonteContatos.filter(c => {
@@ -1667,12 +1765,27 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
             color: realChatsError ? '#ff8585' : 'var(--wa-green)',
             background: realChatsError ? 'rgba(163,45,45,.08)' : 'rgba(37,211,102,.06)',
             borderBottom:`1px solid ${S.border}`,
-            display:'flex', alignItems:'center', gap:6,
+            display:'flex', alignItems:'center', gap:8,
           }}>
             <div style={{width:6, height:6, borderRadius:'50%', background: realChatsError ? '#ff8585' : 'var(--wa-green)', boxShadow: realChatsError ? '' : '0 0 6px var(--wa-green)'}}/>
-            {realChatsError
-              ? `Erro Evolution: ${realChatsError.slice(0,60)}`
-              : `Evolution · ${evoCfg?.instance} · ${realChats.length} conversa${realChats.length===1?'':'s'}${realChatsLoading?' · atualizando':''}`}
+            <span style={{flex:1}}>
+              {realChatsError
+                ? `Erro Evolution: ${realChatsError.slice(0,60)}`
+                : `${evoCfg?.instance} · ${realChats.length} conversa${realChats.length===1?'':'s'}${realChatsLoading?' · atualizando':''}`}
+            </span>
+            <span title={socketConnected ? 'WebSocket conectado — atualiza em tempo real' : 'Sem WebSocket — usando polling'} style={{
+              fontSize:10, padding:'1px 6px', borderRadius:4,
+              background: socketConnected ? 'rgba(37,211,102,.15)' : 'rgba(110,110,120,.15)',
+              color: socketConnected ? 'var(--wa-green)' : S.textSec,
+              fontWeight:600, letterSpacing:'.02em',
+            }}>{socketConnected ? '⚡ TEMPO REAL' : 'POLLING'}</span>
+            <button onClick={()=>setEscondeRuido(!escondeRuido)} title={escondeRuido ? 'Mostrar tudo (incluindo @lid)' : 'Esconder ruido (@lid)'} style={{
+              background:'none', border:'none', cursor:'pointer',
+              color: escondeRuido ? S.textSec : 'var(--wa-green)',
+              padding:0, fontSize:11,
+            }}>
+              <Icon name={escondeRuido ? 'EyeOff' : 'Eye'} size={13}/>
+            </button>
           </div>
         )}
 
@@ -1695,8 +1808,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               onMouseLeave={e=>{ if(ativo!==c.id) e.currentTarget.style.background='transparent'; }}
             >
               <div style={{ position:'relative', flexShrink:0 }}>
-                <div style={{ width:46, height:46, borderRadius:'50%', background:c.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:15, color:'#fff' }}>{c.init}</div>
-                {c.status==='online' && <div style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.sidebarBg}` }}/>}
+                {usandoReal
+                  ? <EvoAvatar remoteJid={c.id} name={c.name} init={c.init} color={c.color} size={46}/>
+                  : <div style={{ width:46, height:46, borderRadius:'50%', background:c.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:15, color:'#fff' }}>{c.init}</div>
+                }
+                {c.status==='online' && !usandoReal && <div style={{ position:'absolute', bottom:1, right:1, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.sidebarBg}` }}/>}
               </div>
               <div style={{ flex:1, minWidth:0 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
@@ -1725,8 +1841,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         {/* Header chat */}
         <div style={{ padding:'10px 16px', background:S.headerBg, borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
           <div style={{ position:'relative' }}>
-            <div style={{ width:40, height:40, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:14, color:'#fff' }}>{contato?.init}</div>
-            {contato?.status==='online' && <div style={{ position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.headerBg}` }}/>}
+            {usandoReal
+              ? <EvoAvatar remoteJid={contato?.id} name={contato?.name} init={contato?.init} color={contato?.color} size={40}/>
+              : <div style={{ width:40, height:40, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:14, color:'#fff' }}>{contato?.init}</div>
+            }
+            {contato?.status==='online' && !usandoReal && <div style={{ position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%', background:'var(--wa-green)', border:`2px solid ${S.headerBg}` }}/>}
           </div>
           <div style={{ flex:1 }}>
             <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary }}>{contato?.name}</div>
@@ -1771,24 +1890,90 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23000000\' fill-opacity=\'0.02\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
         }}>
           {msgs.map((m,i) => (
-            <div key={i} style={{ display:'flex', flexDirection: m.from==='out' ? 'row-reverse' : 'row', gap:6, marginBottom:2, alignItems:'flex-end' }}>
-              {m.from==='out' && (
+            <div key={m.id || i} style={{ display:'flex', flexDirection: m.from==='out' ? 'row-reverse' : 'row', gap:6, marginBottom:2, alignItems:'flex-end' }}>
+              {m.from==='out' && m.ia && (
                 <div style={{ width:24, height:24, borderRadius:'50%', background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginBottom:4 }}>
                   <Icon name="Sparkles" size={11} style={{color:'#fff'}}/>
                 </div>
               )}
               <div style={{
-                maxWidth:'65%', padding:'7px 12px 6px', fontSize:13.5, lineHeight:1.5,
+                maxWidth:'65%', padding: m.kind === 'image' ? '4px' : '7px 12px 6px', fontSize:13.5, lineHeight:1.5,
                 borderRadius: m.from==='out' ? '8px 0px 8px 8px' : '0px 8px 8px 8px',
                 background: m.from==='out' ? S.msgOut : S.msgIn,
                 color: m.from==='out' ? 'var(--wa-msg-out-text)' : 'var(--wa-msg-in-text)',
                 boxShadow:'0 1px 2px rgba(0,0,0,.1)',
+                opacity: m.pending ? .65 : (m.failed ? .8 : 1),
+                position:'relative',
               }}>
-                {m.text}
-                <div style={{ fontSize:10.5, color:S.textSec, marginTop:3, textAlign:'right', display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
+                {/* Imagem */}
+                {m.kind === 'image' && (
+                  <div>
+                    {m.previewDataUrl ? (
+                      <img src={m.previewDataUrl} alt="" style={{maxWidth:'100%', borderRadius:6, display:'block'}}/>
+                    ) : (
+                      <div style={{
+                        width:240, height:180, background:'rgba(0,0,0,.15)', borderRadius:6,
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        flexDirection:'column', gap:6, color:S.textSec, fontSize:12,
+                      }}>
+                        <span style={{fontSize:32}}>📷</span>
+                        <span>Imagem</span>
+                      </div>
+                    )}
+                    {m.meta?.caption && <div style={{padding:'6px 8px 2px'}}>{m.meta.caption}</div>}
+                  </div>
+                )}
+                {/* Audio */}
+                {m.kind === 'audio' && (
+                  <div style={{display:'flex', alignItems:'center', gap:10, minWidth:180, padding:'2px 0'}}>
+                    <div style={{
+                      width:36, height:36, borderRadius:'50%',
+                      background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>
+                      <Icon name="Mic" size={16} style={{color:'#fff'}}/>
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{height:3, background:'rgba(0,0,0,.15)', borderRadius:2, marginBottom:4}}>
+                        <div style={{width:'100%', height:'100%', background:'var(--wa-green)', borderRadius:2, opacity:.6}}/>
+                      </div>
+                      <div style={{fontSize:11, color:S.textSec, fontFamily:'var(--f-m)'}}>
+                        {m.meta?.ptt ? '🎤 Voz' : '🎵 Audio'} {m.meta?.seconds ? `· ${Math.floor(m.meta.seconds/60)}:${String(m.meta.seconds%60).padStart(2,'0')}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Outros tipos de midia (documento, sticker, video, etc) */}
+                {(m.kind === 'document' || m.kind === 'video' || m.kind === 'sticker' || m.kind === 'location' || m.kind === 'contact') && (
+                  <div style={{display:'flex', alignItems:'center', gap:8, padding:'2px 0'}}>
+                    <span style={{fontSize:18}}>{
+                      m.kind === 'document' ? '📄' :
+                      m.kind === 'video'    ? '🎥' :
+                      m.kind === 'location' ? '📍' :
+                      m.kind === 'contact'  ? '👤' : '😀'
+                    }</span>
+                    <span>{m.text || m.meta?.fileName || m.meta?.displayName || m.kind}</span>
+                  </div>
+                )}
+                {/* Texto puro */}
+                {m.kind === 'text' && m.text}
+                {/* Status/hora */}
+                <div style={{ fontSize:10.5, color:S.textSec, marginTop:3, textAlign:'right', display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end', padding: m.kind === 'image' ? '0 8px 4px' : 0 }}>
+                  {m.failed && <span style={{color:'#ff8585', fontSize:9.5}}>falhou</span>}
+                  {m.pending && !m.failed && <Icon name="Clock" size={10}/>}
                   {m.ia && <span style={{ fontSize:9.5, background:'rgba(37,211,102,.2)', color:'var(--wa-green)', padding:'1px 5px', borderRadius:3, fontFamily:'var(--f-m)' }}>IA</span>}
                   {m.time}
-                  {m.from==='out' && <svg width="14" height="10" viewBox="0 0 16 11" fill="var(--wa-green)"><path d="M11.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061zm3 0a.75.75 0 0 0-1.036.218l-5.64 8.65-.52-.52a.75.75 0 1 0-1.06 1.06l1.19 1.19a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>}
+                  {m.from==='out' && !m.pending && !m.failed && (() => {
+                    // 2=server_ack (1 check), 3=delivery_ack (2 checks), 4=read (2 checks azuis)
+                    const s = m.statusNum ?? 0;
+                    const cor = s >= 4 ? '#53BDEB' : (s >= 2 ? 'currentColor' : 'currentColor');
+                    if (s >= 3) {
+                      return <svg width="14" height="10" viewBox="0 0 16 11" fill={cor}><path d="M11.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061zm3 0a.75.75 0 0 0-1.036.218l-5.64 8.65-.52-.52a.75.75 0 1 0-1.06 1.06l1.19 1.19a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
+                    }
+                    if (s >= 2) {
+                      return <svg width="11" height="10" viewBox="0 0 11 11" fill={cor}><path d="M9.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
+                    }
+                    return <Icon name="Clock" size={9} style={{opacity:.6}}/>;
+                  })()}
                 </div>
               </div>
             </div>
@@ -1803,34 +1988,60 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               <Icon name="Sparkles" size={12}/> IA ativa — responde automaticamente. Digite para assumir.
             </div>
           )}
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            {['Smile','Paperclip'].map(ic => (
-              <div key={ic} style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer' }}>
-                <Icon name={ic} size={20}/>
+          {gravando ? (
+            <div style={{display:'flex', alignItems:'center', gap:10, padding:'4px 4px'}}>
+              <div onClick={cancelarGravacao} title="Cancelar gravacao" style={{
+                width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                color:'#A32D2D', cursor:'pointer',
+              }}><Icon name="Trash2" size={18}/></div>
+              <div style={{flex:1, display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'rgba(163,45,45,.08)', borderRadius:21}}>
+                <div style={{width:8, height:8, borderRadius:'50%', background:'#A32D2D', animation:'fade-up .8s infinite alternate'}}/>
+                <span style={{fontSize:13, color:S.textPrimary, fontFamily:'var(--f-m)'}}>Gravando · {Math.floor(gravandoSec/60)}:{String(gravandoSec%60).padStart(2,'0')}</span>
               </div>
-            ))}
-            <input value={msg} onChange={e=>setMsg(e.target.value)}
-              onKeyDown={e=>{ if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-              placeholder={usandoReal ? `Digite uma mensagem para ${contato?.name || ''}` : 'Digite uma mensagem'}
-              disabled={enviando}
-              style={{
-                flex:1, height:42, padding:'0 16px', borderRadius:21,
-                background:S.searchBg, border:'none', outline:'none',
-                fontSize:14, color:S.textPrimary,
-                opacity: enviando ? .6 : 1,
-              }}/>
-            <div onClick={enviar} style={{
-              width:42, height:42, borderRadius:'50%',
-              background: msg.trim() ? 'var(--wa-green)' : 'rgba(128,128,128,.3)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              cursor: msg.trim() && !enviando ? 'pointer' : 'default',
-              flexShrink:0,
-              opacity: enviando ? .6 : 1,
-              transition:'background .15s',
-            }}>
-              <Icon name={msg.trim() ? 'Send' : 'Mic'} size={18} style={{color:'#fff'}}/>
+              <div onClick={toggleGravacao} title="Enviar" style={{
+                width:42, height:42, borderRadius:'50%', background:'var(--wa-green)',
+                display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0,
+              }}>
+                <Icon name="Send" size={18} style={{color:'#fff'}}/>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <div style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'default', opacity:.5 }} title="Em breve">
+                <Icon name="Smile" size={20}/>
+              </div>
+              <input ref={fileImgRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>enviarImagem(e.target.files?.[0])}/>
+              <div onClick={() => usandoReal ? fileImgRef.current?.click() : showToast?.('Configure a Evolution primeiro', 'warn')}
+                style={{ width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer', transition:'background .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                title="Enviar imagem"
+              >
+                <Icon name="Paperclip" size={20}/>
+              </div>
+              <input value={msg} onChange={e=>setMsg(e.target.value)}
+                onKeyDown={e=>{ if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+                placeholder={usandoReal ? `Digite uma mensagem para ${contato?.name || ''}` : 'Digite uma mensagem'}
+                disabled={enviando}
+                style={{
+                  flex:1, height:42, padding:'0 16px', borderRadius:21,
+                  background:S.searchBg, border:'none', outline:'none',
+                  fontSize:14, color:S.textPrimary,
+                  opacity: enviando ? .6 : 1,
+                }}/>
+              <div onClick={msg.trim() ? enviar : toggleGravacao} style={{
+                width:42, height:42, borderRadius:'50%',
+                background: 'var(--wa-green)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                cursor: 'pointer',
+                flexShrink:0,
+                opacity: enviando ? .6 : 1,
+                transition:'background .15s',
+              }} title={msg.trim() ? 'Enviar' : 'Gravar audio'}>
+                <Icon name={msg.trim() ? 'Send' : 'Mic'} size={18} style={{color:'#fff'}}/>
+              </div>
+            </div>
+          )}
         </div>
         </>)}
       </div>
@@ -1838,7 +2049,12 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       {/* ── Coluna 3: Contexto ── */}
       <div style={{ borderLeft:`1px solid ${S.border}`, overflowY:'auto', background:S.sidebarBg, padding:'16px 14px', display:'flex', flexDirection:'column', gap:14 }}>
         <div style={{ textAlign:'center', paddingBottom:14, borderBottom:`1px solid ${S.border}` }}>
-          <div style={{ width:60, height:60, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:20, color:'#fff', margin:'0 auto 10px' }}>{contato?.init}</div>
+          <div style={{margin:'0 auto 10px', display:'flex', justifyContent:'center'}}>
+            {usandoReal
+              ? <EvoAvatar remoteJid={contato?.id} name={contato?.name} init={contato?.init} color={contato?.color} size={60}/>
+              : <div style={{ width:60, height:60, borderRadius:'50%', background:contato?.color, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--f-d)', fontWeight:700, fontSize:20, color:'#fff' }}>{contato?.init}</div>
+            }
+          </div>
           <div style={{ fontWeight:600, fontSize:15, color:S.textPrimary }}>{contato?.name}</div>
           <div style={{ fontSize:12, color:S.textSec, marginTop:3 }}>via {contato?.via}</div>
           <div style={{ fontSize:12, color:S.green, marginTop:2 }}>{contato?.canal}</div>
@@ -2467,12 +2683,145 @@ const evo = {
     method:'POST',
     body: JSON.stringify({ where: { key: { remoteJid } }, limit }),
   }),
+  // Foto de perfil
+  fetchProfilePicture: (number) => evoFetch(`/chat/fetchProfilePictureUrl/${encodeURIComponent(getEvoConfig().instance)}`, {
+    method:'POST',
+    body: JSON.stringify({ number }),
+  }),
   // Enviar texto
   sendText: (number, text) => evoFetch(`/message/sendText/${encodeURIComponent(getEvoConfig().instance)}`, {
     method:'POST',
     body: JSON.stringify({ number, text }),
   }),
+  // Enviar imagem (base64 sem "data:image/...;base64,")
+  sendMedia: (number, base64, mediatype = 'image', caption = '', fileName = 'image.jpg', mimetype = 'image/jpeg') =>
+    evoFetch(`/message/sendMedia/${encodeURIComponent(getEvoConfig().instance)}`, {
+      method:'POST',
+      body: JSON.stringify({ number, mediatype, media: base64, caption, fileName, mimetype }),
+    }),
+  // Enviar audio (PTT - mensagem de voz)
+  sendWhatsAppAudio: (number, base64) =>
+    evoFetch(`/message/sendWhatsAppAudio/${encodeURIComponent(getEvoConfig().instance)}`, {
+      method:'POST',
+      body: JSON.stringify({ number, audio: base64 }),
+    }),
+  // Download de midia (recebe message obj, retorna {base64, mimetype})
+  getBase64FromMedia: (message) => evoFetch(`/chat/getBase64FromMediaMessage/${encodeURIComponent(getEvoConfig().instance)}`, {
+    method:'POST',
+    body: JSON.stringify({ message: { key: message.key }, convertToMp4: false }),
+  }),
 };
+
+/* Cache de fotos de perfil + hook reativo */
+const _evoPicCache = new Map(); // remoteJid -> {url|null, ts}
+const _evoPicSubs = new Set();
+function evoNotifyPic() { _evoPicSubs.forEach(fn => { try { fn(); } catch {} }); }
+
+async function evoEnsurePic(remoteJid) {
+  if (!remoteJid) return null;
+  const cached = _evoPicCache.get(remoteJid);
+  if (cached) return cached.url;
+  // marca como "fetching" pra nao disparar duplicado
+  _evoPicCache.set(remoteJid, { url:null, ts:Date.now(), pending:true });
+  try {
+    const number = remoteJid.replace('@s.whatsapp.net','').replace('@c.us','').replace('@g.us','');
+    const data = await evo.fetchProfilePicture(number);
+    const url = data?.profilePictureUrl || null;
+    _evoPicCache.set(remoteJid, { url, ts:Date.now() });
+    evoNotifyPic();
+    return url;
+  } catch {
+    _evoPicCache.set(remoteJid, { url:null, ts:Date.now(), failed:true });
+    evoNotifyPic();
+    return null;
+  }
+}
+function useEvoProfilePic(remoteJid) {
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    if (!remoteJid) return;
+    const fn = () => force(x => x + 1);
+    _evoPicSubs.add(fn);
+    // dispara fetch se ainda nao tem
+    if (!_evoPicCache.has(remoteJid)) evoEnsurePic(remoteJid);
+    return () => { _evoPicSubs.delete(fn); };
+  }, [remoteJid]);
+  return _evoPicCache.get(remoteJid)?.url || null;
+}
+
+/* ── WebSocket Socket.IO da Evolution (real-time) ── */
+const _evoSocketState = { socket:null, cfgKey:null, listeners:new Set(), connected:false };
+function _evoSocketEmit(evt) { _evoSocketState.listeners.forEach(fn => { try { fn(evt); } catch {} }); }
+
+function evoSocketConnect(cfg) {
+  if (!cfg || typeof io === 'undefined') return;
+  const key = cfg.url + '|' + cfg.instance;
+  if (_evoSocketState.cfgKey === key && _evoSocketState.socket?.connected) return;
+  // Desconecta socket anterior se trocou cfg
+  if (_evoSocketState.socket) { try { _evoSocketState.socket.disconnect(); } catch {} }
+
+  const base = evoNormalizeUrl(cfg.url);
+  // Tenta primeiro com namespace por instancia (padrao Evolution v2)
+  const socket = io(`${base}/${encodeURIComponent(cfg.instance)}`, {
+    transports: ['websocket'],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 2000,
+    auth: { apikey: cfg.apikey },
+    query: { apikey: cfg.apikey },
+  });
+  _evoSocketState.socket = socket;
+  _evoSocketState.cfgKey = key;
+
+  socket.on('connect', () => {
+    _evoSocketState.connected = true;
+    _evoSocketEmit({ type:'connect' });
+  });
+  socket.on('disconnect', () => {
+    _evoSocketState.connected = false;
+    _evoSocketEmit({ type:'disconnect' });
+  });
+  socket.on('connect_error', (err) => {
+    _evoSocketEmit({ type:'error', error: err?.message || 'connect error' });
+  });
+  // Eventos Evolution v2 (chegam tanto no namespace quanto direto)
+  ['messages.upsert','messages.update','chats.upsert','chats.update','chats.delete','connection.update','contacts.upsert','contacts.update','send.message']
+    .forEach(evt => socket.on(evt, (payload) => _evoSocketEmit({ type:'message', event:evt, payload })));
+
+  // Wildcard listener (alguns servidores emitem por evento literal)
+  socket.onAny?.((evt, payload) => _evoSocketEmit({ type:'any', event:evt, payload }));
+}
+
+function useEvoSocket() {
+  const cfg = useEvoConfig();
+  const [connected, setConnected] = React.useState(_evoSocketState.connected);
+  React.useEffect(() => {
+    if (!cfg) return;
+    evoSocketConnect(cfg);
+    const fn = (e) => {
+      if (e.type === 'connect') setConnected(true);
+      if (e.type === 'disconnect') setConnected(false);
+    };
+    _evoSocketState.listeners.add(fn);
+    setConnected(_evoSocketState.connected);
+    return () => { _evoSocketState.listeners.delete(fn); };
+  }, [cfg?.url, cfg?.instance, cfg?.apikey]);
+  return { connected };
+}
+
+// Subscribe a eventos do socket (callback dispara em cada mensagem nova)
+function useEvoSocketEvent(eventNames, callback) {
+  React.useEffect(() => {
+    if (!callback) return;
+    const names = Array.isArray(eventNames) ? eventNames : [eventNames];
+    const fn = (e) => {
+      if (e.type !== 'message' && e.type !== 'any') return;
+      if (names.includes('*') || names.includes(e.event)) callback(e.event, e.payload);
+    };
+    _evoSocketState.listeners.add(fn);
+    return () => { _evoSocketState.listeners.delete(fn); };
+  }, [callback, JSON.stringify(eventNames)]);
+}
 
 // Hook: polling do estado de conexao da instancia
 function useEvoStatus(intervalMs = 15000) {
@@ -2554,10 +2903,38 @@ function evoExtractText(msg) {
   return '';
 }
 
+// Identifica chat "ruido" (linked devices @lid, broadcasts, status) sem nome humano
+function evoIsRuido(chat) {
+  const jid = chat.remoteJid || chat.id || chat.key?.remoteJid || '';
+  const hasPushName = !!(chat.pushName || chat.name || chat.profileName);
+  if (jid.includes('@lid') && !hasPushName) return true;
+  if (jid.includes('@broadcast')) return true;
+  if (jid === 'status@broadcast') return true;
+  return false;
+}
+
+// Detalhes do tipo de mensagem (pra renderizacao especial)
+function evoMessageMeta(msg) {
+  const m = msg?.message || msg;
+  if (!m) return { kind: 'text' };
+  if (m.imageMessage)    return { kind: 'image',    caption: m.imageMessage.caption || '', mimetype: m.imageMessage.mimetype, fileLength: m.imageMessage.fileLength };
+  if (m.videoMessage)    return { kind: 'video',    caption: m.videoMessage.caption || '', mimetype: m.videoMessage.mimetype, seconds: m.videoMessage.seconds };
+  if (m.audioMessage)    return { kind: 'audio',    ptt: !!m.audioMessage.ptt, mimetype: m.audioMessage.mimetype, seconds: m.audioMessage.seconds };
+  if (m.documentMessage) return { kind: 'document', fileName: m.documentMessage.fileName || 'Documento', mimetype: m.documentMessage.mimetype, fileLength: m.documentMessage.fileLength };
+  if (m.stickerMessage)  return { kind: 'sticker',  mimetype: m.stickerMessage.mimetype };
+  if (m.locationMessage) return { kind: 'location', lat: m.locationMessage.degreesLatitude, lng: m.locationMessage.degreesLongitude };
+  if (m.contactMessage)  return { kind: 'contact',  displayName: m.contactMessage.displayName };
+  return { kind: 'text' };
+}
+
 // Converte um chat do Evolution v2 para o shape do UI
 function evoNormalizeChat(c) {
   const remoteJid = c.remoteJid || c.id || c.key?.remoteJid || '';
-  const name = c.pushName || c.name || c.profileName || remoteJid.replace('@s.whatsapp.net','').replace('@g.us','');
+  const isGroup = remoteJid.endsWith('@g.us');
+  const ehLid = remoteJid.includes('@lid');
+  const numero = remoteJid.replace('@s.whatsapp.net','').replace('@g.us','').replace('@lid','').replace('@c.us','');
+  const rawName = c.pushName || c.name || c.profileName || '';
+  const name = rawName || (isGroup ? `Grupo ${numero.slice(-6)}` : ehLid ? `Contato ${numero.slice(-6)}` : numero);
   const preview = evoExtractText(c.lastMessage) || (c.lastMessage?.message ? evoExtractText(c.lastMessage.message) : '');
   const ts = c.updatedAt || c.lastMessage?.messageTimestamp || c.messageTimestamp;
   return {
@@ -2571,33 +2948,59 @@ function evoNormalizeChat(c) {
     unread: c.unreadCount || 0,
     status: 'online',
     tag: null,
-    via: 'WhatsApp',
+    via: isGroup ? 'Grupo' : 'WhatsApp',
     canal: 'WhatsApp',
+    isGroup,
+    ehLid,
     raw: c,
   };
 }
 
+// Status de mensagem do Baileys/Evolution:
+// 0=ERROR  1=PENDING  2=SERVER_ACK  3=DELIVERY_ACK  4=READ  5=PLAYED
 function evoNormalizeMessage(m) {
   const text = evoExtractText(m);
   const fromMe = m.key?.fromMe || m.fromMe;
   const ts = m.messageTimestamp || m.timestamp || m.createdAt;
+  const meta = evoMessageMeta(m);
+  const statusNum = typeof m.status === 'number' ? m.status : (m.status === 'READ' ? 4 : m.status === 'DELIVERY_ACK' ? 3 : m.status === 'SERVER_ACK' ? 2 : 0);
   return {
     id: m.key?.id || m.id,
     from: fromMe ? 'out' : 'in',
     text: text || '',
     time: evoTimeFormat(ts),
     timestamp: typeof ts === 'number' ? (ts < 1e12 ? ts*1000 : ts) : (ts ? new Date(ts).getTime() : 0),
-    ia: false, // pode ser refinado se IA estiver marcando mensagens
+    ia: false,
+    statusNum,                     // 0..5 (vide tabela acima)
+    kind: meta.kind,               // text|image|video|audio|document|sticker|location|contact
+    meta,                          // detalhes do tipo
     raw: m,
   };
 }
 
-// Hook: lista de conversas reais (polling)
-function useEvoChats(intervalMs = 8000) {
-  const cfg = useEvoConfig();
-  const [state, setState] = React.useState({ loading:false, chats:[], error:null });
+// Preferencia: ocultar chats ruido (@lid sem nome). Default: true.
+const evoGetEscondeRuido = () => { try { return localStorage.getItem('brava_evo_esconde_ruido') !== '0'; } catch { return true; } };
+const evoSetEscondeRuido = (v) => { localStorage.setItem('brava_evo_esconde_ruido', v ? '1' : '0'); window.dispatchEvent(new Event('brava_evo_pref_changed')); };
+function useEvoEscondeRuido() {
+  const [v, setV] = React.useState(evoGetEscondeRuido);
   React.useEffect(() => {
-    if (!cfg) { setState({loading:false, chats:[], error:null}); return; }
+    const fn = () => setV(evoGetEscondeRuido());
+    window.addEventListener('brava_evo_pref_changed', fn);
+    return () => window.removeEventListener('brava_evo_pref_changed', fn);
+  }, []);
+  return [v, evoSetEscondeRuido];
+}
+
+// Hook: lista de conversas reais (polling + websocket pra real-time)
+function useEvoChats(intervalMs = 15000) {
+  const cfg = useEvoConfig();
+  useEvoSocket(); // garante que o socket esta conectado
+  const [escondeRuido] = useEvoEscondeRuido();
+  const [state, setState] = React.useState({ loading:false, chats:[], chatsAll:[], error:null });
+  const fetchRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!cfg) { setState({loading:false, chats:[], chatsAll:[], error:null}); return; }
     let alive = true;
     const tick = async () => {
       if (!alive) return;
@@ -2605,24 +3008,41 @@ function useEvoChats(intervalMs = 8000) {
         const data = await evo.findChats();
         if (!alive) return;
         const arr = Array.isArray(data) ? data : (data?.chats || []);
-        const norm = arr.map(evoNormalizeChat).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
-        setState({ loading:false, chats:norm, error:null });
+        const all = arr.map(evoNormalizeChat).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+        const visiveis = all.filter(c => !evoIsRuido(c.raw));
+        setState({ loading:false, chats:visiveis, chatsAll:all, error:null });
       } catch (e) {
         if (alive) setState(s => ({...s, loading:false, error: e.message || 'Erro ao listar conversas'}));
       }
     };
+    fetchRef.current = tick;
     setState(s => ({...s, loading:true}));
     tick();
     const id = setInterval(tick, intervalMs);
     return () => { alive = false; clearInterval(id); };
   }, [cfg?.url, cfg?.instance, cfg?.apikey, intervalMs]);
-  return state;
+
+  // Reage a eventos do socket pra refetch quase imediato (debounced)
+  const debouncedRefetch = React.useMemo(() => {
+    let t = null;
+    return () => { clearTimeout(t); t = setTimeout(() => fetchRef.current?.(), 250); };
+  }, []);
+  useEvoSocketEvent(['messages.upsert','chats.upsert','chats.update','chats.delete','send.message'], debouncedRefetch);
+
+  // Aplica filtro de ruido reativamente
+  const chats = escondeRuido ? state.chats : state.chatsAll;
+  return { ...state, chats };
 }
 
-// Hook: mensagens de uma conversa especifica (polling, mais rapido)
-function useEvoMessages(remoteJid, intervalMs = 5000) {
+// Hook: mensagens de uma conversa especifica (polling fallback + websocket pra real-time)
+function useEvoMessages(remoteJid, intervalMs = 12000) {
   const cfg = useEvoConfig();
+  useEvoSocket();
   const [state, setState] = React.useState({ loading:false, messages:[], error:null });
+  const fetchRef = React.useRef(null);
+  const jidRef = React.useRef(remoteJid);
+  React.useEffect(() => { jidRef.current = remoteJid; }, [remoteJid]);
+
   React.useEffect(() => {
     if (!cfg || !remoteJid) { setState({loading:false, messages:[], error:null}); return; }
     let alive = true;
@@ -2633,18 +3053,33 @@ function useEvoMessages(remoteJid, intervalMs = 5000) {
         if (!alive) return;
         const arr = Array.isArray(data) ? data : (data?.messages?.records || data?.messages || []);
         const norm = arr.map(evoNormalizeMessage)
-          .filter(m => m.text || m.raw?.message)
+          .filter(m => m.text || m.raw?.message || m.kind !== 'text')
           .sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
         setState({ loading:false, messages:norm, error:null });
       } catch (e) {
         if (alive) setState(s => ({...s, loading:false, error: e.message || 'Erro ao listar mensagens'}));
       }
     };
+    fetchRef.current = tick;
     setState(s => ({...s, loading:true}));
     tick();
     const id = setInterval(tick, intervalMs);
     return () => { alive = false; clearInterval(id); };
   }, [cfg?.url, cfg?.instance, cfg?.apikey, remoteJid, intervalMs]);
+
+  // Socket: ao receber qualquer evento de mensagem cuja conversa seja a ativa, refetch
+  const onSocketMsg = React.useCallback((evt, payload) => {
+    if (!jidRef.current) return;
+    const data = payload?.data || payload;
+    const arr = Array.isArray(data) ? data : (data?.messages ? data.messages : [data]);
+    const matches = arr.some(m => {
+      const jid = m?.key?.remoteJid || m?.remoteJid;
+      return jid === jidRef.current;
+    });
+    if (matches) fetchRef.current?.();
+  }, []);
+  useEvoSocketEvent(['messages.upsert','messages.update','send.message'], onSocketMsg);
+
   return state;
 }
 
@@ -2776,10 +3211,29 @@ function EvoConfigModal({ onClose }) {
   );
 }
 
+/* Avatar reativo que carrega foto de perfil real do contato */
+function EvoAvatar({ remoteJid, size = 40, name, init, color, fallbackUrl }) {
+  const pic = useEvoProfilePic(remoteJid);
+  const src = fallbackUrl || pic;
+  const i = init || evoInitials(name);
+  const c = color || evoColorFromString(remoteJid || name || '');
+  return (
+    <div style={{
+      width:size, height:size, borderRadius:'50%',
+      background: src ? `${c} center/cover no-repeat url(${JSON.stringify(src)})` : c,
+      display:'flex', alignItems:'center', justifyContent:'center',
+      fontFamily:'var(--f-d)', fontWeight:700, fontSize: Math.round(size*0.34),
+      color: src ? 'transparent' : '#fff',
+      flexShrink:0, overflow:'hidden',
+    }}>{i}</div>
+  );
+}
+
 /* Card status (mostrado dentro da aba Integracoes quando Evolution configurada) */
 function EvoStatusPanel() {
   const cfg = useEvoConfig();
   const { loading, status, error, instanceInfo } = useEvoStatus(15000);
+  const { connected: socketConnected } = useEvoSocket();
   if (!cfg) return null;
 
   const statusOk = status === 'open' || status === 'connected';
@@ -2799,7 +3253,10 @@ function EvoStatusPanel() {
         <div style={{fontSize:13, fontFamily:'var(--f-m)', color:cor, fontWeight:700, letterSpacing:'.04em'}}>{label}</div>
         {loading && <div style={{fontSize:11, color:'var(--t3)'}}>atualizando...</div>}
         {error && <div style={{fontSize:11, color:'#ff8585'}} title={error}>· erro: {error.slice(0,60)}</div>}
-        <div style={{marginLeft:'auto', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)'}}>polling a cada 15s</div>
+        <div style={{marginLeft:'auto', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', display:'flex', alignItems:'center', gap:6}}>
+          <div style={{width:6, height:6, borderRadius:'50%', background: socketConnected ? '#1D9E75' : '#6E6E78', boxShadow: socketConnected ? '0 0 6px #1D9E75' : ''}}/>
+          {socketConnected ? 'tempo real ativo (websocket)' : 'polling 15s'}
+        </div>
       </div>
 
       {(profileName || numFmt) && (
