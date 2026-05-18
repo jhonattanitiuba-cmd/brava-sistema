@@ -220,7 +220,7 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   display:flex;align-items:center;gap:16px;
   padding:0 28px;
 }
-.header__breadcrumb{flex:1;display:flex;align-items:center;gap:8px;font-size:13px;color:#6E6E78;}
+.header__breadcrumb{flex:0 0 auto;display:flex;align-items:center;gap:8px;font-size:13px;color:#6E6E78;}
 .header__breadcrumb span{color:#F5F5F7;font-weight:600;}
 .header__search{
   display:flex;align-items:center;gap:8px;
@@ -874,6 +874,158 @@ function tempoRelativo(ts) {
 }
 
 /* Dropdown de notificacoes: reativo + Marcar como lidas funcional + estado vazio. */
+/* ─── Switcher de WhatsApp (multi-instancia) ───────────────────────────
+   Dropdown no header pra trocar entre Brava Company, Jhonattan, etc.
+   Cada instancia mantem isolamento total no banco (instancia_id). */
+function WhatsAppSwitcher({ setPage }) {
+  const { instances, loading } = useWaInstances();
+  const activeId = useActiveInstanceId();
+  const [aberto, setAberto] = React.useState(false);
+
+  const active = instances.find(i => i.id === activeId) || instances[0];
+
+  // Fecha ao clicar fora
+  React.useEffect(() => {
+    if (!aberto) return;
+    const fechar = (e) => {
+      if (!e.target.closest('.wa-switcher')) setAberto(false);
+    };
+    document.addEventListener('click', fechar);
+    return () => document.removeEventListener('click', fechar);
+  }, [aberto]);
+
+  if (loading || instances.length === 0) {
+    return (
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:'rgba(255,255,255,.04)',borderRadius:8,fontSize:12,color:'var(--t3)'}}>
+        <Icon name="MessageCircle" size={14}/>
+        {loading ? 'Carregando...' : 'Sem WhatsApp'}
+      </div>
+    );
+  }
+
+  const statusColor = (s) => s === 'open' ? '#25D366' : s === 'connecting' ? '#F5A623' : '#6E6E78';
+  const statusLabel = (s) => s === 'open' ? 'Conectado' : s === 'connecting' ? 'Conectando' : 'Desconectado';
+
+  return (
+    <div className="wa-switcher" style={{position:'relative'}}>
+      <button
+        onClick={() => setAberto(v => !v)}
+        title="Trocar de WhatsApp"
+        style={{
+          display:'flex', alignItems:'center', gap:8,
+          padding:'6px 10px 6px 8px',
+          background:'rgba(255,255,255,.04)',
+          border:'1px solid rgba(255,255,255,.06)',
+          borderRadius:8, cursor:'pointer', color:'var(--t1)',
+          fontFamily:'var(--f-b)', fontSize:13, fontWeight:500,
+          transition:'background .15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
+        onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.04)'}
+      >
+        {/* Avatar/status dot */}
+        <span style={{
+          width:8, height:8, borderRadius:'50%',
+          background:statusColor(active?.status),
+          boxShadow:active?.status === 'open' ? '0 0 6px '+statusColor(active.status) : 'none',
+          flexShrink:0,
+        }}/>
+        <Icon name="MessageCircle" size={14} style={{color:'var(--t2)'}}/>
+        <span style={{maxWidth:160, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+          {active?.nome || 'WhatsApp'}
+        </span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{color:'var(--t3)',transition:'transform .2s',transform:aberto?'rotate(180deg)':'rotate(0)'}}>
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {aberto && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:1000,
+          width:280, background:'var(--bg-2)', border:'1px solid var(--border)',
+          borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.5)', overflow:'hidden',
+        }}>
+          <div style={{padding:'10px 14px 8px', borderBottom:'1px solid var(--border-soft)'}}>
+            <div style={{fontSize:11, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.06em', fontFamily:'var(--f-m)'}}>WhatsApps</div>
+          </div>
+
+          <div style={{maxHeight:320, overflowY:'auto'}}>
+            {instances.map(inst => {
+              const isActive = inst.id === activeId;
+              return (
+                <div key={inst.id}
+                  onClick={() => {
+                    if (!isActive) {
+                      setActiveInstanceId(inst.id);
+                      // Sincroniza tambem o EVO_KEY_CFG (legado) pra evoFetch funcionar
+                      setEvoConfigStore({
+                        url: inst.evolution_url,
+                        instance: inst.evolution_instance_name,
+                        apikey: inst.evolution_apikey,
+                      });
+                      showToast?.(`Trocou pra ${inst.nome}`, 'success');
+                    }
+                    setAberto(false);
+                  }}
+                  style={{
+                    padding:'10px 14px', display:'flex', alignItems:'center', gap:10,
+                    cursor: isActive ? 'default' : 'pointer',
+                    background: isActive ? 'rgba(123,63,228,.10)' : 'transparent',
+                    borderLeft: isActive ? '3px solid var(--purple)' : '3px solid transparent',
+                    transition:'background .12s',
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background='rgba(255,255,255,.04)'; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background='transparent'; }}
+                >
+                  <span style={{
+                    width:8, height:8, borderRadius:'50%',
+                    background:statusColor(inst.status),
+                    boxShadow:inst.status === 'open' ? '0 0 6px '+statusColor(inst.status) : 'none',
+                    flexShrink:0,
+                  }}/>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:13, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', display:'flex', alignItems:'center', gap:6}}>
+                      <span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis'}}>{inst.nome}</span>
+                      {inst.owner_email && (
+                        <span title={`Privado · só ${inst.owner_email}`} style={{color:'var(--t3)', flexShrink:0}}>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                          </svg>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{fontSize:11, color:'var(--t3)', marginTop:2, display:'flex', alignItems:'center', gap:6}}>
+                      <span>{statusLabel(inst.status)}</span>
+                      {inst.ai_enabled_global && <><span style={{opacity:.5}}>·</span><span style={{color:'var(--purple)'}}>IA</span></>}
+                      {inst.owner_email && <><span style={{opacity:.5}}>·</span><span style={{color:'var(--blue)'}}>Privado</span></>}
+                    </div>
+                  </div>
+                  {isActive && <Icon name="Check" size={14} style={{color:'var(--purple)'}}/>}
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{borderTop:'1px solid var(--border-soft)'}}>
+            <div onClick={() => { setAberto(false); setPage && setPage('config'); }}
+              style={{
+                padding:'10px 14px', display:'flex', alignItems:'center', gap:8,
+                cursor:'pointer', color:'var(--blue)', fontSize:12.5, fontWeight:500,
+                transition:'background .12s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background='rgba(30,144,255,.06)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}
+            >
+              <Icon name="Plus" size={13}/>
+              <span>Adicionar WhatsApp</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HeaderNotif({ notifAberta, setNotifAberta, setPage }) {
   const { lista, naoLidas } = useNotificacoes();
   return (
@@ -984,6 +1136,11 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
       )}
       <div className="header__breadcrumb">
         <span style={{color:'#F5F5F7',fontWeight:600,fontSize:15}}>{labels[page] || 'Dashboard'}</span>
+      </div>
+
+      {/* Switcher de WhatsApp · troca entre instancias (Brava, Jhonattan, etc) */}
+      <div style={{marginLeft:16, marginRight:'auto'}}>
+        <WhatsAppSwitcher setPage={setPage}/>
       </div>
 
       <div className="header__search">
@@ -3803,12 +3960,40 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
    - Admin le com Realtime (sem polling) usando o cliente publico abaixo
    - Envia mensagens via wa-proxy (apikey da Evolution fica no server)
    ══════════════════════════════════════════════════════════════════════════ */
+// ─── INSTANCIA ATIVA (multi-WhatsApp) ──────────────────────────────────
+// Permite trocar entre WhatsApps (Brava Principal, Jhonattan, etc) no header.
+// O id da instancia ativa fica no localStorage. Todos os hooks abaixo (que
+// usam SUPA_CFG.instanciaId via getter) re-renderizam ao trocar.
+const ACTIVE_INSTANCE_KEY = 'brava_active_instance_id';
+const DEFAULT_INSTANCE_ID = 'a7133174-d7f5-4623-ab0a-9938f5827f32'; // Brava Principal (fallback)
+function getActiveInstanceId() {
+  try { return localStorage.getItem(ACTIVE_INSTANCE_KEY) || DEFAULT_INSTANCE_ID; }
+  catch { return DEFAULT_INSTANCE_ID; }
+}
+function setActiveInstanceId(id) {
+  if (!id) localStorage.removeItem(ACTIVE_INSTANCE_KEY);
+  else     localStorage.setItem(ACTIVE_INSTANCE_KEY, id);
+  window.dispatchEvent(new Event('brava_active_instance_changed'));
+}
+function useActiveInstanceId() {
+  const [id, setId] = React.useState(getActiveInstanceId);
+  React.useEffect(() => {
+    const fn = () => setId(getActiveInstanceId());
+    window.addEventListener('brava_active_instance_changed', fn);
+    window.addEventListener('storage', fn);
+    return () => {
+      window.removeEventListener('brava_active_instance_changed', fn);
+      window.removeEventListener('storage', fn);
+    };
+  }, []);
+  return id;
+}
+
 const SUPA_CFG = {
   url: 'https://buvduumggjpybhzbdqzm.supabase.co',
   publishableKey: 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT',
-  // Por enquanto cravado. Quando suportarmos multi-cliente vamos resolver
-  // dinamicamente via workspace_id do usuario logado.
-  instanciaId: 'a7133174-d7f5-4623-ab0a-9938f5827f32',
+  // Getter dinamico: le do localStorage. Permite trocar de instancia sem reload.
+  get instanciaId() { return getActiveInstanceId(); },
 };
 
 let _supa = null;
@@ -3895,6 +4080,7 @@ function useSupaChats() {
   const [chats, setChats] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
+  const activeInstanceId = useActiveInstanceId(); // re-render ao trocar de WhatsApp
 
   React.useEffect(() => {
     const cli = getSupa();
@@ -3903,12 +4089,14 @@ function useSupaChats() {
       const t = setInterval(() => { if (getSupa()) { clearInterval(t); setLoading(l => l); } }, 200);
       return () => clearInterval(t);
     }
+    // Limpa chats antes de carregar a nova instancia (evita flash do conteudo antigo)
+    setChats([]); setLoading(true);
     let alive = true;
     const carregar = async () => {
       try {
         const { data, error } = await cli
           .from('wa_chats').select('*')
-          .eq('instancia_id', SUPA_CFG.instanciaId)
+          .eq('instancia_id', activeInstanceId)
           .order('last_message_ts', { ascending: false, nullsFirst: false })
           .limit(300);
         if (!alive) return;
@@ -3924,9 +4112,9 @@ function useSupaChats() {
     let debounceT = null;
     const refetch = () => { clearTimeout(debounceT); debounceT = setTimeout(carregar, 250); };
     const channel = cli
-      .channel('rt:wa_chats')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_chats', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_mensagens', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
+      .channel(`rt:wa_chats:${activeInstanceId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_chats', filter: `instancia_id=eq.${activeInstanceId}` }, refetch)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_mensagens', filter: `instancia_id=eq.${activeInstanceId}` }, refetch)
       .subscribe();
 
     // Evento manual de refresh (botao Atualizar no header)
@@ -3937,7 +4125,7 @@ function useSupaChats() {
       cli.removeChannel(channel);
       window.removeEventListener('brava_wa_refresh', refetch);
     };
-  }, []);
+  }, [activeInstanceId]);
 
   return { chats, loading, error };
 }
@@ -3961,6 +4149,54 @@ function useUsuariosLista() {
     return () => { alive = false; };
   }, []);
   return users;
+}
+
+/* Hook: lista de instancias WhatsApp visiveis pro user logado.
+   Regra de visibilidade:
+     - owner_email IS NULL       -> publica do workspace (todos veem)
+     - owner_email = user logado  -> privada, so o dono ve
+   Filtragem feita no Postgres (server-side) via `.or()`. Quando migrarmos
+   pra Supabase Auth real, a RLS policy `wa_instancias_select_policy` ja
+   filtra pelo `auth.uid()` automaticamente. */
+function useWaInstances() {
+  const [instances, setInstances] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const userEmail = (SESSAO?.email || '').toLowerCase().trim();
+
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) {
+      const t = setInterval(() => { if (getSupa()) { clearInterval(t); } }, 200);
+      return () => clearInterval(t);
+    }
+    let alive = true;
+    const carregar = async () => {
+      try {
+        // Filtro server-side: owner_email IS NULL OR owner_email = userEmail
+        let q = cli.from('wa_instancias')
+          .select('id, nome, evolution_url, evolution_instance_name, evolution_apikey, status, profile_name, profile_pic_url, ai_enabled_global, workspace_id, owner_email, owner_user_id')
+          .order('created_at', { ascending: true });
+        if (userEmail) {
+          q = q.or(`owner_email.is.null,owner_email.eq.${userEmail}`);
+        } else {
+          // sem user logado, so as publicas
+          q = q.is('owner_email', null);
+        }
+        const { data } = await q;
+        if (alive) { setInstances(data || []); setLoading(false); }
+      } catch { if (alive) setLoading(false); }
+    };
+    carregar();
+
+    // Realtime: refetch ao mudar qualquer instancia
+    const ch = cli.channel('rt:wa_instancias')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_instancias' }, carregar)
+      .subscribe();
+
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [userEmail]);
+
+  return { instances, loading };
 }
 
 /* Som de transferencia estilo Chatwoot (Web Audio API, sintetico, sem arquivo).
@@ -4137,17 +4373,18 @@ function useSupaMessages(chatJid) {
   const [messages, setMessages] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const activeInstanceId = useActiveInstanceId();
 
   React.useEffect(() => {
     const cli = getSupa();
     if (!cli || !chatJid) { setMessages([]); return; }
     let alive = true;
-    setLoading(true);
+    setMessages([]); setLoading(true); // limpa ao trocar de instancia/chat
     const carregar = async () => {
       try {
         const { data, error } = await cli
           .from('wa_mensagens').select('*')
-          .eq('instancia_id', SUPA_CFG.instanciaId)
+          .eq('instancia_id', activeInstanceId)
           .eq('chat_jid', chatJid)
           .order('timestamp', { ascending: true })
           .limit(300);
@@ -4161,7 +4398,7 @@ function useSupaMessages(chatJid) {
     carregar();
 
     const channel = cli
-      .channel(`rt:msgs:${chatJid}`)
+      .channel(`rt:msgs:${activeInstanceId}:${chatJid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_mensagens', filter: `chat_jid=eq.${chatJid}` }, carregar)
       .subscribe();
 
@@ -4173,7 +4410,7 @@ function useSupaMessages(chatJid) {
       cli.removeChannel(channel);
       window.removeEventListener('brava_wa_refresh', carregar);
     };
-  }, [chatJid]);
+  }, [chatJid, activeInstanceId]);
 
   return { messages, loading, error };
 }
@@ -4182,6 +4419,7 @@ function useSupaMessages(chatJid) {
    Usado pelo Dashboard. Re-fetch automatico ao chegar msg nova via Realtime. */
 function useSupaGlobalStats() {
   const [stats, setStats] = React.useState({ msgsHoje: 0, msgsTotal: 0, chatsTotal: 0, loading: true });
+  const activeInstanceId = useActiveInstanceId();
 
   React.useEffect(() => {
     const cli = getSupa();
@@ -4189,6 +4427,7 @@ function useSupaGlobalStats() {
       const t = setInterval(() => { if (getSupa()) { clearInterval(t); } }, 200);
       return () => clearInterval(t);
     }
+    setStats(s => ({ ...s, loading: true })); // reset ao trocar
     let alive = true;
 
     const carregar = async () => {
@@ -4196,12 +4435,12 @@ function useSupaGlobalStats() {
         const hoje = new Date(); hoje.setHours(0,0,0,0);
         const [{ count: msgsHoje }, { count: msgsTotal }, { count: chatsTotal }] = await Promise.all([
           cli.from('wa_mensagens').select('*', { count: 'exact', head: true })
-            .eq('instancia_id', SUPA_CFG.instanciaId)
+            .eq('instancia_id', activeInstanceId)
             .gte('timestamp', hoje.toISOString()),
           cli.from('wa_mensagens').select('*', { count: 'exact', head: true })
-            .eq('instancia_id', SUPA_CFG.instanciaId),
+            .eq('instancia_id', activeInstanceId),
           cli.from('wa_chats').select('*', { count: 'exact', head: true })
-            .eq('instancia_id', SUPA_CFG.instanciaId),
+            .eq('instancia_id', activeInstanceId),
         ]);
         if (!alive) return;
         setStats({ msgsHoje: msgsHoje || 0, msgsTotal: msgsTotal || 0, chatsTotal: chatsTotal || 0, loading: false });
@@ -4214,13 +4453,13 @@ function useSupaGlobalStats() {
     // Realtime: refetch ao chegar msg/chat nova (debounced)
     let t = null;
     const refetch = () => { clearTimeout(t); t = setTimeout(carregar, 400); };
-    const channel = cli.channel('rt:global-stats')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_mensagens', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
-      .on('postgres_changes', { event: '*',      schema: 'public', table: 'wa_chats',     filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
+    const channel = cli.channel(`rt:global-stats:${activeInstanceId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_mensagens', filter: `instancia_id=eq.${activeInstanceId}` }, refetch)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: 'wa_chats',     filter: `instancia_id=eq.${activeInstanceId}` }, refetch)
       .subscribe();
 
     return () => { alive = false; clearTimeout(t); cli.removeChannel(channel); };
-  }, []);
+  }, [activeInstanceId]);
 
   return stats;
 }
@@ -8602,9 +8841,44 @@ function Agenda() {
 }
 
 /* ─── App ─── */
+/* Sincroniza EVO_KEY_CFG (legado, usado por evoFetch) com a instancia ativa.
+   Garante que evoFetch sempre pegue a apikey/url certa quando o usuario
+   troca de WhatsApp via switcher OU quando o app monta.
+   Tambem: se a instancia ativa nao for visivel pro user logado (ex: user
+   trocou e o admin tem instancia privada de outro user no localStorage),
+   reseta pra primeira instancia visivel (Brava Principal por padrao). */
+function useSyncEvoConfig() {
+  const { instances } = useWaInstances();
+  const activeId = useActiveInstanceId();
+  React.useEffect(() => {
+    if (!instances || instances.length === 0) return;
+    let inst = instances.find(i => i.id === activeId);
+    // Se a instancia ativa nao esta na lista visivel (privada de outro user),
+    // forca volta pra primeira disponivel
+    if (!inst) {
+      inst = instances[0];
+      if (inst) {
+        setActiveInstanceId(inst.id);
+        showToast?.(`Trocou pra ${inst.nome} (instancia anterior nao disponivel)`, 'info');
+      }
+      return; // proximo render vai sincronizar
+    }
+    const cur = getEvoConfig();
+    if (!cur || cur.url !== inst.evolution_url || cur.instance !== inst.evolution_instance_name || cur.apikey !== inst.evolution_apikey) {
+      setEvoConfigStore({
+        url: inst.evolution_url,
+        instance: inst.evolution_instance_name,
+        apikey: inst.evolution_apikey,
+      });
+    }
+  }, [instances, activeId]);
+}
+
 function App() {
   // Gera notificacoes automaticas a partir de eventos reais do banco (erros IA, etc)
   useNotifGenerator();
+  // Mantem credenciais Evolution sincronizadas com instancia ativa
+  useSyncEvoConfig();
 
   // Persistência via localStorage
   // Sempre comeca em Dashboard ao logar (ignora ultima pagina salva)
