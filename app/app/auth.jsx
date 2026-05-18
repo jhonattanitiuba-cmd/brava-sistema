@@ -49,7 +49,6 @@ const LoginScreen = ({ onContinue, onNav }) => {
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError]           = React.useState('');
   const [info, setInfo]             = React.useState('');
-  const [checandoSessao, setChecandoSessao] = React.useState(true);
 
   // Lê dados vindos do checkout (Stripe)
   const urlParams      = new URLSearchParams(window.location.search);
@@ -63,45 +62,15 @@ const LoginScreen = ({ onContinue, onNav }) => {
     if (temaVindo) document.documentElement.setAttribute('data-theme', temaVindo);
   }, [temaVindo]);
 
-  // Auto-redirect se ja tem sessao Supabase ativa (persistSession=true).
-  // User nem ve a tela de login — vai direto pro admin.
-  React.useEffect(() => {
-    let alive = true;
-    (async () => {
-      // Se ja esta no fluxo de signup novo (vindo do Stripe), nao redireciona
-      if (novoCadastro) { setChecandoSessao(false); return; }
-      try {
-        if (!window.supabase) { setChecandoSessao(false); return; }
-        const { data } = await window.supabase.auth.getSession();
-        if (!alive) return;
-        if (data?.session?.user) {
-          const user = data.session.user;
-          const { data: members } = await window.supabase
-            .from('workspace_members')
-            .select('role, workspaces(id, slug, name, plan)')
-            .eq('user_id', user.id)
-            .limit(1);
-          if (members && members.length > 0 && members[0].workspaces) {
-            irParaAdmin(user, members[0].workspaces, members[0]);
-            return; // navegou, nao precisa setar checandoSessao
-          }
-        }
-      } catch {}
-      if (alive) setChecandoSessao(false);
-    })();
-    return () => { alive = false; };
-  }, [novoCadastro]);
-
   // Foca no campo senha automaticamente se email ja vier preenchido
   React.useEffect(() => {
-    if (!checandoSessao && lastEmail) {
-      // Pequeno delay pra garantir que o DOM montou
+    if (lastEmail) {
       setTimeout(() => {
         const el = document.getElementById('login-password');
         if (el) el.focus();
       }, 50);
     }
-  }, [checandoSessao, lastEmail]);
+  }, [lastEmail]);
 
   const submit = async (e) => {
     e?.preventDefault();
@@ -167,24 +136,6 @@ const LoginScreen = ({ onContinue, onNav }) => {
       setError(translateAuthError(err?.message));
     }
   };
-
-  // Enquanto checa sessao ativa, mostra splash (evita flash da tela de login)
-  if (checandoSessao) {
-    return (
-      <div style={{
-        position:'fixed', inset:0, background:'var(--bg-1, #0A0A12)',
-        display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:18,
-      }}>
-        <Logo size={48} mode="gradient"/>
-        <div style={{
-          width:32, height:32, border:'3px solid rgba(123,63,228,.18)',
-          borderTopColor:'var(--brava-purple, #7B3FE4)', borderRadius:'50%',
-          animation:'authSpin 1s linear infinite',
-        }}/>
-        <style>{`@keyframes authSpin { from {transform:rotate(0)} to {transform:rotate(360deg)} }`}</style>
-      </div>
-    );
-  }
 
   return (
     <div className="auth-page">
