@@ -3264,14 +3264,19 @@ function evoFormatPhone(jid) {
   return '';
 }
 
-// Versao "amigavel" para mostrar como rotulo (Contato com 4 ultimos digitos)
+// Versao "amigavel" para mostrar como rotulo. Estrategia:
+//   1. Se for um telefone valido formatavel -> +55 11 99999-9999
+//   2. Senao (geralmente @lid) -> mostra o numero completo sem mascara
+//      (Evolution v2.3.7 nao expoe o telefone real; o usuario prefere ver
+//       a id completa a "Contato •••XXXX")
 function evoLabelContato(jid) {
   const fone = evoFormatPhone(jid);
   if (fone) return fone;
-  // @lid ou desconhecido: mascara
   const n = (jid||'').replace(/@.+$/, '');
-  if (n.length >= 4) return `Contato •••${n.slice(-4)}`;
-  return 'Contato';
+  if (!n) return 'Contato';
+  // Formata visualmente com espacos de 4 em 4 (mais legivel que tudo junto)
+  // ex: "233217344966755" -> "2332 1734 4966 755"
+  return n.replace(/(\d{4})(?=\d)/g, '$1 ');
 }
 
 /* ── WebSocket Socket.IO da Evolution (real-time) ── */
