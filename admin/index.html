@@ -117,26 +117,34 @@ svg{display:block;flex-shrink:0;}
   100% { opacity: 1; transform: translateX(0); }
 }
 
-/* ─── Animacoes de entrada do Dashboard (sempre que o usuario chega na pagina) ─── */
+/* ─── Animacoes de entrada do Dashboard ───
+   Importante: o splash de login (#brava-loading) fica visivel por uns segundos
+   no boot. As animacoes ficam PAUSADAS ate o splash sumir (body.boot-ready),
+   pra que o usuario as veja efetivamente. */
 @keyframes dash-fade-up {
   0%   { opacity: 0; transform: translateY(16px); }
   100% { opacity: 1; transform: translateY(0); }
 }
-.page-head { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; }
-.kpi-grid > * { animation: dash-fade-up .55s cubic-bezier(.22,1,.36,1) both; }
-.kpi-grid > *:nth-child(1) { animation-delay: .08s; }
-.kpi-grid > *:nth-child(2) { animation-delay: .16s; }
-.kpi-grid > *:nth-child(3) { animation-delay: .24s; }
-.kpi-grid > *:nth-child(4) { animation-delay: .32s; }
-.grid-mrr > * { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .45s; }
-.grid-mrr > *:nth-child(2) { animation-delay: .55s; }
-.grid-3 > * { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .7s; }
-.grid-3 > *:nth-child(2) { animation-delay: .78s; }
-.grid-3 > *:nth-child(3) { animation-delay: .86s; }
+.page-head           { opacity: 0; }
+.kpi-grid > *        { opacity: 0; }
+.grid-mrr > *        { opacity: 0; }
+.grid-3 > *          { opacity: 0; }
+
+body.boot-ready .page-head    { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; }
+body.boot-ready .kpi-grid > * { animation: dash-fade-up .55s cubic-bezier(.22,1,.36,1) both; }
+body.boot-ready .kpi-grid > *:nth-child(1) { animation-delay: .08s; }
+body.boot-ready .kpi-grid > *:nth-child(2) { animation-delay: .16s; }
+body.boot-ready .kpi-grid > *:nth-child(3) { animation-delay: .24s; }
+body.boot-ready .kpi-grid > *:nth-child(4) { animation-delay: .32s; }
+body.boot-ready .grid-mrr > * { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .45s; }
+body.boot-ready .grid-mrr > *:nth-child(2) { animation-delay: .55s; }
+body.boot-ready .grid-3 > * { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .7s; }
+body.boot-ready .grid-3 > *:nth-child(2) { animation-delay: .78s; }
+body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
 
 /* Respeita prefers-reduced-motion */
 @media (prefers-reduced-motion: reduce) {
-  .page-head, .kpi-grid > *, .grid-mrr > *, .grid-3 > * { animation: none !important; }
+  .page-head, .kpi-grid > *, .grid-mrr > *, .grid-3 > * { animation: none !important; opacity: 1 !important; }
   .sidebar:not(.collapsed) > * { animation: none !important; }
 }
 
@@ -408,9 +416,14 @@ window.addEventListener('error', function(e) {
   var l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
 });
+// Fail-safe duplo: se nada mais escondeu o splash em 9.5s, escondemos forcado
 setTimeout(function() {
   var l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
+  if (!document.body.classList.contains('boot-ready')) {
+    document.body.classList.add('boot-ready');
+    window.dispatchEvent(new Event('brava_boot_ready'));
+  }
 }, 9500);
 // Aplica modo claro por padrao no boot
 if (!document.documentElement.getAttribute('data-theme')) {
@@ -488,30 +501,50 @@ const TENANT = {
 };
 
 /* ─── Counter animado ─── */
-// useCount com suporte a delay (stagger) e transicoes suaves em updates
-// Primeira renderizacao: anima 0 -> target apos `delay`ms (entrada elegante)
+// useCount com suporte a delay (stagger) e transicoes suaves em updates.
+// Primeira renderizacao: anima 0 -> target somente APOS o splash de login sumir
+// (evento "brava_boot_ready" emitido por bravaRevealApp). Assim os numeros
+// realmente sobem na frente do usuario.
 // Atualizacoes (target muda depois): interpola valor anterior -> novo (~420ms)
 function useCount(target, duration = 1200, delay = 0) {
   const [v, setV] = useState(0);
   const fromRef = React.useRef(0);
   const firstRef = React.useRef(true);
   useEffect(() => {
-    let s = null, raf, timer;
+    let raf, timer, cleanup;
     const from = firstRef.current ? 0 : fromRef.current;
     const dur  = firstRef.current ? duration : 420;
-    const wait = firstRef.current ? delay : 0;
+    const isFirst = firstRef.current;
     firstRef.current = false;
-    const step = ts => {
-      if (!s) s = ts;
-      const p = Math.min((ts - s) / dur, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      const val = Math.round(from + (target - from) * eased);
-      setV(val);
-      fromRef.current = val;
-      if (p < 1) raf = requestAnimationFrame(step);
+
+    const run = () => {
+      let s = null;
+      const step = ts => {
+        if (!s) s = ts;
+        const p = Math.min((ts - s) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        const val = Math.round(from + (target - from) * eased);
+        setV(val);
+        fromRef.current = val;
+        if (p < 1) raf = requestAnimationFrame(step);
+      };
+      timer = setTimeout(() => { raf = requestAnimationFrame(step); }, isFirst ? delay : 0);
     };
-    timer = setTimeout(() => { raf = requestAnimationFrame(step); }, wait);
-    return () => { clearTimeout(timer); if (raf) cancelAnimationFrame(raf); };
+
+    if (isFirst && !document.body.classList.contains('boot-ready')) {
+      // Espera o splash sumir antes de comecar a animacao
+      const start = () => { window.removeEventListener('brava_boot_ready', start); run(); };
+      window.addEventListener('brava_boot_ready', start);
+      cleanup = () => window.removeEventListener('brava_boot_ready', start);
+    } else {
+      run();
+    }
+
+    return () => {
+      if (cleanup) cleanup();
+      clearTimeout(timer);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [target, duration, delay]);
   return v;
 }
@@ -4296,11 +4329,23 @@ function App() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-// Splash de login: 8 segundos antes de revelar o sistema
-setTimeout(() => {
+
+// Splash de login → ao sumir, marca body.boot-ready (libera animacoes CSS)
+// e dispara evento "brava_boot_ready" (libera os contadores useCount).
+const BOOT_SPLASH_MS = 1400;
+function bravaRevealApp() {
+  if (document.body.classList.contains('boot-ready')) return;
   const l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(() => l.remove(), 400); }
-}, 8000);
+  // Espera o fade do splash antes de liberar as animacoes do dashboard
+  setTimeout(() => {
+    document.body.classList.add('boot-ready');
+    window.dispatchEvent(new Event('brava_boot_ready'));
+  }, 380);
+}
+setTimeout(bravaRevealApp, BOOT_SPLASH_MS);
+// Fail-safe: se algo travar, ainda libera em 8s
+setTimeout(bravaRevealApp, 8000);
 </script>
 </body>
 </html>
