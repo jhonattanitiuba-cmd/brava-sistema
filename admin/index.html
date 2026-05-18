@@ -1680,7 +1680,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       conversaId: contato.id,
       from: 'out',
       text: texto,
-      time: evoTimeFormat(tsAgora),
+      time: evoHHMM(tsAgora),
       timestamp: tsAgora,
       pending: true,
       kind: 'text',
@@ -1716,7 +1716,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       const base64  = dataUrl.split(',')[1];
       setMsgsOtimistas(arr => [...arr, {
         id: 'opt_' + tsAgora, conversaId: contato.id, from:'out',
-        text: caption, time: evoTimeFormat(tsAgora), timestamp: tsAgora, pending:true,
+        text: caption, time: evoHHMM(tsAgora), timestamp: tsAgora, pending:true,
         kind: kindUI, meta:{ kind:kindUI, caption, fileName: file.name, mimetype: mime, fileLength: file.size },
         previewDataUrl: kindUI === 'image' ? dataUrl : undefined,
       }]);
@@ -1767,7 +1767,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           const dur = Math.round((Date.now() - inicioTs) / 1000);
           setMsgsOtimistas(arr => [...arr, {
             id: 'opt_' + tsAgora, conversaId: contato.id, from:'out',
-            text:'', time: evoTimeFormat(tsAgora), timestamp: tsAgora, pending:true,
+            text:'', time: evoHHMM(tsAgora), timestamp: tsAgora, pending:true,
             kind:'audio', meta:{ kind:'audio', ptt:true, seconds: dur },
           }]);
           setEnviando(true);
@@ -1993,8 +1993,23 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         <div style={{ flex:1, overflowY:'auto', padding:'16px 10%', display:'flex', flexDirection:'column', gap:4, background:S.chatBg,
           backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23000000\' fill-opacity=\'0.02\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
         }}>
-          {msgs.map((m,i) => (
-            <div key={m.id || i} style={{ display:'flex', flexDirection: m.from==='out' ? 'row-reverse' : 'row', gap:6, marginBottom:2, alignItems:'flex-end' }}>
+          {msgs.map((m,i) => {
+            const dayKey = evoDayKey(m.timestamp);
+            const prevDayKey = i > 0 ? evoDayKey(msgs[i-1].timestamp) : null;
+            const mostraSeparador = i === 0 || dayKey !== prevDayKey;
+            return (
+            <React.Fragment key={m.id || i}>
+              {mostraSeparador && (
+                <div style={{display:'flex', justifyContent:'center', margin:'12px 0 8px'}}>
+                  <div style={{
+                    background:S.msgIn, color:S.textSec,
+                    fontSize:11.5, fontFamily:'var(--f-m)', fontWeight:600, letterSpacing:'.04em',
+                    padding:'5px 12px', borderRadius:7, boxShadow:'0 1px 2px rgba(0,0,0,.15)',
+                    textTransform:'uppercase',
+                  }}>{evoDayLabel(m.timestamp)}</div>
+                </div>
+              )}
+            <div style={{ display:'flex', flexDirection: m.from==='out' ? 'row-reverse' : 'row', gap:6, marginBottom:2, alignItems:'flex-end' }}>
               {m.from==='out' && m.ia && (
                 <div style={{ width:24, height:24, borderRadius:'50%', background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginBottom:4 }}>
                   <Icon name="Sparkles" size={11} style={{color:'#fff'}}/>
@@ -2049,21 +2064,24 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                   {m.ia && <span style={{ fontSize:9.5, background:'rgba(37,211,102,.2)', color:'var(--wa-green)', padding:'1px 5px', borderRadius:3, fontFamily:'var(--f-m)' }}>IA</span>}
                   {m.time}
                   {m.from==='out' && !m.pending && !m.failed && (() => {
-                    // 2=server_ack (1 check), 3=delivery_ack (2 checks), 4=read (2 checks azuis)
-                    const s = m.statusNum ?? 0;
-                    const cor = s >= 4 ? '#53BDEB' : (s >= 2 ? 'currentColor' : 'currentColor');
-                    if (s >= 3) {
-                      return <svg width="14" height="10" viewBox="0 0 16 11" fill={cor}><path d="M11.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061zm3 0a.75.75 0 0 0-1.036.218l-5.64 8.65-.52-.52a.75.75 0 1 0-1.06 1.06l1.19 1.19a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
+                    // 0=erro 1=pendente 2=enviado(✓) 3=entregue(✓✓) 4/5=lido(✓✓ azul)
+                    const s = m.statusNum ?? 2;
+                    const cor = s >= 4 ? '#53BDEB' : 'currentColor';
+                    if (s === 0) return <span style={{color:'#ff8585', fontSize:9.5}}>!</span>;
+                    if (s === 1) return <Icon name="Clock" size={9} style={{opacity:.6}}/>;
+                    if (s === 2) {
+                      // 1 check
+                      return <svg width="12" height="10" viewBox="0 0 12 11" fill={cor}><path d="M9.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
                     }
-                    if (s >= 2) {
-                      return <svg width="11" height="10" viewBox="0 0 11 11" fill={cor}><path d="M9.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
-                    }
-                    return <Icon name="Clock" size={9} style={{opacity:.6}}/>;
+                    // s >= 3 (entregue/lido) — 2 checks
+                    return <svg width="15" height="10" viewBox="0 0 16 11" fill={cor}><path d="M11.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061zm3 0a.75.75 0 0 0-1.036.218l-5.64 8.65-.52-.52a.75.75 0 1 0-1.06 1.06l1.19 1.19a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
                   })()}
                 </div>
               </div>
             </div>
-          ))}
+            </React.Fragment>
+            );
+          })}
           <div ref={bottomRef}/>
         </div>
 
@@ -2172,7 +2190,9 @@ function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mud
     ? `${primMsgDate.toLocaleDateString('pt-BR')} ${primMsgDate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`
     : '—';
 
-  const telefone = usandoReal ? evoFormatPhone(contato.id) : '+55 11 99999-9999';
+  const telefone = usandoReal
+    ? (contato.isGroup ? '—' : evoFormatPhone(contato.id))
+    : '+55 11 99999-9999';
   const origem = contato.isGroup ? 'Grupo WhatsApp' : (contato.ehLid ? 'Linked Device' : 'WhatsApp');
 
   // Pipeline default + match por nome
@@ -3107,26 +3127,7 @@ function evoFormatPhone(jid) {
 const _evoSocketState = { socket:null, cfgKey:null, listeners:new Set(), connected:false };
 function _evoSocketEmit(evt) { _evoSocketState.listeners.forEach(fn => { try { fn(evt); } catch {} }); }
 
-function evoSocketConnect(cfg) {
-  if (!cfg || typeof io === 'undefined') return;
-  const key = cfg.url + '|' + cfg.instance;
-  if (_evoSocketState.cfgKey === key && _evoSocketState.socket?.connected) return;
-  // Desconecta socket anterior se trocou cfg
-  if (_evoSocketState.socket) { try { _evoSocketState.socket.disconnect(); } catch {} }
-
-  const base = evoNormalizeUrl(cfg.url);
-  // Tenta primeiro com namespace por instancia (padrao Evolution v2)
-  const socket = io(`${base}/${encodeURIComponent(cfg.instance)}`, {
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 2000,
-    auth: { apikey: cfg.apikey },
-    query: { apikey: cfg.apikey },
-  });
-  _evoSocketState.socket = socket;
-  _evoSocketState.cfgKey = key;
-
+function _evoBindSocket(socket) {
   socket.on('connect', () => {
     _evoSocketState.connected = true;
     _evoSocketEmit({ type:'connect' });
@@ -3138,14 +3139,46 @@ function evoSocketConnect(cfg) {
   socket.on('connect_error', (err) => {
     _evoSocketEmit({ type:'error', error: err?.message || 'connect error' });
   });
-  // Eventos Evolution v2 (chegam tanto no namespace quanto direto)
   ['messages.upsert','messages.update','chats.upsert','chats.update','chats.delete','connection.update','contacts.upsert','contacts.update','send.message','presence.update']
     .forEach(evt => socket.on(evt, (payload) => _evoSocketEmit({ type:'message', event:evt, payload })));
-  // Auto-aplica presenca quando chegar
   socket.on('presence.update', (payload) => evoApplyPresenceUpdate(payload));
-
-  // Wildcard listener (alguns servidores emitem por evento literal)
   socket.onAny?.((evt, payload) => _evoSocketEmit({ type:'any', event:evt, payload }));
+}
+
+function evoSocketConnect(cfg) {
+  if (!cfg || typeof io === 'undefined') return;
+  const key = cfg.url + '|' + cfg.instance;
+  if (_evoSocketState.cfgKey === key && _evoSocketState.socket?.connected) return;
+  if (_evoSocketState.socket) { try { _evoSocketState.socket.disconnect(); } catch {} }
+
+  const base = evoNormalizeUrl(cfg.url);
+  const commonOpts = {
+    transports: ['websocket','polling'],
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 2000,
+    timeout: 8000,
+    auth: { apikey: cfg.apikey },
+    query: { apikey: cfg.apikey },
+  };
+
+  // Tenta primeiro com namespace por instancia (Evolution v2 padrao)
+  let socket = io(`${base}/${encodeURIComponent(cfg.instance)}`, commonOpts);
+  _evoSocketState.socket = socket;
+  _evoSocketState.cfgKey = key;
+  _evoBindSocket(socket);
+
+  // Fallback: se nao conectar em 5s, tenta raiz (Evolution global mode)
+  let tentouFallback = false;
+  const tentarFallback = () => {
+    if (tentouFallback || _evoSocketState.connected) return;
+    tentouFallback = true;
+    try { socket.disconnect(); } catch {}
+    const sk2 = io(base, commonOpts);
+    _evoSocketState.socket = sk2;
+    _evoBindSocket(sk2);
+  };
+  setTimeout(tentarFallback, 5000);
 }
 
 function useEvoSocket() {
@@ -3225,6 +3258,7 @@ function evoInitials(name) {
   if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
   return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
 }
+// Formato para LISTA de conversas (mostra "ontem", dia da semana, ou data)
 function evoTimeFormat(ts) {
   if (!ts) return '';
   const d = typeof ts === 'number' ? new Date(ts < 1e12 ? ts*1000 : ts) : new Date(ts);
@@ -3237,6 +3271,40 @@ function evoTimeFormat(ts) {
   const diasAtras = Math.floor((now - d) / (24*60*60*1000));
   if (diasAtras < 7) return d.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3);
   return d.toLocaleDateString('pt-BR',{day:'2-digit', month:'2-digit'});
+}
+
+// Formato para BOLHA de mensagem (SEMPRE HH:MM como o WhatsApp)
+function evoHHMM(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? new Date(ts < 1e12 ? ts*1000 : ts) : new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleTimeString('pt-BR',{hour:'2-digit', minute:'2-digit'});
+}
+
+// Label para SEPARADOR DE DATA na conversa (HOJE / ONTEM / 18/04/2026)
+function evoDayLabel(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? new Date(ts < 1e12 ? ts*1000 : ts) : new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const ehHoje = d.toDateString() === now.toDateString();
+  if (ehHoje) return 'HOJE';
+  const ontem = new Date(now); ontem.setDate(ontem.getDate()-1);
+  if (d.toDateString() === ontem.toDateString()) return 'ONTEM';
+  const diasAtras = Math.floor((now - d) / (24*60*60*1000));
+  if (diasAtras < 7) {
+    const dia = d.toLocaleDateString('pt-BR',{weekday:'long'});
+    return dia.charAt(0).toUpperCase() + dia.slice(1);
+  }
+  return d.toLocaleDateString('pt-BR',{day:'2-digit', month:'2-digit', year:'numeric'});
+}
+
+// Chave do dia (YYYY-MM-DD) pra agrupar mensagens
+function evoDayKey(ts) {
+  if (!ts) return '0';
+  const d = typeof ts === 'number' ? new Date(ts < 1e12 ? ts*1000 : ts) : new Date(ts);
+  if (isNaN(d.getTime())) return '0';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // Extrai texto de qualquer tipo de message Baileys
@@ -3312,19 +3380,32 @@ function evoNormalizeChat(c) {
   };
 }
 
-// Status de mensagem do Baileys/Evolution:
-// 0=ERROR  1=PENDING  2=SERVER_ACK  3=DELIVERY_ACK  4=READ  5=PLAYED
+// Status de mensagem do Baileys/Evolution (varia por versao da API):
+//   0=ERROR  1=PENDING  2=SERVER_ACK(enviado)  3=DELIVERY_ACK(entregue)  4=READ(lida)  5=PLAYED
+// Aceita: numero (0..5) OU string (PENDING/SENT/RECEIVED/DELIVERY_ACK/SERVER_ACK/READ/PLAYED/etc)
+function evoParseStatus(raw) {
+  if (raw == null) return 2; // default: assume enviado (1 check) — minimo elegante
+  if (typeof raw === 'number') return raw;
+  const s = String(raw).toUpperCase();
+  if (s === 'READ' || s === 'PLAYED')          return 4;
+  if (s === 'DELIVERY_ACK' || s === 'DELIVERED' || s === 'RECEIVED') return 3;
+  if (s === 'SERVER_ACK' || s === 'SENT' || s === 'ACK')             return 2;
+  if (s === 'PENDING' || s === 'WAITING')      return 1;
+  if (s === 'ERROR' || s === 'FAILED')         return 0;
+  return 2;
+}
+
 function evoNormalizeMessage(m) {
   const text = evoExtractText(m);
   const fromMe = m.key?.fromMe || m.fromMe;
   const ts = m.messageTimestamp || m.timestamp || m.createdAt;
   const meta = evoMessageMeta(m);
-  const statusNum = typeof m.status === 'number' ? m.status : (m.status === 'READ' ? 4 : m.status === 'DELIVERY_ACK' ? 3 : m.status === 'SERVER_ACK' ? 2 : 0);
+  const statusNum = evoParseStatus(m.status);
   return {
     id: m.key?.id || m.id,
     from: fromMe ? 'out' : 'in',
     text: text || '',
-    time: evoTimeFormat(ts),
+    time: evoHHMM(ts),             // SEMPRE HH:MM na bolha (igual WhatsApp)
     timestamp: typeof ts === 'number' ? (ts < 1e12 ? ts*1000 : ts) : (ts ? new Date(ts).getTime() : 0),
     ia: false,
     statusNum,                     // 0..5 (vide tabela acima)
