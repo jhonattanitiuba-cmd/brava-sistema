@@ -2197,7 +2197,7 @@ function PainelContato({ contato, usandoReal, msgs, pipelineCols, faseAtual, mud
     : '—';
 
   const telefone = usandoReal
-    ? (contato.isGroup ? '—' : (evoFormatPhone(contato.id) || '—'))
+    ? (contato.isGroup ? '—' : (evoFormatPhone(evoResolveJid(contato.id)) || evoFormatPhone(contato.id) || '—'))
     : '+55 11 99999-9999';
   const origem = contato.isGroup ? 'Grupo WhatsApp' : (contato.ehLid ? 'Linked Device' : 'WhatsApp');
 
@@ -2910,6 +2910,11 @@ const evo = {
     method:'POST',
     body: JSON.stringify({ number }),
   }),
+  // Lista de contatos (tabela canonical — onde vive o mapeamento lid<->telefone)
+  findContacts: () => evoFetch(`/chat/findContacts/${encodeURIComponent(getEvoConfig().instance)}`, {
+    method:'POST',
+    body: JSON.stringify({ where: {} }),
+  }),
   // Enviar texto
   sendText: (number, text) => evoFetch(`/message/sendText/${encodeURIComponent(getEvoConfig().instance)}`, {
     method:'POST',
@@ -2969,6 +2974,89 @@ function useEvoProfilePic(remoteJid) {
     return () => { _evoPicSubs.delete(fn); };
   }, [remoteJid]);
   return _evoPicCache.get(remoteJid)?.url || null;
+}
+
+/* ── Tabela de CONTATOS (canonical) ──
+   Resolve o @lid (anonymized id) para o telefone real (@s.whatsapp.net) +
+   da acesso a pushName/profileName/verifiedName que muitas vezes faltam no chat.
+   Esquemas comuns de contato no Evolution v2:
+     { id: '55XXXXXXXXX@s.whatsapp.net', pushName, profileName, verifiedName, profilePicUrl, lid? }
+     { id: 'XXXXXX@lid', pushName, ... }
+*/
+const _evoContacts = {
+  byJid: new Map(),       // qualquer JID -> contact
+  lidToPhone: new Map(),  // @lid -> @s.whatsapp.net
+  loaded: false,
+  loading: false,
+  subs: new Set(),
+};
+function _evoNotifyContacts() { _evoContacts.subs.forEach(fn => { try { fn(); } catch {} }); }
+
+function _evoIndexContact(c) {
+  if (!c) return;
+  const ids = [];
+  if (c.id) ids.push(c.id);
+  if (c.remoteJid) ids.push(c.remoteJid);
+  if (c.jid) ids.push(c.jid);
+  if (c.lid) ids.push(c.lid);
+  ids.forEach(id => _evoContacts.byJid.set(id, c));
+  // Mapeamento bidirecional lid <-> phone, se presente
+  if (c.lid && (c.id || c.remoteJid)) {
+    const phoneJid = (c.id || c.remoteJid).endsWith('@s.whatsapp.net') ? (c.id || c.remoteJid) : null;
+    if (phoneJid) _evoContacts.lidToPhone.set(c.lid, phoneJid);
+  }
+  // Algumas versoes trazem "senderPn" ou "phoneNumber"
+  const phoneFromExtra = c.phoneNumber || c.senderPn;
+  if (phoneFromExtra && (c.id || c.remoteJid || c.jid)?.includes('@lid')) {
+    const phoneJid = phoneFromExtra.includes('@') ? phoneFromExtra : `${phoneFromExtra.replace(/\D/g,'')}@s.whatsapp.net`;
+    _evoContacts.lidToPhone.set(c.id || c.remoteJid || c.jid, phoneJid);
+  }
+}
+
+async function evoLoadContacts(force = false) {
+  if ((_evoContacts.loading || _evoContacts.loaded) && !force) return;
+  if (!getEvoConfig()) return;
+  _evoContacts.loading = true;
+  try {
+    const data = await evo.findContacts();
+    const list = Array.isArray(data) ? data : (data?.contacts || []);
+    list.forEach(_evoIndexContact);
+    _evoContacts.loaded = true;
+    _evoNotifyContacts();
+  } catch (e) {
+    console.warn('[Brava] Erro carregando contatos:', e.message);
+  } finally {
+    _evoContacts.loading = false;
+  }
+}
+
+// Resolve um JID @lid para o telefone JID real, se conhecermos
+function evoResolveJid(jid) {
+  if (!jid) return jid;
+  if (!jid.includes('@lid')) return jid;
+  return _evoContacts.lidToPhone.get(jid) || jid;
+}
+
+// Pega o contato pra um jid (tenta resolver lid tambem)
+function evoGetContact(jid) {
+  if (!jid) return null;
+  return _evoContacts.byJid.get(jid)
+      || _evoContacts.byJid.get(evoResolveJid(jid))
+      || null;
+}
+
+// Hook que dispara reload quando contatos atualizam
+function useEvoContacts() {
+  const cfg = useEvoConfig();
+  const [, force] = React.useState(0);
+  React.useEffect(() => {
+    if (!cfg) return;
+    const fn = () => force(x => x+1);
+    _evoContacts.subs.add(fn);
+    evoLoadContacts();
+    return () => { _evoContacts.subs.delete(fn); };
+  }, [cfg?.url, cfg?.instance, cfg?.apikey]);
+  return _evoContacts;
 }
 
 /* ── Presenca (online/digitando/gravando) ── */
@@ -3163,6 +3251,15 @@ function _evoBindSocket(socket) {
   ['messages.upsert','messages.update','chats.upsert','chats.update','chats.delete','connection.update','contacts.upsert','contacts.update','send.message','presence.update']
     .forEach(evt => socket.on(evt, (payload) => _evoSocketEmit({ type:'message', event:evt, payload })));
   socket.on('presence.update', (payload) => evoApplyPresenceUpdate(payload));
+  // Auto-indexa contatos recebidos via socket (mantem o mapa lid->phone fresco)
+  const indexarPayload = (p) => {
+    const data = p?.data || p;
+    const arr = Array.isArray(data) ? data : (data?.contacts || [data]);
+    arr.forEach(c => _evoIndexContact(c));
+    _evoNotifyContacts();
+  };
+  socket.on('contacts.upsert', indexarPayload);
+  socket.on('contacts.update', indexarPayload);
   socket.onAny?.((evt, payload) => _evoSocketEmit({ type:'any', event:evt, payload }));
 }
 
@@ -3358,16 +3455,22 @@ function evoTemNomeReal(s) {
   return /[a-zA-ZÀ-ÿ]/.test(String(s));
 }
 
-// Identifica chat "ruido": @lid (LinkedDevice) sem nome real, broadcasts e status
+// Identifica chat "ruido": @lid (LinkedDevice) sem identificacao util, broadcasts e status
 function evoIsRuido(chat) {
   const jid = chat.remoteJid || chat.id || chat.key?.remoteJid || '';
   const rawName = chat.pushName || chat.name || chat.profileName || chat.subject || '';
-  // Antes considerava como "nao ruido" qualquer pushName presente. Mas o WhatsApp
-  // costuma popular pushName com o proprio numero do @lid (so digitos), o que NAO
-  // e nome real. Exigimos pelo menos uma letra.
-  if (jid.includes('@lid') && !evoTemNomeReal(rawName)) return true;
   if (jid.includes('@broadcast')) return true;
   if (jid === 'status@broadcast') return true;
+  if (jid.includes('@lid')) {
+    // Considera "OK" (nao ruido) se:
+    //  - tem nome com letras
+    //  - OU temos um telefone real resolvido via tabela de contatos
+    const contato = evoGetContact(jid);
+    const nomeUtil = evoTemNomeReal(rawName)
+                  || evoTemNomeReal(contato?.pushName || contato?.profileName || contato?.verifiedName || contato?.notify || '');
+    const temPhone = !!evoResolveJid(jid)?.endsWith('@s.whatsapp.net') && evoResolveJid(jid) !== jid;
+    if (!nomeUtil && !temPhone) return true;
+  }
   return false;
 }
 
@@ -3390,21 +3493,28 @@ function evoNormalizeChat(c) {
   const remoteJid = c.remoteJid || c.id || c.key?.remoteJid || '';
   const isGroup = remoteJid.endsWith('@g.us');
   const ehLid = remoteJid.includes('@lid');
-  const rawName = c.pushName || c.name || c.profileName || c.subject || '';
+
+  // Cruza com tabela de contatos pra recuperar nome / telefone real do @lid
+  const contato = !isGroup ? evoGetContact(remoteJid) : null;
+  const jidResolvido = !isGroup ? evoResolveJid(remoteJid) : remoteJid; // se for lid, tenta achar @s.whatsapp.net
+
+  const rawName = c.pushName || c.name || c.profileName || c.subject
+               || contato?.pushName || contato?.profileName || contato?.verifiedName || contato?.notify || '';
 
   // Nome final (igual WhatsApp):
   //  - Grupo COM subject -> usa o nome do grupo
   //  - Grupo SEM subject -> "Grupo" generico
   //  - Contato COM nome real (com letras) -> usa o nome
-  //  - Contato SEM nome real, mas com telefone valido -> telefone formatado
-  //  - Contato @lid sem nome -> "Contato •••XXXX"
+  //  - Contato SEM nome real, mas com telefone valido (resolvido) -> telefone formatado
+  //  - Contato @lid sem nome e sem telefone -> "Contato •••XXXX" (ultimo recurso)
   let name;
   if (isGroup) {
     name = rawName || 'Grupo';
   } else if (evoTemNomeReal(rawName)) {
     name = rawName;
   } else {
-    name = evoLabelContato(remoteJid);
+    // tenta formatar o telefone resolvido; se nao tiver, label
+    name = evoFormatPhone(jidResolvido) || evoLabelContato(remoteJid);
   }
 
   // Preview com prefixo igual WhatsApp:
@@ -3499,6 +3609,7 @@ function useEvoEscondeRuido() {
 function useEvoChats(intervalMs = 15000) {
   const cfg = useEvoConfig();
   useEvoSocket(); // garante que o socket esta conectado
+  useEvoContacts(); // garante que contatos foram carregados (resolucao de @lid)
   const [escondeRuido] = useEvoEscondeRuido();
   const [state, setState] = React.useState({ loading:false, chats:[], chatsAll:[], error:null });
   const fetchRef = React.useRef(null);
@@ -3509,6 +3620,8 @@ function useEvoChats(intervalMs = 15000) {
     const tick = async () => {
       if (!alive) return;
       try {
+        // Garante contatos antes pra resolver @lid -> telefone no normalizer
+        if (!_evoContacts.loaded && !_evoContacts.loading) await evoLoadContacts();
         const data = await evo.findChats();
         if (!alive) return;
         const arr = Array.isArray(data) ? data : (data?.chats || []);
