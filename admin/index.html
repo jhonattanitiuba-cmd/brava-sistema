@@ -2356,8 +2356,13 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           <div style={{ display:'flex', gap:4, marginTop:8 }}>
             {(() => {
               const naoLidasCount = fonteContatos.reduce((s,c) => s + (c.unread > 0 ? 1 : 0), 0);
+              const minhasCount = meuUserId ? fonteContatos.filter(c => c.agenteId === meuUserId).length : 0;
+              const iaCount = fonteContatos.filter(c => !c.agenteId).length;
               return [['todas','Todas'],['nao_lidas','Não lidas'],['ia','IA'],['minhas','Minhas']].map(([k,l]) => {
-                const showCount = k === 'nao_lidas' && naoLidasCount > 0;
+                const showCount = (k === 'nao_lidas' && naoLidasCount > 0)
+                               || (k === 'minhas' && minhasCount > 0)
+                               || (k === 'ia' && iaCount > 0 && filtro === 'ia');
+                const count = k === 'nao_lidas' ? naoLidasCount : (k === 'minhas' ? minhasCount : iaCount);
                 return (
                   <button key={k} onClick={()=>setFiltro(k)} style={{
                     padding:'4px 10px', borderRadius:999, fontSize:11.5, fontWeight:500, cursor:'pointer',
@@ -2370,10 +2375,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                     {l}
                     {showCount && <span style={{
                       minWidth:18, height:18, borderRadius:999,
-                      background:'var(--wa-green)', color:'#fff',
+                      background: k === 'minhas' ? 'var(--purple)' : 'var(--wa-green)',
+                      color:'#fff',
                       fontSize:10.5, fontWeight:700, fontFamily:'var(--f-m)',
                       display:'inline-flex', alignItems:'center', justifyContent:'center', padding:'0 5px',
-                    }}>{naoLidasCount}</span>}
+                    }}>{count}</span>}
                   </button>
                 );
               });
