@@ -4617,11 +4617,225 @@ function ConfigGeralTab() {
 }
 
 /* ─── Configurações ─── */
+/* ─── Configuracoes > Aba IA ───
+   Edita prompt, modelo e toggle global da IA da instancia ativa.
+   Salva direto em wa_instancias via Supabase JS client (RLS anon). */
+function ConfigIATab() {
+  const [cfg, setCfg] = useState(null);             // dados atuais da instancia
+  const [form, setForm] = useState({ ai_prompt:'', ai_model:'claude-sonnet-4-5', ai_enabled_global:true });
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [stats, setStats] = useState({ replied:0, errors:0, lastReply:null });
+  const [testando, setTestando] = useState(false);
+  const [testInput, setTestInput] = useState('Oi, queria saber sobre os planos');
+  const [testOutput, setTestOutput] = useState(null);
+
+  const carregar = React.useCallback(async () => {
+    const cli = getSupa();
+    if (!cli) return;
+    const { data, error } = await cli.from('wa_instancias')
+      .select('id, nome, ai_prompt, ai_model, ai_enabled_global')
+      .eq('id', SUPA_CFG.instanciaId).single();
+    if (error) { showToast?.('Erro: ' + error.message, 'error'); return; }
+    setCfg(data);
+    setForm({
+      ai_prompt: data.ai_prompt || '',
+      ai_model: data.ai_model || 'claude-sonnet-4-5',
+      ai_enabled_global: data.ai_enabled_global ?? true,
+    });
+    setLoading(false);
+
+    // Stats: contagem de respostas e erros
+    const { count: replied } = await cli.from('wa_eventos_log')
+      .select('id', { count:'exact', head:true })
+      .eq('instancia_id', SUPA_CFG.instanciaId).eq('event_type', 'ai.replied');
+    const { count: errors } = await cli.from('wa_eventos_log')
+      .select('id', { count:'exact', head:true })
+      .eq('instancia_id', SUPA_CFG.instanciaId).in('event_type', ['ai.error','ai.send_error']);
+    const { data: last } = await cli.from('wa_eventos_log')
+      .select('received_at, payload')
+      .eq('instancia_id', SUPA_CFG.instanciaId).eq('event_type', 'ai.replied')
+      .order('id', { ascending:false }).limit(1).maybeSingle();
+    setStats({ replied: replied||0, errors: errors||0, lastReply: last });
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const salvar = async () => {
+    setSalvando(true);
+    try {
+      const cli = getSupa();
+      const { error } = await cli.from('wa_instancias').update({
+        ai_prompt: form.ai_prompt,
+        ai_model: form.ai_model,
+        ai_enabled_global: form.ai_enabled_global,
+      }).eq('id', SUPA_CFG.instanciaId);
+      if (error) throw error;
+      showToast?.('Configuração da IA salva', 'success');
+      carregar();
+    } catch (e) {
+      showToast?.('Erro ao salvar: ' + e.message, 'error');
+    } finally { setSalvando(false); }
+  };
+
+  const testar = async () => {
+    if (!testInput.trim()) return;
+    setTestando(true); setTestOutput(null);
+    try {
+      // Chama Claude direto via Anthropic (so pra teste) — usa o prompt do form atual
+      // Por seguranca a key nao esta no browser, entao chamamos via wa-proxy "fake":
+      // criamos uma rota especial que faz isso. Por enquanto: salva e testa via WhatsApp real.
+      // Workaround: simula chamando o wa-ia-responder com um payload fake.
+      const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-ia-responder`, {
+        method: 'POST',
+        headers: { 'content-type':'application/json', apikey: SUPA_CFG.publishableKey, authorization: `Bearer ${SUPA_CFG.publishableKey}` },
+        body: JSON.stringify({
+          record: {
+            instancia_id: SUPA_CFG.instanciaId,
+            message_id: '__test__' + Date.now(),
+            chat_jid: '__test__@dryrun',
+            from_me: false,
+            ia_generated: false,
+            kind: 'text',
+            text: testInput,
+          },
+        }),
+      });
+      const out = await res.json();
+      setTestOutput(out);
+    } catch (e) {
+      setTestOutput({ error: e.message });
+    } finally { setTestando(false); }
+  };
+
+  if (loading) return <div style={{padding:20, color:'var(--t2)'}}>Carregando…</div>;
+  if (!cfg) return <div style={{padding:20, color:'#ff8585'}}>Não conseguiu carregar a instância no Supabase.</div>;
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+  const modelos = [
+    { v:'claude-sonnet-4-5', l:'Sonnet 4.5 (qualidade alta · ~R$ 0,02 por resposta)' },
+    { v:'claude-haiku-4-5',  l:'Haiku 4.5 (rápido e barato · ~R$ 0,005 por resposta)' },
+    { v:'claude-opus-4-5',   l:'Opus 4.5 (top tier · ~R$ 0,10 por resposta)' },
+  ];
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:18}}>
+      <div>
+        <div className="card__title" style={{marginBottom:6, display:'flex', alignItems:'center', gap:8}}>
+          <Icon name="Sparkles" size={16} style={{color:'var(--purple)'}}/>
+          Configuração da IA — {cfg.nome}
+        </div>
+        <div style={{fontSize:13, color:'var(--t2)'}}>O Claude responde automaticamente mensagens recebidas no WhatsApp dessa instância. Mudanças aqui afetam todas as conversas (a menos que você tenha desativado a IA num chat específico).</div>
+      </div>
+
+      {/* Stats */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+        {[
+          {l:'Respostas enviadas', v: stats.replied.toLocaleString('pt-BR'), c:'#1D9E75'},
+          {l:'Erros', v: stats.errors.toLocaleString('pt-BR'), c: stats.errors > 0 ? '#A32D2D' : 'var(--t3)'},
+          {l:'Última resposta', v: stats.lastReply ? new Date(stats.lastReply.received_at).toLocaleString('pt-BR') : '—', c:'var(--t2)'},
+        ].map((s,i) => (
+          <div key={i} style={{padding:'14px 16px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
+            <div style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em'}}>{s.l}</div>
+            <div style={{fontSize:18, fontFamily:'var(--f-d)', fontWeight:600, color:s.c, marginTop:4}}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Toggle global */}
+      <div style={{display:'flex', alignItems:'center', gap:14, padding:'14px 18px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>IA ativa nesta instância</div>
+          <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Quando OFF, nenhuma mensagem recebida vai disparar o Claude. Use pra pausar tudo de uma vez (ex: fim de semana, manutenção).</div>
+        </div>
+        <button onClick={() => setForm(f => ({...f, ai_enabled_global: !f.ai_enabled_global}))} style={{
+          width:46, height:26, borderRadius:999,
+          background: form.ai_enabled_global ? 'var(--wa-green)' : 'rgba(110,110,120,.4)',
+          border:'none', cursor:'pointer', position:'relative', transition:'background .2s',
+        }}>
+          <div style={{
+            width:20, height:20, borderRadius:'50%', background:'#fff',
+            position:'absolute', top:3,
+            left: form.ai_enabled_global ? 23 : 3,
+            transition:'left .2s',
+          }}/>
+        </button>
+      </div>
+
+      {/* Modelo */}
+      <div>
+        <label style={lbl}>Modelo Claude</label>
+        <select style={inp} value={form.ai_model} onChange={e => setForm(f => ({...f, ai_model: e.target.value}))}>
+          {modelos.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+        </select>
+        <div style={{fontSize:11, color:'var(--t3)', marginTop:6, lineHeight:1.5}}>
+          Sonnet é o padrão (qualidade boa, preço razoável). Haiku se quiser cortar custo. Opus se quiser excelência absoluta.
+        </div>
+      </div>
+
+      {/* Prompt */}
+      <div>
+        <label style={lbl}>System prompt (instruções da IA)</label>
+        <textarea
+          value={form.ai_prompt}
+          onChange={e => setForm(f => ({...f, ai_prompt: e.target.value}))}
+          style={{...inp, minHeight:340, fontFamily:'var(--f-m)', fontSize:13, lineHeight:1.6, resize:'vertical'}}
+          placeholder="Descreva quem é a IA, o que faz, o que não faz, planos, preços, regras..."
+        />
+        <div style={{fontSize:11, color:'var(--t3)', marginTop:6, display:'flex', justifyContent:'space-between'}}>
+          <span>{form.ai_prompt.length.toLocaleString('pt-BR')} caracteres</span>
+          <span>Quanto mais específico, melhor. Inclua: identidade, personalidade, planos, regras de escalonamento.</span>
+        </div>
+      </div>
+
+      {/* Acoes */}
+      <div style={{display:'flex', gap:10, paddingTop:8, borderTop:'1px solid var(--border-soft)'}}>
+        <button onClick={salvar} disabled={salvando} className="btn btn-primary">
+          <Icon name="Check" size={14}/>{salvando ? 'Salvando…' : 'Salvar configuração'}
+        </button>
+        <button onClick={() => carregar()} className="btn btn-ghost">
+          Descartar alterações
+        </button>
+      </div>
+
+      {/* Teste rapido */}
+      <div style={{padding:'16px 18px', background:'rgba(123,63,228,.06)', border:'1px solid rgba(123,63,228,.25)', borderRadius:10}}>
+        <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', marginBottom:6, display:'flex', alignItems:'center', gap:6}}>
+          <Icon name="Sparkles" size={14} style={{color:'var(--purple)'}}/>
+          Testar prompt
+        </div>
+        <div style={{fontSize:12, color:'var(--t3)', marginBottom:10}}>
+          Simula uma mensagem recebida e mostra o que a IA responderia. <strong style={{color:'#ff8585'}}>Importante:</strong> salve antes pra testar a versão atual.
+        </div>
+        <div style={{display:'flex', gap:8}}>
+          <input style={inp} value={testInput} onChange={e=>setTestInput(e.target.value)} placeholder="Digite uma mensagem de teste"/>
+          <button onClick={testar} disabled={testando} className="btn btn-outline" style={{flexShrink:0}}>
+            {testando ? 'Testando…' : 'Testar'}
+          </button>
+        </div>
+        {testOutput && (
+          <div style={{marginTop:12, padding:12, background:'var(--bg-3)', borderRadius:8, fontSize:13, color:'var(--t1)', fontFamily:'var(--f-m)', whiteSpace:'pre-wrap', maxHeight:240, overflowY:'auto'}}>
+            {testOutput.replied
+              ? <><div style={{fontSize:10, color:'var(--t3)', marginBottom:6, textTransform:'uppercase'}}>Resposta da IA</div><div>{testOutput.replied}</div></>
+              : testOutput.skipped
+              ? <span style={{color:'#BA7517'}}>Pulou: {testOutput.skipped}</span>
+              : testOutput.error
+              ? <span style={{color:'#ff8585'}}>Erro: {testOutput.error || JSON.stringify(testOutput.detail)}</span>
+              : <pre style={{margin:0}}>{JSON.stringify(testOutput, null, 2)}</pre>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Config() {
   const [aba, setAba] = useState('geral');
   const abas = [
     {key:'geral',      label:'Geral',          icon:'Settings'},
     {key:'perfil',     label:'Perfil',         icon:'User'},
+    {key:'ia',         label:'IA',             icon:'Sparkles'},
     {key:'integracoes',label:'Integrações',    icon:'Plug'},
     {key:'webhooks',   label:'Webhooks',       icon:'Webhook'},
     {key:'api',        label:'API Keys',       icon:'Key'},
@@ -4841,6 +5055,7 @@ function Config() {
             </div>
           )}
           {aba==='geral' && <ConfigGeralTab/>}
+          {aba==='ia' && <ConfigIATab/>}
           {aba==='integracoes' && <ConfigIntegracoesTab/>}
           {aba==='webhooks' && (
             <div>
