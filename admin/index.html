@@ -2235,14 +2235,15 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               )}
             <div style={{ display:'flex', flexDirection: m.from==='out' ? 'row-reverse' : 'row', gap:6, marginBottom:2, alignItems:'flex-end' }}>
               {m.from==='out' && m.ia && (
-                <div title="Mensagem enviada pela IA" style={{
-                  width:26, height:26, borderRadius:'50%',
-                  background:'linear-gradient(135deg, var(--purple) 0%, var(--blue) 100%)',
+                <div title="Mensagem enviada pela IA Brava" style={{
+                  width:28, height:28, borderRadius:'50%',
+                  background:'#000',
                   display:'flex', alignItems:'center', justifyContent:'center',
-                  flexShrink:0, marginBottom:4,
-                  boxShadow:'0 2px 4px rgba(123,63,228,.3)',
+                  flexShrink:0, marginBottom:4, padding:5,
+                  boxShadow:'0 2px 4px rgba(0,0,0,.4)',
+                  border:'1px solid rgba(255,255,255,.08)',
                 }}>
-                  <Icon name="Bot" size={14} style={{color:'#fff'}}/>
+                  <img src="app/brava-logo-white.png" alt="Brava" style={{width:'100%', height:'auto', display:'block'}}/>
                 </div>
               )}
               <div style={{
@@ -2306,8 +2307,9 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                     //   - >= 5s  = entregue (2 checks cinza) · quase sempre true em WhatsApp
                     // Isso espelha o comportamento visual do WhatsApp Web mesmo sem update real-time.
                     const idadeSeg = (Date.now() - (m.timestamp || 0)) / 1000;
-                    const sBase = m.statusNum ?? (idadeSeg >= 5 ? 3 : 2);
-                    const s = sBase;
+                    let s = m.statusNum;
+                    if (s == null) s = idadeSeg >= 5 ? 3 : 2;        // sem status: usa heuristica de tempo
+                    else if (s <= 2 && idadeSeg >= 5) s = 3;          // upgrade visual: msg antiga com status enviado vira entregue
                     const cor = s >= 4 ? '#53BDEB' : 'currentColor';
                     if (s === 0) return <span style={{color:'#ff8585', fontSize:9.5}}>!</span>;
                     if (s === 1) return <Icon name="Clock" size={9} style={{opacity:.6}}/>;
@@ -5032,12 +5034,12 @@ function ConfigIATab() {
       <div style={{padding:'14px 18px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)', display:'flex', flexDirection:'column', gap:14}}>
         <div style={{display:'flex', alignItems:'flex-start', gap:14}}>
           <div style={{flex:1}}>
-            <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:6}}>
-              <span style={{fontSize:18}}>✍️</span>
+            <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:8}}>
+              <Icon name="Pencil" size={16} style={{color:'var(--wa-green)'}}/>
               Mostrar "digitando..." no WhatsApp do cliente
             </div>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:4, lineHeight:1.5}}>
-              Enquanto a IA pensa, o cliente vê o indicador <i>"digitando..."</i> · passa a sensação de humano respondendo. Recomendado deixar <strong style={{color:'var(--t2)'}}>ligado</strong>.
+              Enquanto a IA pensa, o cliente vê o indicador "digitando...", passa a sensação de humano respondendo. Recomendado deixar <strong style={{color:'var(--t2)'}}>ligado</strong>.
             </div>
           </div>
           <button onClick={() => setForm(f => ({...f, ai_typing_enabled: !f.ai_typing_enabled}))} style={{
@@ -5059,19 +5061,19 @@ function ConfigIATab() {
         {/* Split de mensagens */}
         <div style={{display:'flex', alignItems:'flex-start', gap:14}}>
           <div style={{flex:1}}>
-            <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:6}}>
-              <span style={{fontSize:18}}>💬</span>
+            <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:8}}>
+              <Icon name="MessageCircle" size={16} style={{color:'var(--blue)'}}/>
               Dividir respostas em várias mensagens
             </div>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:4, lineHeight:1.5}}>
-              IA quebra respostas longas em 2-3 mensagens curtas (estilo humano no WhatsApp), com <i>"digitando..."</i> entre elas. Sem isso, vai tudo num bloco só.
+              IA quebra respostas longas em 2-3 mensagens curtas (estilo humano no WhatsApp), com "digitando..." entre elas. Sem isso, vai tudo num bloco só.
             </div>
             <div style={{fontSize:11, color:'var(--t3)', marginTop:6, padding:'6px 10px', background:'rgba(0,0,0,.18)', borderRadius:6, fontFamily:'var(--f-m)'}}>
               <strong style={{color:'var(--t2)'}}>Exemplo (ON):</strong><br/>
               Beleza, o *Performance* sai R$ 1.990/mês.<br/>
-              <span style={{color:'var(--t3)'}}>↳ digitando...</span><br/>
+              <span style={{color:'var(--t3)'}}>{'>'} digitando...</span><br/>
               Setup já vem incluso, sem custo extra.<br/>
-              <span style={{color:'var(--t3)'}}>↳ digitando...</span><br/>
+              <span style={{color:'var(--t3)'}}>{'>'} digitando...</span><br/>
               Quer agendar uma demo de 30min?
             </div>
           </div>
@@ -5095,12 +5097,12 @@ function ConfigIATab() {
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
             <div>
-              <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:6}}>
-                <span style={{fontSize:18}}>👀</span>
+              <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:8}}>
+                <Icon name="Eye" size={16} style={{color:'var(--blue)'}}/>
                 Tempo de leitura (silêncio)
               </div>
               <div style={{fontSize:12, color:'var(--t3)', marginTop:4, lineHeight:1.5}}>
-                Antes de mostrar <i>"digitando..."</i>, a IA fica em silêncio simulando "abrir o WhatsApp e ler". Sem isso, ela começa a digitar 0,1s depois · não-humano.
+                Antes de mostrar "digitando...", a IA fica em silêncio simulando "abrir o WhatsApp e ler". Sem isso, ela começa a digitar 0,1s depois, não-humano.
               </div>
             </div>
             <div style={{
@@ -5130,8 +5132,8 @@ function ConfigIATab() {
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8}}>
             <div>
-              <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:6}}>
-                <span style={{fontSize:18}}>⏱️</span>
+              <div style={{fontWeight:600, fontSize:14, color:'var(--t1)', display:'flex', alignItems:'center', gap:8}}>
+                <Icon name="Clock" size={16} style={{color:'var(--purple)'}}/>
                 Tempo total de digitação
               </div>
               <div style={{fontSize:12, color:'var(--t3)', marginTop:4, lineHeight:1.5}}>
