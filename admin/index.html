@@ -5055,8 +5055,35 @@ const _evoContacts = {
   loaded: false,
   loading: false,
   subs: new Set(),
+  // Qual instance carregou esse cache (pra invalidar ao trocar)
+  loadedFor: null,
 };
 function _evoNotifyContacts() { _evoContacts.subs.forEach(fn => { try { fn(); } catch {} }); }
+
+/* ─── Invalidacao de caches in-memory ao trocar de instancia ───────────
+   Cada instancia WhatsApp tem:
+   - Sua propria sessao Baileys na Evolution (instance name unico)
+   - Seus proprios @lid (anonymized ids gerados por sessao)
+   - Seus proprios contatos (Baileys cache local da sessao)
+   - Suas fotos de perfil cacheadas (privacy varia por instancia)
+   Por isso quando o usuario troca de WhatsApp no switcher, TODOS os caches
+   in-memory precisam ser limpos. Caso contrario teriamos vazamento:
+   contato @lid da Brava aparecendo resolvido como telefone na Jhonattan,
+   foto cacheada de @lid X resolvendo como contato Y, etc. */
+window.addEventListener('brava_active_instance_changed', () => {
+  // Reset cache de contatos (incluindo lid<->phone)
+  _evoContacts.byJid.clear();
+  _evoContacts.lidToPhone.clear();
+  _evoContacts.loaded = false;
+  _evoContacts.loadedFor = null;
+  _evoNotifyContacts();
+  // Reset cache de fotos de perfil (pode mudar entre instancias por @lid)
+  if (typeof _evoPicCache !== 'undefined') {
+    _evoPicCache.clear();
+    if (typeof evoNotifyPic === 'function') evoNotifyPic();
+  }
+  console.log('[Brava] Caches in-memory invalidados (troca de instancia)');
+});
 
 function _evoIndexContact(c) {
   if (!c) return;
@@ -5080,14 +5107,30 @@ function _evoIndexContact(c) {
 }
 
 async function evoLoadContacts(force = false) {
+  const cfg = getEvoConfig();
+  if (!cfg) return;
+  // Detecta drift: se o cache foi carregado pra outra instance, invalida
+  if (_evoContacts.loadedFor && _evoContacts.loadedFor !== cfg.instance) {
+    _evoContacts.byJid.clear();
+    _evoContacts.lidToPhone.clear();
+    _evoContacts.loaded = false;
+    _evoContacts.loadedFor = null;
+  }
   if ((_evoContacts.loading || _evoContacts.loaded) && !force) return;
-  if (!getEvoConfig()) return;
   _evoContacts.loading = true;
+  const instanceAtCall = cfg.instance; // snapshot
   try {
     const data = await evo.findContacts();
+    // Verifica se a instancia ainda eh a mesma (usuario pode ter trocado no meio)
+    const cfgAfter = getEvoConfig();
+    if (!cfgAfter || cfgAfter.instance !== instanceAtCall) {
+      console.warn('[Brava] Instancia trocada durante load de contatos, descartando');
+      return;
+    }
     const list = Array.isArray(data) ? data : (data?.contacts || []);
     list.forEach(_evoIndexContact);
     _evoContacts.loaded = true;
+    _evoContacts.loadedFor = instanceAtCall;
     _evoNotifyContacts();
   } catch (e) {
     console.warn('[Brava] Erro carregando contatos:', e.message);
