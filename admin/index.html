@@ -1343,6 +1343,237 @@ function WhatsAppPairingModal({ instance, onClose }) {
   );
 }
 
+/* ─── Modal: Adicionar novo WhatsApp ─────────────────────────────────
+   Cria do zero: registro em wa_instancias + instance na Evolution.
+   Depois delega pro WhatsAppPairingModal pra fazer o QR/pareamento. */
+function NewWhatsAppModal({ onClose, onCreated }) {
+  // Dados do form
+  const [displayName, setDisplayName] = React.useState('');      // "WhatsApp Jhonattan"
+  const [instanceName, setInstanceName] = React.useState('');    // "JhonattanItiuba" (tecnico)
+  const [privado, setPrivado] = React.useState(false);           // privado pro user logado?
+  const [iaAtivada, setIaAtivada] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [erro, setErro] = React.useState('');
+
+  // Auto-gera o nome tecnico a partir do display (CamelCase sem espacos)
+  const onDisplayChange = (val) => {
+    setDisplayName(val);
+    // Se o usuario nao customizou o instance ainda, gera automatico
+    if (!instanceName || _autoTecnicoDe(displayName) === instanceName) {
+      setInstanceName(_autoTecnicoDe(val));
+    }
+  };
+
+  const displayValido = displayName.trim().length >= 3;
+  const instanceValido = /^[A-Za-z0-9_-]{3,32}$/.test(instanceName.trim());
+  const formValido = displayValido && instanceValido;
+
+  const salvar = async () => {
+    if (!formValido) return;
+    setSalvando(true); setErro('');
+    try {
+      const cli = getSupa();
+      if (!cli) throw new Error('Supabase nao disponivel');
+
+      // 1. Verifica se ja existe alguem com esse instance_name (UNIQUE)
+      const { data: existente } = await cli.from('wa_instancias')
+        .select('id, nome')
+        .eq('evolution_instance_name', instanceName.trim())
+        .maybeSingle();
+      if (existente) {
+        throw new Error(`Ja existe uma instancia "${existente.nome}" com esse nome tecnico. Escolha outro.`);
+      }
+
+      // 2. Pega workspace ativo (Brava Central por enquanto - hardcoded)
+      //    Quando tiver multi-workspace real, le do contexto do user logado.
+      const workspaceId = '4ad72dbb-60cd-4251-8c11-cbf964012c29'; // Brava Central
+
+      // 3. Cria registro no Supabase (status=close, aguardando pareamento)
+      const { data, error } = await cli.from('wa_instancias').insert({
+        workspace_id: workspaceId,
+        nome: displayName.trim(),
+        evolution_url: 'https://lickingbuffalo-evolution.cloudfy.live',
+        evolution_instance_name: instanceName.trim(),
+        // Apikey global compartilhada do servidor Evolution
+        evolution_apikey: 'D5E5DC9D636D-49C5-AF9C-CB1F6E0089F1',
+        status: 'close',
+        owner_email: privado ? (SESSAO?.email || null) : null,
+        ai_enabled_global: iaAtivada,
+        ai_model: 'claude-opus-4-5',
+        ai_typing_enabled: true,
+        ai_thinking_seconds: 3.0,
+        ai_split_enabled: true,
+        ai_reading_seconds: 2.5,
+      }).select().single();
+
+      if (error) throw error;
+
+      showToast?.(`${data.nome} criada. Escaneie o QR pra conectar.`, 'success');
+      // Notifica o parent (switcher) pra abrir o modal de pareamento
+      onCreated && onCreated(data);
+    } catch (e) {
+      setErro(e.message || 'Erro ao criar instancia');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.75)', display:'grid', placeItems:'center', zIndex:9999, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'min(440px, 94vw)', background:'var(--bg-2)',
+        border:'1px solid var(--border)', borderRadius:14,
+        padding:'24px 28px', boxShadow:'0 24px 60px rgba(0,0,0,.6)',
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>
+              Adicionar WhatsApp
+            </div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:4}}>
+              Cria uma nova instância. Próxima etapa: escanear QR.
+            </div>
+          </div>
+          <button onClick={onClose} disabled={salvando} style={{
+            background:'transparent', border:'none', color:'var(--t3)',
+            cursor: salvando ? 'not-allowed' : 'pointer', padding:6, lineHeight:1, fontSize:20,
+          }}>×</button>
+        </div>
+
+        <div style={{display:'flex', flexDirection:'column', gap:14}}>
+          {/* Nome de exibicao */}
+          <div>
+            <label style={{display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6}}>
+              Nome de exibição
+            </label>
+            <input
+              type="text" value={displayName}
+              onChange={e => onDisplayChange(e.target.value)}
+              placeholder="ex: WhatsApp Vendas"
+              maxLength={48} autoFocus
+              style={_modalInputStyle}
+            />
+            <div style={{fontSize:11, color:'var(--t3)', marginTop:4}}>
+              Como vai aparecer no switcher (pode ter espaço e acento)
+            </div>
+          </div>
+
+          {/* Nome tecnico (instance Evolution) */}
+          <div>
+            <label style={{display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6}}>
+              Nome técnico (instância)
+            </label>
+            <input
+              type="text" value={instanceName}
+              onChange={e => setInstanceName(e.target.value.replace(/[^A-Za-z0-9_-]/g, ''))}
+              placeholder="ex: WhatsAppVendas"
+              maxLength={32}
+              style={{
+                ..._modalInputStyle,
+                borderColor: instanceName && !instanceValido ? '#A32D2D' : 'var(--border)',
+              }}
+            />
+            <div style={{fontSize:11, color: instanceName && !instanceValido ? '#A32D2D' : 'var(--t3)', marginTop:4}}>
+              {instanceName && !instanceValido
+                ? 'Use 3-32 caracteres alfanuméricos, _ ou -. Sem espaços.'
+                : 'Identificador único no servidor Evolution (gerado automático do nome)'}
+            </div>
+          </div>
+
+          {/* Privado/Publico */}
+          <div style={{
+            padding:'12px 14px', background:'var(--bg-3)',
+            border:'1px solid var(--border)', borderRadius:8,
+          }}>
+            <label style={{display:'flex', alignItems:'center', gap:10, cursor:'pointer'}}>
+              <input type="checkbox" checked={privado} onChange={e => setPrivado(e.target.checked)}
+                style={{width:16, height:16, accentColor:'var(--purple)', cursor:'pointer'}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13, fontWeight:600, color:'var(--t1)'}}>WhatsApp privado</div>
+                <div style={{fontSize:11, color:'var(--t3)', marginTop:2, lineHeight:1.4}}>
+                  {privado
+                    ? `Só ${SESSAO?.email || 'você'} verá este WhatsApp no switcher`
+                    : 'Todos do workspace verão (compartilhado da empresa)'}
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {/* IA */}
+          <div style={{
+            padding:'12px 14px', background:'var(--bg-3)',
+            border:'1px solid var(--border)', borderRadius:8,
+          }}>
+            <label style={{display:'flex', alignItems:'center', gap:10, cursor:'pointer'}}>
+              <input type="checkbox" checked={iaAtivada} onChange={e => setIaAtivada(e.target.checked)}
+                style={{width:16, height:16, accentColor:'var(--purple)', cursor:'pointer'}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13, fontWeight:600, color:'var(--t1)'}}>Ativar IA neste número</div>
+                <div style={{fontSize:11, color:'var(--t3)', marginTop:2, lineHeight:1.4}}>
+                  {iaAtivada
+                    ? 'A IA vai responder automaticamente as mensagens recebidas'
+                    : 'Apenas você responde manualmente (sem IA)'}
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {erro && (
+            <div style={{
+              padding:'10px 12px', background:'rgba(163,45,45,.10)',
+              border:'1px solid rgba(163,45,45,.30)',
+              borderRadius:6, fontSize:12, color:'#E5544D',
+            }}>
+              {erro}
+            </div>
+          )}
+        </div>
+
+        <div style={{display:'flex', gap:8, marginTop:18, justifyContent:'flex-end'}}>
+          <button onClick={onClose} disabled={salvando} style={{
+            padding:'10px 18px', background:'transparent', border:'1px solid var(--border)',
+            borderRadius:8, color:'var(--t2)', cursor: salvando ? 'not-allowed' : 'pointer',
+            fontSize:13, fontFamily:'var(--f-b)',
+          }}>
+            Cancelar
+          </button>
+          <button onClick={salvar} disabled={!formValido || salvando} style={{
+            padding:'10px 20px',
+            background: formValido && !salvando ? 'var(--purple)' : 'var(--bg-3)',
+            border:'none', borderRadius:8,
+            color: formValido && !salvando ? '#fff' : 'var(--t3)',
+            cursor: formValido && !salvando ? 'pointer' : 'not-allowed',
+            fontSize:13, fontWeight:600, fontFamily:'var(--f-b)',
+            opacity: salvando ? 0.7 : 1,
+          }}>
+            {salvando ? 'Criando...' : 'Criar e gerar QR'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helpers usados pelo NewWhatsAppModal
+const _modalInputStyle = {
+  width:'100%', padding:'10px 12px',
+  background:'var(--bg-3)', border:'1px solid var(--border)',
+  borderRadius:8, color:'var(--t1)', fontSize:14,
+  outline:'none', fontFamily:'var(--f-b)',
+  transition:'border-color .15s', boxSizing:'border-box',
+};
+function _autoTecnicoDe(display) {
+  // Remove acentos, espacos, especiais. Mantem alfanumerico em CamelCase.
+  // ̀-ͯ = combining diacritical marks (acentos depois de NFD)
+  return display
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')     // tira acentos
+    .replace(/[^A-Za-z0-9 ]/g, '')                        // tira simbolos
+    .split(/\s+/).filter(Boolean)                          // separa palavras
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))     // CamelCase
+    .join('')
+    .slice(0, 32);
+}
+
 /* ─── Switcher de WhatsApp (multi-instancia) ───────────────────────────
    Dropdown no header pra trocar entre Brava Company, Jhonattan, etc.
    Cada instancia mantem isolamento total no banco (instancia_id). */
@@ -1351,6 +1582,7 @@ function WhatsAppSwitcher({ setPage }) {
   const activeId = useActiveInstanceId();
   const [aberto, setAberto] = React.useState(false);
   const [pairingInstance, setPairingInstance] = React.useState(null); // instance pra modal QR
+  const [novoModalAberto, setNovoModalAberto] = React.useState(false); // modal "Adicionar WhatsApp"
 
   const active = instances.find(i => i.id === activeId) || instances[0];
 
@@ -1509,7 +1741,7 @@ function WhatsAppSwitcher({ setPage }) {
                 <span>Conectar {active.nome} via QR Code</span>
               </div>
             )}
-            <div onClick={() => { setAberto(false); setPage && setPage('config'); }}
+            <div onClick={() => { setAberto(false); setNovoModalAberto(true); }}
               style={{
                 padding:'10px 14px', display:'flex', alignItems:'center', gap:8,
                 cursor:'pointer', color:'var(--blue)', fontSize:12.5, fontWeight:500,
@@ -1530,6 +1762,24 @@ function WhatsAppSwitcher({ setPage }) {
         <WhatsAppPairingModal
           instance={pairingInstance}
           onClose={() => setPairingInstance(null)}
+        />
+      )}
+
+      {/* Modal de criacao de nova instancia */}
+      {novoModalAberto && (
+        <NewWhatsAppModal
+          onClose={() => setNovoModalAberto(false)}
+          onCreated={(novaInstance) => {
+            setNovoModalAberto(false);
+            // Define como ativa + abre modal de pareamento QR
+            setActiveInstanceId(novaInstance.id);
+            setEvoConfigStore({
+              url: novaInstance.evolution_url,
+              instance: novaInstance.evolution_instance_name,
+              apikey: novaInstance.evolution_apikey,
+            });
+            setTimeout(() => setPairingInstance(novaInstance), 200);
+          }}
         />
       )}
     </div>
