@@ -2012,13 +2012,12 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const realChats = supaEnabled ? supaChats : evoRealChats;
   const fonteContatos = usandoReal ? realChats : CONTATOS;
 
-  // ID inicial: primeiro contato disponivel
-  const [ativo, setAtivo] = useState(usandoReal ? null : 1);
-  // Quando muda a fonte ou quando o ativo ainda nao existe na lista, escolhe o primeiro
+  // ID inicial: nenhum (mostra tela vazia "Brava Inbox" ate o user clicar)
+  const [ativo, setAtivo] = useState(null);
+  // Se o chat selecionado some da lista (ex: removeu fantasma), limpa selecao
   useEffect(() => {
-    if (!fonteContatos.length) { setAtivo(null); return; }
-    if (!ativo || !fonteContatos.some(c => c.id === ativo)) {
-      setAtivo(fonteContatos[0].id);
+    if (ativo && fonteContatos.length && !fonteContatos.some(c => c.id === ativo)) {
+      setAtivo(null);
     }
   }, [fonteContatos.length, ativo]);
 
@@ -2070,6 +2069,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const { agenteId, status: statusChat, atribuir: atribuirAgente, setStatus: setStatusChat } = useSupaChatAgente(supaEnabled ? ativo : null);
   const usuariosLista = useUsuariosLista();
   const meuUserId = useUsuarioLogadoId();
+  // Toca som + notif quando alguem transfere um chat pra mim
+  useTransferenciaWatcher(meuUserId);
   const agenteAtual = React.useMemo(() => usuariosLista.find(u => u.id === agenteId), [usuariosLista, agenteId]);
   const [agenteDropAberto, setAgenteDropAberto] = useState(false);
   const agenteDropRef = useRef(null);
@@ -2095,6 +2096,20 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   };
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [ativo, msgs.length]);
+
+  // ESC: desseleciona a conversa atual (volta pra tela vazia "Brava Inbox")
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      // So fecha se nao tiver modal aberto e o foco nao for input/textarea
+      const tag = (e.target?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (document.querySelector('[role="dialog"]')) return;
+      if (ativo) setAtivo(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [ativo]);
 
   // Envio de mensagem real
   const enviar = async () => {
@@ -2446,10 +2461,49 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       {/* ── Coluna 2: Chat ── */}
       <div style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
         {!contato ? (
-          <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:S.chatBg, color:S.textSec, fontSize:14, textAlign:'center', padding:40}}>
-            {usandoReal
-              ? (realChatsLoading ? 'Carregando conversas...' : 'Selecione uma conversa a esquerda')
-              : 'Selecione uma conversa'}
+          <div style={{
+            flex:1, display:'flex', alignItems:'center', justifyContent:'center',
+            background:S.chatBg, color:S.textSec, fontSize:14, textAlign:'center', padding:40,
+            flexDirection:'column', position:'relative', overflow:'hidden',
+          }}>
+            {/* Logo Brava grande no centro */}
+            <div style={{
+              width:120, height:120, borderRadius:'50%',
+              background:'#000', display:'flex', alignItems:'center', justifyContent:'center',
+              padding:24, marginBottom:28,
+              border:'1px solid rgba(255,255,255,.06)',
+              boxShadow:'0 10px 40px rgba(0,0,0,.4)',
+            }}>
+              <img src="/admin/app/brava-logo-white.png" alt="Brava"
+                style={{width:'100%', height:'auto', display:'block', opacity:.95}}
+                onError={(e) => {
+                  if (!e.target.dataset.r) { e.target.dataset.r='1'; e.target.src='app/brava-logo-white.png'; return; }
+                  e.target.style.display='none';
+                  e.target.parentElement.innerHTML = '<span style="color:#fff;font-size:48px;font-weight:800;font-family:Montserrat,sans-serif;letter-spacing:2px">B</span>';
+                }}
+              />
+            </div>
+            <h2 style={{
+              fontFamily:'Montserrat,sans-serif', fontWeight:300, fontSize:30,
+              color:S.textPrimary, marginBottom:12, letterSpacing:'-.01em',
+            }}>Brava Inbox</h2>
+            <p style={{fontSize:14, color:S.textSec, maxWidth:420, lineHeight:1.5, marginBottom:8}}>
+              Centralize todo o atendimento da sua operação em um único workspace.
+            </p>
+            <p style={{fontSize:13, color:S.textSec, opacity:.6, marginBottom:48}}>
+              {realChatsLoading
+                ? 'Carregando conversas…'
+                : 'Selecione uma conversa à esquerda para começar.'}
+            </p>
+            {/* Rodape com criptografia */}
+            <div style={{
+              position:'absolute', bottom:32, left:0, right:0,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              fontSize:12, color:S.textSec, opacity:.7,
+            }}>
+              <Icon name="Lock" size={12}/>
+              <span>Mensagens com criptografia ponta a ponta no canal WhatsApp.</span>
+            </div>
           </div>
         ) : (<>
         {/* Header chat */}
@@ -3901,6 +3955,76 @@ function useUsuariosLista() {
     return () => { alive = false; };
   }, []);
   return users;
+}
+
+/* Som de transferencia estilo Chatwoot (Web Audio API, sintetico, sem arquivo).
+   Toca 2 notas curtas suaves: pim-pom. */
+let _bravaAudioCtx = null;
+function _getAudioCtx() {
+  if (_bravaAudioCtx) return _bravaAudioCtx;
+  try { _bravaAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+  catch { _bravaAudioCtx = null; }
+  return _bravaAudioCtx;
+}
+function playTransferSound() {
+  // Respeita preferencia do user (default: ligado)
+  try { if (localStorage.getItem('brava_som_transferencia') === 'off') return; } catch {}
+  const ctx = _getAudioCtx();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') { try { ctx.resume(); } catch {} }
+  const now = ctx.currentTime;
+  // Nota 1 (Mi5 = 659Hz)
+  const o1 = ctx.createOscillator(), g1 = ctx.createGain();
+  o1.type = 'sine'; o1.frequency.value = 659;
+  g1.gain.setValueAtTime(0.0001, now);
+  g1.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  g1.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+  o1.connect(g1).connect(ctx.destination);
+  o1.start(now); o1.stop(now + 0.2);
+  // Nota 2 (Sol5 = 784Hz, levemente atrasada)
+  const o2 = ctx.createOscillator(), g2 = ctx.createGain();
+  o2.type = 'sine'; o2.frequency.value = 784;
+  g2.gain.setValueAtTime(0.0001, now + 0.15);
+  g2.gain.exponentialRampToValueAtTime(0.18, now + 0.17);
+  g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.36);
+  o2.connect(g2).connect(ctx.destination);
+  o2.start(now + 0.15); o2.stop(now + 0.4);
+}
+
+/* Hook: notifica + toca som quando agentee_id de QUALQUER chat passa a ser do user atual.
+   Roda no nivel global da Conversas/App. Subscribe Realtime amplo em wa_chats UPDATE. */
+function useTransferenciaWatcher(meuUserId) {
+  React.useEffect(() => {
+    if (!meuUserId) return;
+    const cli = getSupa();
+    if (!cli) return;
+    // Cache pra dedup: chat -> ultimoAgenteId conhecido
+    const cache = new Map();
+    const ch = cli.channel('rt:transfer-watch')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, (p) => {
+        const jid = p.new?.jid; if (!jid) return;
+        const novoAgente = p.new?.agente_id || null;
+        const antigoAgente = cache.has(jid) ? cache.get(jid) : (p.old?.agente_id || null);
+        cache.set(jid, novoAgente);
+        // Disparou quando: antes era outro/null E agora e o user atual
+        if (novoAgente === meuUserId && antigoAgente !== meuUserId) {
+          playTransferSound();
+          // Notifica visualmente tambem
+          if (typeof adicionarNotificacao === 'function') {
+            adicionarNotificacao({
+              tipo: 'transferencia',
+              titulo: 'Chat transferido para você',
+              sub: 'Um chat foi atribuído à sua fila',
+              icon: 'UserCircle',
+              cor: '#00A884',
+              link: 'clientes',
+            });
+          }
+        }
+      })
+      .subscribe();
+    return () => cli.removeChannel(ch);
+  }, [meuUserId]);
 }
 
 /* Hook: agente atribuido + status do chat (wa_chats.agente_id, status).
