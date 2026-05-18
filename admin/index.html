@@ -1,4 +1,29 @@
 <!DOCTYPE html>
+<!--
+  ╔═══════════════════════════════════════════════════════════════════════╗
+  ║  REGRAS DE ESTILO DESTE ARQUIVO (NUNCA QUEBRAR)                       ║
+  ║                                                                       ║
+  ║  1. NUNCA usar travessão longo (—) em texto, UI ou comentários.       ║
+  ║     Usar separador centro-ponto (·), dois-pontos (:), parênteses,     ║
+  ║     ponto-final ou hífen normal (-).                                  ║
+  ║     Motivo: travessão dá cara de texto gerado por IA.                 ║
+  ║                                                                       ║
+  ║  2. NUNCA usar fontStyle:italic em nenhum elemento.                   ║
+  ║     Itálico em UI parece artigo de blog, não software.                ║
+  ║                                                                       ║
+  ║  3. Fonte única no sistema inteiro: Montserrat.                       ║
+  ║     Nada de Inter, Space Grotesk, JetBrains Mono.                     ║
+  ║                                                                       ║
+  ║  4. Emojis genéricos (😊 😉 🎤 ✏️) são PROIBIDOS na UI.               ║
+  ║     Usar componente <Icon name="..."/> sempre.                        ║
+  ║     Exceção: preview de tipo de mídia na lista de conversas           ║
+  ║              (📷 Foto, 🎥 Vídeo) que imita WhatsApp Web.              ║
+  ║                                                                       ║
+  ║  5. Paleta:                                                           ║
+  ║     - Inbox WhatsApp -> tokens --wa-* (paleta do app WhatsApp)        ║
+  ║     - Resto do admin -> tokens --purple/--blue (identidade Brava)     ║
+  ╚═══════════════════════════════════════════════════════════════════════╝
+-->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
@@ -42,7 +67,7 @@ input,select,textarea{font:inherit;color:inherit;}
 a{color:inherit;text-decoration:none;}
 svg{display:block;flex-shrink:0;}
 
-/* ─── WhatsApp tokens (paleta do APP WhatsApp 2026 — modo dark) ─── */
+/* ─── WhatsApp tokens (paleta do APP WhatsApp 2026 · modo dark) ─── */
 :root, [data-theme="dark"] {
   --wa-sidebar-bg:    #1F2C34;             /* sidebar app (mais cinza-azulado, nao tao preto) */
   --wa-sidebar-hover: rgba(255,255,255,.04);
@@ -82,7 +107,7 @@ svg{display:block;flex-shrink:0;}
   --wa-unread-bg:     #25D366;
 }
 
-/* Pattern do fundo do chat — verde translucido em dark (igual app WhatsApp), preto sutil em light */
+/* Pattern do fundo do chat · verde translucido em dark (igual app WhatsApp), preto sutil em light */
 .wa-chat-pattern {
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2300A884' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
@@ -93,7 +118,7 @@ svg{display:block;flex-shrink:0;}
 /* ─── Layout ─── */
 .app{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:var(--header) 1fr;height:100vh;overflow:hidden;}
 
-/* ─── Sidebar — slide horizontal natural (esquerda quando fecha, da esquerda quando abre) ─── */
+/* ─── Sidebar · slide horizontal natural (esquerda quando fecha, da esquerda quando abre) ─── */
 .sidebar{
   grid-row:1/-1;
   background:#000000;
@@ -185,7 +210,7 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
 .nav-item.danger:hover{background:rgba(163,45,45,.18);color:#fca5a5;}
 
 /* ─── Header ─── */
-/* ─── Header — sempre preto ─── */
+/* ─── Header · sempre preto ─── */
 .header{
   background:#000000;
   border-bottom:1px solid #1F1F2A;
@@ -766,12 +791,14 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       .reduce((s, r) => s + (r.mensal || 0), 0);
   }, [recorrencia]);
 
-  // Contadores em cascata escalonada — sincronizada com o fade-in dos cards.
-  // Duracao 8s (suave, 0 -> valor final) com pequeno stagger entre eles.
-  const clientes   = useCount(21,            8000,  80);
-  const mrr        = useCount(mrrTotalAtivo, 8000, 220);
-  const conversas  = useCount(1247,          8000, 360);
-  const chamados   = useCount(3,             8000, 500);
+  // Stats globais REAIS do Supabase (atualizam via Realtime conforme msgs chegam)
+  const supaStats = useSupaGlobalStats();
+
+  // Contadores em cascata escalonada (animacao suave de 0 -> valor)
+  const clientes   = useCount(21,                     8000,  80);
+  const mrr        = useCount(mrrTotalAtivo,          8000, 220);
+  const conversas  = useCount(supaStats.msgsHoje,     2500, 360); // valor real do banco
+  const chamados   = useCount(3,                      8000, 500);
 
   // MRR dinamico: mesma fonte do KPI, mas usado pro grafico 7d
   const mrrAtivoHoje = mrrTotalAtivo;
@@ -796,7 +823,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   const [menuAberto, setMenuAberto] = useState(null);
   const [editandoCliente, setEditandoCliente] = useState(null);
 
-  // Filtro pela busca global — agora mostra TODOS (com scroll)
+  // Filtro pela busca global · agora mostra TODOS (com scroll)
   const clientesList = busca
     ? clientesCRM.filter(c => c.nome.toLowerCase().includes(busca.toLowerCase()) || c.nicho.toLowerCase().includes(busca.toLowerCase()))
     : clientesCRM;
@@ -892,7 +919,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       <div className="grid-2">
         <div className="card">
           <div className="card__head">
-            <div className="card__title">Evolução do MRR — últimos 7 dias</div>
+            <div className="card__title">Evolução do MRR · últimos 7 dias</div>
             <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Ver MRR completo →</div>
           </div>
           <div className="chart">
@@ -1321,7 +1348,7 @@ function AIChat() {
 
   const sugestoes = ['Qual o MRR?','Clientes ativos?','Como está a saúde?','Chamados abertos?'];
 
-  // Botão flutuante (fechado) — preto com efeito saber + agent icon
+  // Botão flutuante (fechado) · preto com efeito saber + agent icon
   if (!aberto) return (
     <button onClick={()=>setAberto(true)} title="Agente IA Brava" style={{
       position:'fixed', bottom:16, right:64, zIndex:9998,
@@ -1562,7 +1589,7 @@ function useIaProcessando(msgs, iaAtivaNoChat) {
   const last = msgs[msgs.length - 1];
   if (!last || last.from !== 'in') return false;
   const dt = agora - (last.timestamp || 0);
-  // Janela de 15s — cobre leitura (~2.5s) + debounce (~2.5s) + Claude (~3-5s) + typing (~3s) com folga
+  // Janela de 15s · cobre leitura (~2.5s) + debounce (~2.5s) + Claude (~3-5s) + typing (~3s) com folga
   return dt > 800 && dt < 15000;
 }
 
@@ -1743,7 +1770,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const bottomRef = useRef(null);
   const contato = fonteContatos.find(c => c.id === ativo);
 
-  // Mensagens — Supabase (Realtime) tem prioridade sobre Evolution direto
+  // Mensagens · Supabase (Realtime) tem prioridade sobre Evolution direto
   const supaMsgsState = useSupaMessages(supaEnabled ? ativo : null);
   const supaMsgs = React.useMemo(() => supaMsgsState.messages.map(supaNormalizeMessage), [supaMsgsState.messages]);
   const { messages: realMsgsEvo, loading: realMsgsLoading, error: realMsgsError } = useEvoMessages((!supaEnabled && usandoReal) ? ativo : null, 5000);
@@ -1759,7 +1786,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     setMsgsOtimistas(arr => arr.filter(o => (o.timestamp||0) > maxRealTs));
   }, [realMsgs.length, usandoReal]);
 
-  // IA esta processando? (frontend heuristic) — pra mostrar "IA digitando..." no header do chat
+  // IA esta processando? (frontend heuristic) · pra mostrar "IA digitando..." no header do chat
   const iaProcessando = useIaProcessando(msgs, iaAtiva);
 
   // Fase atual do contato no pipeline
@@ -1803,7 +1830,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     }
   };
 
-  // Envio universal (imagem, video, audio, doc — detecta pelo mimetype)
+  // Envio universal (imagem, video, audio, doc · detecta pelo mimetype)
   const enviarArquivo = async (file) => {
     if (!file || !contato || !usandoReal) return;
     if (file.size > 64 * 1024 * 1024) { showToast?.('Arquivo muito grande (max 64MB)', 'warn'); return; }
@@ -2247,7 +2274,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 {m.kind === 'audio' && <MediaAudio message={m} S={S}/>}
                 {/* Documento com botao baixar real */}
                 {m.kind === 'document' && <MediaDocument message={m} S={S}/>}
-                {/* Outros tipos (video, sticker, location, contact) — Icons na paleta WhatsApp */}
+                {/* Outros tipos (video, sticker, location, contact) · Icons na paleta WhatsApp */}
                 {(m.kind === 'video' || m.kind === 'sticker' || m.kind === 'location' || m.kind === 'contact') && (() => {
                   const tipoIcon =
                     m.kind === 'video'    ? 'Video'    :
@@ -2276,7 +2303,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                     // 0=erro 1=pendente 2=enviado(✓) 3=entregue(✓✓) 4/5=lido(✓✓ azul)
                     // Heuristica: se status veio do banco, usa. Se nao, infere pelo tempo:
                     //   - < 5s   = enviado (1 check)
-                    //   - >= 5s  = entregue (2 checks cinza) — quase sempre true em WhatsApp
+                    //   - >= 5s  = entregue (2 checks cinza) · quase sempre true em WhatsApp
                     // Isso espelha o comportamento visual do WhatsApp Web mesmo sem update real-time.
                     const idadeSeg = (Date.now() - (m.timestamp || 0)) / 1000;
                     const sBase = m.statusNum ?? (idadeSeg >= 5 ? 3 : 2);
@@ -2288,7 +2315,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                       // 1 check (enviado, ainda nao entregue)
                       return <svg width="12" height="10" viewBox="0 0 12 11" fill={cor}><path d="M9.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
                     }
-                    // s >= 3 (entregue/lido) — 2 checks (azul se lido)
+                    // s >= 3 (entregue/lido) · 2 checks (azul se lido)
                     return <svg width="15" height="10" viewBox="0 0 16 11" fill={cor}><path d="M11.071.653a.75.75 0 0 0-1.036.218l-5.64 8.65-2.28-2.28a.75.75 0 0 0-1.06 1.06l2.95 2.95a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061zm3 0a.75.75 0 0 0-1.036.218l-5.64 8.65-.52-.52a.75.75 0 1 0-1.06 1.06l1.19 1.19a.75.75 0 0 0 1.11-.077l6.17-9.46a.75.75 0 0 0-.214-1.061z"/></svg>;
                   })()}
                 </div>
@@ -2304,7 +2331,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         <div style={{ padding:'8px 12px', background:S.inputBg, borderTop:`1px solid ${S.border}`, flexShrink:0 }}>
           {iaAtiva && (
             <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', marginBottom:6, background:'rgba(37,211,102,.08)', border:'1px solid rgba(37,211,102,.2)', borderRadius:6, fontSize:12, color:'var(--wa-green)' }}>
-              <Icon name="Sparkles" size={12}/> IA ativa — responde automaticamente. Digite para assumir.
+              <Icon name="Sparkles" size={12}/> IA ativa · responde automaticamente. Digite para assumir.
             </div>
           )}
           {gravando ? (
@@ -2462,7 +2489,7 @@ function SalvarContatoModal({ jid, sugestaoNome, onClose }) {
   );
 }
 
-/* Painel direito reativo — dados reais do contato (numero, 1a msg, total),
+/* Painel direito reativo · dados reais do contato (numero, 1a msg, total),
    pipeline funcional, suporte a grupos com lista de participantes. */
 function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols, faseAtual, mudarFase, S }) {
   const presence = useEvoPresence(usandoReal ? contato?.id : null);
@@ -2485,10 +2512,10 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
   const primMsgDate = primMsg?.timestamp ? new Date(primMsg.timestamp) : null;
   const primMsgFmt = primMsgDate
     ? `${primMsgDate.toLocaleDateString('pt-BR')} ${primMsgDate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`
-    : '—';
+    : '–';
 
   const telefone = usandoReal
-    ? (contato.isGroup ? '—' : (evoFormatPhone(evoResolveJid(contato.id)) || evoFormatPhone(contato.id) || '—'))
+    ? (contato.isGroup ? '–' : (evoFormatPhone(evoResolveJid(contato.id)) || evoFormatPhone(contato.id) || '–'))
     : '+55 11 99999-9999';
   const origem = contato.isGroup ? 'Grupo WhatsApp' : (contato.ehLid ? 'Linked Device' : 'WhatsApp');
 
@@ -2515,7 +2542,7 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
           {contato?.name}
           {contato?.isGroup && <span style={{fontSize:9.5, padding:'1px 6px', borderRadius:4, background:'rgba(123,63,228,.18)', color:'var(--purple)', fontFamily:'var(--f-m)', fontWeight:600, letterSpacing:'.04em'}}>GRUPO</span>}
         </div>
-        {usandoReal && !contato.isGroup && telefone && telefone !== '—' && telefone !== contato?.name && (
+        {usandoReal && !contato.isGroup && telefone && telefone !== '–' && telefone !== contato?.name && (
           <div style={{ fontSize:12, color:S.textSec, marginTop:4, fontFamily:'var(--f-m)' }}>{telefone}</div>
         )}
         {usandoReal && contato.isGroup && grupo?.participants && (
@@ -2600,10 +2627,10 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
           salvo?.empresa ? ['Empresa', salvo.empresa] : null,
           salvo?.tag ? ['Etiqueta', salvo.tag] : null,
           ['Origem',   origem],
-          ['Não lidas',contato.unread > 0 ? String(contato.unread) : '—'],
+          ['Não lidas',contato.unread > 0 ? String(contato.unread) : '–'],
           ['1ª msg',   primMsgFmt],
-          ['Última',   ultMsg?.time || '—'],
-          ['Total',    totalMsgs > 0 ? `${totalMsgs} mensagem${totalMsgs===1?'':'s'}` : '—'],
+          ['Última',   ultMsg?.time || '–'],
+          ['Total',    totalMsgs > 0 ? `${totalMsgs} mensagem${totalMsgs===1?'':'s'}` : '–'],
         ].filter(Boolean).map(([k,v]) => (
           <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:8, gap:8 }}>
             <span style={{ fontSize:12.5, color:S.textSec, flexShrink:0 }}>{k}</span>
@@ -2815,7 +2842,7 @@ function Equipe() {
     const nome = prompt('Nome do membro:'); if (!nome) return;
     const email = prompt('E-mail:'); if (!email) return;
     const role = prompt('Cargo (Diretoria, CS / Suporte, Dev, Comercial):') || 'Dev';
-    setEquipe(e => [...e, { id:Date.now(), nome, email, role, status:'offline', foto:null, tenants:'—', chamados:0 }]);
+    setEquipe(e => [...e, { id:Date.now(), nome, email, role, status:'offline', foto:null, tenants:'–', chamados:0 }]);
   };
 
   return (
@@ -3165,7 +3192,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   EVOLUTION API — cliente client-side (FASE 1: testes locais)
+   EVOLUTION API · cliente client-side (FASE 1: testes locais)
    - Config (url + instance + apikey) salva em localStorage
    - Helpers fetch + hooks reativos
    - AVISO: nesta fase a apikey vive no browser. Funciona pra validacao
@@ -3173,7 +3200,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
      (Supabase Edge Function ou similar)
    ══════════════════════════════════════════════════════════════════════════ */
 /* ══════════════════════════════════════════════════════════════════════════
-   SUPABASE BACKEND — Fase 2
+   SUPABASE BACKEND · Fase 2
    - Recebe mensagens via webhook (Evolution -> wa-webhook Edge Function)
    - Persiste em wa_chats / wa_mensagens / wa_contatos
    - Admin le com Realtime (sem polling) usando o cliente publico abaixo
@@ -3349,10 +3376,57 @@ function useSupaMessages(chatJid) {
   return { messages, loading, error };
 }
 
+/* Hook: contadores globais em tempo real (todas as msgs do dia + total de chats).
+   Usado pelo Dashboard. Re-fetch automatico ao chegar msg nova via Realtime. */
+function useSupaGlobalStats() {
+  const [stats, setStats] = React.useState({ msgsHoje: 0, msgsTotal: 0, chatsTotal: 0, loading: true });
+
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) {
+      const t = setInterval(() => { if (getSupa()) { clearInterval(t); } }, 200);
+      return () => clearInterval(t);
+    }
+    let alive = true;
+
+    const carregar = async () => {
+      try {
+        const hoje = new Date(); hoje.setHours(0,0,0,0);
+        const [{ count: msgsHoje }, { count: msgsTotal }, { count: chatsTotal }] = await Promise.all([
+          cli.from('wa_mensagens').select('*', { count: 'exact', head: true })
+            .eq('instancia_id', SUPA_CFG.instanciaId)
+            .gte('timestamp', hoje.toISOString()),
+          cli.from('wa_mensagens').select('*', { count: 'exact', head: true })
+            .eq('instancia_id', SUPA_CFG.instanciaId),
+          cli.from('wa_chats').select('*', { count: 'exact', head: true })
+            .eq('instancia_id', SUPA_CFG.instanciaId),
+        ]);
+        if (!alive) return;
+        setStats({ msgsHoje: msgsHoje || 0, msgsTotal: msgsTotal || 0, chatsTotal: chatsTotal || 0, loading: false });
+      } catch (e) {
+        if (alive) setStats(s => ({ ...s, loading: false }));
+      }
+    };
+    carregar();
+
+    // Realtime: refetch ao chegar msg/chat nova (debounced)
+    let t = null;
+    const refetch = () => { clearTimeout(t); t = setTimeout(carregar, 400); };
+    const channel = cli.channel('rt:global-stats')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_mensagens', filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
+      .on('postgres_changes', { event: '*',      schema: 'public', table: 'wa_chats',     filter: `instancia_id=eq.${SUPA_CFG.instanciaId}` }, refetch)
+      .subscribe();
+
+    return () => { alive = false; clearTimeout(t); cli.removeChannel(channel); };
+  }, []);
+
+  return stats;
+}
+
 // Normaliza chat do Supabase para o shape esperado pelo UI atual (mesmo de evoNormalizeChat)
 function supaNormalizeChat(c) {
   // Importante reutilizar evoFormatPhone/evoLabelContato/evoTemNomeReal/evoColorFromString
-  // — eles vivem mais abaixo no arquivo mas estarao definidos em runtime.
+  // · eles vivem mais abaixo no arquivo mas estarao definidos em runtime.
   const remoteJid = c.jid;
   const isGroup = !!c.is_group;
   const rawName = c.last_message_sender_name || ''; // nao temos pushName separado aqui
@@ -3475,7 +3549,7 @@ const evo = {
     method:'POST',
     body: JSON.stringify({ number }),
   }),
-  // Lista de contatos (tabela canonical — onde vive o mapeamento lid<->telefone)
+  // Lista de contatos (tabela canonical · onde vive o mapeamento lid<->telefone)
   findContacts: () => evoFetch(`/chat/findContacts/${encodeURIComponent(getEvoConfig().instance)}`, {
     method:'POST',
     body: JSON.stringify({ where: {} }),
@@ -3820,7 +3894,7 @@ function evoFormatPhone(jid) {
   return '';
 }
 
-// Label do contato — agora sempre cai no formato +55 DDD NNNNN-NNNN
+// Label do contato · agora sempre cai no formato +55 DDD NNNNN-NNNN
 function evoLabelContato(jid) {
   return evoFormatPhone(jid) || 'Contato';
 }
@@ -4213,7 +4287,7 @@ function evoNormalizeChat(c) {
 //   0=ERROR  1=PENDING  2=SERVER_ACK(enviado)  3=DELIVERY_ACK(entregue)  4=READ(lida)  5=PLAYED
 // Aceita: numero (0..5) OU string (PENDING/SENT/RECEIVED/DELIVERY_ACK/SERVER_ACK/READ/PLAYED/etc)
 function evoParseStatus(raw) {
-  if (raw == null) return 2; // default: assume enviado (1 check) — minimo elegante
+  if (raw == null) return 2; // default: assume enviado (1 check) · minimo elegante
   if (typeof raw === 'number') return raw;
   const s = String(raw).toUpperCase();
   if (s === 'READ' || s === 'PLAYED')          return 4;
@@ -4297,7 +4371,7 @@ function useEvoChats(intervalMs = 15000) {
   }, []);
   useEvoSocketEvent(['messages.upsert','chats.upsert','chats.update','chats.delete','send.message'], debouncedRefetch);
 
-  // Normaliza reativamente — re-roda quando RAW muda OU quando user salva/edita contato
+  // Normaliza reativamente · re-roda quando RAW muda OU quando user salva/edita contato
   const chatsAll = React.useMemo(
     () => raw.arr.map(evoNormalizeChat).sort((a,b) => (b.timestamp||0) - (a.timestamp||0)),
     [raw.arr, contatosSalvos]
@@ -4635,9 +4709,9 @@ function EvoStatusPanel() {
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
         {[
-          {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '—'},
-          {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '—'},
-          {l:'Mensagens', v: instanceInfo?._count?.Message ?? instanceInfo?.messageCount ?? '—'},
+          {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '–'},
+          {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '–'},
+          {l:'Mensagens', v: instanceInfo?._count?.Message ?? instanceInfo?.messageCount ?? '–'},
         ].map((s,i) => (
           <div key={i} style={{padding:'10px 12px', background:'var(--bg-2)', borderRadius:8, border:'1px solid var(--border-soft)'}}>
             <div style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em'}}>{s.l}</div>
@@ -4847,7 +4921,7 @@ function ConfigIATab() {
     setSalvando(true);
     try {
       const cli = getSupa();
-      // .select() no fim devolve as linhas atualizadas — se for [], significa
+      // .select() no fim devolve as linhas atualizadas · se for [], significa
       // que RLS bloqueou silenciosamente o UPDATE
       const { data, error } = await cli.from('wa_instancias').update({
         ai_prompt: form.ai_prompt,
@@ -4860,7 +4934,7 @@ function ConfigIATab() {
       }).eq('id', SUPA_CFG.instanciaId).select();
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error('Banco aceitou mas nao salvou nenhuma linha. Provavelmente RLS bloqueou o UPDATE — rode a SQL de "wa_inst_anon_write" no editor.');
+        throw new Error('Banco aceitou mas nao salvou nenhuma linha. Provavelmente RLS bloqueou o UPDATE · rode a SQL de "wa_inst_anon_write" no editor.');
       }
       showToast?.('Configuração da IA salva ✓', 'success');
       carregar();
@@ -4873,7 +4947,7 @@ function ConfigIATab() {
     if (!testInput.trim()) return;
     setTestando(true); setTestOutput(null);
     try {
-      // Chama Claude direto via Anthropic (so pra teste) — usa o prompt do form atual
+      // Chama Claude direto via Anthropic (so pra teste) · usa o prompt do form atual
       // Por seguranca a key nao esta no browser, entao chamamos via wa-proxy "fake":
       // criamos uma rota especial que faz isso. Por enquanto: salva e testa via WhatsApp real.
       // Workaround: simula chamando o wa-ia-responder com um payload fake.
@@ -4915,7 +4989,7 @@ function ConfigIATab() {
       <div>
         <div className="card__title" style={{marginBottom:6, display:'flex', alignItems:'center', gap:8}}>
           <Icon name="Sparkles" size={16} style={{color:'var(--purple)'}}/>
-          Configuração da IA — {cfg.nome}
+          Configuração da IA · {cfg.nome}
         </div>
         <div style={{fontSize:13, color:'var(--t2)'}}>O Claude responde automaticamente mensagens recebidas no WhatsApp dessa instância. Mudanças aqui afetam todas as conversas (a menos que você tenha desativado a IA num chat específico).</div>
       </div>
@@ -4925,7 +4999,7 @@ function ConfigIATab() {
         {[
           {l:'Respostas enviadas', v: stats.replied.toLocaleString('pt-BR'), c:'#1D9E75'},
           {l:'Erros', v: stats.errors.toLocaleString('pt-BR'), c: stats.errors > 0 ? '#A32D2D' : 'var(--t3)'},
-          {l:'Última resposta', v: stats.lastReply ? new Date(stats.lastReply.received_at).toLocaleString('pt-BR') : '—', c:'var(--t2)'},
+          {l:'Última resposta', v: stats.lastReply ? new Date(stats.lastReply.received_at).toLocaleString('pt-BR') : '–', c:'var(--t2)'},
         ].map((s,i) => (
           <div key={i} style={{padding:'14px 16px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
             <div style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em'}}>{s.l}</div>
@@ -4954,7 +5028,7 @@ function ConfigIATab() {
         </button>
       </div>
 
-      {/* Comportamento humano — "digitando...", split e tempo de pensamento */}
+      {/* Comportamento humano · "digitando...", split e tempo de pensamento */}
       <div style={{padding:'14px 18px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)', display:'flex', flexDirection:'column', gap:14}}>
         <div style={{display:'flex', alignItems:'flex-start', gap:14}}>
           <div style={{flex:1}}>
@@ -4963,7 +5037,7 @@ function ConfigIATab() {
               Mostrar "digitando..." no WhatsApp do cliente
             </div>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:4, lineHeight:1.5}}>
-              Enquanto a IA pensa, o cliente vê o indicador <i>"digitando..."</i> — passa a sensação de humano respondendo. Recomendado deixar <strong style={{color:'var(--t2)'}}>ligado</strong>.
+              Enquanto a IA pensa, o cliente vê o indicador <i>"digitando..."</i> · passa a sensação de humano respondendo. Recomendado deixar <strong style={{color:'var(--t2)'}}>ligado</strong>.
             </div>
           </div>
           <button onClick={() => setForm(f => ({...f, ai_typing_enabled: !f.ai_typing_enabled}))} style={{
@@ -5026,7 +5100,7 @@ function ConfigIATab() {
                 Tempo de leitura (silêncio)
               </div>
               <div style={{fontSize:12, color:'var(--t3)', marginTop:4, lineHeight:1.5}}>
-                Antes de mostrar <i>"digitando..."</i>, a IA fica em silêncio simulando "abrir o WhatsApp e ler". Sem isso, ela começa a digitar 0,1s depois — não-humano.
+                Antes de mostrar <i>"digitando..."</i>, a IA fica em silêncio simulando "abrir o WhatsApp e ler". Sem isso, ela começa a digitar 0,1s depois · não-humano.
               </div>
             </div>
             <div style={{
@@ -5317,7 +5391,7 @@ function Config() {
                 </div>
               </div>
 
-              {/* Dados pessoais — inputs controlados pelo state */}
+              {/* Dados pessoais · inputs controlados pelo state */}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
                 {[
                   ['nome',     'Nome completo'],
@@ -5464,7 +5538,7 @@ function Analytics() {
 
       <div className="grid-2">
         <div className="card">
-          <div className="card__head"><div className="card__title">Evolução MRR — 12 meses</div></div>
+          <div className="card__head"><div className="card__title">Evolução MRR · 12 meses</div></div>
           <div className="chart" style={{height:160}}>
             {mrrEvol.map((v,i) => (
               <div key={i} className="chart-bar-wrap">
@@ -5475,7 +5549,7 @@ function Analytics() {
           </div>
         </div>
         <div className="card">
-          <div className="card__head"><div className="card__title">Conversas processadas — 12 meses</div></div>
+          <div className="card__head"><div className="card__title">Conversas processadas · 12 meses</div></div>
           <div className="chart" style={{height:160}}>
             {conv.map((v,i) => (
               <div key={i} className="chart-bar-wrap">
@@ -5528,7 +5602,7 @@ function Analytics() {
 function Placeholder({ page }) {
   const map = {
     clientes:  { icon:'Building2',    label:'Clientes',    desc:'Lista de todos os tenants, status, plano e acesso via Impersonate. Fase 5 do roadmap.' },
-    pipeline:  { icon:'KanbanSquare', label:'Pipeline',    desc:'Funil de novos clientes — leads, propostas, fechamentos. Em construção.' },
+    pipeline:  { icon:'KanbanSquare', label:'Pipeline',    desc:'Funil de novos clientes · leads, propostas, fechamentos. Em construção.' },
     mrr:       { icon:'TrendingUp',   label:'MRR',         desc:'Receita recorrente, churn, LTV e projeções. Fase 6 do roadmap.' },
     chamados:  { icon:'LifeBuoy',     label:'Chamados',    desc:'Inbox de suporte recebido de todos os clientes. Fase 4 do roadmap.' },
     equipe:    { icon:'UsersRound',   label:'Equipe',      desc:'Gestão da equipe interna Brava e permissões de acesso. Em construção.' },
@@ -5860,7 +5934,7 @@ function ProjecaoMRR({ data }) {
   const corStatus = { 'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
 
-  // Agrupar MRR por status atual — recebe lista reativa via prop
+  // Agrupar MRR por status atual · recebe lista reativa via prop
   const lista = data || [];
   const mrrPorStatus = {};
   lista.forEach(r => {
@@ -6161,7 +6235,7 @@ function ModalPagamentos({ rec, pagamentos, onClose }) {
           <div>
             <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{rec.cliente}</div>
             <div style={{fontSize:13, color:'var(--t3)', marginTop:3}}>
-              R$ {rec.mensal.toLocaleString('pt-BR')}/mês · vence dia {diaVenc || '—'}
+              R$ {rec.mensal.toLocaleString('pt-BR')}/mês · vence dia {diaVenc || '–'}
             </div>
           </div>
           <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
@@ -6274,7 +6348,7 @@ function MRR() {
     </th>
   );
 
-  const fmt = v => v > 0 ? `R$ ${v.toLocaleString('pt-BR')}` : '—';
+  const fmt = v => v > 0 ? `R$ ${v.toLocaleString('pt-BR')}` : '–';
 
   const tickMensalPorContrato = recorrencia.filter(r=>r.mensal>0).length || 1;
 
@@ -6291,7 +6365,7 @@ function MRR() {
         </div>
       </div>
 
-      {/* KPIs — incluindo Atrasados em destaque */}
+      {/* KPIs · incluindo Atrasados em destaque */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(5,1fr)',marginBottom:24}}>
         {[
           {label:'MRR Total',          val:`R$ ${totalMRR.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1E90FF'},
@@ -6330,7 +6404,7 @@ function MRR() {
         </div>
       )}
 
-      {/* Projeção 12 meses — empilhada por status */}
+      {/* Projeção 12 meses · empilhada por status */}
       <ProjecaoMRR data={recorrencia}/>
 
       {/* Filtros + busca */}
@@ -6388,11 +6462,11 @@ function MRR() {
                     onMouseEnter={e=>e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.10)' : 'rgba(255,255,255,.03)'}
                     onMouseLeave={e=>e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.05)' : 'transparent'}>
                     <td style={{padding:'11px 14px',fontWeight:600,color:'var(--t1)',whiteSpace:'nowrap'}}>{r.cliente}</td>
-                    <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>{r.servico||'—'}</td>
+                    <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>{r.servico||'–'}</td>
                     <td style={{padding:'11px 14px',color:'var(--t2)'}}>{r.nicho}</td>
                     <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.impl>0?'#F5F5F7':'#6E6E78',textAlign:'right'}}>{fmt(r.impl)}</td>
                     <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.mensal>0?'#1D9E75':'#6E6E78',fontWeight:r.mensal>0?600:400,textAlign:'right'}}>{fmt(r.mensal)}</td>
-                    <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>{r.dia||'—'}</td>
+                    <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>{r.dia||'–'}</td>
                     <td style={{padding:'11px 14px'}}>
                       <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:stPag.color+'22',color:stPag.color,border:`1px solid ${stPag.color}44`,fontWeight:500, whiteSpace:'nowrap'}}>{stPag.label}</span>
                     </td>
@@ -6855,7 +6929,7 @@ function ClientWorkspace({ cliente }) {
             <div className="grid-2">
               <div className="card">
                 <div className="card__head">
-                  <div className="card__title">Conversas — últimos 7 dias</div>
+                  <div className="card__title">Conversas · últimos 7 dias</div>
                 </div>
                 <div className="chart">
                   {chartData.map((d,i) => (
@@ -7013,7 +7087,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
                 width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
                 border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
               }}>
-                <option value="">—</option>
+                <option value="">-</option>
                 <option>Dia 5</option><option>Dia 10</option><option>Dia 15</option><option>Dia 20</option><option>Dia 30</option>
               </select>
             </div>
@@ -7060,7 +7134,7 @@ function exportarCSV() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   AGENDA — inspirada no Google Calendar
+   AGENDA · inspirada no Google Calendar
    - Store reativo de eventos com persistencia em localStorage
    - Visualizacoes: Mes / Semana / Dia
    - Mini-calendario lateral (sidebar)
