@@ -1477,9 +1477,11 @@ function NewWhatsAppModal({ onClose, onCreated }) {
         evolution_apikey: 'D5E5DC9D636D-49C5-AF9C-CB1F6E0089F1',
         status: 'close',
         owner_email: privado ? (SESSAO?.email || null) : null,
-        // IA ja vem ativada por padrao (configurada e pronta pra plug futuro).
-        // Pra desligar: editar a instancia em Configuracoes apos criar.
-        ai_enabled_global: true,
+        // IA fica DESATIVADA por padrao (seguranca: evita respostas automaticas
+        // em WhatsApp pessoal). O usuario ativa depois em Configuracoes quando
+        // estiver pronto, sem risco de IA responder mensagem inesperada.
+        // Configs (model, prompt, timings) ja vem prontas pra so ligar e usar.
+        ai_enabled_global: false,
         ai_model: 'claude-opus-4-5',
         ai_typing_enabled: true,
         ai_thinking_seconds: 3.0,
@@ -5921,35 +5923,62 @@ const _evoPicCache = new Map(); // remoteJid -> {url|null, ts}
 const _evoPicSubs = new Set();
 function evoNotifyPic() { _evoPicSubs.forEach(fn => { try { fn(); } catch {} }); }
 
+// Tempo minimo antes de tentar de novo apos falha (5 minutos)
+const _PIC_RETRY_AFTER = 5 * 60 * 1000;
+// Tempo minimo antes de tentar de novo se ainda esta pendente (10s — significa que travou)
+const _PIC_PENDING_TIMEOUT = 10 * 1000;
+
 async function evoEnsurePic(remoteJid) {
   if (!remoteJid) return null;
   const cached = _evoPicCache.get(remoteJid);
-  if (cached) return cached.url;
+  const agora = Date.now();
+  // Se ja tem url valida cacheada, retorna
+  if (cached?.url) return cached.url;
+  // Se cached.failed=true mas faz mais de 5min, re-tenta (recupera de erro transitorio)
+  if (cached?.failed && (agora - (cached.ts || 0)) < _PIC_RETRY_AFTER) return null;
+  // Se cached.pending mas ja faz mais de 10s, considera dead e re-tenta
+  if (cached?.pending && (agora - (cached.ts || 0)) < _PIC_PENDING_TIMEOUT) return null;
   // marca como "fetching" pra nao disparar duplicado
-  _evoPicCache.set(remoteJid, { url:null, ts:Date.now(), pending:true });
+  _evoPicCache.set(remoteJid, { url:null, ts:agora, pending:true });
+  // Snapshot do cfg pra detectar se trocou de instancia durante o fetch
+  const cfgAtCall = getEvoConfig();
+  if (!cfgAtCall) {
+    _evoPicCache.delete(remoteJid); // sem cfg, nao cacheia — tenta de novo no proximo render
+    return null;
+  }
   try {
     const number = remoteJid.replace('@s.whatsapp.net','').replace('@c.us','').replace('@g.us','');
     const data = await evo.fetchProfilePicture(number);
+    // Se trocou de instancia durante o fetch, descarta (vai ser limpo pelo listener mesmo)
+    const cfgAfter = getEvoConfig();
+    if (!cfgAfter || cfgAfter.instance !== cfgAtCall.instance) {
+      _evoPicCache.delete(remoteJid);
+      return null;
+    }
     const url = data?.profilePictureUrl || null;
     _evoPicCache.set(remoteJid, { url, ts:Date.now() });
     evoNotifyPic();
     return url;
-  } catch {
-    _evoPicCache.set(remoteJid, { url:null, ts:Date.now(), failed:true });
+  } catch (e) {
+    // Erros 404 (contato sem foto OU nao registrado na sessao Baileys) — cacheia null
+    // mas com timestamp pra re-tentar depois (sync da Baileys pode trazer depois)
+    _evoPicCache.set(remoteJid, { url:null, ts:Date.now(), failed:true, error: e.message });
     evoNotifyPic();
     return null;
   }
 }
 function useEvoProfilePic(remoteJid) {
   const [, force] = React.useState(0);
+  // Re-renderiza ao trocar de instancia (cache foi limpo)
+  const activeInstanceId = useActiveInstanceId();
   React.useEffect(() => {
     if (!remoteJid) return;
     const fn = () => force(x => x + 1);
     _evoPicSubs.add(fn);
-    // dispara fetch se ainda nao tem
-    if (!_evoPicCache.has(remoteJid)) evoEnsurePic(remoteJid);
+    // Dispara fetch (que ja faz retry inteligente baseado no estado do cache)
+    evoEnsurePic(remoteJid);
     return () => { _evoPicSubs.delete(fn); };
-  }, [remoteJid]);
+  }, [remoteJid, activeInstanceId]); // re-dispara ao trocar de instancia
   return _evoPicCache.get(remoteJid)?.url || null;
 }
 
