@@ -491,49 +491,74 @@ const { useState, useEffect, useRef } = React;
 /* ─── Sessão (lida da URL na primeira carga, persistida em localStorage) ─── */
 const DEFAULT_SESSAO = { nome: 'Jhonattan Itiuba', email: 'diretoria@brava.company', plano: 'admin', role: 'Diretoria', welcome: false };
 
+// Mapa fonte-da-verdade dos usuarios internos Brava.
+// SEMPRE sobrescreve nome/cargo baseado no email (mesmo se URL/cache tiver outra coisa).
+// Pra adicionar mais usuarios: incluir email aqui.
+const BRAVA_USERS = {
+  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541' },
+  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '' },
+};
+
+function aplicarPerfilBrava(email) {
+  if (!email) return null;
+  const found = BRAVA_USERS[String(email).toLowerCase().trim()];
+  if (!found) return null;
+  // Forca atualizacao do localStorage com os dados corretos do mapa
+  try {
+    const perfilAtual = JSON.parse(localStorage.getItem('brava_user_perfil') || '{}');
+    const novo = {
+      ...perfilAtual,
+      nome: found.nome,
+      email: email,
+      cargo: found.cargo,
+      telefone: perfilAtual.telefone || found.telefone || '',
+    };
+    localStorage.setItem('brava_user_perfil', JSON.stringify(novo));
+  } catch {}
+  return found;
+}
+
 function carregarSessao() {
   try {
     const url = new URLSearchParams(window.location.search);
     const userUrl = url.get('user');
     const emailUrl = url.get('email');
     if (userUrl && emailUrl) {
+      // Se for um email Brava conhecido, usa o mapa como fonte da verdade
+      const brava = aplicarPerfilBrava(emailUrl);
+      const nomeReal  = brava?.nome  || userUrl;
+      const cargoReal = brava?.cargo || url.get('role') || 'Owner';
       const sessao = {
-        nome: userUrl,
+        nome: nomeReal,
         email: emailUrl,
         plano: url.get('plano') || 'performance',
-        role: url.get('role') || 'Owner',
+        role: cargoReal,
         welcome: url.get('welcome') === '1',
         logado_em: new Date().toISOString(),
       };
       const tema = url.get('theme');
       if (tema) document.documentElement.setAttribute('data-theme', tema);
       localStorage.setItem('brava_sessao', JSON.stringify(sessao));
-      // SINCRONIZA tambem o perfil rico (nome, cargo, email) usado pela aba Perfil
-      try {
-        const perfilExistente = JSON.parse(localStorage.getItem('brava_user_perfil') || '{}');
-        // So sobrescreve nome/email/cargo se mudou OU se perfil esta vazio
-        if (perfilExistente.email !== emailUrl) {
-          const novoPerfil = {
-            nome: userUrl,
-            email: emailUrl,
-            cargo: url.get('role') || 'Owner',
-            telefone: perfilExistente.telefone || '',
-          };
-          localStorage.setItem('brava_user_perfil', JSON.stringify(novoPerfil));
-        }
-      } catch {}
       window.history.replaceState({}, '', '/');
       return sessao;
     }
     const s = localStorage.getItem('brava_sessao');
     if (s) {
       const parsed = JSON.parse(s);
-      // Garante que campos obrigatórios existam
+      // SEMPRE valida pelo email: se conhece o user, sobrescreve nome/cargo errados que estavam em cache.
+      const brava = aplicarPerfilBrava(parsed.email);
+      if (brava) {
+        parsed.nome = brava.nome;
+        parsed.role = brava.cargo;
+        localStorage.setItem('brava_sessao', JSON.stringify(parsed));
+      }
       return { ...DEFAULT_SESSAO, ...parsed };
     }
   } catch(e) {
     console.warn('[Brava] Erro ao carregar sessão, usando default:', e);
   }
+  // Fallback final: aplica default e sincroniza perfil
+  aplicarPerfilBrava(DEFAULT_SESSAO.email);
   return DEFAULT_SESSAO;
 }
 
