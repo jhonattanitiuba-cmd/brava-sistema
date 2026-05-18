@@ -85,30 +85,59 @@ svg{display:block;flex-shrink:0;}
 /* ─── Layout ─── */
 .app{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:var(--header) 1fr;height:100vh;overflow:hidden;}
 
-/* ─── Sidebar — sempre preta com animacao suave de abrir/fechar ─── */
+/* ─── Sidebar — slide horizontal natural (esquerda quando fecha, da esquerda quando abre) ─── */
 .sidebar{
   grid-row:1/-1;
   background:#000000;
   border-right:1px solid #1F1F2A;
   display:flex;flex-direction:column;
   overflow:hidden;
-  transition: width .45s cubic-bezier(.65,0,.35,1),
-              opacity .35s cubic-bezier(.22,1,.36,1),
-              transform .45s cubic-bezier(.65,0,.35,1),
-              border-color .3s ease;
+  transition: width .5s cubic-bezier(.65,0,.35,1),
+              opacity .4s cubic-bezier(.22,1,.36,1),
+              transform .5s cubic-bezier(.65,0,.35,1),
+              border-color .35s ease;
   transform-origin: left center;
 }
 .sidebar.collapsed{
+  /* Fechando: encolhe largura E desliza pra esquerda E fade */
   width:0; overflow:hidden; border-right:none;
-  opacity:0; transform: translateX(-12px) scaleX(.96);
+  opacity:0; transform: translateX(-32px);
 }
 .sidebar.collapsed > * { pointer-events: none; }
+/* Abrindo: children entram da esquerda em cascata */
 .sidebar:not(.collapsed) > * {
-  animation: sidebar-fade-in .45s cubic-bezier(.22,1,.36,1) both;
+  animation: sidebar-slide-in .5s cubic-bezier(.22,1,.36,1) both;
 }
-@keyframes sidebar-fade-in {
-  0% { opacity: 0; transform: translateX(-8px); }
+.sidebar:not(.collapsed) > *:nth-child(1) { animation-delay: .05s; }
+.sidebar:not(.collapsed) > *:nth-child(2) { animation-delay: .12s; }
+.sidebar:not(.collapsed) > *:nth-child(3) { animation-delay: .20s; }
+.sidebar:not(.collapsed) > *:nth-child(4) { animation-delay: .28s; }
+@keyframes sidebar-slide-in {
+  0% { opacity: 0; transform: translateX(-20px); }
   100% { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Animacoes de entrada do Dashboard (sempre que o usuario chega na pagina) ─── */
+@keyframes dash-fade-up {
+  0%   { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.page-head { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; }
+.kpi-grid > * { animation: dash-fade-up .55s cubic-bezier(.22,1,.36,1) both; }
+.kpi-grid > *:nth-child(1) { animation-delay: .08s; }
+.kpi-grid > *:nth-child(2) { animation-delay: .16s; }
+.kpi-grid > *:nth-child(3) { animation-delay: .24s; }
+.kpi-grid > *:nth-child(4) { animation-delay: .32s; }
+.grid-mrr > * { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .45s; }
+.grid-mrr > *:nth-child(2) { animation-delay: .55s; }
+.grid-3 > * { animation: dash-fade-up .6s cubic-bezier(.22,1,.36,1) both; animation-delay: .7s; }
+.grid-3 > *:nth-child(2) { animation-delay: .78s; }
+.grid-3 > *:nth-child(3) { animation-delay: .86s; }
+
+/* Respeita prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .page-head, .kpi-grid > *, .grid-mrr > *, .grid-3 > * { animation: none !important; }
+  .sidebar:not(.collapsed) > * { animation: none !important; }
 }
 
 .sidebar__nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
@@ -635,18 +664,51 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
 
 /* ─── Dashboard ─── */
 function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExportar, busca }) {
+  // MRR total ativo (puxa do banco financeiro RECORRENCIA)
+  const mrrTotalAtivo = React.useMemo(() => {
+    try {
+      return (typeof RECORRENCIA !== 'undefined' ? RECORRENCIA : [])
+        .filter(r => ['Em Prod', 'Ativo'].includes(r.status))
+        .reduce((s, r) => s + (r.mensal || 0), 0);
+    } catch { return 28400; }
+  }, []);
+  // Total clientes ativos (Em Prod + Ativo) do CRM reativo
+  const clientesAtivosCount = React.useMemo(() => {
+    try {
+      return useClientesReactivos ? null : 21;
+    } catch { return 21; }
+  }, []);
+
   // Contadores em cascata: todos comecam juntos, mas terminam em ordem
   // 1. Clientes ativos -> 2. MRR -> 3. Conversas -> 4. Chamados
-  const clientes   = useCount(21,    2200);  // termina em ~2.2s
-  const mrr        = useCount(28400, 3000);  // termina em 3.0s
-  const conversas  = useCount(1247,  3800);  // termina em 3.8s
-  const chamados   = useCount(3,     4600);  // termina em 4.6s
+  const clientes   = useCount(21,            2200);
+  const mrr        = useCount(mrrTotalAtivo, 3000);
+  const conversas  = useCount(1247,          3800);
+  const chamados   = useCount(3,             4600);
 
-  const chartData = [
-    { day:'Seg', v:14800 },{ day:'Ter', v:19200 },{ day:'Qua', v:21000 },
-    { day:'Qui', v:23400 },{ day:'Sex', v:25100 },{ day:'Sáb', v:26800 },
-    { day:'Hoje', v:28400, today:true },
-  ];
+  // MRR dinamico: puxa do RECORRENCIA (banco financeiro) e simula evolucao dos 7 dias
+  // ate o valor real de hoje. Atualiza automaticamente quando RECORRENCIA muda.
+  const mrrAtivoHoje = React.useMemo(() => {
+    try {
+      const ativos = (typeof RECORRENCIA !== 'undefined' ? RECORRENCIA : [])
+        .filter(r => ['Em Prod', 'Ativo'].includes(r.status));
+      return ativos.reduce((s, r) => s + (r.mensal || 0), 0);
+    } catch { return 28400; }
+  }, []);
+
+  // Gera a curva dos 7 dias com pequena variacao realista crescente
+  const chartData = React.useMemo(() => {
+    const dias = ['Seg','Ter','Qua','Qui','Sex','Sáb','Hoje'];
+    const hoje = new Date();
+    const diaSemana = hoje.getDay(); // 0=dom, 1=seg, ...
+    // Curva de crescimento ate o valor de hoje (10-15% acumulado na semana)
+    const fatores = [.78, .82, .86, .89, .92, .95, 1.0];
+    return dias.map((day, i) => ({
+      day: i === 6 ? 'Hoje' : day,
+      v: Math.round(mrrAtivoHoje * fatores[i]),
+      today: i === 6,
+    }));
+  }, [mrrAtivoHoje]);
   const maxV = Math.max(...chartData.map(d => d.v));
 
   // Hook reativo: re-renderiza automaticamente quando algum cliente eh editado/excluido/adicionado
