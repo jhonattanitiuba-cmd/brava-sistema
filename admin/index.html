@@ -478,17 +478,27 @@ const TENANT = {
 /* ─── Counter animado ─── */
 function useCount(target, duration = 1600) {
   const [v, setV] = useState(0);
+  const fromRef = React.useRef(0);
+  const firstRef = React.useRef(true);
   useEffect(() => {
     let s = null, raf;
+    // Primeira vez: anima da 0 ate o target (entrada do dashboard).
+    // Atualizacoes posteriores: anima do valor atual ate o novo (transicao rapida).
+    const from = firstRef.current ? 0 : fromRef.current;
+    const dur  = firstRef.current ? duration : 420;
+    firstRef.current = false;
     const step = ts => {
       if (!s) s = ts;
-      const p = Math.min((ts - s) / duration, 1);
-      setV(Math.round((1 - Math.pow(1 - p, 3)) * target));
+      const p = Math.min((ts - s) / dur, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const val = Math.round(from + (target - from) * eased);
+      setV(val);
+      fromRef.current = val;
       if (p < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
-  }, [target]);
+  }, [target, duration]);
   return v;
 }
 
@@ -667,20 +677,15 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
 
 /* ─── Dashboard ─── */
 function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExportar, busca }) {
-  // MRR total ativo (puxa do banco financeiro RECORRENCIA)
+  // RECORRENCIA reativa: re-renderiza quando user edita/cria/exclui na aba MRR
+  const recorrencia = useRecorrencia();
+
+  // MRR total ativo (puxa do banco financeiro RECORRENCIA reativo)
   const mrrTotalAtivo = React.useMemo(() => {
-    try {
-      return (typeof RECORRENCIA !== 'undefined' ? RECORRENCIA : [])
-        .filter(r => ['Em Prod', 'Ativo'].includes(r.status))
-        .reduce((s, r) => s + (r.mensal || 0), 0);
-    } catch { return 28400; }
-  }, []);
-  // Total clientes ativos (Em Prod + Ativo) do CRM reativo
-  const clientesAtivosCount = React.useMemo(() => {
-    try {
-      return useClientesReactivos ? null : 21;
-    } catch { return 21; }
-  }, []);
+    return recorrencia
+      .filter(r => ['Em Prod', 'Ativo'].includes(r.status))
+      .reduce((s, r) => s + (r.mensal || 0), 0);
+  }, [recorrencia]);
 
   // Contadores em cascata: todos comecam juntos, mas terminam em ordem
   // 1. Clientes ativos -> 2. MRR -> 3. Conversas -> 4. Chamados
@@ -689,15 +694,8 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   const conversas  = useCount(1247,          3800);
   const chamados   = useCount(3,             4600);
 
-  // MRR dinamico: puxa do RECORRENCIA (banco financeiro) e simula evolucao dos 7 dias
-  // ate o valor real de hoje. Atualiza automaticamente quando RECORRENCIA muda.
-  const mrrAtivoHoje = React.useMemo(() => {
-    try {
-      const ativos = (typeof RECORRENCIA !== 'undefined' ? RECORRENCIA : [])
-        .filter(r => ['Em Prod', 'Ativo'].includes(r.status));
-      return ativos.reduce((s, r) => s + (r.mensal || 0), 0);
-    } catch { return 28400; }
-  }, []);
+  // MRR dinamico: mesma fonte do KPI, mas usado pro grafico 7d
+  const mrrAtivoHoje = mrrTotalAtivo;
 
   // Gera a curva dos 7 dias com pequena variacao realista crescente
   const chartData = React.useMemo(() => {
@@ -2136,7 +2134,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
             <div style={{fontSize:13, color:'var(--t3)'}}>{cliente.nome}</div>
           </div>
           <button type="button" onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}>
-            <Icon name="X" size={18}/>
+            <Icon name="XCircle" size={18}/>
           </button>
         </div>
 
@@ -2809,16 +2807,176 @@ const RECORRENCIA = [
 
 const SC = { 'Em Prod':'#1D9E75','Ativo':'#1E90FF','Implementação':'#7B3FE4','Comercial':'#BA7517','Proposta Apresentada':'#BA7517','Em breve':'#6E6E78','':'' };
 
+/* ─── Store reativo de RECORRENCIA (CRUD + persist + events) ─────────────
+   Mesma arquitetura do CLIENTES_CRM: o seed RECORRENCIA fica imutavel,
+   e aplicamos por cima edits / adds / deletes vindos do localStorage.
+   Cada item tem __id estavel (usado como chave de patch), mesmo que o
+   campo `cliente` seja renomeado pelo usuario.
+*/
+const REC_KEYS = {
+  edits:   'brava_rec_edits',
+  deleted: 'brava_rec_deleted',
+  extras:  'brava_rec_extras',
+};
+const _recReadJSON = (k, def) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : def; } catch { return def; } };
+const _recId = (r, i) => r.__id || `seed_${i}_${r.cliente}`;
+
+function getRecorrencia() {
+  const edits   = _recReadJSON(REC_KEYS.edits, {});
+  const deleted = _recReadJSON(REC_KEYS.deleted, []);
+  const extras  = _recReadJSON(REC_KEYS.extras, []);
+  const seedComId = RECORRENCIA.map((r,i) => ({ ...r, __id: _recId(r,i) }));
+  const merged = [...seedComId, ...extras].filter(r => !deleted.includes(r.__id));
+  return merged.map(r => edits[r.__id] ? { ...r, ...edits[r.__id] } : r);
+}
+
+const fireRecChanged = () => window.dispatchEvent(new Event('brava_rec_changed'));
+
+function editRecorrencia(id, patch) {
+  const edits = _recReadJSON(REC_KEYS.edits, {});
+  edits[id] = { ...(edits[id] || {}), ...patch };
+  localStorage.setItem(REC_KEYS.edits, JSON.stringify(edits));
+  fireRecChanged();
+}
+
+function addRecorrencia(item) {
+  const extras = _recReadJSON(REC_KEYS.extras, []);
+  const novo = {
+    __id: `new_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+    cliente: '', servico: '', nicho: '', impl: 0, mensal: 0, dia: '', status: 'Comercial',
+    ...item,
+  };
+  extras.push(novo);
+  localStorage.setItem(REC_KEYS.extras, JSON.stringify(extras));
+  fireRecChanged();
+  return novo.__id;
+}
+
+function deleteRecorrencia(id) {
+  // se for extra, remove do array; senao, marca como deleted
+  const extras = _recReadJSON(REC_KEYS.extras, []);
+  const filtrados = extras.filter(r => r.__id !== id);
+  if (filtrados.length !== extras.length) {
+    localStorage.setItem(REC_KEYS.extras, JSON.stringify(filtrados));
+  } else {
+    const deleted = _recReadJSON(REC_KEYS.deleted, []);
+    if (!deleted.includes(id)) {
+      deleted.push(id);
+      localStorage.setItem(REC_KEYS.deleted, JSON.stringify(deleted));
+    }
+  }
+  // limpa qualquer edit penduarado
+  const edits = _recReadJSON(REC_KEYS.edits, {});
+  if (edits[id]) { delete edits[id]; localStorage.setItem(REC_KEYS.edits, JSON.stringify(edits)); }
+  fireRecChanged();
+}
+
+function useRecorrencia() {
+  const [list, setList] = React.useState(() => getRecorrencia());
+  React.useEffect(() => {
+    const refresh = () => setList(getRecorrencia());
+    window.addEventListener('brava_rec_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_rec_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return list;
+}
+
+/* ─── Store de PAGAMENTOS mensais ─────────────────────────────────────────
+   Schema: { [recId]: { [YYYY-MM]: { pago: bool, data: 'YYYY-MM-DD' } } }
+   - recId  = __id da linha de RECORRENCIA
+   - YYYY-MM = competencia do pagamento
+   - data   = dia em que foi marcado como pago
+*/
+const PAG_KEY = 'brava_pagamentos';
+const firePagChanged = () => window.dispatchEvent(new Event('brava_pag_changed'));
+
+function getPagamentos() {
+  try { return JSON.parse(localStorage.getItem(PAG_KEY) || '{}'); } catch { return {}; }
+}
+function setPagamento(recId, ym, info) {
+  const all = getPagamentos();
+  if (!all[recId]) all[recId] = {};
+  if (info === null) {
+    delete all[recId][ym];
+    if (!Object.keys(all[recId]).length) delete all[recId];
+  } else {
+    all[recId][ym] = info;
+  }
+  localStorage.setItem(PAG_KEY, JSON.stringify(all));
+  firePagChanged();
+}
+function usePagamentos() {
+  const [all, setAll] = React.useState(() => getPagamentos());
+  React.useEffect(() => {
+    const refresh = () => setAll(getPagamentos());
+    window.addEventListener('brava_pag_changed', refresh);
+    window.addEventListener('storage', refresh);
+    return () => {
+      window.removeEventListener('brava_pag_changed', refresh);
+      window.removeEventListener('storage', refresh);
+    };
+  }, []);
+  return all;
+}
+
+/* Helpers de competencia/atraso */
+const YM = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+const ymToDate = (ym) => { const [y,m] = ym.split('-').map(Number); return new Date(y, m-1, 1); };
+
+// extrai dia numerico de strings tipo "Dia 30", "30", "todo dia 10"
+function parseDiaVenc(dia) {
+  if (dia == null) return null;
+  const m = String(dia).match(/\d+/);
+  if (!m) return null;
+  const d = parseInt(m[0], 10);
+  return (d >= 1 && d <= 31) ? d : null;
+}
+
+// Calcula dias de atraso (positivo = atrasado, 0 = vence hoje, negativo = ainda no prazo)
+// Retorna null se nao tem cobranca mensal ou dia de vencimento
+function diasAtraso(rec, hoje = new Date()) {
+  if (!rec || !rec.mensal || rec.mensal <= 0) return null;
+  const diaVenc = parseDiaVenc(rec.dia);
+  if (!diaVenc) return null;
+  const venc = new Date(hoje.getFullYear(), hoje.getMonth(), Math.min(diaVenc, ultimoDiaMes(hoje.getFullYear(), hoje.getMonth())));
+  const msDia = 24 * 60 * 60 * 1000;
+  const h = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+  return Math.round((h - venc) / msDia);
+}
+const ultimoDiaMes = (y, m) => new Date(y, m+1, 0).getDate();
+
+// Status sintetizado do pagamento do mes atual
+// returns: { kind: 'pago'|'pendente'|'atrasado'|'sem-cobranca', dias: number, label, color }
+function statusPagamentoMes(rec, pagamentos, hoje = new Date()) {
+  if (!rec.mensal || rec.mensal <= 0) return { kind:'sem-cobranca', dias:0, label:'Sem mensalidade', color:'#6E6E78' };
+  const diaVenc = parseDiaVenc(rec.dia);
+  if (!diaVenc) return { kind:'sem-cobranca', dias:0, label:'Sem vencimento', color:'#6E6E78' };
+  const ym = YM(hoje);
+  const reg = pagamentos[rec.__id]?.[ym];
+  if (reg?.pago) return { kind:'pago', dias:0, label:`Pago em ${formatBR(reg.data)}`, color:'#1D9E75' };
+  const d = diasAtraso(rec, hoje);
+  if (d < 0)  return { kind:'pendente', dias:-d, label:`Vence em ${-d} ${-d===1?'dia':'dias'}`, color:'#BA7517' };
+  if (d === 0) return { kind:'pendente', dias:0, label:'Vence hoje', color:'#BA7517' };
+  return { kind:'atrasado', dias:d, label:`Atrasado ${d} ${d===1?'dia':'dias'}`, color:'#A32D2D' };
+}
+const formatBR = (iso) => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y.slice(2)}`; };
+const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+
 /* ─── Projeção MRR 12 meses (empilhada por status) ─── */
-function ProjecaoMRR() {
+function ProjecaoMRR({ data }) {
   const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez','Jan/27'];
   const mesAtual = 4; // maio
   const corStatus = { 'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
 
-  // Agrupar MRR por status atual (snapshot real do CRM)
+  // Agrupar MRR por status atual — recebe lista reativa via prop
+  const lista = data || [];
   const mrrPorStatus = {};
-  RECORRENCIA.forEach(r => {
+  lista.forEach(r => {
     if (!r.mensal) return;
     mrrPorStatus[r.status] = (mrrPorStatus[r.status] || 0) + r.mensal;
   });
@@ -2945,7 +3103,7 @@ function ProjecaoMRR() {
       {/* Legenda */}
       <div style={{display:'flex', gap:18, marginTop:18, paddingTop:14, borderTop:'1px solid var(--border-soft)', flexWrap:'wrap', alignItems:'center'}}>
         {statusOrdem.map(st => {
-          const total = RECORRENCIA.filter(r => r.status === st).reduce((s,r) => s+r.mensal, 0);
+          const total = lista.filter(r => r.status === st).reduce((s,r) => s+r.mensal, 0);
           if (total === 0) return null;
           return (
             <div key={st} style={{display:'flex', alignItems:'center', gap:6}}>
@@ -2964,27 +3122,261 @@ function ProjecaoMRR() {
   );
 }
 
+const STATUS_OPTS = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
+
+/* Modal de edicao/criacao de cliente da aba MRR */
+function ModalRec({ rec, onClose }) {
+  const novo = !rec.__id;
+  const [form, setForm] = useState({
+    cliente: rec.cliente || '',
+    servico: rec.servico || '',
+    nicho:   rec.nicho || '',
+    impl:    rec.impl || 0,
+    mensal:  rec.mensal || 0,
+    dia:     rec.dia || '',
+    status:  rec.status || 'Comercial',
+  });
+  const set = (k,v) => setForm(f => ({...f, [k]:v}));
+
+  const salvar = () => {
+    if (!form.cliente.trim()) { showToast?.('Informe o nome do cliente','warn'); return; }
+    const patch = { ...form, impl: Number(form.impl)||0, mensal: Number(form.mensal)||0 };
+    if (novo) addRecorrencia(patch);
+    else      editRecorrencia(rec.__id, patch);
+    showToast?.(novo ? 'Cliente adicionado' : 'Cliente atualizado', 'success');
+    onClose();
+  };
+
+  const remover = () => {
+    if (!confirm(`Remover "${rec.cliente}" do controle de recorrencia?`)) return;
+    deleteRecorrencia(rec.__id);
+    showToast?.('Cliente removido', 'success');
+    onClose();
+  };
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'min(560px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:14, padding:'22px 24px', boxShadow:'0 24px 60px rgba(0,0,0,.5)'
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)', letterSpacing:'-.01em'}}>
+              {novo ? 'Novo contrato' : 'Editar contrato'}
+            </div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza MRR/Dashboard em tempo real</div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+          <div style={{gridColumn:'span 2'}}>
+            <label style={lbl}>Cliente</label>
+            <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Nome do cliente / contrato"/>
+          </div>
+          <div>
+            <label style={lbl}>Serviço</label>
+            <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + CRM, Site, etc."/>
+          </div>
+          <div>
+            <label style={lbl}>Nicho</label>
+            <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria, etc."/>
+          </div>
+          <div>
+            <label style={lbl}>Implementação (R$)</label>
+            <input style={inp} type="number" min="0" value={form.impl} onChange={e=>set('impl', e.target.value)}/>
+          </div>
+          <div>
+            <label style={lbl}>Mensal (R$)</label>
+            <input style={inp} type="number" min="0" value={form.mensal} onChange={e=>set('mensal', e.target.value)}/>
+          </div>
+          <div>
+            <label style={lbl}>Dia do vencimento</label>
+            <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: Dia 10"/>
+          </div>
+          <div>
+            <label style={lbl}>Status</label>
+            <select style={inp} value={form.status} onChange={e=>set('status', e.target.value)}>
+              {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+          {!novo
+            ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button>
+            : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
+            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Adicionar' : 'Salvar'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Modal de historico/gestao de pagamentos do cliente */
+function ModalPagamentos({ rec, pagamentos, onClose }) {
+  const [refresh, setRefresh] = useState(0);
+  const hoje = new Date();
+  const diaVenc = parseDiaVenc(rec.dia);
+
+  // Lista os ultimos 12 meses para gerir
+  const meses = React.useMemo(() => {
+    const arr = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      arr.push({
+        ym: YM(d),
+        label: d.toLocaleDateString('pt-BR',{month:'short', year:'numeric'}).replace('.','').replace(' de ','/'),
+        date: d,
+        isAtual: i === 0,
+        isFuturo: false,
+      });
+    }
+    return arr;
+  }, [refresh]);
+
+  const togglePago = (ym, atualReg) => {
+    if (atualReg?.pago) {
+      setPagamento(rec.__id, ym, null); // desmarca
+    } else {
+      setPagamento(rec.__id, ym, { pago:true, data: hojeISO() });
+    }
+    setRefresh(r => r+1);
+  };
+
+  if (!rec.mensal || rec.mensal <= 0) {
+    return (
+      <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
+        <div onClick={e=>e.stopPropagation()} style={{width:'min(460px,92vw)', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:24}}>
+          <div style={{fontFamily:'var(--f-d)', fontSize:16, fontWeight:600, color:'var(--t1)', marginBottom:8}}>{rec.cliente}</div>
+          <div style={{fontSize:13, color:'var(--t2)'}}>Este contrato nao tem mensalidade configurada. Edite o cliente para definir um valor mensal e dia de vencimento.</div>
+          <button onClick={onClose} className="btn btn-primary" style={{marginTop:18, width:'100%'}}>Fechar</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{
+        width:'min(560px, 94vw)', maxHeight:'88vh', overflow:'auto',
+        background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:14, padding:'22px 24px'
+      }}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{rec.cliente}</div>
+            <div style={{fontSize:13, color:'var(--t3)', marginTop:3}}>
+              R$ {rec.mensal.toLocaleString('pt-BR')}/mês · vence dia {diaVenc || '—'}
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Histórico (12 meses)</div>
+        <div style={{display:'grid', gap:6}}>
+          {meses.map(m => {
+            const reg = pagamentos[rec.__id]?.[m.ym];
+            const refForStatus = { ...rec };
+            // calcula status pra cada mes considerando vencimento do mes
+            let badge;
+            if (reg?.pago) {
+              badge = { label:`Pago · ${formatBR(reg.data)}`, color:'#1D9E75' };
+            } else if (diaVenc) {
+              const venc = new Date(m.date.getFullYear(), m.date.getMonth(), Math.min(diaVenc, ultimoDiaMes(m.date.getFullYear(), m.date.getMonth())));
+              const h = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+              const dDias = Math.round((h - venc) / (24*60*60*1000));
+              if (dDias < 0) badge = { label:`Vence em ${-dDias}d`, color:'#BA7517' };
+              else if (dDias === 0) badge = { label:'Vence hoje', color:'#BA7517' };
+              else badge = { label:`Atrasado ${dDias}d`, color:'#A32D2D' };
+            } else {
+              badge = { label:'Sem vencimento', color:'#6E6E78' };
+            }
+            return (
+              <div key={m.ym} style={{
+                display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, alignItems:'center',
+                padding:'10px 12px', background: m.isAtual ? 'rgba(123,63,228,.08)' : 'var(--bg-3)',
+                border: m.isAtual ? '1px solid rgba(123,63,228,.35)' : '1px solid var(--border-soft)',
+                borderRadius:8
+              }}>
+                <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', textTransform:'capitalize'}}>{m.label}</div>
+                <div>
+                  <span style={{fontSize:11, padding:'3px 9px', borderRadius:999, background:badge.color+'22', color:badge.color, border:`1px solid ${badge.color}44`, fontWeight:500}}>{badge.label}</span>
+                </div>
+                <button onClick={()=>togglePago(m.ym, reg)} className="btn btn-sm" style={{
+                  background: reg?.pago ? 'transparent' : '#1D9E75',
+                  color: reg?.pago ? '#6E6E78' : '#fff',
+                  border: reg?.pago ? '1px solid var(--border)' : 'none',
+                  padding:'5px 11px', fontSize:12,
+                }}>
+                  {reg?.pago ? 'Desmarcar' : 'Marcar pago'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        <button onClick={onClose} className="btn btn-outline" style={{marginTop:18, width:'100%'}}>Fechar</button>
+      </div>
+    </div>
+  );
+}
+
 function MRR() {
+  const recorrencia = useRecorrencia();
+  const pagamentos = usePagamentos();
+
   const [filtro, setFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
   const [sortCol, setSortCol] = useState('impl');
   const [sortAsc, setSortAsc] = useState(false);
+  const [editando, setEditando] = useState(null);   // rec sendo editado ou {} para novo
+  const [gerindoPag, setGerindoPag] = useState(null); // rec para abrir modal pagamentos
 
-  const totalImpl = RECORRENCIA.reduce((s,r) => s+r.impl, 0);
-  const totalMRR  = RECORRENCIA.reduce((s,r) => s+r.mensal, 0);
-  const ativos    = RECORRENCIA.filter(r=>['Em Prod','Ativo'].includes(r.status));
-  const mrrAtivo  = ativos.reduce((s,r) => s+r.mensal, 0);
+  const totalImpl = recorrencia.reduce((s,r) => s+(r.impl||0), 0);
+  const totalMRR  = recorrencia.reduce((s,r) => s+(r.mensal||0), 0);
+  const ativos    = recorrencia.filter(r=>['Em Prod','Ativo'].includes(r.status));
+  const mrrAtivo  = ativos.reduce((s,r) => s+(r.mensal||0), 0);
 
-  const filtrados = RECORRENCIA
+  // Pagamentos do mes atual: total atrasado + numero de contratos atrasados
+  const { totalAtrasado, qtdAtrasados, qtdPendentes, qtdPagosMes } = React.useMemo(() => {
+    let totalA = 0, qtdA = 0, qtdP = 0, qtdPg = 0;
+    recorrencia.forEach(r => {
+      const st = statusPagamentoMes(r, pagamentos);
+      if (st.kind === 'atrasado') { totalA += r.mensal; qtdA++; }
+      else if (st.kind === 'pendente') qtdP++;
+      else if (st.kind === 'pago') qtdPg++;
+    });
+    return { totalAtrasado: totalA, qtdAtrasados: qtdA, qtdPendentes: qtdP, qtdPagosMes: qtdPg };
+  }, [recorrencia, pagamentos]);
+
+  const filtrados = recorrencia
     .filter(r => {
-      if (filtro !== 'todos' && r.status !== filtro) return false;
+      if (filtro === 'atrasados') {
+        const st = statusPagamentoMes(r, pagamentos);
+        if (st.kind !== 'atrasado') return false;
+      } else if (filtro !== 'todos' && r.status !== filtro) {
+        return false;
+      }
       if (busca && !r.cliente.toLowerCase().includes(busca.toLowerCase()) && !r.nicho.toLowerCase().includes(busca.toLowerCase())) return false;
       return true;
     })
     .sort((a,b) => {
       const v = sortAsc ? 1 : -1;
-      if (sortCol === 'impl') return (a.impl - b.impl) * v;
-      if (sortCol === 'mensal') return (a.mensal - b.mensal) * v;
+      if (sortCol === 'impl') return ((a.impl||0) - (b.impl||0)) * v;
+      if (sortCol === 'mensal') return ((a.mensal||0) - (b.mensal||0)) * v;
+      if (sortCol === 'atraso') {
+        const da = diasAtraso(a) ?? -999;
+        const db = diasAtraso(b) ?? -999;
+        return (da - db) * v;
+      }
       return a.cliente.localeCompare(b.cliente) * v;
     });
 
@@ -2997,38 +3389,62 @@ function MRR() {
 
   const fmt = v => v > 0 ? `R$ ${v.toLocaleString('pt-BR')}` : '—';
 
+  const tickMensalPorContrato = recorrencia.filter(r=>r.mensal>0).length || 1;
+
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <div className="page-head__title">MRR · Controle de Recorrência</div>
-          <div className="page-head__sub">Base: CRM TECNOLOGIA · {RECORRENCIA.length} contratos</div>
+          <div className="page-head__sub">Base: CRM TECNOLOGIA · {recorrencia.length} contratos</div>
         </div>
-        <div className="page-head__actions">
-          <button className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
+        <div className="page-head__actions" style={{display:'flex',gap:10}}>
+          <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo contrato</button>
+          <button onClick={exportarCSV} className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)',marginBottom:24}}>
+      {/* KPIs — incluindo Atrasados em destaque */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(5,1fr)',marginBottom:24}}>
         {[
-          {label:'Total Implementação',val:`R$ ${totalImpl.toLocaleString('pt-BR')}`,icon:'Briefcase',color:'#7B3FE4'},
           {label:'MRR Total',          val:`R$ ${totalMRR.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1E90FF'},
-          {label:'MRR Ativo (Em Prod + Ativo)', val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'CheckCircle', color:'#1D9E75'},
-          {label:'Ticket médio mensal', val:`R$ ${Math.round(totalMRR/RECORRENCIA.filter(r=>r.mensal>0).length).toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#BA7517'},
+          {label:'MRR Ativo (Prod+Ativo)', val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75'},
+          {label:'Implementação total',val:`R$ ${totalImpl.toLocaleString('pt-BR')}`,icon:'ScrollText',color:'#7B3FE4'},
+          {label:'Ticket médio mensal',val:`R$ ${Math.round(totalMRR/tickMensalPorContrato).toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#BA7517'},
+          {label:`Em atraso (${qtdAtrasados})`, val:`R$ ${totalAtrasado.toLocaleString('pt-BR')}`, icon:'AlertCircle', color:'#A32D2D', highlight:qtdAtrasados>0, onClick:()=>setFiltro('atrasados')},
         ].map((k,i) => (
-          <div key={i} className="kpi">
+          <div key={i} className="kpi" onClick={k.onClick} style={{
+            cursor:k.onClick?'pointer':'default',
+            border: k.highlight ? '1px solid #A32D2D66' : '1px solid var(--border)',
+            background: k.highlight ? 'linear-gradient(135deg, rgba(163,45,45,.08), transparent)' : undefined,
+          }}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{color:'var(--t1)',fontSize:24}}>{k.val}</div>
+            <div className="kpi__value" style={{color:k.highlight?'#ff8585':'var(--t1)',fontSize:22}}>{k.val}</div>
           </div>
         ))}
       </div>
 
+      {/* Banner alerta de atraso */}
+      {qtdAtrasados > 0 && filtro !== 'atrasados' && (
+        <div onClick={()=>setFiltro('atrasados')} style={{
+          padding:'12px 16px', marginBottom:14, cursor:'pointer',
+          background:'rgba(163,45,45,.08)', border:'1px solid #A32D2D55',
+          borderRadius:10, display:'flex', alignItems:'center', gap:12,
+        }}>
+          <Icon name="AlertCircle" size={18} style={{color:'#ff8585'}}/>
+          <div style={{flex:1, fontSize:13.5, color:'var(--t1)'}}>
+            <strong style={{color:'#ff8585'}}>{qtdAtrasados} {qtdAtrasados===1?'contrato em atraso':'contratos em atraso'}</strong>
+            {' '}somando <strong>R$ {totalAtrasado.toLocaleString('pt-BR')}</strong> · clique para filtrar
+          </div>
+          <Icon name="ChevronRight" size={16} style={{color:'var(--t3)'}}/>
+        </div>
+      )}
+
       {/* Projeção 12 meses — empilhada por status */}
-      <ProjecaoMRR/>
+      <ProjecaoMRR data={recorrencia}/>
 
       {/* Filtros + busca */}
       <div className="card" style={{padding:'16px 18px',marginBottom:14}}>
@@ -3037,15 +3453,20 @@ function MRR() {
             <Icon name="Search" size={13} style={{color:'var(--t3)'}}/>
             <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar cliente ou nicho…" style={{background:'none',border:'none',outline:'none',fontSize:13,color:'var(--t1)',width:'100%'}}/>
           </div>
-          {['todos','Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'].map(f => (
-            <button key={f} onClick={()=>setFiltro(f)} style={{
-              padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:500,cursor:'pointer',
-              background:filtro===f ? (SC[f]||'var(--purple)')+'22' : 'transparent',
-              color:filtro===f ? (SC[f]||'#c4a8ff') : '#6E6E78',
-              border:`1px solid ${filtro===f ? (SC[f]||'var(--purple)')+'55' : 'transparent'}`,
-              transition:'all .15s',
-            }}>{f==='todos'?'Todos':f} {filtro===f && f!=='todos' && `(${RECORRENCIA.filter(r=>r.status===f).length})`}</button>
-          ))}
+          {['todos','atrasados','Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'].map(f => {
+            const isAtraso = f === 'atrasados';
+            const cor = isAtraso ? '#A32D2D' : (SC[f]||'var(--purple)');
+            const count = isAtraso ? qtdAtrasados : recorrencia.filter(r=>r.status===f).length;
+            return (
+              <button key={f} onClick={()=>setFiltro(f)} style={{
+                padding:'6px 12px',borderRadius:7,fontSize:12,fontWeight:500,cursor:'pointer',
+                background:filtro===f ? cor+'22' : 'transparent',
+                color:filtro===f ? (isAtraso?'#ff8585':(SC[f]||'#c4a8ff')) : '#6E6E78',
+                border:`1px solid ${filtro===f ? cor+'55' : 'transparent'}`,
+                transition:'all .15s',
+              }}>{f==='todos'?'Todos':isAtraso?'Em atraso':f} {filtro===f && f!=='todos' && `(${count})`}</button>
+            );
+          })}
         </div>
       </div>
 
@@ -3060,38 +3481,89 @@ function MRR() {
                 <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Nicho</th>
                 {col('Implementação','impl')}
                 {col('Mensal','mensal')}
-                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Dia Pag.</th>
+                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Venc.</th>
+                {col('Pagamento (mês atual)','atraso')}
                 <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Status</th>
+                <th style={{padding:'10px 14px',textAlign:'right',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Ações</th>
               </tr>
             </thead>
             <tbody>
-              {filtrados.map((r,i) => (
-                <tr key={i} style={{borderBottom:'1px solid var(--border-soft)',transition:'background .12s'}}
-                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  <td style={{padding:'11px 14px',fontWeight:600,color:'var(--t1)',whiteSpace:'nowrap'}}>{r.cliente}</td>
-                  <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>{r.servico||'—'}</td>
-                  <td style={{padding:'11px 14px',color:'var(--t2)'}}>{r.nicho}</td>
-                  <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.impl>0?'#F5F5F7':'#6E6E78',textAlign:'right'}}>{fmt(r.impl)}</td>
-                  <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.mensal>0?'#1D9E75':'#6E6E78',fontWeight:r.mensal>0?600:400,textAlign:'right'}}>{fmt(r.mensal)}</td>
-                  <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>{r.dia||'—'}</td>
-                  <td style={{padding:'11px 14px'}}>
-                    {r.status && <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:(SC[r.status]||'#6E6E78')+'18',color:SC[r.status]||'#6E6E78',border:`1px solid ${(SC[r.status]||'#6E6E78')}33`,fontWeight:500}}>{r.status}</span>}
-                  </td>
-                </tr>
-              ))}
+              {filtrados.map((r,i) => {
+                const stPag = statusPagamentoMes(r, pagamentos);
+                const ymAtual = YM(new Date());
+                const regAtual = pagamentos[r.__id]?.[ymAtual];
+                return (
+                  <tr key={r.__id||i} style={{
+                    borderBottom:'1px solid var(--border-soft)',
+                    transition:'background .12s',
+                    background: stPag.kind==='atrasado' ? 'rgba(163,45,45,.05)' : 'transparent',
+                  }}
+                    onMouseEnter={e=>e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.10)' : 'rgba(255,255,255,.03)'}
+                    onMouseLeave={e=>e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.05)' : 'transparent'}>
+                    <td style={{padding:'11px 14px',fontWeight:600,color:'var(--t1)',whiteSpace:'nowrap'}}>{r.cliente}</td>
+                    <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>{r.servico||'—'}</td>
+                    <td style={{padding:'11px 14px',color:'var(--t2)'}}>{r.nicho}</td>
+                    <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.impl>0?'#F5F5F7':'#6E6E78',textAlign:'right'}}>{fmt(r.impl)}</td>
+                    <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.mensal>0?'#1D9E75':'#6E6E78',fontWeight:r.mensal>0?600:400,textAlign:'right'}}>{fmt(r.mensal)}</td>
+                    <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>{r.dia||'—'}</td>
+                    <td style={{padding:'11px 14px'}}>
+                      <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:stPag.color+'22',color:stPag.color,border:`1px solid ${stPag.color}44`,fontWeight:500, whiteSpace:'nowrap'}}>{stPag.label}</span>
+                    </td>
+                    <td style={{padding:'11px 14px'}}>
+                      {r.status && <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:(SC[r.status]||'#6E6E78')+'18',color:SC[r.status]||'#6E6E78',border:`1px solid ${(SC[r.status]||'#6E6E78')}33`,fontWeight:500}}>{r.status}</span>}
+                    </td>
+                    <td style={{padding:'11px 14px',textAlign:'right',whiteSpace:'nowrap'}}>
+                      {r.mensal > 0 && (
+                        <button onClick={()=>{
+                          if (regAtual?.pago) setPagamento(r.__id, ymAtual, null);
+                          else setPagamento(r.__id, ymAtual, { pago:true, data: hojeISO() });
+                        }} title={regAtual?.pago?'Desmarcar pagamento do mês':'Marcar como pago (mês atual)'}
+                          style={{
+                            background: regAtual?.pago ? 'transparent' : '#1D9E7522',
+                            color: regAtual?.pago ? '#1D9E75' : '#1D9E75',
+                            border: `1px solid ${regAtual?.pago ? '#1D9E7555' : '#1D9E7555'}`,
+                            borderRadius:6, padding:'5px 9px', fontSize:11, cursor:'pointer', marginRight:6,
+                          }}>
+                          {regAtual?.pago ? '✓ Pago' : 'Marcar pago'}
+                        </button>
+                      )}
+                      <button onClick={()=>setGerindoPag(r)} title="Gerir pagamentos / histórico"
+                        style={{background:'transparent', border:'1px solid var(--border)', borderRadius:6, padding:'5px 8px', cursor:'pointer', color:'var(--t2)', marginRight:6}}>
+                        <Icon name="CalendarCheck" size={13}/>
+                      </button>
+                      <button onClick={()=>setEditando(r)} title="Editar contrato"
+                        style={{background:'transparent', border:'1px solid var(--border)', borderRadius:6, padding:'5px 8px', cursor:'pointer', color:'var(--t2)'}}>
+                        <Icon name="Pencil" size={13}/>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtrados.length === 0 && (
+                <tr><td colSpan={9} style={{padding:'40px 20px', textAlign:'center', color:'var(--t3)', fontSize:13}}>Nenhum contrato encontrado para os filtros atuais.</td></tr>
+              )}
             </tbody>
             <tfoot>
               <tr style={{background:'var(--bg-3)',borderTop:'2px solid var(--border)'}}>
                 <td style={{padding:'12px 14px',fontWeight:700,color:'var(--t1)',fontFamily:'var(--f-d)'}} colSpan={3}>TOTAL ({filtrados.length} contratos)</td>
-                <td style={{padding:'12px 14px',fontFamily:'var(--f-m)',fontWeight:700,color:'var(--t1)',textAlign:'right'}}>R$ {filtrados.reduce((s,r)=>s+r.impl,0).toLocaleString('pt-BR')}</td>
-                <td style={{padding:'12px 14px',fontFamily:'var(--f-m)',fontWeight:700,color:'#1D9E75',textAlign:'right'}}>R$ {filtrados.reduce((s,r)=>s+r.mensal,0).toLocaleString('pt-BR')}/mês</td>
-                <td colSpan={2}/>
+                <td style={{padding:'12px 14px',fontFamily:'var(--f-m)',fontWeight:700,color:'var(--t1)',textAlign:'right'}}>R$ {filtrados.reduce((s,r)=>s+(r.impl||0),0).toLocaleString('pt-BR')}</td>
+                <td style={{padding:'12px 14px',fontFamily:'var(--f-m)',fontWeight:700,color:'#1D9E75',textAlign:'right'}}>R$ {filtrados.reduce((s,r)=>s+(r.mensal||0),0).toLocaleString('pt-BR')}/mês</td>
+                <td colSpan={4}/>
               </tr>
             </tfoot>
           </table>
         </div>
       </div>
+
+      {/* Resumo do mes */}
+      <div style={{display:'flex', gap:14, marginTop:14, flexWrap:'wrap', fontSize:12.5, color:'var(--t2)'}}>
+        <div>✓ <strong style={{color:'#1D9E75'}}>{qtdPagosMes}</strong> pagos no mês</div>
+        <div>● <strong style={{color:'#BA7517'}}>{qtdPendentes}</strong> pendentes</div>
+        <div>⚠ <strong style={{color:'#ff8585'}}>{qtdAtrasados}</strong> atrasados</div>
+      </div>
+
+      {editando && <ModalRec rec={editando} onClose={()=>setEditando(null)}/>}
+      {gerindoPag && <ModalPagamentos rec={gerindoPag} pagamentos={pagamentos} onClose={()=>setGerindoPag(null)}/>}
     </div>
   );
 }
@@ -3681,8 +4153,16 @@ function NovoClienteModal({ onClose, onSalvar }) {
 
 /* ─── Exportar CSV ─── */
 function exportarCSV() {
-  const rows = [['Cliente','Serviço','Nicho','Status','Implementação','Mensal','Dia Pagamento']];
-  RECORRENCIA.forEach(r => rows.push([r.cliente, r.servico, r.nicho, r.status, r.impl, r.mensal, r.dia]));
+  const lista = getRecorrencia();
+  const pagamentos = getPagamentos();
+  const ym = YM(new Date());
+  const rows = [['Cliente','Serviço','Nicho','Status','Implementação','Mensal','Dia Pagamento','Pago no mês','Dias atraso']];
+  lista.forEach(r => {
+    const stPag = statusPagamentoMes(r, pagamentos);
+    const pagoMes = pagamentos[r.__id]?.[ym]?.pago ? 'Sim' : 'Não';
+    const dAtraso = stPag.kind === 'atrasado' ? stPag.dias : 0;
+    rows.push([r.cliente, r.servico, r.nicho, r.status, r.impl, r.mensal, r.dia, pagoMes, dAtraso]);
+  });
   const csv = rows.map(r => r.map(c => `"${(''+c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a');
