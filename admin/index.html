@@ -4935,8 +4935,14 @@ function useSupaEnabled() {
   return [v, setSupaEnabledStore];
 }
 
-/* ── Chamada da Edge Function wa-proxy (envia comandos pra Evolution) ── */
-async function supaProxyCall({ path, method = 'GET', body }) {
+/* ── Chamada da Edge Function wa-proxy (envia comandos pra Evolution) ──
+   IMPORTANTE: a instancia_id e capturada AGORA (antes do await), nao no
+   momento do request. Se o usuario trocar de WhatsApp entre o disparo da
+   chamada e a chegada da resposta, garantimos que a operacao foi feita
+   na instancia que o usuario via quando clicou. */
+async function supaProxyCall({ path, method = 'GET', body, instanceId }) {
+  // Snapshot da instancia ativa no momento da chamada
+  const instanciaIdAtCall = instanceId || SUPA_CFG.instanciaId;
   const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-proxy`, {
     method: 'POST',
     headers: {
@@ -4944,7 +4950,7 @@ async function supaProxyCall({ path, method = 'GET', body }) {
       'apikey': SUPA_CFG.publishableKey,
       'authorization': `Bearer ${SUPA_CFG.publishableKey}`,
     },
-    body: JSON.stringify({ instancia_id: SUPA_CFG.instanciaId, path, method, body }),
+    body: JSON.stringify({ instancia_id: instanciaIdAtCall, path, method, body }),
   });
   const text = await res.text();
   let data; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
@@ -5174,27 +5180,32 @@ function useTransferenciaWatcher(meuUserId) {
    Le do banco + Realtime + retorna funcoes pra atribuir/desatribuir. */
 function useSupaChatAgente(chatJid) {
   const [info, setInfo] = React.useState({ agenteId: null, status: 'pendente' });
+  const activeInstanceId = useActiveInstanceId(); // reativo a troca de instancia
 
   React.useEffect(() => {
     if (!chatJid) return;
     const cli = getSupa();
     if (!cli) return;
     let alive = true;
+    setInfo({ agenteId: null, status: 'pendente' }); // reset ao trocar
     const carregar = async () => {
       try {
         const { data } = await cli.from('wa_chats')
-          .select('agente_id, status').eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid).maybeSingle();
+          .select('agente_id, status').eq('instancia_id', activeInstanceId).eq('jid', chatJid).maybeSingle();
         if (alive) setInfo({ agenteId: data?.agente_id || null, status: data?.status || 'pendente' });
       } catch {}
     };
     carregar();
-    const ch = cli.channel('rt:chatagente:' + chatJid)
+    const ch = cli.channel(`rt:chatagente:${activeInstanceId}:${chatJid}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `jid=eq.${chatJid}` }, (p) => {
-        if (alive && p.new) setInfo({ agenteId: p.new.agente_id || null, status: p.new.status || 'pendente' });
+        // Garante que e da instancia ativa (msg-update pode chegar de outras)
+        if (alive && p.new && p.new.instancia_id === activeInstanceId) {
+          setInfo({ agenteId: p.new.agente_id || null, status: p.new.status || 'pendente' });
+        }
       })
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
-  }, [chatJid]);
+  }, [chatJid, activeInstanceId]);
 
   const atribuir = React.useCallback(async (usuarioId) => {
     if (!chatJid) return;
@@ -5205,9 +5216,9 @@ function useSupaChatAgente(chatJid) {
         agente_id: usuarioId,
         agente_atribuido_em: usuarioId ? new Date().toISOString() : null,
         status: usuarioId ? 'aberto' : 'pendente',
-      }).eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid);
+      }).eq('instancia_id', activeInstanceId).eq('jid', chatJid);
     } catch (e) { console.warn('Erro atribuir agente:', e); }
-  }, [chatJid]);
+  }, [chatJid, activeInstanceId]);
 
   const setStatus = React.useCallback(async (novoStatus) => {
     if (!chatJid) return;
@@ -5215,9 +5226,9 @@ function useSupaChatAgente(chatJid) {
     const cli = getSupa();
     try {
       await cli.from('wa_chats').update({ status: novoStatus })
-        .eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid);
+        .eq('instancia_id', activeInstanceId).eq('jid', chatJid);
     } catch (e) { console.warn('Erro setStatus:', e); }
-  }, [chatJid]);
+  }, [chatJid, activeInstanceId]);
 
   return { agenteId: info.agenteId, status: info.status, atribuir, setStatus };
 }
@@ -5227,6 +5238,7 @@ function useSupaChatAgente(chatJid) {
 function useSupaChatIa(chatJid) {
   const [ativa, setAtiva] = React.useState(true);
   const [loading, setLoading] = React.useState(false);
+  const activeInstanceId = useActiveInstanceId(); // reativo a troca de instancia
 
   React.useEffect(() => {
     if (!chatJid) return;
@@ -5238,34 +5250,36 @@ function useSupaChatIa(chatJid) {
       setLoading(true);
       try {
         const { data } = await cli.from('wa_chats')
-          .select('ai_enabled').eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid).maybeSingle();
+          .select('ai_enabled').eq('instancia_id', activeInstanceId).eq('jid', chatJid).maybeSingle();
         if (alive) setAtiva(data?.ai_enabled !== false);
       } catch {}
       finally { if (alive) setLoading(false); }
     };
     carregar();
 
-    // Realtime: reage a qualquer mudanca deste chat
-    const ch = cli.channel('rt:chatia:' + chatJid)
+    // Realtime: reage a mudancas DESTA instancia + DESTE chat
+    const ch = cli.channel(`rt:chatia:${activeInstanceId}:${chatJid}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `jid=eq.${chatJid}` }, (p) => {
-        if (alive && p.new && typeof p.new.ai_enabled === 'boolean') setAtiva(p.new.ai_enabled);
+        if (alive && p.new && typeof p.new.ai_enabled === 'boolean' && p.new.instancia_id === activeInstanceId) {
+          setAtiva(p.new.ai_enabled);
+        }
       })
       .subscribe();
 
     return () => { alive = false; cli.removeChannel(ch); };
-  }, [chatJid]);
+  }, [chatJid, activeInstanceId]);
 
   const setIaAtiva = React.useCallback(async (valor) => {
     if (!chatJid) return;
     setAtiva(valor); // otimista
     const cli = getSupa();
     try {
-      await cli.from('wa_chats').update({ ai_enabled: valor }).eq('instancia_id', SUPA_CFG.instanciaId).eq('jid', chatJid);
+      await cli.from('wa_chats').update({ ai_enabled: valor }).eq('instancia_id', activeInstanceId).eq('jid', chatJid);
     } catch (e) {
       console.warn('Erro ao atualizar ai_enabled:', e);
       setAtiva(!valor); // rollback
     }
-  }, [chatJid]);
+  }, [chatJid, activeInstanceId]);
 
   return { ativa, setIaAtiva, loading };
 }
@@ -5613,24 +5627,25 @@ const evoAdmin = {
    Principal: webhook apontando pra Edge Function wa-webhook, mesmos
    eventos, mesmas settings de Baileys. Garante espelhamento completo. */
 const BRAVA_INSTANCE_TEMPLATE = {
-  // URL onde a Evolution vai postar todos os eventos (chats, mensagens, status)
+  // URL onde a Evolution vai postar todos os eventos (chats, mensagens, status).
+  // Token query param obrigatorio: wa-webhook valida WEBHOOK_SECRET e rejeita
+  // requests sem ele (retorna 401). Sem o token, nada e gravado no banco.
   webhook: {
-    url: 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-webhook',
+    enabled: true,
+    url: 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-webhook?token=brava_wh_a7k9m2x5q8z3p1',
     byEvents: false,    // todos eventos numa unica URL (wa-webhook desambigua)
-    base64: true,       // envia midia ja em base64 (mais simples no front)
+    base64: false,      // mesmo padrao da Brava Principal (que ja funciona)
     events: [
-      'QRCODE_UPDATED',
-      'MESSAGES_UPSERT',
-      'MESSAGES_UPDATE',
-      'MESSAGES_DELETE',
-      'SEND_MESSAGE',
-      'CONTACTS_UPSERT',
-      'CONTACTS_UPDATE',
-      'CHATS_UPSERT',
-      'CHATS_UPDATE',
-      'CHATS_DELETE',
+      // Mesmo conjunto da Brava Principal pra paridade total
+      'APPLICATION_STARTUP', 'CALL',
+      'QRCODE_UPDATED', 'CONNECTION_UPDATE', 'LOGOUT_INSTANCE', 'REMOVE_INSTANCE',
+      'MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'MESSAGES_DELETE', 'MESSAGES_SET', 'SEND_MESSAGE',
+      'CHATS_UPSERT', 'CHATS_UPDATE', 'CHATS_DELETE', 'CHATS_SET',
+      'CONTACTS_UPSERT', 'CONTACTS_UPDATE', 'CONTACTS_SET',
+      'GROUPS_UPSERT', 'GROUP_UPDATE', 'GROUP_PARTICIPANTS_UPDATE',
       'PRESENCE_UPDATE',
-      'CONNECTION_UPDATE',
+      'LABELS_ASSOCIATION', 'LABELS_EDIT',
+      'TYPEBOT_START', 'TYPEBOT_CHANGE_STATUS',
     ],
   },
   // Comportamento Baileys (mesmas da Brava Principal)
@@ -6447,6 +6462,9 @@ function useEvoChats(intervalMs = 15000) {
   React.useEffect(() => {
     if (!cfg) { setRaw({loading:false, arr:[], error:null}); return; }
     let alive = true;
+    // Snapshot do instance no inicio do effect — usado pra descartar
+    // responses tardios se o usuario trocou de WhatsApp no meio do fetch.
+    const cfgSnapshot = cfg;
     const tick = async () => {
       if (!alive) return;
       try {
@@ -6454,6 +6472,12 @@ function useEvoChats(intervalMs = 15000) {
         if (!_evoContacts.loaded && !_evoContacts.loading) await evoLoadContacts();
         const data = await evo.findChats();
         if (!alive) return;
+        // Se trocou de instancia no meio, descarta o response
+        const cfgAfter = getEvoConfig();
+        if (!cfgAfter || cfgAfter.instance !== cfgSnapshot.instance) {
+          console.warn('[Brava] useEvoChats: instancia trocou, descartando response');
+          return;
+        }
         const arr = Array.isArray(data) ? data : (data?.chats || []);
         setRaw({ loading:false, arr, error:null });
       } catch (e) {
@@ -6461,7 +6485,7 @@ function useEvoChats(intervalMs = 15000) {
       }
     };
     fetchRef.current = tick;
-    setRaw(s => ({...s, loading:true}));
+    setRaw(s => ({...s, loading:true, arr:[]})); // limpa array antigo ao trocar
     tick();
     const id = setInterval(tick, intervalMs);
     return () => { alive = false; clearInterval(id); };
@@ -6548,11 +6572,19 @@ function useEvoMessages(remoteJid, intervalMs = 12000) {
   React.useEffect(() => {
     if (!cfg || !remoteJid) { setState({loading:false, messages:[], error:null}); return; }
     let alive = true;
+    // Snapshot do instance no inicio do effect (protege contra race ao trocar)
+    const cfgSnapshot = cfg;
     const tick = async () => {
       if (!alive) return;
       try {
         const data = await evo.findMessages(remoteJid, 100);
         if (!alive) return;
+        // Descarta response se trocou de instancia
+        const cfgAfter = getEvoConfig();
+        if (!cfgAfter || cfgAfter.instance !== cfgSnapshot.instance) {
+          console.warn('[Brava] useEvoMessages: instancia trocou, descartando response');
+          return;
+        }
         const arr = Array.isArray(data) ? data : (data?.messages?.records || data?.messages || []);
         const norm = arr.map(evoNormalizeMessage)
           .filter(m => m.text || m.raw?.message || m.kind !== 'text')
@@ -6563,7 +6595,7 @@ function useEvoMessages(remoteJid, intervalMs = 12000) {
       }
     };
     fetchRef.current = tick;
-    setState(s => ({...s, loading:true}));
+    setState({loading:true, messages:[], error:null}); // limpa msgs antigas ao trocar
     tick();
     const id = setInterval(tick, intervalMs);
     return () => { alive = false; clearInterval(id); };
