@@ -2,104 +2,233 @@
 
 function ProposalBlock() {
   const metrics = [
-    { num: '+22', label: 'empresas ativas', desc: 'de diferentes segmentos usando a plataforma hoje' },
-    { num: '24h', label: 'atendimento com IA', desc: 'sem depender de equipe humana fora do horário comercial' },
-    { num: '1',   label: 'plataforma só', desc: 'site, CRM, IA e suporte — sem empilhar ferramentas avulsas' },
+    { num: '+22', label: 'empresas ativas',     desc: 'de diferentes segmentos usando a plataforma hoje' },
+    { num: '24h', label: 'atendimento com IA',  desc: 'sem depender de equipe humana fora do horário comercial' },
+    { num: '1',   label: 'plataforma única',    desc: 'site, CRM, IA e suporte — sem empilhar ferramentas avulsas' },
   ];
 
   const pillars = [
     {
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>,
       title: 'Velocidade de resposta',
       text: 'Agentes de IA respondem em segundos, qualificam o lead e agendam — enquanto sua equipe dorme.'
     },
     {
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
       title: 'Operação com seu logo',
       text: 'White-label completo. O cliente vê sua marca, não a nossa. Parece sob medida porque é.'
     },
     {
-      icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
+      icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>,
       title: 'Visibilidade total',
       text: 'Pipeline, relatórios e cada conversa em um só lugar. Você sabe exatamente quanto está convertendo.'
     },
   ];
 
   return (
-    <section className="section light" id="proposta">
+    <section className="section light proposal-section" id="proposta">
       <div className="container">
 
-        {/* Label */}
-        <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-on-light-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'JetBrains Mono, monospace', marginBottom: 20 }}>
-          Proposta de valor
+        {/* Eyebrow elegante com linha + texto */}
+        <div className="proposal-eyebrow">
+          <span className="proposal-eyebrow__line" />
+          <span className="proposal-eyebrow__text">Proposta de valor</span>
         </div>
 
-        {/* Headline + copy */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'flex-end', marginBottom: 64 }} className="proposal-top">
-          <h2 className="h2" style={{ margin: 0, color: 'var(--text-on-light-primary)' }}>
-            O WhatsApp virou a <span className="gradient-text">porta de entrada</span> do seu negócio. E também o maior buraco da sua operação.
+        {/* Headline + copy lado a lado */}
+        <div className="proposal-top">
+          <h2 className="h2 proposal-h2">
+            O WhatsApp virou a <span className="gradient-text">porta de entrada</span> do seu negócio.
+            <span className="proposal-h2__faded"> E também o maior buraco da sua operação.</span>
           </h2>
-          <div>
-            <p style={{ margin: '0 0 18px', fontSize: 17, lineHeight: 1.65, color: 'var(--text-on-light-secondary)' }}>
+          <div className="proposal-copy">
+            <p className="proposal-copy__p">
               Mensagem perdida, atendente respondendo do celular pessoal, lead virando fantasma. A cada conversa sem resposta, você perde dinheiro — e nem sabe quanto.
             </p>
-            <p style={{ margin: '0 0 28px', fontSize: 17, lineHeight: 1.65, color: 'var(--text-on-light-secondary)' }}>
+            <p className="proposal-copy__p">
               A Brava organiza tudo em um único sistema — com seu logo, sua equipe e agentes de IA treinados pra sua operação.
             </p>
-            <a href="#planos" className="btn" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              padding: '14px 28px', borderRadius: 12,
-              background: '#1E90FF', color: '#fff',
-              fontWeight: 600, fontSize: 15,
-              boxShadow: '0 6px 20px rgba(30,144,255,.3)',
-              textDecoration: 'none', transition: 'box-shadow .2s, transform .15s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.boxShadow='0 10px 28px rgba(30,144,255,.45)'; e.currentTarget.style.transform='translateY(-2px)'; }}
-              onMouseLeave={e => { e.currentTarget.style.boxShadow='0 6px 20px rgba(30,144,255,.3)'; e.currentTarget.style.transform='translateY(0)'; }}
-            >
+            <a href="#planos" className="proposal-cta">
               Ver como funciona
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
             </a>
           </div>
         </div>
 
-        {/* Métricas */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 1, background: 'var(--border-light)', border: '1px solid var(--border-light)', borderRadius: 16, overflow: 'hidden', marginBottom: 40 }} className="proposal-metrics">
+        {/* Metricas — linhas verticais separando, sem caixa pesada */}
+        <div className="proposal-metrics">
           {metrics.map((m, i) => (
-            <div key={i} style={{ padding: '32px 28px', background: 'var(--bg-light-card)' }}>
-              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontSize: 44, fontWeight: 700, letterSpacing: '-0.03em', background: 'var(--brava-gradient)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{m.num}</div>
-              <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--text-on-light-primary)', margin: '6px 0 4px' }}>{m.label}</div>
-              <div style={{ fontSize: 13.5, color: 'var(--text-on-light-tertiary)', lineHeight: 1.5 }}>{m.desc}</div>
+            <div key={i} className="proposal-metric">
+              <div className="proposal-metric__num">{m.num}</div>
+              <div className="proposal-metric__label">{m.label}</div>
+              <div className="proposal-metric__desc">{m.desc}</div>
             </div>
           ))}
         </div>
 
         {/* Pilares */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }} className="proposal-pillars">
+        <div className="proposal-pillars">
           {pillars.map((p, i) => (
-            <div key={i} style={{
-              padding: '28px 24px',
-              background: 'var(--bg-light-card)',
-              border: '1px solid var(--border-light)',
-              borderRadius: 16,
-              transition: 'border-color .2s, transform .2s, box-shadow .2s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(123,63,228,.35)'; e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='0 12px 32px rgba(0,0,0,.08)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border-light)'; e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none'; }}
-            >
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: 'linear-gradient(135deg,rgba(123,63,228,.1),rgba(30,144,255,.1))', border: '1px solid rgba(123,63,228,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B3FE4', marginBottom: 18 }}>{p.icon}</div>
-              <div style={{ fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em', marginBottom: 10, color: 'var(--text-on-light-primary)' }}>{p.title}</div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.6, color: 'var(--text-on-light-secondary)' }}>{p.text}</div>
+            <div key={i} className="proposal-pillar">
+              <div className="proposal-pillar__icon">{p.icon}</div>
+              <div className="proposal-pillar__title">{p.title}</div>
+              <div className="proposal-pillar__text">{p.text}</div>
             </div>
           ))}
         </div>
       </div>
 
       <style>{`
-        @media (max-width: 860px) {
-          .proposal-top     { grid-template-columns: 1fr !important; gap: 32px !important; }
-          .proposal-metrics { grid-template-columns: 1fr !important; }
-          .proposal-pillars { grid-template-columns: 1fr !important; }
+        .proposal-section { padding: 96px 0 !important; }
+
+        /* Eyebrow refinado */
+        .proposal-eyebrow {
+          display: flex; align-items: center; gap: 14px;
+          margin-bottom: 32px;
+        }
+        .proposal-eyebrow__line {
+          display: block; width: 36px; height: 1px;
+          background: linear-gradient(90deg, #7B3FE4, #1E90FF);
+        }
+        .proposal-eyebrow__text {
+          font-family: 'Inter', sans-serif;
+          font-size: 11.5px; font-weight: 600;
+          letter-spacing: 0.16em; text-transform: uppercase;
+          color: #7B3FE4;
+        }
+
+        /* Headline + copy */
+        .proposal-top {
+          display: grid; grid-template-columns: 1.15fr 1fr;
+          gap: 80px; align-items: start;
+          margin-bottom: 88px;
+        }
+        .proposal-h2 {
+          margin: 0; color: var(--text-on-light-primary);
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: clamp(32px, 4vw, 48px);
+          line-height: 1.1; letter-spacing: -0.03em; font-weight: 600;
+        }
+        .proposal-h2__faded {
+          color: var(--text-on-light-secondary); font-weight: 500;
+        }
+        .proposal-copy { padding-top: 8px; }
+        .proposal-copy__p {
+          margin: 0 0 18px; font-size: 16px; line-height: 1.7;
+          color: var(--text-on-light-secondary); font-family: 'Inter', sans-serif;
+        }
+        .proposal-cta {
+          display: inline-flex; align-items: center; gap: 8px;
+          margin-top: 14px; padding: 13px 22px; border-radius: 999px;
+          background: #0A0A0F; color: #fff;
+          font-family: 'Inter', sans-serif;
+          font-weight: 500; font-size: 14.5px; letter-spacing: -0.005em;
+          text-decoration: none;
+          border: 1px solid #0A0A0F;
+          transition: background .25s ease, border-color .25s ease, transform .15s ease, box-shadow .2s ease;
+        }
+        .proposal-cta:hover {
+          background: #1E90FF; border-color: #1E90FF;
+          transform: translateY(-1px);
+          box-shadow: 0 8px 24px -8px rgba(30,144,255,.6);
+        }
+        .proposal-cta svg { transition: transform .25s ease; }
+        .proposal-cta:hover svg { transform: translateX(3px); }
+
+        /* Metricas — sem caixa, separadas por linha vertical */
+        .proposal-metrics {
+          display: grid; grid-template-columns: repeat(3, 1fr);
+          margin-bottom: 88px;
+          border-top: 1px solid rgba(0,0,0,.08);
+          border-bottom: 1px solid rgba(0,0,0,.08);
+        }
+        .proposal-metric {
+          padding: 36px 32px;
+          border-right: 1px solid rgba(0,0,0,.06);
+        }
+        .proposal-metric:last-child { border-right: none; }
+        .proposal-metric__num {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 38px; font-weight: 500;
+          letter-spacing: -0.035em; line-height: 1;
+          background: linear-gradient(135deg, #7B3FE4, #1E90FF);
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        .proposal-metric__label {
+          font-family: 'Inter', sans-serif;
+          font-weight: 600; font-size: 14.5px;
+          color: var(--text-on-light-primary);
+          margin: 14px 0 6px;
+        }
+        .proposal-metric__desc {
+          font-family: 'Inter', sans-serif;
+          font-size: 13px; line-height: 1.55;
+          color: var(--text-on-light-tertiary);
+          max-width: 280px;
+        }
+
+        /* Pilares */
+        .proposal-pillars {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+        }
+        .proposal-pillar {
+          padding: 30px 26px;
+          background: #FAFAFA;
+          border: 1px solid rgba(0,0,0,.06);
+          border-radius: 14px;
+          transition: border-color .25s ease, transform .25s cubic-bezier(.22,1,.36,1), box-shadow .25s ease;
+        }
+        .proposal-pillar:hover {
+          border-color: rgba(123,63,228,.35);
+          transform: translateY(-3px);
+          box-shadow: 0 16px 36px -12px rgba(0,0,0,.12);
+        }
+        .proposal-pillar__icon {
+          width: 40px; height: 40px; border-radius: 10px;
+          background: #fff;
+          border: 1px solid rgba(123,63,228,.18);
+          display: inline-flex; align-items: center; justify-content: center;
+          color: #7B3FE4;
+          margin-bottom: 20px;
+          transition: background .25s ease, color .25s ease, border-color .25s ease;
+        }
+        .proposal-pillar:hover .proposal-pillar__icon {
+          background: linear-gradient(135deg, #7B3FE4, #1E90FF);
+          color: #fff; border-color: transparent;
+        }
+        .proposal-pillar__title {
+          font-family: 'Space Grotesk', sans-serif;
+          font-weight: 600; font-size: 17px; letter-spacing: -0.015em;
+          color: var(--text-on-light-primary);
+          margin-bottom: 8px;
+        }
+        .proposal-pillar__text {
+          font-family: 'Inter', sans-serif;
+          font-size: 14px; line-height: 1.6;
+          color: var(--text-on-light-secondary);
+        }
+
+        /* Responsivo */
+        @media (max-width: 980px) {
+          .proposal-top {
+            grid-template-columns: 1fr; gap: 40px; margin-bottom: 64px;
+          }
+          .proposal-metrics { margin-bottom: 64px; }
+          .proposal-pillars { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 720px) {
+          .proposal-section { padding: 72px 0 !important; }
+          .proposal-metrics {
+            grid-template-columns: 1fr;
+          }
+          .proposal-metric {
+            border-right: none;
+            border-bottom: 1px solid rgba(0,0,0,.06);
+            padding: 28px 0;
+          }
+          .proposal-metric:last-child { border-bottom: none; }
+          .proposal-pillars { grid-template-columns: 1fr; }
         }
       `}</style>
     </section>
