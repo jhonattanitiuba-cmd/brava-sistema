@@ -1519,15 +1519,44 @@ const MENSAGENS = {
 };
 
 function Conversas({ pipelineCols, moverNoPipeline }) {
-  const [ativo, setAtivo] = useState(1);
+  // Dados reais vs mock — quando Evolution configurada, usa real
+  const evoCfg = useEvoConfig();
+  const { chats: realChats, loading: realChatsLoading, error: realChatsError } = useEvoChats(8000);
+  const usandoReal = !!evoCfg;
+  const fonteContatos = usandoReal ? realChats : CONTATOS;
+
+  // ID inicial: primeiro contato disponivel
+  const [ativo, setAtivo] = useState(usandoReal ? null : 1);
+  // Quando muda a fonte ou quando o ativo ainda nao existe na lista, escolhe o primeiro
+  useEffect(() => {
+    if (!fonteContatos.length) { setAtivo(null); return; }
+    if (!ativo || !fonteContatos.some(c => c.id === ativo)) {
+      setAtivo(fonteContatos[0].id);
+    }
+  }, [fonteContatos.length, ativo]);
+
   const [filtro, setFiltro] = useState('todas');
   const [iaAtiva, setIaAtiva] = useState(true);
   const [msg, setMsg] = useState('');
   const [busca, setBusca] = useState('');
   const [sidebarAberta, setSidebarAberta] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [msgsOtimistas, setMsgsOtimistas] = useState([]); // adicionadas localmente antes de confirmar no servidor
   const bottomRef = useRef(null);
-  const contato = CONTATOS.find(c => c.id === ativo);
-  const msgs = MENSAGENS[ativo] || MENSAGENS[1];
+  const contato = fonteContatos.find(c => c.id === ativo);
+
+  // Mensagens reais da conversa ativa (so se usando real)
+  const { messages: realMsgs, loading: realMsgsLoading, error: realMsgsError } = useEvoMessages(usandoReal ? ativo : null, 5000);
+  const msgsBase = usandoReal ? realMsgs : (MENSAGENS[ativo] || MENSAGENS[1] || []);
+  // Junta otimistas (sem duplicar se o real ja contem)
+  const msgs = [...msgsBase, ...msgsOtimistas.filter(o => o.conversaId === ativo)];
+
+  // Limpa otimistas quando o real refletir (heuristica: removeu otimistas com timestamp anterior ao maior do real)
+  useEffect(() => {
+    if (!usandoReal || !realMsgs.length) return;
+    const maxRealTs = Math.max(...realMsgs.map(m => m.timestamp || 0));
+    setMsgsOtimistas(arr => arr.filter(o => (o.timestamp||0) > maxRealTs));
+  }, [realMsgs.length, usandoReal]);
 
   // Fase atual do contato no pipeline
   const faseAtual = (pipelineCols||[]).find(col =>
@@ -1537,9 +1566,39 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     if (moverNoPipeline && contato) moverNoPipeline(contato.name, colId);
   };
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [ativo]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [ativo, msgs.length]);
 
-  const filtrados = CONTATOS.filter(c => {
+  // Envio de mensagem real
+  const enviar = async () => {
+    const texto = msg.trim();
+    if (!texto || !contato) return;
+    if (!usandoReal) { setMsg(''); return; } // mock: nao tenta enviar
+    const numero = (contato.id || '').replace('@s.whatsapp.net','').replace('@c.us','');
+    const tsAgora = Date.now();
+    // UI otimista
+    setMsgsOtimistas(arr => [...arr, {
+      id: 'opt_' + tsAgora,
+      conversaId: contato.id,
+      from: 'out',
+      text: texto,
+      time: evoTimeFormat(tsAgora),
+      timestamp: tsAgora,
+      pending: true,
+    }]);
+    setMsg('');
+    setEnviando(true);
+    try {
+      await evo.sendText(numero, texto);
+    } catch (e) {
+      showToast?.('Erro ao enviar: ' + (e.message || 'desconhecido'), 'error');
+      // marca otimista como falhada
+      setMsgsOtimistas(arr => arr.map(o => o.id === 'opt_' + tsAgora ? {...o, failed:true, pending:false} : o));
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const filtrados = fonteContatos.filter(c => {
     if (busca && !c.name.toLowerCase().includes(busca.toLowerCase())) return false;
     if (filtro === 'nao_lidas') return c.unread > 0;
     if (filtro === 'ia') return c.tag === 'ia';
@@ -1601,8 +1660,29 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           </div>
         </div>
 
+        {/* Banner status Evolution */}
+        {usandoReal && (
+          <div style={{
+            padding:'8px 14px', fontSize:11, fontFamily:'var(--f-m)',
+            color: realChatsError ? '#ff8585' : 'var(--wa-green)',
+            background: realChatsError ? 'rgba(163,45,45,.08)' : 'rgba(37,211,102,.06)',
+            borderBottom:`1px solid ${S.border}`,
+            display:'flex', alignItems:'center', gap:6,
+          }}>
+            <div style={{width:6, height:6, borderRadius:'50%', background: realChatsError ? '#ff8585' : 'var(--wa-green)', boxShadow: realChatsError ? '' : '0 0 6px var(--wa-green)'}}/>
+            {realChatsError
+              ? `Erro Evolution: ${realChatsError.slice(0,60)}`
+              : `Evolution · ${evoCfg?.instance} · ${realChats.length} conversa${realChats.length===1?'':'s'}${realChatsLoading?' · atualizando':''}`}
+          </div>
+        )}
+
         {/* Lista */}
         <div style={{ flex:1, overflowY:'auto' }}>
+          {usandoReal && realChats.length === 0 && !realChatsLoading && !realChatsError && (
+            <div style={{padding:'24px 18px', textAlign:'center', color:S.textSec, fontSize:13}}>
+              Nenhuma conversa ainda. Mensagens novas aparecerao aqui em segundos.
+            </div>
+          )}
           {filtrados.map(c => (
             <div key={c.id} onClick={()=>setAtivo(c.id)} style={{
               display:'flex', alignItems:'flex-start', gap:12,
@@ -1635,6 +1715,13 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
 
       {/* ── Coluna 2: Chat ── */}
       <div style={{ display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {!contato ? (
+          <div style={{flex:1, display:'flex', alignItems:'center', justifyContent:'center', background:S.chatBg, color:S.textSec, fontSize:14, textAlign:'center', padding:40}}>
+            {usandoReal
+              ? (realChatsLoading ? 'Carregando conversas...' : 'Selecione uma conversa a esquerda')
+              : 'Selecione uma conversa'}
+          </div>
+        ) : (<>
         {/* Header chat */}
         <div style={{ padding:'10px 16px', background:S.headerBg, borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
           <div style={{ position:'relative' }}>
@@ -1722,16 +1809,30 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 <Icon name={ic} size={20}/>
               </div>
             ))}
-            <input value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&msg.trim()) setMsg(''); }} placeholder="Digite uma mensagem" style={{
-              flex:1, height:42, padding:'0 16px', borderRadius:21,
-              background:S.searchBg, border:'none', outline:'none',
-              fontSize:14, color:S.textPrimary,
-            }}/>
-            <div style={{ width:42, height:42, borderRadius:'50%', background:'var(--wa-green)', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', flexShrink:0 }}>
-              <Icon name={msg ? 'Send' : 'Mic'} size={18} style={{color:'#fff'}}/>
+            <input value={msg} onChange={e=>setMsg(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+              placeholder={usandoReal ? `Digite uma mensagem para ${contato?.name || ''}` : 'Digite uma mensagem'}
+              disabled={enviando}
+              style={{
+                flex:1, height:42, padding:'0 16px', borderRadius:21,
+                background:S.searchBg, border:'none', outline:'none',
+                fontSize:14, color:S.textPrimary,
+                opacity: enviando ? .6 : 1,
+              }}/>
+            <div onClick={enviar} style={{
+              width:42, height:42, borderRadius:'50%',
+              background: msg.trim() ? 'var(--wa-green)' : 'rgba(128,128,128,.3)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              cursor: msg.trim() && !enviando ? 'pointer' : 'default',
+              flexShrink:0,
+              opacity: enviando ? .6 : 1,
+              transition:'background .15s',
+            }}>
+              <Icon name={msg.trim() ? 'Send' : 'Mic'} size={18} style={{color:'#fff'}}/>
             </div>
           </div>
         </div>
+        </>)}
       </div>
 
       {/* ── Coluna 3: Contexto ── */}
@@ -2404,6 +2505,146 @@ function useEvoStatus(intervalMs = 15000) {
     const id = setInterval(tick, intervalMs);
     return () => { alive = false; clearInterval(id); };
   }, [cfg?.url, cfg?.instance, cfg?.apikey, intervalMs]);
+  return state;
+}
+
+/* ── Helpers para normalizar dados da Evolution para o shape esperado pelo UI ── */
+const EVO_PALETA = ['#7B3FE4','#1E90FF','#1D9E75','#BA7517','#A32D2D','#E040FB','#185FA5','#FF6D00','#00BCD4','#9C27B0'];
+function evoColorFromString(s) {
+  let h = 0; for (let i = 0; i < (s||'').length; i++) h = ((h<<5) - h) + s.charCodeAt(i);
+  return EVO_PALETA[Math.abs(h) % EVO_PALETA.length];
+}
+function evoInitials(name) {
+  const parts = (name||'?').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
+function evoTimeFormat(ts) {
+  if (!ts) return '';
+  const d = typeof ts === 'number' ? new Date(ts < 1e12 ? ts*1000 : ts) : new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  const now = new Date();
+  const ehHoje = d.toDateString() === now.toDateString();
+  if (ehHoje) return d.toLocaleTimeString('pt-BR',{hour:'2-digit', minute:'2-digit'});
+  const ontem = new Date(now); ontem.setDate(ontem.getDate()-1);
+  if (d.toDateString() === ontem.toDateString()) return 'ontem';
+  const diasAtras = Math.floor((now - d) / (24*60*60*1000));
+  if (diasAtras < 7) return d.toLocaleDateString('pt-BR',{weekday:'short'}).slice(0,3);
+  return d.toLocaleDateString('pt-BR',{day:'2-digit', month:'2-digit'});
+}
+
+// Extrai texto de qualquer tipo de message Baileys
+function evoExtractText(msg) {
+  if (!msg) return '';
+  if (typeof msg === 'string') return msg;
+  const m = msg.message || msg;
+  if (!m) return '';
+  if (m.conversation) return m.conversation;
+  if (m.extendedTextMessage?.text) return m.extendedTextMessage.text;
+  if (m.imageMessage)    return m.imageMessage.caption    ? `📷 ${m.imageMessage.caption}` : '📷 Foto';
+  if (m.videoMessage)    return m.videoMessage.caption    ? `🎥 ${m.videoMessage.caption}` : '🎥 Vídeo';
+  if (m.audioMessage)    return m.audioMessage.ptt ? '🎤 Mensagem de voz' : '🎵 Áudio';
+  if (m.documentMessage) return `📄 ${m.documentMessage.fileName || 'Documento'}`;
+  if (m.stickerMessage)  return '😀 Figurinha';
+  if (m.contactMessage)  return '👤 Contato';
+  if (m.locationMessage) return '📍 Localização';
+  if (m.buttonsResponseMessage?.selectedDisplayText) return m.buttonsResponseMessage.selectedDisplayText;
+  if (m.listResponseMessage?.title) return m.listResponseMessage.title;
+  return '';
+}
+
+// Converte um chat do Evolution v2 para o shape do UI
+function evoNormalizeChat(c) {
+  const remoteJid = c.remoteJid || c.id || c.key?.remoteJid || '';
+  const name = c.pushName || c.name || c.profileName || remoteJid.replace('@s.whatsapp.net','').replace('@g.us','');
+  const preview = evoExtractText(c.lastMessage) || (c.lastMessage?.message ? evoExtractText(c.lastMessage.message) : '');
+  const ts = c.updatedAt || c.lastMessage?.messageTimestamp || c.messageTimestamp;
+  return {
+    id: remoteJid,                              // usamos remoteJid como id (string)
+    name,
+    init: evoInitials(name),
+    color: evoColorFromString(remoteJid),
+    preview: preview || (c.lastMessage?.fromMe ? 'Você: ...' : '...'),
+    time: evoTimeFormat(ts),
+    timestamp: typeof ts === 'number' ? ts : (ts ? new Date(ts).getTime() : 0),
+    unread: c.unreadCount || 0,
+    status: 'online',
+    tag: null,
+    via: 'WhatsApp',
+    canal: 'WhatsApp',
+    raw: c,
+  };
+}
+
+function evoNormalizeMessage(m) {
+  const text = evoExtractText(m);
+  const fromMe = m.key?.fromMe || m.fromMe;
+  const ts = m.messageTimestamp || m.timestamp || m.createdAt;
+  return {
+    id: m.key?.id || m.id,
+    from: fromMe ? 'out' : 'in',
+    text: text || '',
+    time: evoTimeFormat(ts),
+    timestamp: typeof ts === 'number' ? (ts < 1e12 ? ts*1000 : ts) : (ts ? new Date(ts).getTime() : 0),
+    ia: false, // pode ser refinado se IA estiver marcando mensagens
+    raw: m,
+  };
+}
+
+// Hook: lista de conversas reais (polling)
+function useEvoChats(intervalMs = 8000) {
+  const cfg = useEvoConfig();
+  const [state, setState] = React.useState({ loading:false, chats:[], error:null });
+  React.useEffect(() => {
+    if (!cfg) { setState({loading:false, chats:[], error:null}); return; }
+    let alive = true;
+    const tick = async () => {
+      if (!alive) return;
+      try {
+        const data = await evo.findChats();
+        if (!alive) return;
+        const arr = Array.isArray(data) ? data : (data?.chats || []);
+        const norm = arr.map(evoNormalizeChat).sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+        setState({ loading:false, chats:norm, error:null });
+      } catch (e) {
+        if (alive) setState(s => ({...s, loading:false, error: e.message || 'Erro ao listar conversas'}));
+      }
+    };
+    setState(s => ({...s, loading:true}));
+    tick();
+    const id = setInterval(tick, intervalMs);
+    return () => { alive = false; clearInterval(id); };
+  }, [cfg?.url, cfg?.instance, cfg?.apikey, intervalMs]);
+  return state;
+}
+
+// Hook: mensagens de uma conversa especifica (polling, mais rapido)
+function useEvoMessages(remoteJid, intervalMs = 5000) {
+  const cfg = useEvoConfig();
+  const [state, setState] = React.useState({ loading:false, messages:[], error:null });
+  React.useEffect(() => {
+    if (!cfg || !remoteJid) { setState({loading:false, messages:[], error:null}); return; }
+    let alive = true;
+    const tick = async () => {
+      if (!alive) return;
+      try {
+        const data = await evo.findMessages(remoteJid, 100);
+        if (!alive) return;
+        const arr = Array.isArray(data) ? data : (data?.messages?.records || data?.messages || []);
+        const norm = arr.map(evoNormalizeMessage)
+          .filter(m => m.text || m.raw?.message)
+          .sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
+        setState({ loading:false, messages:norm, error:null });
+      } catch (e) {
+        if (alive) setState(s => ({...s, loading:false, error: e.message || 'Erro ao listar mensagens'}));
+      }
+    };
+    setState(s => ({...s, loading:true}));
+    tick();
+    const id = setInterval(tick, intervalMs);
+    return () => { alive = false; clearInterval(id); };
+  }, [cfg?.url, cfg?.instance, cfg?.apikey, remoteJid, intervalMs]);
   return state;
 }
 
