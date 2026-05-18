@@ -906,7 +906,7 @@ function WhatsAppPairingModal({ instance, onClose }) {
     if (attempt > 0) return; // re-tentativas pulam essa checagem
     (async () => {
       try {
-        const st = await evo.connectionState(cfg).catch(e => ({ _err: e }));
+        const st = await evoAdmin.state(activeName).catch(e => ({ _err: e }));
         if (!alive) return;
         const stReal = st?.instance?.state || st?.state;
         if (stReal === 'open') {
@@ -964,18 +964,17 @@ function WhatsAppPairingModal({ instance, onClose }) {
 
     const buscarQR = async () => {
       try {
-        // Tenta connect direto (instancia ja criada na Evolution)
+        // Tenta connect direto via Edge Function (usa master key server-side)
         let resp;
         let foiCriada = false;
         try {
-          resp = await evo.connectInstance(cfg.instance, cfg);
+          resp = await evoAdmin.connect(activeName);
         } catch (e) {
           // Se nao existe (404), cria a instancia ja com o template Brava
-          // (webhook + settings inline). Retorna QR no response.
-          if (e.status === 404 || /not found|nao encontrado/i.test(e.message || '')) {
-            resp = await evo.createInstance(cfg.instance, cfg, BRAVA_INSTANCE_TEMPLATE);
+          if (e.status === 404 || /not found|nao encontrado|does not exist/i.test(e.message || '')) {
+            resp = await evoAdmin.create(activeName, BRAVA_INSTANCE_TEMPLATE);
             foiCriada = true;
-            console.log('[Brava] Instancia criada com template Brava (webhook+settings):', cfg.instance);
+            console.log('[Brava] Instancia criada com template Brava (webhook+settings):', activeName);
           } else {
             throw e;
           }
@@ -984,9 +983,9 @@ function WhatsAppPairingModal({ instance, onClose }) {
         if (!foiCriada) {
           (async () => {
             try {
-              await evo.setWebhook(cfg.instance, BRAVA_INSTANCE_TEMPLATE.webhook, cfg);
-              await evo.setSettings(cfg.instance, BRAVA_INSTANCE_TEMPLATE.settings, cfg);
-              console.log('[Brava] Config espelhada na instancia:', cfg.instance);
+              await evoAdmin.setWebhook(activeName, BRAVA_INSTANCE_TEMPLATE.webhook);
+              await evoAdmin.setSettings(activeName, BRAVA_INSTANCE_TEMPLATE.settings);
+              console.log('[Brava] Config espelhada na instancia:', activeName);
             } catch (err) {
               console.warn('[Brava] Falha ao espelhar config:', err.message);
             }
@@ -1006,7 +1005,7 @@ function WhatsAppPairingModal({ instance, onClose }) {
           setState('qr');
         } else {
           // Pode ja estar conectada
-          const st = await evo.connectionState(cfg).catch(() => null);
+          const st = await evoAdmin.state(activeName).catch(() => null);
           const real = st?.instance?.state || st?.state;
           if (real === 'open') { setState('open'); return; }
           throw new Error('Evolution nao retornou QR code. Resposta: ' + JSON.stringify(resp).slice(0,180));
@@ -1027,7 +1026,7 @@ function WhatsAppPairingModal({ instance, onClose }) {
     let alive = true;
     const tick = async () => {
       try {
-        const st = await evo.connectionState(cfg);
+        const st = await evoAdmin.state(activeName);
         const real = st?.instance?.state || st?.state;
         if (!alive) return;
         if (real === 'open') {
@@ -1035,8 +1034,8 @@ function WhatsAppPairingModal({ instance, onClose }) {
           // Espelha config Brava (idempotente) - garante que webhook + settings
           // estao corretos ANTES de chegar a primeira mensagem real
           try {
-            await evo.setWebhook(cfg.instance, BRAVA_INSTANCE_TEMPLATE.webhook, cfg);
-            await evo.setSettings(cfg.instance, BRAVA_INSTANCE_TEMPLATE.settings, cfg);
+            await evoAdmin.setWebhook(activeName, BRAVA_INSTANCE_TEMPLATE.webhook);
+            await evoAdmin.setSettings(activeName, BRAVA_INSTANCE_TEMPLATE.settings);
           } catch (e) { console.warn('[Brava] Espelhamento pos-conexao falhou:', e.message); }
           // UPDATE no Supabase
           try {
@@ -5152,6 +5151,39 @@ const evo = {
     method:'POST',
     body: JSON.stringify({ settings }),
   }, cfg),
+};
+
+/* ─── evoAdmin: cliente da Edge Function wa-instance-admin ──────────────
+   Pra operacoes que exigem AUTHENTICATION_API_KEY (master key) do servidor
+   Evolution, o front nao tem essa key (seguranca). Em vez disso, chama essa
+   Edge Function que vive no Supabase e tem a master key como secret. */
+async function evoAdminCall(action, instanceName, payload) {
+  const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-instance-admin`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'apikey': SUPA_CFG.publishableKey,
+    },
+    body: JSON.stringify({ action, instanceName, payload }),
+  });
+  const text = await res.text();
+  let data; try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!res.ok) {
+    const msg = (data && (data.message || data.error)) || text || `HTTP ${res.status}`;
+    const e = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    e.status = res.status; e.data = data;
+    throw e;
+  }
+  return data;
+}
+const evoAdmin = {
+  create:      (name, payload) => evoAdminCall('create',      name, payload),
+  connect:     (name)          => evoAdminCall('connect',     name),
+  state:       (name)          => evoAdminCall('state',       name),
+  logout:      (name)          => evoAdminCall('logout',      name),
+  delete:      (name)          => evoAdminCall('delete',      name),
+  setWebhook:  (name, webhook) => evoAdminCall('setWebhook',  name, webhook),
+  setSettings: (name, settings)=> evoAdminCall('setSettings', name, settings),
 };
 
 /* ─── Template padrao Brava (config espelhada em toda nova instancia) ──
