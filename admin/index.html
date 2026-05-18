@@ -902,15 +902,33 @@ function WhatsAppPairingModal({ instance, onClose }) {
       try {
         // Tenta connect direto (instancia ja criada na Evolution)
         let resp;
+        let foiCriada = false;
         try {
           resp = await evo.connectInstance(cfg.instance, cfg);
         } catch (e) {
-          // Se nao existe (404), cria a instancia (retorna QR no response)
+          // Se nao existe (404), cria a instancia ja com o template Brava
+          // (webhook + settings inline). Retorna QR no response.
           if (e.status === 404 || /not found|nao encontrado/i.test(e.message || '')) {
-            resp = await evo.createInstance(cfg.instance, cfg);
+            resp = await evo.createInstance(cfg.instance, cfg, BRAVA_INSTANCE_TEMPLATE);
+            foiCriada = true;
+            console.log('[Brava] Instancia criada com template Brava (webhook+settings):', cfg.instance);
           } else {
             throw e;
           }
+        }
+        // Garantia extra: aplica template via setWebhook/setSettings em background.
+        // Cobre o caso da Evolution nao ter aceito inline na criacao OU a instancia
+        // ja existir mas com config errada (drift). E idempotente.
+        if (!foiCriada) {
+          (async () => {
+            try {
+              await evo.setWebhook(cfg.instance, BRAVA_INSTANCE_TEMPLATE.webhook, cfg);
+              await evo.setSettings(cfg.instance, BRAVA_INSTANCE_TEMPLATE.settings, cfg);
+              console.log('[Brava] Config espelhada na instancia:', cfg.instance);
+            } catch (err) {
+              console.warn('[Brava] Falha ao espelhar config:', err.message);
+            }
+          })();
         }
         if (!alive) return;
         // Resposta da Evo varia: pode vir { base64, code }, { qrcode: { base64, code } }, { instance: {...}, qrcode: {...} }
@@ -952,6 +970,12 @@ function WhatsAppPairingModal({ instance, onClose }) {
         if (!alive) return;
         if (real === 'open') {
           setState('open');
+          // Espelha config Brava (idempotente) - garante que webhook + settings
+          // estao corretos ANTES de chegar a primeira mensagem real
+          try {
+            await evo.setWebhook(cfg.instance, BRAVA_INSTANCE_TEMPLATE.webhook, cfg);
+            await evo.setSettings(cfg.instance, BRAVA_INSTANCE_TEMPLATE.settings, cfg);
+          } catch (e) { console.warn('[Brava] Espelhamento pos-conexao falhou:', e.message); }
           // UPDATE no Supabase
           try {
             const cli = getSupa();
@@ -4914,13 +4938,15 @@ const evo = {
     body: JSON.stringify({ message: { key: message.key }, convertToMp4: false }),
   }),
   // ─── Pareamento (multi-instancia) ────────────────────────────────────
-  // Cria uma nova instancia na Evolution + retorna QR no response
-  createInstance: (instanceName, cfg) => evoFetch('/instance/create', {
+  // Cria uma nova instancia na Evolution + retorna QR no response.
+  // `extra` permite passar webhook/settings ja na criacao (Evolution v2).
+  createInstance: (instanceName, cfg, extra = {}) => evoFetch('/instance/create', {
     method:'POST',
     body: JSON.stringify({
       instanceName,
       qrcode: true,
       integration: 'WHATSAPP-BAILEYS',
+      ...extra,
     }),
   }, cfg),
   // Pede o QR code de uma instancia ja criada (re-pareamento)
@@ -4929,6 +4955,54 @@ const evo = {
   logoutInstance: (instanceName, cfg) => evoFetch(`/instance/logout/${encodeURIComponent(instanceName)}`, { method:'DELETE' }, cfg),
   // Deleta a instancia da Evolution (remove sessao Baileys do servidor)
   deleteInstance: (instanceName, cfg) => evoFetch(`/instance/delete/${encodeURIComponent(instanceName)}`, { method:'DELETE' }, cfg),
+  // ─── Webhook / Settings (espelhamento de config entre instancias) ─────
+  getWebhook: (instanceName, cfg) => evoFetch(`/webhook/find/${encodeURIComponent(instanceName)}`, {}, cfg),
+  setWebhook: (instanceName, webhook, cfg) => evoFetch(`/webhook/set/${encodeURIComponent(instanceName)}`, {
+    method:'POST',
+    body: JSON.stringify({ webhook }),
+  }, cfg),
+  getSettings: (instanceName, cfg) => evoFetch(`/settings/find/${encodeURIComponent(instanceName)}`, {}, cfg),
+  setSettings: (instanceName, settings, cfg) => evoFetch(`/settings/set/${encodeURIComponent(instanceName)}`, {
+    method:'POST',
+    body: JSON.stringify({ settings }),
+  }, cfg),
+};
+
+/* ─── Template padrao Brava (config espelhada em toda nova instancia) ──
+   Mantem TODAS as novas instancias com o mesmo comportamento da Brava
+   Principal: webhook apontando pra Edge Function wa-webhook, mesmos
+   eventos, mesmas settings de Baileys. Garante espelhamento completo. */
+const BRAVA_INSTANCE_TEMPLATE = {
+  // URL onde a Evolution vai postar todos os eventos (chats, mensagens, status)
+  webhook: {
+    url: 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-webhook',
+    byEvents: false,    // todos eventos numa unica URL (wa-webhook desambigua)
+    base64: true,       // envia midia ja em base64 (mais simples no front)
+    events: [
+      'QRCODE_UPDATED',
+      'MESSAGES_UPSERT',
+      'MESSAGES_UPDATE',
+      'MESSAGES_DELETE',
+      'SEND_MESSAGE',
+      'CONTACTS_UPSERT',
+      'CONTACTS_UPDATE',
+      'CHATS_UPSERT',
+      'CHATS_UPDATE',
+      'CHATS_DELETE',
+      'PRESENCE_UPDATE',
+      'CONNECTION_UPDATE',
+    ],
+  },
+  // Comportamento Baileys (mesmas da Brava Principal)
+  settings: {
+    reject_call: false,         // permite chamadas (nao rejeita auto)
+    msg_call: '',               // sem msg auto pra chamadas
+    groups_ignore: false,       // espelha grupos tambem
+    always_online: true,        // mantem o numero "online" 24/7
+    read_messages: false,       // NAO marca como lida automaticamente
+    read_status: false,         // nao le status do contato
+    sync_full_history: false,   // soft sync (puxa apenas conversas recentes ao parear)
+  },
 };
 
 /* Cache de fotos de perfil + hook reativo */
