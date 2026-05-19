@@ -48,7 +48,7 @@ function playSwoosh() {
     // Volume bem baixo (.04) com ataque lento
     var gain = ctx.createGain();
     gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.12); // ataque lento
+    gain.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 0.12); // ataque lento
     gain.gain.linearRampToValueAtTime(0,    ctx.currentTime + dur);  // fade out suave
 
     src.connect(bpf);
