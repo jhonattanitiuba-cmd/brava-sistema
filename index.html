@@ -25,7 +25,17 @@
    body.brava-intro-active é adicionado pelo script inline ANTES de tudo.
    Cada elemento é escondido via CSS, revelado pelo RAF loop com JS inline.
 */
-body.brava-intro-active #nav-logo,
+/* Barra inteira escondida acima — desce primeiro */
+body.brava-intro-active .nav {
+  opacity:0;
+  transform:translateY(-100%);
+}
+/* Logo: aparece DEPOIS da barra, deslizando suave */
+body.brava-intro-active #nav-logo {
+  opacity:0;
+  transform:translateY(-14px);
+}
+/* Demais itens do menu — mesma posição que já estavam */
 body.brava-intro-active #nav-plataforma,
 body.brava-intro-active #nav-planos,
 body.brava-intro-active #nav-clientes,
@@ -176,8 +186,10 @@ body.brava-intro-p1 .brava-intro-blob {
 
   body.classList.add('brava-intro-active', 'brava-intro-p1');
 
+  /* Ordem: barra desce do topo → logo entra → demais itens (timing original) */
   var CUES = [
-    { t:0.24,  id:'nav-logo'       },
+    { t:0.00,  sel:'.nav',        kind:'bar'  },  /* barra primeiro */
+    { t:0.40,  id:'nav-logo',     kind:'soft' },  /* logo após barra */
     { t:1.56,  id:'nav-plataforma' },
     { t:1.76,  id:'nav-planos'     },
     { t:1.96,  id:'nav-clientes'   },
@@ -208,25 +220,40 @@ body.brava-intro-p1 .brava-intro-blob {
   var finishDone   = false;
   var rafId;
 
-  function doReveal(el) {
-    el.style.transition = 'opacity .35s ease, transform .4s cubic-bezier(.22,1,.36,1)';
+  /* Transição por tipo:
+     bar  → barra inteira descendo do topo (.6s suave)
+     soft → logo aparecendo após barra (.5s suave)
+     padrão → links do menu (.35s rápido) */
+  function transitionFor(kind) {
+    if (kind === 'bar')  return 'opacity .55s ease, transform .6s cubic-bezier(.22,1,.36,1)';
+    if (kind === 'soft') return 'opacity .5s ease, transform .55s cubic-bezier(.22,1,.36,1)';
+    return 'opacity .35s ease, transform .4s cubic-bezier(.22,1,.36,1)';
+  }
+
+  function doReveal(el, kind) {
+    el.style.transition = transitionFor(kind);
     el.style.opacity    = '1';
     el.style.transform  = 'translateY(0)';
   }
 
-  function reveal(id) {
-    var el = document.getElementById(id);
-    if (el) doReveal(el);
-    else    pending.push(id);
+  function cueEl(cue) {
+    return cue.id ? document.getElementById(cue.id) : document.querySelector(cue.sel);
+  }
+
+  function reveal(cue) {
+    var el = cueEl(cue);
+    if (el) doReveal(el, cue.kind);
+    else    pending.push(cue);
   }
 
   function flushPending() {
     if (!pending.length) return;
     var left = [];
     for (var i = 0; i < pending.length; i++) {
-      var el = document.getElementById(pending[i]);
-      if (el) doReveal(el);
-      else    left.push(pending[i]);
+      var cue = pending[i];
+      var el  = cueEl(cue);
+      if (el) doReveal(el, cue.kind);
+      else    left.push(cue);
     }
     pending = left;
   }
@@ -256,7 +283,7 @@ body.brava-intro-p1 .brava-intro-blob {
     finishDone = true;
     if (rafId) cancelAnimationFrame(rafId);
     body.classList.remove('brava-intro-active', 'brava-intro-p1');
-    document.querySelectorAll('[id^=nav-], .h1, .lead, .hero-cta, #root > div > *').forEach(function (el) {
+    document.querySelectorAll('.nav, [id^=nav-], .h1, .lead, .hero-cta, #root > div > *').forEach(function (el) {
       el.style.transition = '';
       el.style.opacity    = '';
       el.style.transform  = '';
@@ -275,9 +302,10 @@ body.brava-intro-p1 .brava-intro-blob {
     flushPending();
 
     CUES.forEach(function (cue) {
-      if (!triggered[cue.id] && t >= cue.t) {
-        triggered[cue.id] = true;
-        reveal(cue.id);
+      var key = cue.id || cue.sel;
+      if (!triggered[key] && t >= cue.t) {
+        triggered[key] = true;
+        reveal(cue);
       }
     });
 
