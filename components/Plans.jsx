@@ -144,12 +144,12 @@ function Plans() {
               }}>
                 <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontFamily: 'Montserrat, Inter, sans-serif', fontWeight: 400, lineHeight: 1.4 }}>{p.tag}</div>
                 <h3 style={{
-                  fontFamily: 'Space Grotesk', fontSize: 26, fontWeight: 600,
+                  fontFamily: 'Inter', fontSize: 26, fontWeight: 600,
                   margin: '8px 0 18px', letterSpacing: '-0.02em'
                 }}>{p.name}</h3>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 24 }}>
                   <span style={{
-                    fontFamily: 'Space Grotesk', fontSize: 36, fontWeight: 700,
+                    fontFamily: 'Inter', fontSize: 36, fontWeight: 700,
                     letterSpacing: '-0.02em',
                     background: p.highlight ? 'var(--brava-gradient)' : 'transparent',
                     WebkitBackgroundClip: p.highlight ? 'text' : 'unset',

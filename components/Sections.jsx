@@ -105,7 +105,7 @@ function ProposalBlock() {
         }
         .proposal-h2 {
           margin: 0; color: var(--text-on-light-primary);
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: clamp(32px, 4vw, 48px);
           line-height: 1.1; letter-spacing: -0.03em; font-weight: 600;
         }
@@ -168,7 +168,7 @@ function ProposalBlock() {
           box-shadow: 0 14px 32px -16px rgba(30,144,255,.35);
         }
         .proposal-metric__num {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-size: 38px; font-weight: 600;
           letter-spacing: -0.035em; line-height: 1;
           color: #1E90FF;
@@ -222,7 +222,7 @@ function ProposalBlock() {
           background: #1E90FF; color: #fff; border-color: #1E90FF;
         }
         .proposal-pillar__title {
-          font-family: 'Space Grotesk', sans-serif;
+          font-family: 'Inter', sans-serif;
           font-weight: 600; font-size: 18px; letter-spacing: -0.015em;
           color: #F5F5F7;
           margin-bottom: 10px;
@@ -355,7 +355,7 @@ function SolutionBlock() {
               borderRadius: 16
             }}>
               <div className="mono" style={{ fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-on-light-tertiary)' }}>Construída em volta de uma ideia simples</div>
-              <div style={{ marginTop: 8, fontSize: 22, fontFamily: 'Space Grotesk, sans-serif', fontWeight: 600, lineHeight: 1.25, letterSpacing: '-0.01em' }}>
+              <div style={{ marginTop: 8, fontSize: 22, fontFamily: 'Inter, sans-serif', fontWeight: 600, lineHeight: 1.25, letterSpacing: '-0.01em' }}>
                 Sua empresa é única.<br/>A tecnologia dela também precisa ser.
               </div>
             </div>
@@ -474,7 +474,7 @@ function BenefitsBlock() {
                 }}>{String(i + 1).padStart(2, '0')} / 10</span>
               </div>
               <h3 style={{
-                fontFamily: 'Space Grotesk', fontSize: 19, fontWeight: 600,
+                fontFamily: 'Inter', fontSize: 19, fontWeight: 600,
                 margin: 0, letterSpacing: '-0.01em', lineHeight: 1.25,
                 color: 'var(--text-primary)',
               }}>{b.t}</h3>

@@ -60,11 +60,11 @@ function Objections() {
                   background: 'var(--brava-gradient)',
                   color: '#fff',
                   display: 'grid', placeItems: 'center',
-                  fontFamily: 'Space Grotesk',
+                  fontFamily: 'Inter',
                   fontWeight: 700, fontSize: 14
                 }}>{String(i + 1).padStart(2, '0')}</span>
                 <h3 style={{
-                  margin: 0, fontFamily: 'Space Grotesk',
+                  margin: 0, fontFamily: 'Inter',
                   fontSize: 19, fontWeight: 600,
                   letterSpacing: '-0.01em', lineHeight: 1.25
                 }}>{o.q}</h3>
@@ -111,7 +111,7 @@ function Guarantee() {
             }}>
               <div style={{ textAlign: 'center' }}>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>GARANTIA</div>
-                <div style={{ fontFamily: 'Space Grotesk', fontSize: 56, fontWeight: 700, lineHeight: 1, background: 'var(--brava-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>7</div>
+                <div style={{ fontFamily: 'Inter', fontSize: 56, fontWeight: 700, lineHeight: 1, background: 'var(--brava-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>7</div>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em' }}>DIAS</div>
               </div>
             </div>
@@ -191,7 +191,7 @@ function Urgency() {
                     border: i < slots.taken ? 'none' : '1.5px dashed var(--border-light)',
                     display: 'grid', placeItems: 'center',
                     color: i < slots.taken ? '#fff' : 'var(--text-on-light-tertiary)',
-                    fontFamily: 'Space Grotesk',
+                    fontFamily: 'Inter',
                     fontWeight: 600,
                     fontSize: 18
                   }}>
@@ -209,7 +209,7 @@ function Urgency() {
                 borderRadius: 12,
                 textAlign: 'center'
               }}>
-                <div style={{ fontFamily: 'Space Grotesk', fontSize: 36, fontWeight: 700, lineHeight: 1, background: 'var(--brava-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{remaining}</div>
+                <div style={{ fontFamily: 'Inter', fontSize: 36, fontWeight: 700, lineHeight: 1, background: 'var(--brava-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{remaining}</div>
                 <div className="mono" style={{ fontSize: 11, marginTop: 4, color: 'var(--text-on-light-secondary)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>vagas restantes</div>
               </div>
             </div>

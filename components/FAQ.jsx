@@ -56,7 +56,7 @@ function FAQ() {
                     textAlign: 'left',
                     color: 'var(--text-on-light-primary)'
                   }}>
-                    <span style={{ fontFamily: 'Space Grotesk', fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em' }}>{f.q}</span>
+                    <span style={{ fontFamily: 'Inter', fontWeight: 600, fontSize: 17, letterSpacing: '-0.01em' }}>{f.q}</span>
                     <span style={{
                       flex: '0 0 28px',
                       width: 28, height: 28, borderRadius: 999,

@@ -107,7 +107,7 @@ function SocialProof() {
           }}>
             {CLIENTS.map((c) => (
               <div key={c} style={{
-                fontFamily: 'Space Grotesk, sans-serif',
+                fontFamily: 'Inter, sans-serif',
                 fontWeight: 600,
                 fontSize: 16,
                 letterSpacing: '-0.01em',
@@ -201,7 +201,7 @@ function SocialProof() {
                   border: '1px solid rgba(123,63,228,0.2)'
                 }}>EXEMPLO</span>
                 <span style={{
-                  fontFamily: 'Space Grotesk, sans-serif',
+                  fontFamily: 'Inter, sans-serif',
                   fontSize: 48,
                   lineHeight: 0.6,
                   color: '#7B3FE4',
@@ -218,7 +218,7 @@ function SocialProof() {
                       background: 'var(--brava-gradient)',
                       display: 'grid', placeItems: 'center',
                       color: '#fff', fontWeight: 700, fontSize: 14,
-                      fontFamily: 'Space Grotesk'
+                      fontFamily: 'Inter'
                     }}>{t.name.split(' ').map(s => s[0]).slice(0, 2).join('')}</div>
                     <div>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{t.name}</div>
