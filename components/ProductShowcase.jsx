@@ -65,7 +65,7 @@ function ProductShowcase() {
   return (
     <section style={{
       background: 'transparent',
-      padding: '20px 0 100px',
+      padding: '20px 0 60px',
       overflow: 'hidden',
       position: 'relative',
     }}>
@@ -73,7 +73,7 @@ function ProductShowcase() {
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', position: 'relative' }}>
 
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 72 }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <h2 style={{
             fontFamily: 'Inter', fontSize: 'clamp(32px,4vw,52px)',
             fontWeight: 700, color: '#F5F5F7', letterSpacing: '-.02em',
@@ -90,7 +90,7 @@ function ProductShowcase() {
         {/* Tabs de navegação */}
         <div style={{
           display: 'flex', justifyContent: 'center', gap: 6,
-          flexWrap: 'wrap', marginBottom: 20,
+          flexWrap: 'wrap', marginBottom: 4,
         }}>
           {SCREENS.map((s, i) => {
             const isSel = active === i;
@@ -113,7 +113,7 @@ function ProductShowcase() {
         <div className="reveal" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 0, position: 'relative', perspective: '1200px',
-          height: 560,
+          height: 460,
           animation: 'showcase-entry 1s cubic-bezier(.22,1,.36,1) both',
         }}>
           {SCREENS.map((s, i) => {
@@ -227,7 +227,7 @@ function ProductShowcase() {
 
       {/* Descrição abaixo do mockup — só a frase, sem repetir o label */}
       <div style={{
-        textAlign: 'center', marginTop: 20, padding: '0 24px',
+        textAlign: 'center', marginTop: 4, padding: '0 24px',
         position: 'relative',
       }}>
         <p style={{
