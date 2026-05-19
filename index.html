@@ -141,86 +141,151 @@ body.brava-intro-p1 .brava-intro-blob {
 
 <script>
 /* ══════════════════════════════════════════════════════════════════
-   INTRO SINCRONIZADO COM ÁUDIO — introbravasof.mp3
-   Fase 1  0s → 1.56s : só blobs pulsam (00:00:01:14 @ 25fps)
-   Fase 2  1.56s → 5.12s : todos os elementos animam
+   INTRO FRAME-ACCURATE — introbravasof.mp3 @ 25fps
+   Cues exatos do usuário (hh:mm:ss:ff → segundos):
+   00:00:00:06 = 0.24s   → Logo Brava
+   00:00:01:14 = 1.56s   → Plataforma
+   00:00:01:19 = 1.76s   → Planos
+   00:00:01:24 = 1.96s   → Clientes
+   (Perguntas) = 2.04s   → Perguntas (inferido)
+   00:00:02:02 = 2.08s   → WhatsApp
+   00:00:02:04 = 2.16s   → Entrar
+   00:00:02:08 = 2.32s   → Hero começa
+   00:00:03:04 = 3.16s   → Hero termina
    ══════════════════════════════════════════════════════════════════ */
 (function() {
-  var PHASE_1_END = 1.56;  // 1s + 14 frames @ 25fps
-  var PHASE_2_END = 5.12;  // 5s + 3 frames @ 25fps
-
   var audio = document.getElementById('brava-intro-audio');
   var body  = document.body;
-  var p2Done = false;
 
-  function applyP1() {
-    body.classList.add('brava-intro-active');
-    body.classList.add('brava-intro-p1');
+  /* Cues frame-accurate */
+  var CUES = [
+    { t:0.24,  id:'nav-logo',       ty:-8  },
+    { t:1.56,  id:'nav-plataforma', ty:-6  },
+    { t:1.76,  id:'nav-planos',     ty:-6  },
+    { t:1.96,  id:'nav-clientes',   ty:-6  },
+    { t:2.04,  id:'nav-perguntas',  ty:-6  },
+    { t:2.08,  id:'nav-whatsapp',   ty:-6  },
+    { t:2.16,  id:'nav-entrar',     ty:-6  },
+  ];
+  var HERO_START = 2.32;
+  var HERO_END   = 3.16;
+  var FINISH_T   = 5.12; // 00:00:05:03
+
+  var triggered = {};
+  var heroAnimDone = false;
+  var finishDone   = false;
+  var rafId;
+
+  /* Espera o elemento aparecer no DOM (React monta depois) */
+  function reveal(id, ty) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.transition = 'opacity .35s ease, transform .4s cubic-bezier(.22,1,.36,1)';
+    el.style.opacity    = '1';
+    el.style.transform  = 'translateY(0)';
   }
 
-  function applyP2() {
-    if (p2Done) return;
-    p2Done = true;
-    body.classList.remove('brava-intro-p1');
-    body.classList.add('brava-intro-p2');
-    /* Cada elemento do #root recebe opacity:1 com delays escalonados */
-    var els = document.querySelectorAll('#root > *, #root > div > *');
-    els.forEach(function(el, idx) {
-      el.style.transition = 'opacity .9s ease ' + (0.2 + idx * 0.12) + 's, transform .9s cubic-bezier(.22,1,.36,1) ' + (0.2 + idx * 0.12) + 's';
-      el.style.opacity = '1';
-      el.style.transform = 'translateY(0)';
+  /* Hero: camadas de cima pra baixo em 0.84s */
+  function animateHero() {
+    if (heroAnimDone) return;
+    heroAnimDone = true;
+    var dur = HERO_END - HERO_START; // 0.84s
+    [
+      { sel:'.h1',       d:0.00 },
+      { sel:'.lead',     d:0.24 },
+      { sel:'.hero-cta', d:0.52 },
+    ].forEach(function(item) {
+      var el = document.querySelector(item.sel);
+      if (!el) return;
+      el.style.transition = 'opacity .5s ease '+item.d+'s, transform .55s cubic-bezier(.22,1,.36,1) '+item.d+'s';
+      el.style.opacity    = '1';
+      el.style.transform  = 'translateY(0)';
+    });
+    /* Showcase e demais entram logo após */
+    var rest = document.querySelectorAll('#root > div > *:not(:first-child)');
+    rest.forEach(function(el, i) {
+      el.style.transition = 'opacity .7s ease '+(0.6+i*0.15)+'s';
+      el.style.opacity    = '1';
     });
   }
 
   function finishIntro() {
-    body.classList.remove('brava-intro-active','brava-intro-p1','brava-intro-p2');
-    /* Remove estilos inline */
-    document.querySelectorAll('#root > *, #root > div > *').forEach(function(el) {
+    if (finishDone) return;
+    finishDone = true;
+    if (rafId) cancelAnimationFrame(rafId);
+    body.classList.remove('brava-intro-active','brava-intro-p1');
+    /* Limpa estilos inline */
+    document.querySelectorAll('[id^=nav-], .h1, .lead, .hero-cta, #root > div > *').forEach(function(el) {
       el.style.transition = '';
       el.style.opacity    = '';
       el.style.transform  = '';
     });
-    /* Remove blobs do intro (os do wrapper do app ficam) */
-    ['brava-blob-1','brava-blob-2'].forEach(function(id) {
+    ['brava-blob-1','brava-blob-2'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el){el.style.transition='opacity .8s';el.style.opacity='0';}
+    });
+  }
+
+  /* RAF loop — frame-accurate (não depende de timeupdate ~250ms) */
+  function syncFrame() {
+    var t = audio.currentTime;
+
+    /* Ativa cues */
+    CUES.forEach(function(cue) {
+      if (!triggered[cue.id] && t >= cue.t) {
+        triggered[cue.id] = true;
+        reveal(cue.id, cue.ty);
+      }
+    });
+
+    if (t >= HERO_START) animateHero();
+    if (t >= FINISH_T)   { finishIntro(); return; }
+
+    rafId = requestAnimationFrame(syncFrame);
+  }
+
+  function hideAll() {
+    /* Oculta nav itens e hero layers */
+    ['nav-logo','nav-plataforma','nav-planos','nav-clientes',
+     'nav-perguntas','nav-whatsapp','nav-entrar'].forEach(function(id) {
       var el = document.getElementById(id);
-      if (el) { el.style.opacity = '0'; el.style.transition = 'opacity .6s'; }
+      if (el) { el.style.opacity='0'; el.style.transform='translateY(-8px)'; }
+    });
+    ['.h1','.lead','.hero-cta'].forEach(function(sel) {
+      var el = document.querySelector(sel);
+      if (el) { el.style.opacity='0'; el.style.transform='translateY(16px)'; }
+    });
+    document.querySelectorAll('#root > div > *:not(:first-child)').forEach(function(el){
+      el.style.opacity='0';
     });
   }
 
   function startIntro() {
-    applyP1();
-    /* Esconde tudo exceto os blobs */
-    document.querySelectorAll('#root > *, #root > div > *').forEach(function(el) {
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(12px)';
-    });
-    /* Toca o áudio */
-    audio.volume = 0.85;
-    var playPromise = audio.play();
-    if (playPromise) {
-      playPromise.catch(function() {
-        /* Autoplay bloqueado → tenta na primeira interação */
-        var fn = function() {
-          audio.play().catch(function(){});
-          document.removeEventListener('click', fn);
-          document.removeEventListener('touchstart', fn);
-        };
-        document.addEventListener('click', fn, { once:true });
-        document.addEventListener('touchstart', fn, { once:true });
-      });
-    }
+    body.classList.add('brava-intro-active','brava-intro-p1');
+    /* Aguarda React montar (até 500ms) */
+    var attempts = 0;
+    (function waitMount() {
+      if (document.getElementById('nav-logo') || attempts++ > 12) {
+        hideAll();
+        audio.volume = 0.85;
+        var p = audio.play();
+        if (p) p.catch(function(){
+          ['click','touchstart'].forEach(function(ev){
+            document.addEventListener(ev, function fn(){
+              document.removeEventListener(ev,fn);
+              audio.play().catch(function(){});
+            }, {once:true});
+          });
+        });
+        requestAnimationFrame(syncFrame);
+      } else {
+        requestAnimationFrame(waitMount);
+      }
+    })();
   }
-
-  /* Monitora currentTime para transições de fase */
-  audio.addEventListener('timeupdate', function() {
-    var t = audio.currentTime;
-    if (t >= PHASE_1_END && !p2Done) applyP2();
-    if (t >= PHASE_2_END) finishIntro();
-  });
 
   audio.addEventListener('ended', finishIntro);
 
-  /* Inicia imediatamente — sem delay */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startIntro);
   } else {

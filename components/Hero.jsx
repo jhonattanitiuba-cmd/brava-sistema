@@ -6,22 +6,22 @@ function Nav() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <a className="logo" href="#top">
+        <a id="nav-logo" className="logo" href="#top">
           <img src="brava-logo-white.png" alt="Brava Company" style={{ height: 17, objectFit: 'contain' }} />
         </a>
         <div className="nav-links">
-          <a href="#solucao">Plataforma</a>
-          <a href="#planos">Planos</a>
-          <a href="#prova">Clientes</a>
-          <a href="#faq">Perguntas</a>
-          <a href={WA_LINK} style={{
+          <a id="nav-plataforma" href="#solucao">Plataforma</a>
+          <a id="nav-planos"     href="#planos">Planos</a>
+          <a id="nav-clientes"   href="#prova">Clientes</a>
+          <a id="nav-perguntas"  href="#faq">Perguntas</a>
+          <a id="nav-whatsapp" href={WA_LINK} style={{
             display:'inline-flex', alignItems:'center', justifyContent:'center',
             height:38, padding:'0 18px', borderRadius:999,
             background:'#25D366', color:'#fff',
             fontSize:14, fontWeight:500, textDecoration:'none',
             border:'none', outline:'none', lineHeight:1, flexShrink:0,
           }}>WhatsApp</a>
-          <a href={`/app/?login=1&theme=${tema()}`} style={{
+          <a id="nav-entrar" href={`/app/?login=1&theme=${tema()}`} style={{
             display:'inline-flex', alignItems:'center', justifyContent:'center',
             height:38, padding:'0 18px', borderRadius:999,
             background:'#1E90FF', color:'#fff',
