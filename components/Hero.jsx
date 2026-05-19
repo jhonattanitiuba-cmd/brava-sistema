@@ -61,7 +61,7 @@ function Hero({ headline, cta, accents }) {
   const H = HEADLINES[headline] || HEADLINES.A;
   const C = CTAS[cta] || CTAS.A;
   return (
-    <section className="hero section dark" id="top">
+    <section className="hero section dark" id="top" style={{ background: 'transparent' }}>
       {accents && (
         <>
           <div className="grid-bg"></div>
