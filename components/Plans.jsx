@@ -150,8 +150,21 @@ function Plans() {
                 </div>
                 <a
                   href={p.id === 'enterprise' ? WA_LINK : (STRIPE_LINKS[p.id] || '#')}
-                  className={`btn ${p.highlight ? 'btn-primary' : 'btn-ghost'}`}
-                  style={{ width: '100%', marginBottom: 24 }}
+                  className={`btn ${p.highlight ? '' : 'btn-ghost'}`}
+                  style={{
+                    width: '100%', marginBottom: 24,
+                    ...(p.highlight ? {
+                      background: '#1E90FF',
+                      color: '#fff',
+                      border: '1px solid transparent',
+                      borderRadius: 12,
+                      boxShadow: '0 6px 22px -6px rgba(30,144,255,.55), 0 2px 8px -3px rgba(30,144,255,.35)',
+                      fontWeight: 600,
+                      transition: 'transform .15s, box-shadow .2s',
+                    } : {}),
+                  }}
+                  onMouseEnter={p.highlight ? e => { e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 12px 30px -8px rgba(30,144,255,.65), 0 4px 12px -4px rgba(30,144,255,.40)'; } : undefined}
+                  onMouseLeave={p.highlight ? e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 6px 22px -6px rgba(30,144,255,.55), 0 2px 8px -3px rgba(30,144,255,.35)'; } : undefined}
                 >
                   {p.id === 'enterprise' ? 'Conversar com vendas' : 'Assinar agora'}
                 </a>
