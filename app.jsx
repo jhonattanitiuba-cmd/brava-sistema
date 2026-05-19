@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Nav, Hero, ProposalBlock, PainBlock, SolutionBlock, BenefitsBlock, SocialProof, Plans, Objections, Guarantee, Urgency, FAQ, FinalCTA, PSFooter, useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakSelect */
+/* global React, ReactDOM, Nav, Hero, ProposalBlock, PainBlock, SolutionBlock, BenefitsBlock, SocialProof, Plans, Objections, Guarantee, Urgency, FAQ, FinalCTA, PSFooter, useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakSelect, TypographyStatement, MockupMacBook, MockupSplit, BenefitsExclusive, Testimonials, CaseStudy, SupportCard, TechStack, FounderShowcase */
 
 const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
   "headline": "A",
@@ -89,18 +89,26 @@ function App() {
     <>
       <Nav />
       <Hero headline={t.headline} cta={t.cta} accents={t.accents} />
-      <ProposalBlock />
-      <PainBlock />
-      <SolutionBlock />
-      <BenefitsBlock />
-      <SocialProof />
+
+      {/* ─── NOVAS SEÇÕES (estilo Kiwify, identidade Brava) ─── */}
+      <TypographyStatement />
+      <MockupMacBook />
+      <MockupSplit />
+      <BenefitsExclusive />
+      <Testimonials />
+      <CaseStudy />
+      <SupportCard />
+      <TechStack />
+
+      {/* ─── MANTIDAS: Pagamentos + FAQ ─── */}
       <Plans />
-      <Objections />
-      <Guarantee />
-      <Urgency />
       <FAQ />
+
+      {/* ─── FOUNDER + final ─── */}
+      <FounderShowcase />
       <FinalCTA />
       <PSFooter />
+
       <footer style={{
         padding: '22px 40px',
         background: '#000000',
