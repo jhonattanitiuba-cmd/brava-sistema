@@ -43,14 +43,6 @@ function CRMMockup() {
 
   return (
     <div className="mockup-wrap">
-      <div className="floater float-tl">
-        <div className="lab">Hoje · respondidas pela IA</div>
-        <div className="val">{respondidas} / {total}</div>
-      </div>
-      <div className="floater float-br">
-        <div className="lab">Tempo médio de resposta</div>
-        <div className="val">{seg} seg</div>
-      </div>
 
       {/* ─── Chassi MacBook ────────────────────────────────────────── */}
       <div className="mac-shell">

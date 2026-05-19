@@ -7,12 +7,14 @@
 //   dashboard.png, whatsapp.png, pipeline.png, agenda.png, mrr.png
 
 const SCREENS = [
-  { file: 'whatsapp.png',  label: 'WhatsApp Inbox',  desc: 'Atendimento centralizado com IA respondendo em tempo real' },
-  { file: 'dashboard.png', label: 'Dashboard',        desc: 'Visão completa da operação: MRR, clientes, conversas e chamados' },
-  { file: 'pipeline.png',  label: 'Pipeline',         desc: 'Funil kanban arrastável com todos os clientes em movimento' },
-  { file: 'analytics.png', label: 'Analytics',        desc: '+136% crescimento MRR · CAC R$380 · LTV R$14.250 · Churn 2.1%' },
-  { file: 'mrr.png',       label: 'MRR',              desc: 'Controle de recorrência e projeção financeira 12 meses' },
-  { file: 'agenda.png',    label: 'Agenda',            desc: 'Calendário integrado com eventos e próximos compromissos' },
+  { file: 'dashboard.png',    label: 'Dashboard',    desc: 'Visão completa da operação: MRR, clientes, conversas e chamados' },
+  { file: 'whatsapp.png',     label: 'WhatsApp',     desc: 'Atendimento centralizado com IA respondendo em tempo real' },
+  { file: 'pipeline.png',     label: 'Pipeline',     desc: 'Funil kanban arrastável com todos os clientes em movimento' },
+  { file: 'mrr.png',          label: 'MRR',          desc: 'Controle de recorrência e projeção financeira 12 meses' },
+  { file: 'chamados.png',     label: 'Suporte',      desc: '5 chamados abertos · triagem por prioridade · resposta direto ao cliente' },
+  { file: 'agenda.png',       label: 'Agenda',       desc: 'Calendário integrado com eventos e próximos compromissos' },
+  { file: 'equipe.png',       label: 'Equipe',       desc: '4 membros · 3 online · atribuição de chamados por cargo' },
+  { file: 'configuracoes.png',label: 'Configurações',desc: 'IA configurável por instância · prompts · tempo de resposta · webhooks' },
 ];
 
 function ProductShowcase() {
