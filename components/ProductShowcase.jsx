@@ -124,31 +124,43 @@ function ProductShowcase() {
                   cursor: isActive ? 'default' : 'pointer',
                 }}
               >
-                {/* Vidro flutuante + saber azul no ativo */}
+                {/* Vidro flutuante + saber azul seamless */}
                 <div style={{
-                  borderRadius: 20,
-                  padding: 3,
+                  borderRadius: 18,
+                  padding: 1.5,
                   position: 'relative',
-                  background: isActive ? 'transparent' : 'linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 100%)',
+                  background: isActive ? 'transparent' : 'rgba(255,255,255,.05)',
                   boxShadow: isActive
-                    ? '0 40px 100px -20px rgba(0,0,0,.8), 0 0 60px -10px rgba(30,144,255,.30), 0 0 40px -10px rgba(123,63,228,.20), inset 0 1px 0 rgba(255,255,255,.20)'
-                    : '0 20px 50px -10px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08)',
+                    ? '0 40px 100px -20px rgba(0,0,0,.85), 0 0 50px -10px rgba(30,144,255,.25), inset 0 1px 0 rgba(255,255,255,.15)'
+                    : '0 16px 40px -10px rgba(0,0,0,.5)',
                   transition: 'box-shadow .5s',
                   overflow: 'hidden',
                 }}>
-                  {/* Saber azul girando na borda do card ativo */}
+                  {/* Saber: cometa azul constante 0→360 sem quebra
+                      Linha base .015 garante que 0deg = 360deg = mesmo alfa → seamless */}
                   {isActive && (
                     <span style={{
-                      position: 'absolute', inset: 0, borderRadius: 20, zIndex: 0,
-                      background: 'conic-gradient(from 0deg, transparent 0deg 230deg, rgba(30,144,255,.25) 270deg, rgba(30,144,255,.70) 300deg, #60BFFF 316deg, rgba(30,144,255,.70) 330deg, transparent 360deg)',
-                      animation: 'showcase-saber 9s linear infinite',
+                      position: 'absolute', inset: 0, borderRadius: 18, zIndex: 0,
+                      background: [
+                        'conic-gradient(from 0deg,',
+                        '  rgba(30,144,255,.015)   0deg,',
+                        '  rgba(30,144,255,.015) 180deg,',   /* metade escura */
+                        '  rgba(30,144,255,.12)  280deg,',   /* começa clarear */
+                        '  rgba(30,144,255,.55)  340deg,',   /* cauda */
+                        '  rgba(100,190,255,.85) 352deg,',   /* cabeça do cometa */
+                        '  rgba(220,240,255,.95) 356deg,',   /* pico brilhante */
+                        '  rgba(100,190,255,.85) 358deg,',   /* cai rápido */
+                        '  rgba(30,144,255,.015) 360deg',    /* = 0deg: seamless */
+                        ')',
+                      ].join(''),
+                      animation: 'showcase-saber 10s linear infinite',
                       pointerEvents: 'none',
                     }}/>
                   )}
-                  {/* Fundo escuro cobrindo o saber, deixa só 3px de borda visível */}
+                  {/* Fundo cobre o interior — deixa só 1.5px de borda visível */}
                   <span style={{
-                    position: 'absolute', inset: 3, borderRadius: 18, zIndex: 1,
-                    background: '#05080F',
+                    position: 'absolute', inset: 1.5, borderRadius: 16.5, zIndex: 1,
+                    background: '#04070E',
                     pointerEvents: 'none',
                   }}/>
                   {/* Screenshot direto, sem barra */}
@@ -161,21 +173,16 @@ function ProductShowcase() {
                     zIndex: 2,
                   }}>
                     <img
-                      src={`/screenshots/${s.file}`}
+                      key={s.file}
+                      src={`/screenshots/${s.file}?v=2`}
                       alt={s.label}
+                      loading="lazy"
                       style={{
                         width: '100%',
                         height: 'auto',
                         display: 'block',
-                        filter: isActive ? 'none' : 'brightness(.55)',
+                        filter: isActive ? 'none' : 'brightness(.45)',
                         transition: 'filter .4s',
-                      }}
-                      onError={e => {
-                        e.target.style.display = 'none';
-                        const fb = document.createElement('div');
-                        fb.style.cssText = `aspect-ratio:1536/960;background:#0A0A12;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.15);font-size:13px;font-family:JetBrains Mono,monospace;border-radius:18px`;
-                        fb.textContent = s.label;
-                        e.target.parentNode.appendChild(fb);
                       }}
                     />
                   </div>
