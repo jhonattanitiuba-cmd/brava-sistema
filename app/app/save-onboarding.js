@@ -129,7 +129,112 @@
       throw new Error('Workspace criado, mas houve erro ao vincular o usuário. Contate o suporte.');
     }
 
+    // 6) Cria registro wa_instancias (se o user pareou WhatsApp no step Canal)
+    // O instance JÁ FOI CRIADO na Evolution pelo StepChannel via evoAdmin.create.
+    // Aqui só inserimos no Supabase com o workspace_id correto + ai_prompt.
+    if (data.evolutionInstanceName && data.qrScanned) {
+      try {
+        // Constroi prompt da IA a partir dos campos do step 4 (Agente IA)
+        const aiPrompt = _construirPromptIA(data);
+
+        const { data: instance, error: ie } = await window.supabase
+          .from('wa_instancias')
+          .insert({
+            workspace_id:           workspace.id,
+            nome:                   `WhatsApp ${data.bizName || data.workspaceName || slug}`,
+            evolution_url:          'https://lickingbuffalo-evolution.cloudfy.live',
+            evolution_instance_name: data.evolutionInstanceName,
+            evolution_apikey:       'D5E5DC9D636D-49C5-AF9C-CB1F6E0089F1',
+            status:                 'open',
+            owner_email:            null, // publico do workspace por padrao
+            ai_enabled_global:      true,
+            ai_model:               data.bizModel || 'claude-opus-4-5',
+            ai_typing_enabled:      true,
+            ai_thinking_seconds:    3.0,
+            ai_split_enabled:       true,
+            ai_reading_seconds:     2.5,
+            ai_prompt:              aiPrompt,
+          })
+          .select()
+          .single();
+
+        if (ie) {
+          console.warn('[Brava] Falha ao criar wa_instancias:', ie);
+          // Nao falha o onboarding - user pode criar instancia depois pelo admin
+        } else {
+          console.log('[Brava] wa_instancias criada:', instance.id);
+          // Sincroniza profile (foto, nome real do WhatsApp) em background
+          fetch('https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-instance-admin', {
+            method: 'POST',
+            headers: {'content-type':'application/json', 'apikey': 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT'},
+            body: JSON.stringify({action: 'fetchInfo', instanceName: data.evolutionInstanceName}),
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[Brava] Erro inesperado ao criar wa_instancias:', e);
+      }
+    }
+
+    // 7) Convida membros adicionais (workspace_members) — best-effort
+    if (Array.isArray(data.invites)) {
+      for (const inv of data.invites) {
+        if (!inv?.email || !inv.email.includes('@')) continue;
+        if (inv.email.toLowerCase() === (user.email || '').toLowerCase()) continue; // owner ja foi
+        try {
+          // Tenta encontrar o user pelo email; se nao existir, fica como invite pendente
+          const { data: existingUser } = await window.supabase
+            .from('usuarios').select('id').eq('email', inv.email.toLowerCase()).maybeSingle();
+          if (existingUser?.id) {
+            await window.supabase.from('workspace_members').insert({
+              workspace_id: workspace.id,
+              user_id:      existingUser.id,
+              role:         inv.role || 'agent',
+              joined_at:    new Date().toISOString(),
+            }).catch(() => {}); // ignora se ja existir
+          }
+          // TODO: se nao existir, criar invite pendente em tabela workspace_invites
+        } catch {}
+      }
+    }
+
     console.log('[Brava] Workspace criado com sucesso:', workspace);
     return workspace;
   };
+
+  // Helper: converte os campos do step "Agente IA" em prompt formatado pra IA
+  function _construirPromptIA(data) {
+    const lines = [];
+    lines.push('# IDENTIDADE');
+    lines.push(`Você é o assistente de atendimento da ${data.bizName || data.workspaceName}.`);
+    if (data.bizDoes) lines.push(`\n## O que a empresa faz\n${data.bizDoes}`);
+    if (data.bizPublico) lines.push(`\n## Público\n${data.bizPublico}`);
+    if (data.bizLocalizacao) lines.push(`\n## Localização\n${data.bizLocalizacao}`);
+    if (data.bizHours) lines.push(`\n## Horário de atendimento\n${data.bizHours}`);
+    if (data.bizProdutos) lines.push(`\n## Produtos e preços\n${data.bizProdutos}`);
+    if (data.bizTicketMedio) lines.push(`\n## Ticket médio\n${data.bizTicketMedio}`);
+    if (data.bizDiferenciais) lines.push(`\n## Diferenciais\n${data.bizDiferenciais}`);
+    if (data.bizConcorrentes) lines.push(`\n## Concorrentes\n${data.bizConcorrentes}`);
+    if (data.bizPolitica) lines.push(`\n## Política de cancelamento\n${data.bizPolitica}`);
+    if (data.bizPagamento) lines.push(`\n## Formas de pagamento\n${data.bizPagamento}`);
+    if (data.bizPrazo) lines.push(`\n## Prazos\n${data.bizPrazo}`);
+    if (data.bizCanais) lines.push(`\n## Canais\n${data.bizCanais}`);
+    if (data.bizFaq) lines.push(`\n## FAQ\n${data.bizFaq}`);
+    if (data.bizBoasVindas) lines.push(`\n## Mensagem de boas-vindas\n${data.bizBoasVindas}`);
+    if (data.bizEscalonamento) lines.push(`\n## Quando escalar para humano\n${data.bizEscalonamento}`);
+    if (data.bizLimitacoes) lines.push(`\n## Limitações (NÃO fazer)\n${data.bizLimitacoes}`);
+    if (data.bizTone) {
+      const toneMap = {
+        'profissional-amigavel': 'Profissional e amigável. Use linguagem clara, respeitosa mas próxima.',
+        'formal': 'Formal. Use tratamento formal, sem gírias.',
+        'informal': 'Descontraído. Pode usar linguagem casual mas sempre profissional.',
+      };
+      lines.push(`\n## Tom de voz\n${toneMap[data.bizTone] || data.bizTone}`);
+    }
+    lines.push('\n## Regras gerais');
+    lines.push('- Sempre confirme informações antes de afirmar dados que não estão acima.');
+    lines.push('- Se não souber, escale para humano em vez de inventar.');
+    lines.push('- Mantenha respostas curtas (2-4 frases) salvo quando o cliente pedir detalhes.');
+    lines.push('- Use [SPLIT] entre 2+ ideias pra dividir em bolhas separadas.');
+    return lines.join('\n');
+  }
 })();

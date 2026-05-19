@@ -538,113 +538,217 @@ const StepWorkspace = ({ data, update }) => {
 
 // ───────── Step 2 — Channel ─────────
 
-const StepChannel = ({ data, update }) => (
-  <div className="onb-card">
-    <div className="onb-card__head">
-      <span className="onb-card__step">Passo 02 · Canal</span>
-      <h1>Conecte o WhatsApp do seu negócio</h1>
-      <p>Use a Evolution API para conectar um número novo via QR Code, ou WhatsApp Cloud API se você já tem credenciais Meta.</p>
-    </div>
+// Sanitiza um slug pra virar instance_name valido na Evolution
+// (alfanumerico, _, -, sem espacos, 3-32 chars, CamelCase)
+function _instanceNameFromSlug(slug) {
+  return String(slug || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^A-Za-z0-9_-]/g, '')
+    .slice(0, 32) || 'Workspace';
+}
 
-    <div className="onb-card__body onb-grid-2">
-      <button className={`onb-mode ${data.channelMode === 'evolution' ? 'onb-mode--on' : ''}`} onClick={() => update({ channelMode: 'evolution', qrScanned: false })}>
-        <div className="onb-mode__head">
-          <span className="onb-mode__ico"><Icon name="QrCode" size={20} /></span>
-          <Badge variant="success">Recomendado</Badge>
-        </div>
-        <strong>Evolution API · QR Code</strong>
-        <p>Pegue qualquer celular com WhatsApp e escaneie. Funciona em 30 segundos. Já incluído no plano.</p>
-      </button>
+const StepChannel = ({ data, update }) => {
+  // estado: idle | creating | qr | connecting | open | error
+  const [state, setState] = React.useState(data.qrScanned ? 'open' : 'idle');
+  const [qrBase64, setQrBase64] = React.useState(null);
+  const [errorMsg, setErrorMsg] = React.useState('');
+  const [attempt, setAttempt] = React.useState(0);
+  const [profile, setProfile] = React.useState(null); // {ownerJid, profileName, profilePicUrl}
 
-      <button className={`onb-mode ${data.channelMode === 'cloud' ? 'onb-mode--on' : ''}`} onClick={() => update({ channelMode: 'cloud', qrScanned: false })}>
-        <div className="onb-mode__head">
-          <span className="onb-mode__ico"><Icon name="Globe" size={20} /></span>
-          <Badge variant="neutral">Performance+</Badge>
-        </div>
-        <strong>WhatsApp Cloud API</strong>
-        <p>Para volumes altos. Requer aprovação Meta e número Business verificado.</p>
-      </button>
-    </div>
+  // Nome tecnico da instancia derivado do slug do workspace
+  const instanceName = React.useMemo(
+    () => _instanceNameFromSlug(data.slug) + '_' + Date.now().toString(36).slice(-4),
+    [] // memoria fixa ao montar - se trocar slug e voltar pra esse step, mantem
+  );
 
-    <div className="onb-card__body">
-      {data.channelMode === 'evolution' ? (
-        <div className="onb-qr">
-          <div className={`onb-qr__panel ${data.qrScanned ? 'onb-qr__panel--scanned' : ''}`}>
-            {!data.qrScanned ? (
-              <div className="onb-qr__code">
-                <QRArt />
-                <span className="onb-qr__pulse" />
-              </div>
-            ) : (
-              <div className="onb-qr__success">
-                <span className="onb-qr__check"><Icon name="Check" size={36} /></span>
-                <strong>Conectado</strong>
-                <span>+55 11 4002-8922 · Sua Marca</span>
-              </div>
-            )}
+  // Persiste o instanceName no wizard data (usado pelo save-onboarding pra linkar)
+  React.useEffect(() => {
+    if (!data.evolutionInstanceName) update({ evolutionInstanceName: instanceName });
+  }, []);
+
+  // 1) Buscar QR ao entrar no modo evolution (so se ainda nao conectou)
+  React.useEffect(() => {
+    if (data.channelMode !== 'evolution') return;
+    if (state === 'open') return;
+    let alive = true;
+    setQrBase64(null); setErrorMsg(''); setState('creating');
+
+    (async () => {
+      try {
+        // Tenta connect primeiro (se ja existe na Evolution)
+        let resp;
+        try {
+          resp = await window.evoAdmin.connect(instanceName);
+        } catch (e) {
+          if (e.status === 404 || /not found|does not exist/i.test(e.message || '')) {
+            // Cria com template Brava (webhook + settings)
+            resp = await window.evoAdmin.create(instanceName);
+          } else throw e;
+        }
+        if (!alive) return;
+        // Extrai QR (Evolution v1/v2 retornam em campos diferentes)
+        const qr =
+          resp?.base64 || resp?.qrcode?.base64 || resp?.qrcode?.code
+          || resp?.qr || resp?.code
+          || (typeof resp === 'string' ? resp : null);
+        if (qr) {
+          setQrBase64(qr.startsWith('data:') ? qr : ('data:image/png;base64,' + qr.replace(/^data:image\/png;base64,/, '')));
+          setState('qr');
+        } else {
+          // Pode ja estar conectada
+          const st = await window.evoAdmin.state(instanceName).catch(() => null);
+          const real = st?.instance?.state || st?.state;
+          if (real === 'open') { setState('open'); update({ qrScanned: true }); return; }
+          throw new Error('Evolution nao retornou QR. Tente novamente.');
+        }
+      } catch (e) {
+        if (alive) { setState('error'); setErrorMsg(e.message || 'Erro ao gerar QR code'); }
+      }
+    })();
+    return () => { alive = false; };
+  }, [data.channelMode, attempt]);
+
+  // 2) Polling do state a cada 2s (so quando qr ou connecting)
+  React.useEffect(() => {
+    if (state !== 'qr' && state !== 'connecting') return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const st = await window.evoAdmin.state(instanceName);
+        const real = st?.instance?.state || st?.state;
+        if (!alive) return;
+        if (real === 'open') {
+          setState('open');
+          // Sincroniza profile (foto, nome, telefone) via fetchInfo
+          try {
+            const info = await window.evoAdmin.fetchInfo(instanceName);
+            const inst = Array.isArray(info) ? info[0] : info;
+            if (inst) setProfile({
+              ownerJid: inst.ownerJid,
+              profileName: inst.profileName,
+              profilePicUrl: inst.profilePicUrl,
+            });
+          } catch {}
+          // Marca no wizard data pra avancar
+          update({ qrScanned: true });
+        } else if (real === 'connecting') {
+          setState('connecting');
+        }
+      } catch {}
+    };
+    const t = setInterval(tick, 2000); tick();
+    return () => { alive = false; clearInterval(t); };
+  }, [state, instanceName]);
+
+  const formatPhone = (jid) => {
+    if (!jid) return '';
+    const num = String(jid).replace(/@.*$/, '').replace(/\D/g, '');
+    const m = num.match(/^(55)(\d{2})(\d{5})(\d{4})$/);
+    return m ? `+${m[1]} ${m[2]} ${m[3]}-${m[4]}` : '+' + num;
+  };
+
+  return (
+    <div className="onb-card">
+      <div className="onb-card__head">
+        <span className="onb-card__step">Passo 02 · Canal</span>
+        <h1>Conecte o WhatsApp do seu negócio</h1>
+        <p>Use a Evolution API para conectar um número novo via QR Code, ou WhatsApp Cloud API se você já tem credenciais Meta.</p>
+      </div>
+
+      <div className="onb-card__body onb-grid-2">
+        <button className={`onb-mode ${data.channelMode === 'evolution' ? 'onb-mode--on' : ''}`} onClick={() => update({ channelMode: 'evolution', qrScanned: false })}>
+          <div className="onb-mode__head">
+            <span className="onb-mode__ico"><Icon name="QrCode" size={20} /></span>
+            <Badge variant="success">Recomendado</Badge>
           </div>
-          <div className="onb-qr__how">
-            <div className="onb-block__title">Como conectar</div>
-            <ol className="onb-qr__steps">
-              <li><span>1</span><div><strong>Abra o WhatsApp</strong> no celular do seu negócio</div></li>
-              <li><span>2</span><div>Toque em <strong>Aparelhos conectados</strong> → <strong>Conectar um aparelho</strong></div></li>
-              <li><span>3</span><div>Aponte a câmera para o QR ao lado</div></li>
-              <li><span>4</span><div>O Brava CRM importa as últimas 48h de conversas automaticamente</div></li>
-            </ol>
-            <div className="onb-qr__sim">
-              <span><Icon name="Info" size={14} /> Modo demo — clique para simular conexão.</span>
-              <Button variant={data.qrScanned ? 'outline' : 'primary'} size="sm" icon={data.qrScanned ? 'X' : 'Smartphone'} onClick={() => update({ qrScanned: !data.qrScanned })}>
-                {data.qrScanned ? 'Desconectar' : 'Simular leitura do QR'}
-              </Button>
+          <strong>Evolution API · QR Code</strong>
+          <p>Pegue qualquer celular com WhatsApp e escaneie. Funciona em 30 segundos. Já incluído no plano.</p>
+        </button>
+
+        <button className={`onb-mode ${data.channelMode === 'cloud' ? 'onb-mode--on' : ''}`} onClick={() => update({ channelMode: 'cloud', qrScanned: false })}>
+          <div className="onb-mode__head">
+            <span className="onb-mode__ico"><Icon name="Globe" size={20} /></span>
+            <Badge variant="neutral">Performance+</Badge>
+          </div>
+          <strong>WhatsApp Cloud API</strong>
+          <p>Para volumes altos. Requer aprovação Meta e número Business verificado.</p>
+        </button>
+      </div>
+
+      <div className="onb-card__body">
+        {data.channelMode === 'evolution' ? (
+          <div className="onb-qr">
+            <div className={`onb-qr__panel ${state === 'open' ? 'onb-qr__panel--scanned' : ''}`}>
+              {state === 'creating' && (
+                <div className="onb-qr__code" style={{display:'flex', flexDirection:'column', alignItems:'center', gap:14, padding:40}}>
+                  <div style={{width:48, height:48, border:'3px solid rgba(123,63,228,.2)', borderTopColor:'#7B3FE4', borderRadius:'50%', animation:'onbSpin 1s linear infinite'}}/>
+                  <div style={{fontSize:13, color:'#6E6E78'}}>Gerando QR code…</div>
+                </div>
+              )}
+              {(state === 'qr' || state === 'connecting') && qrBase64 && (
+                <div className="onb-qr__code">
+                  <img src={qrBase64} alt="QR Code WhatsApp" style={{width:220, height:220, display:'block', borderRadius:8}}/>
+                  {state === 'connecting' && (
+                    <div style={{marginTop:10, fontSize:12, color:'#F5A623', display:'flex', alignItems:'center', justifyContent:'center', gap:6}}>
+                      <span style={{width:8,height:8,borderRadius:'50%',background:'#F5A623',animation:'onbPulse 1.2s ease-in-out infinite'}}/> Conectando…
+                    </div>
+                  )}
+                </div>
+              )}
+              {state === 'open' && (
+                <div className="onb-qr__success">
+                  {profile?.profilePicUrl ? (
+                    <img src={profile.profilePicUrl} alt="" style={{width:72, height:72, borderRadius:'50%', marginBottom:8, objectFit:'cover'}}/>
+                  ) : (
+                    <span className="onb-qr__check"><Icon name="Check" size={36} /></span>
+                  )}
+                  <strong>Conectado</strong>
+                  <span>{profile?.profileName || data.bizName} {profile?.ownerJid && '· ' + formatPhone(profile.ownerJid)}</span>
+                </div>
+              )}
+              {state === 'error' && (
+                <div style={{padding:40, textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center', gap:12}}>
+                  <Icon name="AlertCircle" size={36} style={{color:'#A32D2D'}}/>
+                  <div style={{fontSize:13, fontWeight:600}}>Erro ao gerar QR</div>
+                  <div style={{fontSize:11, color:'#6E6E78', maxWidth:240, lineHeight:1.5}}>{errorMsg}</div>
+                  <Button variant="primary" size="sm" onClick={() => setAttempt(a => a+1)}>Tentar de novo</Button>
+                </div>
+              )}
+            </div>
+            <div className="onb-qr__how">
+              <div className="onb-block__title">Como conectar</div>
+              <ol className="onb-qr__steps">
+                <li><span>1</span><div><strong>Abra o WhatsApp</strong> no celular do seu negócio</div></li>
+                <li><span>2</span><div>Toque em <strong>⋮ Menu</strong> → <strong>Aparelhos conectados</strong></div></li>
+                <li><span>3</span><div>Toque em <strong>Conectar um aparelho</strong> e aponte a câmera</div></li>
+                <li><span>4</span><div>O Brava sincroniza histórico recente automaticamente</div></li>
+              </ol>
+              {state === 'qr' && (
+                <div className="onb-qr__sim">
+                  <Button variant="outline" size="sm" icon="RotateCcw" onClick={() => setAttempt(a => a+1)}>
+                    Gerar novo QR
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="onb-grid-2">
-          <Input label="Phone Number ID (Meta)" placeholder="123456789012345" />
-          <Input label="WhatsApp Business Account ID" placeholder="987654321098765" />
-          <Input label="Permanent Access Token" type="password" placeholder="EAAG…" />
-          <Input label="Verify Token (webhook)" placeholder="brava_secure_token" />
-          <div style={{ gridColumn: '1 / -1' }}>
-            <Button variant="primary" icon="Check" onClick={() => update({ qrScanned: true })}>Validar credenciais</Button>
+        ) : (
+          <div className="onb-grid-2">
+            <Input label="Phone Number ID (Meta)" placeholder="123456789012345" />
+            <Input label="WhatsApp Business Account ID" placeholder="987654321098765" />
+            <Input label="Permanent Access Token" type="password" placeholder="EAAG…" />
+            <Input label="Verify Token (webhook)" placeholder="brava_secure_token" />
+            <div style={{ gridColumn: '1 / -1' }}>
+              <Button variant="primary" icon="Check" onClick={() => update({ qrScanned: true })}>Validar credenciais</Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
+      <style>{`
+        @keyframes onbSpin { from {transform:rotate(0)} to {transform:rotate(360deg)} }
+        @keyframes onbPulse { 0%,100% {opacity:1} 50% {opacity:.3} }
+      `}</style>
     </div>
-  </div>
-);
-
-const QRArt = () => {
-  // Pseudo-QR — 21x21 pattern. Decorative only.
-  const seed = 'brava-evolution-qr-2026';
-  const cells = [];
-  let h = 7;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  for (let y = 0; y < 25; y++) {
-    for (let x = 0; x < 25; x++) {
-      h = (h * 1103515245 + 12345) >>> 0;
-      const finder = (x < 7 && y < 7) || (x > 17 && y < 7) || (x < 7 && y > 17);
-      const inner = (x > 1 && x < 5 && y > 1 && y < 5) || (x > 19 && x < 23 && y > 1 && y < 5) || (x > 1 && x < 5 && y > 19 && y < 23);
-      const ring = (x === 0 || x === 6 || y === 0 || y === 6) && x < 7 && y < 7;
-      if (finder) cells.push([x, y, !inner && !ring ? 0 : 1]);
-      else cells.push([x, y, (h % 100) < 48 ? 1 : 0]);
-    }
-  }
-  return (
-    <svg viewBox="0 0 25 25" width="220" height="220" shapeRendering="crispEdges">
-      <rect width="25" height="25" fill="#fff" />
-      {cells.filter(([, , v]) => v).map(([x, y], i) => <rect key={i} x={x} y={y} width="1" height="1" fill="#000" />)}
-      <g transform="translate(10 10)">
-        <rect x="0" y="0" width="5" height="5" fill="#fff" />
-        <rect x="0.6" y="0.6" width="3.8" height="3.8" fill="url(#qr-grad)" rx="0.6" />
-      </g>
-      <defs>
-        <linearGradient id="qr-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#7B3FE4" />
-          <stop offset="100%" stopColor="#1E90FF" />
-        </linearGradient>
-      </defs>
-    </svg>
   );
 };
 
