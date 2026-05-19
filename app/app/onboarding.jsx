@@ -539,12 +539,21 @@ const StepWorkspace = ({ data, update }) => {
 // ───────── Step 2 — Channel ─────────
 
 // Sanitiza um slug pra virar instance_name valido na Evolution
-// (alfanumerico, _, -, sem espacos, 3-32 chars, CamelCase)
+// (alfanumerico, _, -, sem espacos, 3-32 chars).
+// Em vez de regex Unicode (que Babel standalone falha as vezes),
+// usa loop manual que filtra char a char.
 function _instanceNameFromSlug(slug) {
-  return String(slug || '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9_-]/g, '')
-    .slice(0, 32) || 'Workspace';
+  const normalized = String(slug || '').normalize('NFD');
+  let out = '';
+  for (let i = 0; i < normalized.length && out.length < 32; i++) {
+    const code = normalized.charCodeAt(i);
+    // Combining diacritical marks: U+0300 (768) a U+036F (879) — pula
+    if (code >= 0x0300 && code <= 0x036f) continue;
+    const ch = normalized[i];
+    // Mantém A-Z, a-z, 0-9, _, -
+    if (/^[A-Za-z0-9_-]$/.test(ch)) out += ch;
+  }
+  return out || 'Workspace';
 }
 
 const StepChannel = ({ data, update }) => {
