@@ -1,6 +1,50 @@
 /* global React, CRMMockup */
 const { useState: useStateHero } = React;
 
+/* ── Botão WhatsApp: ghost + saber verde delicado na borda (8s),
+      hover preenche inteiro de verde ──────────────────────────── */
+function WaBtn({ href }) {
+  const [hovered, setHovered] = React.useState(false);
+  return (
+    <>
+      <a
+        href={href}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          position: 'relative',
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          height: 40, padding: '0 18px', borderRadius: 999,
+          fontSize: 14, fontWeight: 500, textDecoration: 'none', flexShrink: 0,
+          color: hovered ? '#fff' : '#25D366',
+          background: hovered ? '#25D366' : 'transparent',
+          transition: 'background .25s ease, color .25s ease',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Anel saber verde girando na borda */}
+        <span style={{
+          position: 'absolute', inset: 0, borderRadius: 999,
+          background: 'conic-gradient(from 0deg, transparent 0deg 260deg, rgba(37,211,102,.35) 295deg, #25D366 318deg, rgba(37,211,102,.35) 335deg, transparent 360deg)',
+          animation: 'wa-saber-ring 8s linear infinite',
+          opacity: hovered ? 0 : 1,
+          transition: 'opacity .2s ease',
+          pointerEvents: 'none',
+        }}/>
+        {/* Fundo interior (deixa só o anel 2px visível) */}
+        <span style={{
+          position: 'absolute', inset: 2, borderRadius: 999,
+          background: hovered ? '#25D366' : 'var(--bg)',
+          transition: 'background .25s ease',
+          pointerEvents: 'none',
+        }}/>
+        <span style={{ position: 'relative', zIndex: 1 }}>WhatsApp</span>
+      </a>
+      <style>{`@keyframes wa-saber-ring { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+    </>
+  );
+}
+
 function Nav() {
   const tema = () => document.documentElement.getAttribute('data-theme') || 'dark';
   return (
@@ -14,30 +58,8 @@ function Nav() {
           <a href="#planos">Planos</a>
           <a href="#prova">Clientes</a>
           <a href="#faq">Perguntas</a>
-          {/* WhatsApp — saber verde delicado, velocidade 8s */}
-          <a href={WA_LINK} style={{
-            position:'relative', overflow:'hidden',
-            display:'inline-flex', alignItems:'center', justifyContent:'center',
-            height:40, padding:'0 18px', borderRadius:999,
-            fontSize:14, fontWeight:500, color:'#fff',
-            background:'#25D366',
-            textDecoration:'none', flexShrink:0,
-          }}>
-            {/* Anel saber */}
-            <span style={{
-              position:'absolute', inset:0, borderRadius:999,
-              background:'conic-gradient(from 0deg, transparent 0deg 240deg, rgba(255,255,255,.20) 280deg, rgba(255,255,255,.55) 310deg, rgba(255,255,255,.20) 330deg, transparent 360deg)',
-              animation:'wa-saber 8s linear infinite',
-              pointerEvents:'none',
-            }}/>
-            {/* Fundo sólido sobre o anel pra não vazar */}
-            <span style={{
-              position:'absolute', inset:2, borderRadius:999,
-              background:'#25D366',
-            }}/>
-            <span style={{position:'relative', zIndex:1}}>WhatsApp</span>
-            <style>{`@keyframes wa-saber { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
-          </a>
+          {/* WhatsApp — ghost + saber verde na borda, hover pinta inteiro */}
+          <WaBtn href={WA_LINK} />
           <a className="btn btn-sm" href={`/app/?login=1&theme=${tema()}`}
              style={{ background:'#1E90FF', color:'#fff', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
             Entrar
