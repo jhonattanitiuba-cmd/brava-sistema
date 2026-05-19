@@ -83,20 +83,43 @@ body.brava-intro-p1 .brava-intro-blob {
   pointer-events:none; z-index:-1; opacity:.3; animation-delay:.2s !important;
 "></div>
 
-<!-- Tag de volume — canto inferior esquerdo -->
-<div id="brava-sound-tag" style="
-  position:fixed; bottom:18px; left:18px; z-index:9990;
-  display:flex; align-items:center; gap:8px;
-  padding:7px 14px 7px 10px; border-radius:999px;
-  background:rgba(5,5,18,.80); backdrop-filter:blur(10px);
-  border:1px solid rgba(30,144,255,.22);
-  font-family:JetBrains Mono,monospace; font-size:11px;
-  color:rgba(255,255,255,.55); letter-spacing:.06em;
-  transition: opacity .3s; cursor:pointer;
-  user-select:none;
-" onclick="bravoToggleSound()" title="Alternar som ambiente">
-  <span id="brava-sound-icon" style="color:#1E90FF; font-size:13px">♩</span>
-  <span id="brava-sound-label">SOM · ON</span>
+<!-- Toggle de som — iPhone style, canto inferior esquerdo -->
+<div id="brava-sound-tag" onclick="bravoToggleSound()" title="Som ambiente" style="
+  position:fixed; bottom:20px; left:20px; z-index:9990;
+  display:flex; align-items:center; gap:9px;
+  padding:6px 9px 6px 9px; border-radius:999px;
+  background:rgba(8,8,22,.78); backdrop-filter:blur(16px);
+  border:1px solid rgba(255,255,255,.07);
+  box-shadow:0 2px 14px rgba(0,0,0,.35);
+  cursor:pointer; user-select:none;
+">
+  <!-- Ícone speaker SVG — azul ON, apagado OFF -->
+  <svg id="brava-sound-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
+       stroke="#1E90FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+       style="flex-shrink:0;transition:stroke .25s;">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+    <path id="brava-sound-wave1" d="M15.54 8.46a5 5 0 0 1 0 7.07" style="transition:opacity .25s;"/>
+    <path id="brava-sound-wave2" d="M19.07 4.93a10 10 0 0 1 0 14.14" style="transition:opacity .25s;"/>
+    <!-- Linha de mudo — só aparece quando OFF -->
+    <line id="brava-sound-mute" x1="3" y1="3" x2="21" y2="21"
+          stroke-width="2" style="opacity:0;transition:opacity .25s;"/>
+  </svg>
+  <!-- Pill toggle — estilo iPhone -->
+  <div id="brava-toggle-track" style="
+    width:40px; height:22px; border-radius:11px;
+    background:#1E90FF; position:relative;
+    transition:background .28s cubic-bezier(.4,0,.2,1);
+    flex-shrink:0;
+  ">
+    <div id="brava-toggle-knob" style="
+      position:absolute; top:2px; left:2px;
+      width:18px; height:18px; border-radius:50%;
+      background:#fff;
+      box-shadow:0 1px 5px rgba(0,0,0,.4);
+      transform:translateX(18px);
+      transition:transform .28s cubic-bezier(.4,0,.2,1);
+    "></div>
+  </div>
 </div>
 <script>
 (function(){
@@ -312,17 +335,25 @@ var _bravaSoundOn = true;
 
 function bravoToggleSound() {
   _bravaSoundOn = !_bravaSoundOn;
-  var lbl  = document.getElementById('brava-sound-label');
-  var icon = document.getElementById('brava-sound-icon');
+  /* Brown noise */
   if (_bravaMasterGain) {
     var now = _bravaAudioCtx.currentTime;
     _bravaMasterGain.gain.cancelScheduledValues(now);
-    _bravaMasterGain.gain.linearRampToValueAtTime(
-      _bravaSoundOn ? 0.045 : 0, now + 0.6
-    );
+    _bravaMasterGain.gain.linearRampToValueAtTime(_bravaSoundOn ? 0.045 : 0, now + 0.5);
   }
-  if (lbl)  lbl.textContent  = _bravaSoundOn ? 'SOM · ON' : 'SOM · OFF';
-  if (icon) icon.style.color = _bravaSoundOn ? '#1E90FF' : 'rgba(255,255,255,.3)';
+  /* Toggle pill */
+  var track = document.getElementById('brava-toggle-track');
+  var knob  = document.getElementById('brava-toggle-knob');
+  var icon  = document.getElementById('brava-sound-icon');
+  var w1    = document.getElementById('brava-sound-wave1');
+  var w2    = document.getElementById('brava-sound-wave2');
+  var mute  = document.getElementById('brava-sound-mute');
+  if (track) track.style.background   = _bravaSoundOn ? '#1E90FF' : 'rgba(255,255,255,.13)';
+  if (knob)  knob.style.transform     = _bravaSoundOn ? 'translateX(18px)' : 'translateX(0)';
+  if (icon)  icon.setAttribute('stroke', _bravaSoundOn ? '#1E90FF' : 'rgba(255,255,255,.28)');
+  if (w1)    w1.style.opacity   = _bravaSoundOn ? '1' : '0';
+  if (w2)    w2.style.opacity   = _bravaSoundOn ? '1' : '0';
+  if (mute)  mute.style.opacity = _bravaSoundOn ? '0' : '1';
 }
 
 /* Expõe o contexto compartilhado pra outros scripts (swoosh, etc) */
