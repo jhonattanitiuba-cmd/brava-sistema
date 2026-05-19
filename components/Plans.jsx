@@ -1,10 +1,19 @@
 /* global React, WA_LINK */
 
-// Links de pagamento do Stripe — TROCAR PROS LINKS DE PRODUÇÃO QUANDO MIGRAR
+// Stripe ainda nao configurado em producao — por enquanto botoes dos planos
+// abrem o signup gratuito (trial 7 dias) com plano pre-selecionado.
+// Quando Stripe for ligado, trocar pra:
+//   essencial:   'https://buy.stripe.com/...',
+//   performance: 'https://buy.stripe.com/...',
+//   scale:       'https://buy.stripe.com/...',
+function _signupUrl(plano) {
+  const tema = (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme')) || 'dark';
+  return `/app/?new=1&plano=${plano}&theme=${tema}`;
+}
 const STRIPE_LINKS = {
-  essencial:   'https://buy.stripe.com/test_3cI00i0Sd3G1eLZ9CS9fW00',
-  performance: 'https://buy.stripe.com/test_9B6eVc58tgsN33h3eu9fW01',
-  scale:       'https://buy.stripe.com/test_eVq14m6cx3G1dHV2aq9fW02',
+  essencial:   _signupUrl('essencial'),
+  performance: _signupUrl('performance'),
+  scale:       _signupUrl('scale'),
 };
 
 const PLANS = [
@@ -152,7 +161,7 @@ function Plans() {
                   className={`btn ${p.highlight ? 'btn-primary' : 'btn-ghost'}`}
                   style={{ width: '100%', marginBottom: 24 }}
                 >
-                  {p.id === 'enterprise' ? 'Conversar com vendas' : 'Assinar agora'}
+                  {p.id === 'enterprise' ? 'Conversar com vendas' : 'Testar grátis · 7 dias'}
                 </a>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
                   {p.features.map((f, i) => {
