@@ -8757,8 +8757,98 @@ function MRR() {
   const [busca, setBusca] = useState('');
   const [sortCol, setSortCol] = useState('impl');
   const [sortAsc, setSortAsc] = useState(false);
-  const [editando, setEditando] = useState(null);   // rec sendo editado ou {} para novo
-  const [gerindoPag, setGerindoPag] = useState(null); // rec para abrir modal pagamentos
+  const [editando, setEditando] = useState(null);       // rec sendo editado ou {} para novo (modal)
+  const [gerindoPag, setGerindoPag] = useState(null);   // rec para abrir modal pagamentos
+
+  // ─── Inline editing ────────────────────────────────────────────────────────
+  // inlineEdit: { rowId, field: 'cliente'|'servico'|...|'all' } ou null
+  // field='all' = modo linha inteira (botao lápis)
+  const [inlineEdit, setInlineEdit] = useState(null);
+  const [inlineVals, setInlineVals] = useState({});     // { [campo]: string }
+  const [flashRow,   setFlashRow]   = useState(null);   // rowId pra flash verde 600ms
+
+  const _parseInlineField = (field, raw) => {
+    if (['impl','mensal'].includes(field))
+      return parseFloat(String(raw).replace(/[^\d.,]/g,'').replace(',','.')) || 0;
+    if (field === 'dia') {
+      const n = parseInt(raw);
+      return (!isNaN(n) && n >= 1 && n <= 31) ? `Dia ${n}` : '';
+    }
+    return String(raw).trim();
+  };
+
+  const startInlineRow = (r) => {
+    setInlineEdit({ rowId: r.__id, field: 'all' });
+    setInlineVals({
+      cliente: r.cliente || '',
+      servico: r.servico || '',
+      nicho:   r.nicho   || '',
+      impl:    String(r.impl   || 0),
+      mensal:  String(r.mensal || 0),
+      dia:     r.dia ? String(parseInt(r.dia)) : '',
+      status:  r.status  || 'Comercial',
+    });
+  };
+
+  const startInlineCell = (r, field) => {
+    if (inlineEdit?.rowId === r.__id) return; // ja em edicao dessa linha
+    let val = r[field];
+    if (field === 'dia') val = val ? String(parseInt(val)) : '';
+    setInlineEdit({ rowId: r.__id, field });
+    setInlineVals({ [field]: String(val ?? '') });
+  };
+
+  const cancelInline = React.useCallback(() => {
+    setInlineEdit(null);
+    setInlineVals({});
+  }, []);
+
+  const _flashAndClear = (rowId) => {
+    setFlashRow(rowId);
+    setTimeout(() => setFlashRow(null), 600);
+  };
+
+  const saveInlineRow = React.useCallback(async (rowId) => {
+    const vals = inlineVals; // snapshot
+    cancelInline();
+    const patch = {};
+    ['cliente','servico','nicho','impl','mensal','dia','status'].forEach(f => {
+      if (vals[f] !== undefined) patch[f] = _parseInlineField(f, vals[f]);
+    });
+    if (!patch.cliente) return; // campo obrigatorio
+    await editRecorrencia(rowId, patch);
+    _flashAndClear(rowId);
+  }, [inlineVals, cancelInline]);
+
+  const saveInlineCell = React.useCallback(async (rowId, field) => {
+    const raw = inlineVals[field];
+    cancelInline();
+    if (raw === undefined) return;
+    await editRecorrencia(rowId, { [field]: _parseInlineField(field, raw) });
+    _flashAndClear(rowId);
+  }, [inlineVals, cancelInline]);
+
+  const handleCellKey = (e, rowId, field, isRowMode) => {
+    if (e.key === 'Enter')  { e.preventDefault(); isRowMode ? saveInlineRow(rowId) : saveInlineCell(rowId, field); }
+    if (e.key === 'Escape') { e.preventDefault(); cancelInline(); }
+    if (e.key === 'Tab')    { e.preventDefault(); saveInlineCell(rowId, field); }
+  };
+
+  // Fechar edição ao clicar fora da tabela
+  React.useEffect(() => {
+    if (!inlineEdit) return;
+    const onOut = (e) => { if (!e.target.closest('.mrr-table')) cancelInline(); };
+    document.addEventListener('mousedown', onOut);
+    return () => document.removeEventListener('mousedown', onOut);
+  }, [inlineEdit, cancelInline]);
+
+  // Estilos reutilizáveis
+  const inpStyle = (field) => ({
+    background:'transparent', border:'1px solid rgba(123,63,228,.6)',
+    borderRadius:4, color:'var(--t1)', fontSize:13, outline:'none',
+    padding:'2px 6px', width:'100%', fontFamily:'var(--f-b)',
+    textAlign: ['impl','mensal'].includes(field) ? 'right' : 'left',
+  });
 
   const totalImpl = recorrencia.reduce((s,r) => s+(r.impl||0), 0);
   const totalMRR  = recorrencia.reduce((s,r) => s+(r.mensal||0), 0);
@@ -8893,7 +8983,7 @@ function MRR() {
       {/* Tabela */}
       <div className="card" style={{padding:0,overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:13.5}}>
+          <table className="mrr-table" style={{width:'100%',borderCollapse:'collapse',fontSize:13.5}}>
             <thead>
               <tr style={{background:'#000000'}}>
                 {col('Cliente','cliente')}
@@ -8909,29 +8999,127 @@ function MRR() {
             </thead>
             <tbody>
               {filtrados.map((r,i) => {
-                const stPag = statusPagamentoMes(r, pagamentos);
-                const ymAtual = YM(new Date());
+                const stPag    = statusPagamentoMes(r, pagamentos);
+                const ymAtual  = YM(new Date());
                 const regAtual = pagamentos[r.__id]?.[ymAtual];
+                const isRowEd  = inlineEdit?.rowId === r.__id && inlineEdit?.field === 'all';
+                const isCellEd = (f) => inlineEdit?.rowId === r.__id && (inlineEdit?.field === f || isRowEd);
+                const isFlash  = flashRow === r.__id;
+                const rowBg    = isFlash ? 'rgba(29,158,117,.08)'
+                               : stPag.kind === 'atrasado' ? 'rgba(163,45,45,.05)' : 'transparent';
+
+                // Helper: render célula editável
+                const EditCell = ({field, value, style={}, children}) => (
+                  isCellEd(field) ? (
+                    <input
+                      autoFocus={inlineEdit?.field === field || (isRowEd && field === 'cliente')}
+                      value={inlineVals[field] ?? String(value ?? '')}
+                      onChange={e => setInlineVals(v => ({...v, [field]: e.target.value}))}
+                      onKeyDown={e => handleCellKey(e, r.__id, field, isRowEd)}
+                      onBlur={() => !isRowEd && saveInlineCell(r.__id, field)}
+                      style={{...inpStyle(field), ...style}}
+                    />
+                  ) : (
+                    <span
+                      onClick={() => startInlineCell(r, field)}
+                      title="Clique para editar"
+                      style={{display:'block', cursor:'text', minWidth:40, ...style}}
+                    >{children ?? (value || '–')}</span>
+                  )
+                );
+
                 return (
                   <tr key={r.__id||i} style={{
                     borderBottom:'1px solid var(--border-soft)',
-                    transition:'background .12s',
-                    background: stPag.kind==='atrasado' ? 'rgba(163,45,45,.05)' : 'transparent',
+                    transition:'background .2s',
+                    background: rowBg,
+                    outline: isRowEd ? '1px solid rgba(123,63,228,.3)' : 'none',
                   }}
-                    onMouseEnter={e=>e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.10)' : 'rgba(255,255,255,.03)'}
-                    onMouseLeave={e=>e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.05)' : 'transparent'}>
-                    <td style={{padding:'11px 14px',fontWeight:600,color:'var(--t1)',whiteSpace:'nowrap'}}>{r.cliente}</td>
-                    <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>{r.servico||'–'}</td>
-                    <td style={{padding:'11px 14px',color:'var(--t2)'}}>{r.nicho}</td>
-                    <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.impl>0?'#F5F5F7':'#6E6E78',textAlign:'right'}}>{fmt(r.impl)}</td>
-                    <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',color: r.mensal>0?'#1D9E75':'#6E6E78',fontWeight:r.mensal>0?600:400,textAlign:'right'}}>{fmt(r.mensal)}</td>
-                    <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>{r.dia||'–'}</td>
-                    <td style={{padding:'11px 14px'}}>
-                      <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:stPag.color+'22',color:stPag.color,border:`1px solid ${stPag.color}44`,fontWeight:500, whiteSpace:'nowrap'}}>{stPag.label}</span>
+                    onMouseEnter={e=>{ if (!isRowEd) e.currentTarget.style.background = stPag.kind==='atrasado' ? 'rgba(163,45,45,.10)' : 'rgba(255,255,255,.03)'; }}
+                    onMouseLeave={e=>{ if (!isRowEd) e.currentTarget.style.background = rowBg; }}>
+
+                    {/* Cliente */}
+                    <td style={{padding:'11px 14px',fontWeight:600,color:'var(--t1)',whiteSpace:'nowrap'}}>
+                      <EditCell field="cliente" value={r.cliente}/>
                     </td>
-                    <td style={{padding:'11px 14px'}}>
-                      {r.status && <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:(SC[r.status]||'#6E6E78')+'18',color:SC[r.status]||'#6E6E78',border:`1px solid ${(SC[r.status]||'#6E6E78')}33`,fontWeight:500}}>{r.status}</span>}
+
+                    {/* Serviço */}
+                    <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>
+                      <EditCell field="servico" value={r.servico}/>
                     </td>
+
+                    {/* Nicho */}
+                    <td style={{padding:'11px 14px',color:'var(--t2)'}}>
+                      <EditCell field="nicho" value={r.nicho}/>
+                    </td>
+
+                    {/* Implementação */}
+                    <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',textAlign:'right',color: r.impl>0?'#F5F5F7':'#6E6E78'}}>
+                      {isCellEd('impl') ? (
+                        <input autoFocus={inlineEdit?.field==='impl'}
+                          value={inlineVals.impl ?? String(r.impl||0)}
+                          onChange={e=>setInlineVals(v=>({...v, impl:e.target.value}))}
+                          onKeyDown={e=>handleCellKey(e,r.__id,'impl',isRowEd)}
+                          onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'impl')}
+                          style={{...inpStyle('impl'),width:90}}/>
+                      ) : (
+                        <span onClick={()=>startInlineCell(r,'impl')} title="Clique para editar" style={{cursor:'text',display:'block'}}>{fmt(r.impl)}</span>
+                      )}
+                    </td>
+
+                    {/* Mensal */}
+                    <td style={{padding:'11px 14px',fontFamily:'var(--f-m)',textAlign:'right',color:r.mensal>0?'#1D9E75':'#6E6E78',fontWeight:r.mensal>0?600:400}}>
+                      {isCellEd('mensal') ? (
+                        <input autoFocus={inlineEdit?.field==='mensal'}
+                          value={inlineVals.mensal ?? String(r.mensal||0)}
+                          onChange={e=>setInlineVals(v=>({...v,mensal:e.target.value}))}
+                          onKeyDown={e=>handleCellKey(e,r.__id,'mensal',isRowEd)}
+                          onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'mensal')}
+                          style={{...inpStyle('mensal'),width:90}}/>
+                      ) : (
+                        <span onClick={()=>startInlineCell(r,'mensal')} title="Clique para editar" style={{cursor:'text',display:'block'}}>{fmt(r.mensal)}</span>
+                      )}
+                    </td>
+
+                    {/* Venc. */}
+                    <td style={{padding:'11px 14px',color:'var(--t2)',fontFamily:'var(--f-m)',fontSize:12}}>
+                      {isCellEd('dia') ? (
+                        <input autoFocus={inlineEdit?.field==='dia'}
+                          value={inlineVals.dia ?? (r.dia?String(parseInt(r.dia)):'')}
+                          onChange={e=>setInlineVals(v=>({...v,dia:e.target.value}))}
+                          onKeyDown={e=>handleCellKey(e,r.__id,'dia',isRowEd)}
+                          onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'dia')}
+                          placeholder="1-31"
+                          style={{...inpStyle('dia'),width:50}}/>
+                      ) : (
+                        <span onClick={()=>startInlineCell(r,'dia')} title="Clique para editar" style={{cursor:'text',display:'block'}}>{r.dia||'–'}</span>
+                      )}
+                    </td>
+
+                    {/* Pagamento mês atual */}
+                    <td style={{padding:'11px 14px'}}>
+                      <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:stPag.color+'22',color:stPag.color,border:`1px solid ${stPag.color}44`,fontWeight:500,whiteSpace:'nowrap'}}>{stPag.label}</span>
+                    </td>
+
+                    {/* Status — select inline */}
+                    <td style={{padding:'11px 14px'}}>
+                      {isCellEd('status') ? (
+                        <select autoFocus={inlineEdit?.field==='status'}
+                          value={inlineVals.status ?? r.status}
+                          onChange={e=>setInlineVals(v=>({...v,status:e.target.value}))}
+                          onKeyDown={e=>{ if(e.key==='Escape') cancelInline(); if(e.key==='Enter'){e.preventDefault();isRowEd?saveInlineRow(r.__id):saveInlineCell(r.__id,'status');} }}
+                          onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'status')}
+                          style={{background:'var(--bg-3)',border:'1px solid rgba(123,63,228,.6)',borderRadius:4,color:'var(--t1)',fontSize:11,outline:'none',padding:'3px 6px'}}>
+                          {STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}
+                        </select>
+                      ) : (
+                        <span onClick={()=>startInlineCell(r,'status')} title="Clique para editar" style={{cursor:'pointer'}}>
+                          {r.status && <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:(SC[r.status]||'#6E6E78')+'18',color:SC[r.status]||'#6E6E78',border:`1px solid ${(SC[r.status]||'#6E6E78')}33`,fontWeight:500}}>{r.status}</span>}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Ações */}
                     <td style={{padding:'11px 14px',textAlign:'right',whiteSpace:'nowrap'}}>
                       {r.mensal > 0 && (
                         <button onClick={()=>{
@@ -8940,21 +9128,29 @@ function MRR() {
                         }} title={regAtual?.pago?'Desmarcar pagamento do mês':'Marcar como pago (mês atual)'}
                           style={{
                             background: regAtual?.pago ? 'transparent' : '#1D9E7522',
-                            color: regAtual?.pago ? '#1D9E75' : '#1D9E75',
-                            border: `1px solid ${regAtual?.pago ? '#1D9E7555' : '#1D9E7555'}`,
+                            color:'#1D9E75',
+                            border:'1px solid #1D9E7555',
                             borderRadius:6, padding:'5px 9px', fontSize:11, cursor:'pointer', marginRight:6,
                           }}>
                           {regAtual?.pago ? '✓ Pago' : 'Marcar pago'}
                         </button>
                       )}
                       <button onClick={()=>setGerindoPag(r)} title="Gerir pagamentos / histórico"
-                        style={{background:'transparent', border:'1px solid var(--border)', borderRadius:6, padding:'5px 8px', cursor:'pointer', color:'var(--t2)', marginRight:6}}>
+                        style={{background:'transparent',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'var(--t2)',marginRight:6}}>
                         <Icon name="CalendarCheck" size={13}/>
                       </button>
-                      <button onClick={()=>setEditando(r)} title="Editar contrato"
-                        style={{background:'transparent', border:'1px solid var(--border)', borderRadius:6, padding:'5px 8px', cursor:'pointer', color:'var(--t2)'}}>
-                        <Icon name="Pencil" size={13}/>
-                      </button>
+                      {/* Lápis: modo linha inteira — sem modal */}
+                      {isRowEd ? (
+                        <button onClick={()=>saveInlineRow(r.__id)} title="Salvar edições"
+                          style={{background:'rgba(29,158,117,.15)',border:'1px solid #1D9E7555',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'#1D9E75'}}>
+                          <Icon name="Check" size={13}/>
+                        </button>
+                      ) : (
+                        <button onClick={()=>startInlineRow(r)} title="Editar linha inteira"
+                          style={{background:'transparent',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'var(--t2)'}}>
+                          <Icon name="Pencil" size={13}/>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
