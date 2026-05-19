@@ -1,4 +1,4 @@
-/* global React, CRMMockup */
+/* global React */
 const { useState: useStateHero } = React;
 
 function Nav() {
@@ -83,7 +83,6 @@ function Hero({ headline, cta, accents }) {
               <a href="#planos" className="btn btn-ghost">Ver planos</a>
             </div>
           </div>
-          <CRMMockup />
         </div>
       </div>
     </section>

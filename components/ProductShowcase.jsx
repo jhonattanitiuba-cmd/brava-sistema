@@ -29,12 +29,17 @@ function ProductShowcase() {
       overflow: 'hidden',
       position: 'relative',
     }}>
-      {/* Glow de fundo */}
+      {/* Passagem de luz suave esquerda → direita */}
       <div style={{
-        position: 'absolute', top: '30%', left: '50%',
+        position: 'absolute', inset: 0, pointerEvents: 'none',
+        background: 'linear-gradient(105deg, transparent 0%, rgba(123,63,228,.06) 30%, rgba(30,144,255,.08) 55%, rgba(123,63,228,.04) 75%, transparent 100%)',
+      }}/>
+      {/* Glow central sutil */}
+      <div style={{
+        position: 'absolute', top: '40%', left: '50%',
         transform: 'translate(-50%,-50%)',
-        width: 900, height: 500,
-        background: 'radial-gradient(ellipse, rgba(123,63,228,.22) 0%, rgba(30,144,255,.12) 40%, transparent 70%)',
+        width: 700, height: 350,
+        background: 'radial-gradient(ellipse, rgba(123,63,228,.12) 0%, rgba(30,144,255,.06) 45%, transparent 70%)',
         pointerEvents: 'none',
       }}/>
 
@@ -42,17 +47,6 @@ function ProductShowcase() {
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 72 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            padding: '6px 16px', borderRadius: 999, marginBottom: 20,
-            background: '#1E90FF', color: '#fff',
-            fontSize: 11, fontFamily: 'JetBrains Mono, monospace',
-            letterSpacing: '0.12em', fontWeight: 600, textTransform: 'uppercase',
-            boxShadow: '0 4px 14px rgba(30,144,255,.35)',
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'rgba(255,255,255,.75)' }}/>
-            Plataforma ao vivo
-          </div>
           <h2 style={{
             fontFamily: 'Inter', fontSize: 'clamp(32px,4vw,52px)',
             fontWeight: 700, color: '#F5F5F7', letterSpacing: '-.02em',
@@ -74,19 +68,36 @@ function ProductShowcase() {
           display: 'flex', justifyContent: 'center', gap: 6,
           flexWrap: 'wrap', marginBottom: 56,
         }}>
-          {SCREENS.map((s, i) => (
-            <button key={i} onClick={() => setActive(i)} style={{
-              padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
-              fontSize: 13, fontWeight: active === i ? 600 : 400, fontFamily: 'Inter',
-              background: active === i ? '#000' : 'transparent',
-              color: active === i ? '#fff' : 'rgba(255,255,255,.40)',
-              border: active === i ? '1px solid rgba(255,255,255,.18)' : '1px solid transparent',
-              transition: 'all .2s',
-              boxShadow: active === i ? '0 2px 12px rgba(0,0,0,.4)' : 'none',
-            }}>
-              {s.label}
-            </button>
-          ))}
+          {SCREENS.map((s, i) => {
+            const isWa = s.file === 'whatsapp.png';
+            const isSel = active === i;
+            return (
+              <button key={i} onClick={() => setActive(i)} style={{
+                padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
+                fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Inter',
+                position: 'relative', overflow: 'hidden',
+                /* Selecionado: azul. Não selecionado: transparente */
+                background: isSel ? 'rgba(30,144,255,.18)' : 'transparent',
+                color: isSel ? '#60BFFF' : 'rgba(255,255,255,.40)',
+                border: isSel ? '1px solid rgba(30,144,255,.35)' : '1px solid transparent',
+                transition: 'all .2s',
+              }}>
+                {/* Saber roxo gradiente suave no WhatsApp selecionado */}
+                {isSel && isWa && (
+                  <span style={{
+                    position: 'absolute', inset: 0, borderRadius: 999, zIndex: 0,
+                    background: 'conic-gradient(from 0deg, rgba(123,63,228,.015) 0deg, rgba(123,63,228,.015) 180deg, rgba(123,63,228,.12) 280deg, rgba(123,63,228,.55) 340deg, rgba(180,120,255,.85) 352deg, rgba(220,180,255,.9) 356deg, rgba(180,120,255,.85) 358deg, rgba(123,63,228,.015) 360deg)',
+                    animation: 'showcase-saber 10s linear infinite',
+                    pointerEvents: 'none',
+                  }}/>
+                )}
+                {isSel && isWa && (
+                  <span style={{ position: 'absolute', inset: 1.5, borderRadius: 999, zIndex: 1, background: 'rgba(30,144,255,.18)', pointerEvents: 'none' }}/>
+                )}
+                <span style={{ position: 'relative', zIndex: 2 }}>{s.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Galeria 3D perspectiva */}
