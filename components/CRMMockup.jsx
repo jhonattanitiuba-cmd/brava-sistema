@@ -52,13 +52,26 @@ function CRMMockup() {
         <div className="val">{seg} seg</div>
       </div>
 
-      <div className="mockup-frame">
-        <div className="mockup-tab">
-          <div className="dots"><span></span><span></span><span></span></div>
-          <span className="url">crm.brava.software · WhatsApp · 23:48</span>
+      {/* ─── Chassi MacBook ────────────────────────────────────────── */}
+      <div className="mac-shell">
+        {/* Câmera */}
+        <div className="mac-camera-area">
+          <div className="mac-camera" />
         </div>
 
-        <div className="crm-app">
+        {/* Tela (screen bezel preto) */}
+        <div className="mac-screen">
+          <div className="mockup-tab">
+            {/* Dots macOS reais (vermelho / amarelo / verde) */}
+            <div className="dots">
+              <span style={{ background:'#FF5F57' }} />
+              <span style={{ background:'#FFBD2E' }} />
+              <span style={{ background:'#28C840' }} />
+            </div>
+            <span className="url">brava.software/admin · WhatsApp · 23:48</span>
+          </div>
+
+          <div className="crm-app">
           {/* Sidebar com labels */}
           <div className="crm-rail">
             <div className="logo-dot">B</div>
@@ -146,7 +159,14 @@ function CRMMockup() {
               <div className="ai-toggle">⚡ IA ATIVA</div>
             </div>
           </div>
-        </div>
+          </div>
+        </div>{/* fim mac-screen */}
+      </div>{/* fim mac-shell */}
+
+      {/* Base do MacBook */}
+      <div className="mac-hinge" />
+      <div className="mac-base">
+        <div className="mac-notch" />
       </div>
     </div>
   );
