@@ -10,6 +10,7 @@ const SCREENS = [
   { file: 'dashboard.png',    label: 'Dashboard',    desc: 'Visão completa da operação: MRR, clientes, conversas e chamados' },
   { file: 'whatsapp.png',     label: 'WhatsApp',     desc: 'Atendimento centralizado com IA respondendo em tempo real' },
   { file: 'pipeline.png',     label: 'Pipeline',     desc: 'Funil kanban arrastável com todos os clientes em movimento' },
+  { file: 'analytics.png',    label: 'Analytics',    desc: '+136% crescimento MRR · CAC R$380 · LTV R$14.250 · Churn 2.1%' },
   { file: 'mrr.png',          label: 'MRR',          desc: 'Controle de recorrência e projeção financeira 12 meses' },
   { file: 'chamados.png',     label: 'Suporte',      desc: '5 chamados abertos · triagem por prioridade · resposta direto ao cliente' },
   { file: 'agenda.png',       label: 'Agenda',       desc: 'Calendário integrado com eventos e próximos compromissos' },
