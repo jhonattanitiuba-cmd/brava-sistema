@@ -93,7 +93,7 @@ function ProductShowcase() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 0, position: 'relative', perspective: '1200px',
-          height: 480,
+          height: 560,
         }}>
           {SCREENS.map((s, i) => {
             const offset = i - active;
