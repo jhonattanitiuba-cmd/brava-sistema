@@ -73,8 +73,17 @@ body.brava-intro-active .grid-bg {
 </style>
 </head>
 <body>
-<!-- ▼ PRIMEIRO script da página — aplica a classe ANTES de qualquer renderização ▼ -->
-<script>document.body.classList.add('brava-intro-active','brava-intro-p1');</script>
+<!-- ▼ PRIMEIRO script da página — aplica a classe ANTES de qualquer renderização ▼
+     Pula a intro completamente em back_forward (botão voltar do browser). -->
+<script>
+(function(){
+  try {
+    var n = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    if (n && n.type === 'back_forward') return; /* não aplica classe, intro não dispara */
+  } catch(e){}
+  document.body.classList.add('brava-intro-active','brava-intro-p1');
+})();
+</script>
 <div id="brava-cursor"></div>
 <div id="brava-cursor-tail"></div>
 
@@ -214,10 +223,11 @@ body.brava-intro-active .grid-bg {
     return (performance.now() - _startPerfTs) / 1000;
   }
 
-  var triggered    = {};
-  var pending      = [];
-  var heroAnimDone = false;
-  var finishDone   = false;
+  var triggered         = {};
+  var pending           = [];
+  var heroAnimDone      = false;
+  var finishDone        = false;
+  var _introTotallyDone = false;  /* trava qualquer nova tentativa de áudio */
   var rafId;
 
   /* Transição por tipo:
@@ -293,6 +303,7 @@ body.brava-intro-active .grid-bg {
   function finishIntro() {
     if (finishDone) return;
     finishDone = true;
+    _introTotallyDone = true;  /* trava qualquer nova tentativa de áudio */
     if (rafId) cancelAnimationFrame(rafId);
     body.classList.remove('brava-intro-active', 'brava-intro-p1');
     document.querySelectorAll('.nav, [id^=nav-], .h1, .h1-line, .lead, .lead-line, .hero-cta, .cta-item, .grid-bg, .app-glow-blob, #root > div > *').forEach(function (el) {
@@ -327,16 +338,22 @@ body.brava-intro-active .grid-bg {
     rafId = requestAnimationFrame(syncFrame);
   }
 
-  /* ── Disparo agressivo de áudio ─────────────────────────────────
-     1. Aguarda o áudio ter dados (canplay) antes de tentar tocar
-     2. Tenta play() — autoplay attribute já está no <audio>
-     3. Se falhar, escuta TODA interação possível e retoca sincronizado
-     4. pageshow/visibilitychange também disparam (volta de cache, etc) */
-  var _playAttempts = 0;
+  /* ── Disparo do áudio (toca UMA VEZ por load completo) ──────────
+     • Só dispara em load normal (navigate/reload). Pula em back_forward.
+     • Se autoplay funcionar → fallback de clique NÃO é instalado
+     • Se autoplay falhar → escuta 1ª interação e dispara UMA VEZ
+     • Quando intro termina → trava todas as tentativas futuras       */
+  var _fallbackInstalled = false;
+
+  function lockIntro() {
+    _introTotallyDone = true;
+    /* Remove handlers que pudessem estar vivos */
+    if (_removeFallback) _removeFallback();
+  }
 
   function attemptPlay(syncToClock) {
-    _playAttempts++;
-    audio.volume = 0.18;  /* bem baixinho — sutil, não assusta */
+    if (_introTotallyDone) return Promise.reject(new Error('intro locked'));
+    audio.volume = 0.18;
     audio.muted  = false;
     if (syncToClock) {
       var t = getClock();
@@ -347,51 +364,61 @@ body.brava-intro-active .grid-bg {
     return p.then(function () { _audioLive = true; });
   }
 
+  var _removeFallback = null;
   function installInteractionFallback() {
+    if (_fallbackInstalled || _introTotallyDone) return;
+    _fallbackInstalled = true;
     var fired = false;
+    var events = ['pointerdown','touchstart','keydown','click'];
     function fire() {
-      if (fired) return;
+      if (fired || _introTotallyDone) return;
       fired = true;
-      events.forEach(function (ev) { window.removeEventListener(ev, fire, true); });
+      cleanup();
       attemptPlay(true).catch(function () {});
     }
-    var events = ['pointerdown','touchstart','keydown','click','mousedown','touchend'];
+    function cleanup() {
+      events.forEach(function (ev) { window.removeEventListener(ev, fire, true); });
+    }
+    _removeFallback = cleanup;
     events.forEach(function (ev) {
-      window.addEventListener(ev, fire, { capture: true, passive: true });
-    });
-    /* Volta de bfcache (F5 em alguns browsers) */
-    window.addEventListener('pageshow', function () {
-      if (!_audioLive && !finishDone) attemptPlay(true).catch(function () {});
-    });
-    /* Aba volta a ficar visível */
-    document.addEventListener('visibilitychange', function () {
-      if (document.visibilityState === 'visible' && !_audioLive && !finishDone) {
-        attemptPlay(true).catch(function () {});
-      }
+      window.addEventListener(ev, fire, { capture: true, passive: true, once: true });
     });
   }
 
   function tryPlayAudio() {
-    /* Se o áudio ainda não tem dados suficientes, espera canplay */
+    /* Aguarda dados suficientes do áudio antes de tentar tocar */
+    var doTry = function () {
+      attemptPlay(false).catch(function () { installInteractionFallback(); });
+    };
     if (audio.readyState < 2) {
-      audio.addEventListener('canplay', function once() {
-        audio.removeEventListener('canplay', once);
-        attemptPlay(false).catch(function () { installInteractionFallback(); });
-      }, { once: true });
-      /* Mesmo assim tenta agora — autoplay attr pode ter funcionado */
+      audio.addEventListener('canplay', doTry, { once: true });
+      /* Tenta agora também (autoplay attribute pode já ter funcionado) */
       attemptPlay(false).catch(function () {});
     } else {
-      attemptPlay(false).catch(function () { installInteractionFallback(); });
+      doTry();
     }
-    /* Sempre instala o fallback de interação (defensivo) */
-    installInteractionFallback();
   }
 
-  audio.addEventListener('ended', finishIntro);
+  /* Encerra completamente quando o áudio acabar OU a intro finalizar */
+  audio.addEventListener('ended', function () {
+    lockIntro();
+    finishIntro();
+  });
 
-  /* ── Disparo imediato: RAF + áudio em paralelo ── */
-  requestAnimationFrame(syncFrame); /* animação começa SEM depender de áudio */
-  tryPlayAudio();
+  /* ── Detecta tipo de navegação ──
+     "back_forward" = restauração via bfcache (botão voltar). NÃO toca. */
+  var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
+  var isBackForward = nav && nav.type === 'back_forward';
+
+  if (isBackForward) {
+    /* Pula a intro completamente — usuário voltou via cache */
+    lockIntro();
+    finishIntro();
+  } else {
+    /* Load normal (F5 ou primeira visita) → toca normalmente */
+    requestAnimationFrame(syncFrame);
+    tryPlayAudio();
+  }
 })();
 </script>
 
