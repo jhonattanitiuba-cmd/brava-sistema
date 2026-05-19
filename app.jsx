@@ -88,8 +88,39 @@ function App() {
   return (
     <>
       <Nav />
-      <Hero headline={t.headline} cta={t.cta} accents={t.accents} />
-      <ProductShowcase />
+      {/* ── Fundo unificado Hero + ProductShowcase ─────────── */}
+      <div style={{ position:'relative', overflow:'hidden', background:'#06060F' }}>
+        {/* Blob roxo animado lento */}
+        <div style={{
+          position:'absolute', top:'-15%', left:'-10%',
+          width:'55%', height:'65%',
+          background:'radial-gradient(ellipse, rgba(123,63,228,.18) 0%, transparent 70%)',
+          animation:'bg-blob-a 18s ease-in-out infinite',
+          pointerEvents:'none',
+        }}/>
+        {/* Blob azul animado lento */}
+        <div style={{
+          position:'absolute', bottom:'-10%', right:'-8%',
+          width:'50%', height:'60%',
+          background:'radial-gradient(ellipse, rgba(30,144,255,.12) 0%, transparent 70%)',
+          animation:'bg-blob-b 22s ease-in-out infinite',
+          pointerEvents:'none',
+        }}/>
+        <style>{`
+          @keyframes bg-blob-a {
+            0%,100%{ transform:translate(0,0) scale(1); }
+            33%    { transform:translate(6%,8%) scale(1.08); }
+            66%    { transform:translate(-4%,4%) scale(.94); }
+          }
+          @keyframes bg-blob-b {
+            0%,100%{ transform:translate(0,0) scale(1); }
+            40%    { transform:translate(-5%,-6%) scale(1.06); }
+            70%    { transform:translate(4%,5%) scale(.96); }
+          }
+        `}</style>
+        <Hero headline={t.headline} cta={t.cta} accents={t.accents} />
+        <ProductShowcase />
+      </div>
       <ProposalBlock />
       <PainBlock />
       <SolutionBlock />

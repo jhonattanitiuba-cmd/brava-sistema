@@ -24,25 +24,11 @@ function ProductShowcase() {
 
   return (
     <section style={{
-      background: 'linear-gradient(180deg, #0A0A0F 0%, #000 30%)',
-      padding: '80px 0 140px',
+      background: 'transparent',
+      padding: '20px 0 100px',
       overflow: 'hidden',
       position: 'relative',
-      marginTop: -2,   /* sobrepõe a borda da Hero pra fundir */
     }}>
-      {/* Passagem de luz suave esquerda → direita */}
-      <div style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none',
-        background: 'linear-gradient(105deg, transparent 0%, rgba(123,63,228,.06) 30%, rgba(30,144,255,.08) 55%, rgba(123,63,228,.04) 75%, transparent 100%)',
-      }}/>
-      {/* Glow central sutil */}
-      <div style={{
-        position: 'absolute', top: '40%', left: '50%',
-        transform: 'translate(-50%,-50%)',
-        width: 700, height: 350,
-        background: 'radial-gradient(ellipse, rgba(123,63,228,.12) 0%, rgba(30,144,255,.06) 45%, transparent 70%)',
-        pointerEvents: 'none',
-      }}/>
 
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', position: 'relative' }}>
 
@@ -118,6 +104,11 @@ function ProductShowcase() {
             const opacity   = isActive ? 1 : (absOff === 1 ? 0.70 : 0.35);
             const zIdx      = 10 - absOff;
 
+            // Wiggle: período e delay únicos por card (não se sincronizam)
+            const floatDur  = 4.5 + (i % 3) * 1.2;
+            const floatDel  = (i * 0.7) % 3;
+            const floatName = `sc-float-${i % 3}`;
+
             return (
               <div key={i}
                 onClick={() => !isActive && setActive(i)}
@@ -132,8 +123,13 @@ function ProductShowcase() {
                   opacity,
                   zIndex: zIdx,
                   cursor: isActive ? 'default' : 'pointer',
+                  /* Wrapper de wiggle — separado do transform 3D */
                 }}
               >
+                {/* Float wrapper — não interfere com transforms 3D do pai */}
+                <div style={{
+                  animation: `${floatName} ${floatDur}s ease-in-out ${floatDel}s infinite`,
+                }}>
                 {/* Frame com cantos quadrados + saber constante */}
                 <div style={{
                   borderRadius: 4,          /* cantos quase quadrados */
@@ -196,6 +192,7 @@ function ProductShowcase() {
                   </div>
                 </div>
                 <style>{`@keyframes showcase-saber { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+                </div>{/* fim float wrapper */}
               </div>
             );
           })}
@@ -224,6 +221,19 @@ function ProductShowcase() {
         @keyframes showcase-desc {
           from { opacity:0; transform:translateY(14px); }
           to   { opacity:1; transform:translateY(0); }
+        }
+        /* 3 variações de wiggle — cada card flutua de forma diferente */
+        @keyframes sc-float-0 {
+          0%,100% { transform:translateY(0px) rotate(.2deg); }
+          50%     { transform:translateY(-9px) rotate(-.2deg); }
+        }
+        @keyframes sc-float-1 {
+          0%,100% { transform:translateY(-3px) rotate(-.15deg); }
+          50%     { transform:translateY(6px) rotate(.15deg); }
+        }
+        @keyframes sc-float-2 {
+          0%,100% { transform:translateY(2px) rotate(.1deg); }
+          50%     { transform:translateY(-7px) rotate(-.1deg); }
         }
       `}</style>
     </section>
