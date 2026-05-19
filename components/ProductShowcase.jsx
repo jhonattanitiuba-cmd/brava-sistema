@@ -203,30 +203,17 @@ function ProductShowcase() {
 
       </div>
 
-      {/* Descrição abaixo do mockup — animada com perspectiva */}
+      {/* Descrição abaixo do mockup — só a frase, sem repetir o label */}
       <div style={{
-        textAlign: 'center', marginTop: 52, padding: '0 24px',
+        textAlign: 'center', marginTop: 20, padding: '0 24px',
         position: 'relative',
       }}>
-        <div style={{
-          display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-          animation: 'showcase-desc 0.5s cubic-bezier(.22,1,.36,1) both',
-          animationDelay: '0.15s',
-        }} key={active}>
-          {/* Label da tela ativa */}
-          <span style={{
-            fontSize: 10, fontFamily: 'JetBrains Mono, monospace',
-            letterSpacing: '.16em', textTransform: 'uppercase',
-            color: 'rgba(30,144,255,.7)', fontWeight: 500,
-          }}>{SCREENS[active]?.label}</span>
-          {/* Descrição principal */}
-          <p style={{
-            margin: 0, fontSize: 17,
-            color: 'rgba(255,255,255,.65)',
-            fontFamily: 'Inter', fontWeight: 400, lineHeight: 1.45,
-            maxWidth: 480,
-          }}>{SCREENS[active]?.desc}</p>
-        </div>
+        <p style={{
+          margin: 0, fontSize: 16,
+          color: 'rgba(255,255,255,.55)',
+          fontFamily: 'Inter', fontWeight: 400, lineHeight: 1.45,
+          animation: 'showcase-desc 0.4s cubic-bezier(.22,1,.36,1) both',
+        }} key={active}>{SCREENS[active]?.desc}</p>
       </div>
 
       <style>{`
