@@ -53,32 +53,17 @@ function ProductShowcase() {
           flexWrap: 'wrap', marginBottom: 56,
         }}>
           {SCREENS.map((s, i) => {
-            const isWa = s.file === 'whatsapp.png';
             const isSel = active === i;
             return (
               <button key={i} onClick={() => setActive(i)} style={{
                 padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
                 fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Inter',
-                position: 'relative', overflow: 'hidden',
-                /* Selecionado: preto + branco + contorno azul fino */
                 background: isSel ? '#000' : 'transparent',
                 color: isSel ? '#fff' : 'rgba(255,255,255,.40)',
                 border: isSel ? '1.5px solid rgba(30,144,255,.55)' : '1px solid transparent',
                 transition: 'all .2s',
               }}>
-                {/* Saber roxo gradiente suave no WhatsApp selecionado */}
-                {isSel && isWa && (
-                  <span style={{
-                    position: 'absolute', inset: 0, borderRadius: 999, zIndex: 0,
-                    background: 'conic-gradient(from 0deg, rgba(123,63,228,.015) 0deg, rgba(123,63,228,.015) 180deg, rgba(123,63,228,.12) 280deg, rgba(123,63,228,.55) 340deg, rgba(180,120,255,.85) 352deg, rgba(220,180,255,.9) 356deg, rgba(180,120,255,.85) 358deg, rgba(123,63,228,.015) 360deg)',
-                    animation: 'showcase-saber 10s linear infinite',
-                    pointerEvents: 'none',
-                  }}/>
-                )}
-                {isSel && isWa && (
-                  <span style={{ position: 'absolute', inset: 1.5, borderRadius: 999, zIndex: 1, background: 'rgba(30,144,255,.18)', pointerEvents: 'none' }}/>
-                )}
-                <span style={{ position: 'relative', zIndex: 2 }}>{s.label}</span>
+                {s.label}
               </button>
             );
           })}
