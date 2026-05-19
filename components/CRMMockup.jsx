@@ -72,31 +72,50 @@ function CRMMockup() {
           </div>
 
           <div className="crm-app">
-          {/* Sidebar com labels */}
-          <div className="crm-rail">
-            <div className="logo-dot">B</div>
+          {/* Sidebar — espelho exato do admin real */}
+          <div className="crm-rail" style={{ background:'#0E0E14', borderRight:'1px solid #1F1F2A' }}>
+            {/* Logo Brava real */}
+            <div className="logo-dot" style={{
+              background:'transparent', width:40, height:24, marginBottom:8,
+              display:'flex', alignItems:'center', justifyContent:'center',
+            }}>
+              <img
+                src="/admin/app/brava-logo-white.png"
+                alt="Brava"
+                style={{ height:14, objectFit:'contain', filter:'brightness(0) invert(1)' }}
+                onError={e => { e.target.style.display='none'; e.target.parentNode.textContent='B'; }}
+              />
+            </div>
             {NAV_ITEMS.map((item, i) => (
               <div
                 key={i}
                 className={`ic${i === activeIdx ? ' active' : ''}`}
                 title={item.label}
                 onClick={() => setActiveIdx(i)}
+                style={{
+                  background: i === activeIdx ? 'rgba(123,63,228,.15)' : 'transparent',
+                  borderRadius: 8, color: i === activeIdx ? '#F5F5F7' : '#6E6E78',
+                }}
               >
                 {item.icon}
-                <span className="ic-label">{item.label}</span>
+                <span className="ic-label" style={{ color: i === activeIdx ? '#F5F5F7' : '#6E6E78' }}>{item.label}</span>
               </div>
             ))}
           </div>
 
-          {/* Lista */}
-          <div className="crm-list">
-            <div className="crm-list-head">
-              <h4>WhatsApp</h4>
-              <span className="badge">23 ABERTAS</span>
+          {/* Lista de conversas — paleta WhatsApp Web do admin */}
+          <div className="crm-list" style={{ background:'#111B21', borderRight:'1px solid rgba(255,255,255,.05)' }}>
+            <div className="crm-list-head" style={{ borderBottom:'1px solid rgba(255,255,255,.05)' }}>
+              <h4 style={{ color:'#E8E8E8' }}>WhatsApp</h4>
+              <span className="badge" style={{
+                background:'rgba(37,211,102,.15)', color:'#25D366',
+                border:'1px solid rgba(37,211,102,.3)', borderRadius:6,
+                padding:'2px 8px', fontSize:9, fontWeight:700,
+              }}>23</span>
             </div>
-            <div className="crm-search">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              <span>Buscar conversas…</span>
+            <div className="crm-search" style={{ background:'rgba(255,255,255,.04)', borderRadius:6 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#A0A0AA" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <span style={{ color:'#6E6E78' }}>Pesquisar ou começar uma nova co…</span>
             </div>
             {conversations.map((c, i) => (
               <div key={i} className={`crm-row${i === 0 ? ' active' : ''}`}>
@@ -123,40 +142,69 @@ function CRMMockup() {
             ))}
           </div>
 
-          {/* Conversa */}
-          <div className="crm-conv">
-            <div className="crm-conv-head">
-              <div className="crm-avatar" style={{ width: 36, height: 36, fontSize: 12 }}>CM</div>
+          {/* Conversa — espelho do admin real */}
+          <div className="crm-conv" style={{ background:'#0B141A' }}>
+            {/* Header da conversa — igual ao admin */}
+            <div className="crm-conv-head" style={{
+              background:'#202C33', borderBottom:'1px solid rgba(255,255,255,.06)',
+              padding:'10px 14px',
+            }}>
+              <div className="crm-avatar" style={{ width:36, height:36, fontSize:12, background:'linear-gradient(135deg,#7B3FE4,#1E90FF)' }}>CM</div>
               <div className="who">
-                <div className="n">Carla Mendes</div>
-                <div className="s">online · vindo de Stories Meta · 1ª vez</div>
+                <div className="n" style={{ color:'#E8E8E8', fontWeight:600 }}>Carla Mendes</div>
+                <div className="s" style={{ color:'#25D366', fontSize:10 }}>● online</div>
               </div>
-              <div className="actions">
-                <span className="pill"><span className="live"></span>IA · VENDAS</span>
+              <div className="actions" style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
+                {/* Pill IA ATIVA — igual ao admin */}
+                <span style={{
+                  display:'flex', alignItems:'center', gap:5,
+                  padding:'4px 10px', borderRadius:999,
+                  background:'rgba(37,211,102,.12)', border:'1px solid rgba(37,211,102,.3)',
+                  fontSize:10, fontWeight:700, color:'#25D366',
+                }}>
+                  <span style={{ width:5, height:5, borderRadius:'50%', background:'#25D366', display:'inline-block' }}/>
+                  IA ATIVA
+                </span>
+                {/* Botão Atribuir */}
+                <span style={{
+                  padding:'4px 10px', borderRadius:6,
+                  border:'1px solid rgba(255,255,255,.10)', fontSize:10, color:'#A0A0AA',
+                }}>+ Atribuir</span>
               </div>
             </div>
+            {/* Thread */}
             <div className="crm-thread">
-              <div className="msg in">
+              <div className="msg in" style={{ background:'#1F2C33', color:'#E8E8E8' }}>
                 Boa noite! Vi o anúncio. Tem vaga pra avaliação amanhã às 14h?
-                <div className="stamp">23:47</div>
+                <div className="stamp" style={{ color:'rgba(255,255,255,.45)' }}>23:47</div>
               </div>
-              <div className="msg out">
-                Oi Carla! Temos sim 👋 Avaliação gratuita, 40 minutos. Reservo 14h pra você?
-                <div className="stamp"><span className="ai-tag">IA · Vendas</span> 23:47 · 18s</div>
+              <div className="msg out" style={{ background:'#005C4B', color:'#E8E8E8' }}>
+                Oi Carla! Temos sim 👋 Avaliação gratuita, 40 min. Reservo 14h pra você?
+                <div className="stamp" style={{ color:'rgba(255,255,255,.5)', display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ fontSize:8, background:'rgba(123,63,228,.4)', padding:'1px 5px', borderRadius:3 }}>IA</span>
+                  23:47 · 18s
+                </div>
               </div>
-              <div className="msg in">
+              <div className="msg in" style={{ background:'#1F2C33', color:'#E8E8E8' }}>
                 Pode reservar. É na unidade Alphaville?
-                <div className="stamp">23:48</div>
+                <div className="stamp" style={{ color:'rgba(255,255,255,.45)' }}>23:48</div>
               </div>
-              <div className="msg out">
+              <div className="msg out" style={{ background:'#005C4B', color:'#E8E8E8' }}>
                 Reservado ✅ Al. Rio Negro 503. Lembrete 1h antes. Adiantar a ficha?
-                <div className="stamp"><span className="ai-tag">IA · Vendas</span> 23:48 · 22s</div>
+                <div className="stamp" style={{ color:'rgba(255,255,255,.5)', display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ fontSize:8, background:'rgba(123,63,228,.4)', padding:'1px 5px', borderRadius:3 }}>IA</span>
+                  23:48 · 22s
+                </div>
               </div>
               <div className="crm-typing"><span></span><span></span><span></span></div>
             </div>
-            <div className="crm-compose">
-              <span>Digite para assumir a conversa…</span>
-              <div className="ai-toggle">⚡ IA ATIVA</div>
+            {/* Compose — banner exato do admin */}
+            <div className="crm-compose" style={{ background:'rgba(32,44,51,.95)', borderTop:'1px solid rgba(255,255,255,.06)' }}>
+              <span style={{ color:'#A0A0AA', fontSize:12 }}>IA ativa · Para assumir, digite <b style={{ color:'#7B3FE4' }}>"Vamos lá"</b></span>
+              <div className="ai-toggle" style={{
+                background:'rgba(37,211,102,.12)', border:'1px solid rgba(37,211,102,.3)',
+                color:'#25D366', borderRadius:6, padding:'3px 8px', fontSize:10, fontWeight:700,
+              }}>● IA ATIVA</div>
             </div>
           </div>
           </div>
