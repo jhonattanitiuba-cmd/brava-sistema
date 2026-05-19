@@ -78,6 +78,7 @@ const ICON_PATHS = {
   UserCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 14a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM6 21a6 6 0 0 1 12 0',
   Filter: 'M22 3H2l8 9.46V19l4 2v-8.54z',
   Download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  History: 'M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8M12 7v5l4 2',
 };
 
 function Icon({ name, size = 18, stroke = 1.5, className = '', style = {} }) {

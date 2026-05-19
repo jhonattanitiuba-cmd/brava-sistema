@@ -3248,6 +3248,71 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     [waInstances, activeInstanceId]
   );
 
+  // === Sync histórico (puxa conversas dos últimos N dias do Evolution) ===
+  const [syncOpen, setSyncOpen] = React.useState(false);
+  const [syncState, setSyncState] = React.useState({
+    running:false, days:10, processed:0, total:0, chats:0, messages:0, errors:[], done:false,
+  });
+
+  async function runSyncHistory(days) {
+    const instanceName = activeInstance?.evolution_instance_name;
+    if (!instanceName) {
+      showToast?.('Instância sem nome Evolution configurado', 'error');
+      return;
+    }
+    setSyncState({ running:true, days, processed:0, total:0, chats:0, messages:0, errors:[], done:false });
+
+    let offset = 0;
+    let totalMessages = 0;
+    let totalChats = 0;
+    let errorsAcc = [];
+    let isDone = false;
+    let totalChatsReported = 0;
+    let safety = 0;
+
+    while (!isDone && safety < 100) {
+      safety++;
+      try {
+        const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-sync-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName, daysBack: days, offset, batchSize: 15 }),
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          errorsAcc.push(data.error || 'erro desconhecido');
+          break;
+        }
+        totalMessages += data.messages || 0;
+        totalChats = Math.max(totalChats, data.chats || 0);
+        totalChatsReported = data.totalChats || totalChatsReported;
+        if (data.errors?.length) errorsAcc = errorsAcc.concat(data.errors);
+        isDone = !!data.done;
+        const nextOffset = data.nextOffset != null ? data.nextOffset : (offset + (data.processed || 1));
+
+        setSyncState({
+          running:!isDone, days,
+          processed: nextOffset,
+          total: totalChatsReported,
+          chats: totalChats,
+          messages: totalMessages,
+          errors: errorsAcc,
+          done: isDone,
+        });
+
+        if (nextOffset === offset && !isDone) break; // não avançou — break
+        offset = nextOffset;
+      } catch (e) {
+        errorsAcc.push(String(e));
+        break;
+      }
+    }
+
+    setSyncState(s => ({ ...s, running:false, done:true, errors: errorsAcc, chats: totalChats, messages: totalMessages, total: totalChatsReported }));
+    window.dispatchEvent(new Event('brava_wa_refresh'));
+    showToast?.(`Sincronizado: ${totalMessages} mensagens em ${totalChats} chats`, 'success');
+  }
+
   // === Backend toggle: Supabase (Realtime) vs Evolution direto (legado) ===
   const [supaEnabled, setSupaEnabled] = useSupaEnabled();
   const supaChatsState = useSupaChats();        // sempre roda (cheap), mas so usa se supaEnabled
@@ -3589,6 +3654,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}
               >
                 <Icon name="RefreshCw" size={16}/>
+              </button>
+              {/* Sincronizar histórico — puxa conversas/mensagens dos últimos N dias do Evolution */}
+              <button onClick={()=>setSyncOpen(true)} title="Sincronizar histórico do WhatsApp" style={{
+                width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                color: S.textSec, background:'none', border:'none', cursor:'pointer', transition:'background .15s',
+              }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <Icon name="History" size={17}/>
               </button>
               <button onClick={()=>setEscondeRuido(!escondeRuido)} title={escondeRuido ? 'Mostrando apenas conversas reais' : 'Mostrar tudo (inclusive ruido tecnico)'} style={{
                 width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
@@ -4223,6 +4298,90 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         mudarFase={mudarFase}
         S={S}
       />
+
+      {/* ── Modal: Sincronizar histórico ── */}
+      {syncOpen && (
+        <div onClick={(e) => { if (!syncState.running && e.target === e.currentTarget) setSyncOpen(false); }}
+             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)',
+                      zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div style={{ background:S.cardBg, borderRadius:14, padding:24, width:440, maxWidth:'92vw',
+                        border:`1px solid ${S.border}`, boxShadow:'0 24px 60px rgba(0,0,0,.5)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+              <Icon name="History" size={18} style={{color:'var(--wa-green)'}}/>
+              <h3 style={{ margin:0, fontSize:16, color:S.textPrimary, fontFamily:'var(--f-d)', fontWeight:600 }}>
+                Sincronizar histórico
+              </h3>
+            </div>
+            <p style={{ fontSize:13, color:S.textSec, margin:'0 0 18px', lineHeight:1.55 }}>
+              Puxa as conversas e mensagens dos últimos dias direto do Evolution.<br/>
+              Instância: <b style={{color:S.textPrimary}}>{activeInstance?.nome || activeInstance?.evolution_instance_name || '—'}</b>
+            </p>
+
+            {!syncState.running && !syncState.done && (
+              <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+                {[7, 10, 30].map(d => (
+                  <button key={d} onClick={() => runSyncHistory(d)}
+                    style={{ flex:1, padding:'12px 0', borderRadius:8, border:`1px solid ${S.border}`,
+                             background:S.searchBg, color:S.textPrimary, fontFamily:'var(--f-d)',
+                             fontSize:13.5, fontWeight:600, cursor:'pointer', transition:'all .15s' }}
+                    onMouseEnter={e=>{ e.currentTarget.style.borderColor='var(--wa-green)'; e.currentTarget.style.background='rgba(37,211,102,.08)'; }}
+                    onMouseLeave={e=>{ e.currentTarget.style.borderColor=S.border; e.currentTarget.style.background=S.searchBg; }}>
+                    {d} dias
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {(syncState.running || syncState.done) && (
+              <div style={{ margin:'14px 0' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5,
+                              color:S.textSec, marginBottom:6, fontFamily:'var(--f-d)' }}>
+                  <span>{syncState.processed}/{syncState.total || '?'} chats processados</span>
+                  <span>{syncState.messages} msgs</span>
+                </div>
+                <div style={{ height:6, background:S.border, borderRadius:3, overflow:'hidden' }}>
+                  <div style={{
+                    height:'100%',
+                    width: syncState.total ? `${Math.min(100, (syncState.processed/syncState.total)*100)}%` : '5%',
+                    background: syncState.done ? 'var(--wa-green)' : 'linear-gradient(90deg,#7B3FE4,#1E90FF)',
+                    transition:'width .35s ease',
+                  }}/>
+                </div>
+              </div>
+            )}
+
+            {syncState.done && (
+              <div style={{ padding:'12px 14px', background:'rgba(37,211,102,.08)', borderRadius:8,
+                            border:'1px solid rgba(37,211,102,.25)', marginBottom:14 }}>
+                <div style={{ fontSize:13, color:'var(--wa-green)', fontFamily:'var(--f-d)', fontWeight:600, marginBottom:3 }}>
+                  ✓ Sincronização concluída
+                </div>
+                <div style={{ fontSize:12, color:S.textSec, lineHeight:1.5 }}>
+                  {syncState.chats} chats · {syncState.messages} mensagens · últimos {syncState.days} dias
+                </div>
+                {syncState.errors.length > 0 && (
+                  <div style={{ fontSize:11, color:'#ff8585', marginTop:6 }}>
+                    {syncState.errors.length} alerta{syncState.errors.length>1?'s':''} (ver console)
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:6 }}>
+              <button onClick={() => { if (!syncState.running) { setSyncOpen(false); setSyncState({ running:false, days:10, processed:0, total:0, chats:0, messages:0, errors:[], done:false }); } }}
+                disabled={syncState.running}
+                style={{ padding:'9px 18px', borderRadius:8, border:'none',
+                         background: syncState.running ? 'rgba(128,128,128,.15)' : S.searchBg,
+                         color: syncState.running ? S.textSec : S.textPrimary,
+                         fontSize:13, fontFamily:'var(--f-d)', fontWeight:500,
+                         cursor: syncState.running ? 'not-allowed' : 'pointer',
+                         opacity: syncState.running ? .5 : 1, transition:'all .15s' }}>
+                {syncState.done ? 'Fechar' : (syncState.running ? 'Sincronizando…' : 'Cancelar')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
