@@ -24,10 +24,11 @@ function ProductShowcase() {
 
   return (
     <section style={{
-      background: '#000',
-      padding: '120px 0 140px',
+      background: 'linear-gradient(180deg, #0A0A0F 0%, #000 30%)',
+      padding: '80px 0 140px',
       overflow: 'hidden',
       position: 'relative',
+      marginTop: -2,   /* sobrepõe a borda da Hero pra fundir */
     }}>
       {/* Passagem de luz suave esquerda → direita */}
       <div style={{
@@ -73,10 +74,10 @@ function ProductShowcase() {
                 padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
                 fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Inter',
                 position: 'relative', overflow: 'hidden',
-                /* Selecionado: azul. Não selecionado: transparente */
-                background: isSel ? 'rgba(30,144,255,.18)' : 'transparent',
-                color: isSel ? '#60BFFF' : 'rgba(255,255,255,.40)',
-                border: isSel ? '1px solid rgba(30,144,255,.35)' : '1px solid transparent',
+                /* Selecionado: preto + branco + contorno azul fino */
+                background: isSel ? '#000' : 'transparent',
+                color: isSel ? '#fff' : 'rgba(255,255,255,.40)',
+                border: isSel ? '1.5px solid rgba(30,144,255,.55)' : '1px solid transparent',
                 transition: 'all .2s',
               }}>
                 {/* Saber roxo gradiente suave no WhatsApp selecionado */}

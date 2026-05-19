@@ -14,8 +14,42 @@
 <link rel="stylesheet" href="styles.css" />
 
 <style id="__om-edit-overrides"></style>
+<style>
+/* Cursor personalizado — colinha preta slow motion */
+* { cursor: none !important; }
+#brava-cursor       { position:fixed; width:8px; height:8px; border-radius:50%; background:#000; pointer-events:none; z-index:99999; transform:translate(-50%,-50%); transition:none; }
+#brava-cursor-tail  { position:fixed; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,.35); pointer-events:none; z-index:99998; transform:translate(-50%,-50%); transition:left .18s ease, top .18s ease; }
+</style>
 </head>
 <body>
+<div id="brava-cursor"></div>
+<div id="brava-cursor-tail"></div>
+<script>
+(function(){
+  var c  = document.getElementById('brava-cursor');
+  var ct = document.getElementById('brava-cursor-tail');
+  if (!c || !ct) return;
+  document.addEventListener('mousemove', function(e){
+    c.style.left  = e.clientX + 'px';
+    c.style.top   = e.clientY + 'px';
+    ct.style.left = e.clientX + 'px';
+    ct.style.top  = e.clientY + 'px';
+  }, { passive:true });
+  /* Escala no hover de links/botões */
+  document.addEventListener('mouseover', function(e){
+    if (e.target.closest('a,button,[role=button]')) {
+      c.style.transform  = 'translate(-50%,-50%) scale(1.6)';
+      ct.style.transform = 'translate(-50%,-50%) scale(1.4)';
+    }
+  }, { passive:true });
+  document.addEventListener('mouseout', function(e){
+    if (e.target.closest('a,button,[role=button]')) {
+      c.style.transform  = 'translate(-50%,-50%) scale(1)';
+      ct.style.transform = 'translate(-50%,-50%) scale(1)';
+    }
+  }, { passive:true });
+})();
+</script>
 <script>
 /* ── Som tecnológico sutil ao entrar na página ──────────────────────
    Web Audio API: acorde digital suave (3 camadas) + fade in/out.

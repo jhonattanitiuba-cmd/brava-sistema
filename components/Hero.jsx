@@ -16,15 +16,19 @@ function Nav() {
           <a href="#faq">Perguntas</a>
           <a href={WA_LINK} style={{
             display:'inline-flex', alignItems:'center', justifyContent:'center',
-            height:40, padding:'0 18px', borderRadius:999,
+            height:38, padding:'0 18px', borderRadius:999,
             background:'#25D366', color:'#fff',
             fontSize:14, fontWeight:500, textDecoration:'none',
-            border:'none', outline:'none', cursor:'pointer',
+            border:'none', outline:'none', lineHeight:1, flexShrink:0,
           }}>WhatsApp</a>
-          <a className="btn btn-sm" href={`/app/?login=1&theme=${tema()}`}
-             style={{ background:'#1E90FF', color:'#fff', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
-            Entrar
-          </a>
+          <a href={`/app/?login=1&theme=${tema()}`} style={{
+            display:'inline-flex', alignItems:'center', justifyContent:'center',
+            height:38, padding:'0 18px', borderRadius:999,
+            background:'#1E90FF', color:'#fff',
+            fontSize:14, fontWeight:500, textDecoration:'none',
+            border:'none', outline:'none', lineHeight:1, flexShrink:0,
+            boxShadow:'0 4px 14px rgba(30,144,255,.35)',
+          }}>Entrar</a>
         </div>
       </div>
     </nav>
