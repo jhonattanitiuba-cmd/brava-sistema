@@ -5,11 +5,8 @@
   "outputDirectory": ".",
   "installCommand": null,
   "framework": null,
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "redirects": [
-    { "source": "/admin/", "destination": "/admin", "permanent": true }
-  ],
+  "cleanUrls": false,
+  "trailingSlash": true,
   "headers": [
     {
       "source": "/(.*)",
