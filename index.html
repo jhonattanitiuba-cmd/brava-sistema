@@ -24,6 +24,22 @@
 <body>
 <div id="brava-cursor"></div>
 <div id="brava-cursor-tail"></div>
+
+<!-- Tag de volume — canto inferior esquerdo -->
+<div id="brava-sound-tag" style="
+  position:fixed; bottom:18px; left:18px; z-index:9990;
+  display:flex; align-items:center; gap:8px;
+  padding:7px 14px 7px 10px; border-radius:999px;
+  background:rgba(5,5,18,.80); backdrop-filter:blur(10px);
+  border:1px solid rgba(30,144,255,.22);
+  font-family:JetBrains Mono,monospace; font-size:11px;
+  color:rgba(255,255,255,.55); letter-spacing:.06em;
+  transition: opacity .3s; cursor:pointer;
+  user-select:none;
+" onclick="bravoToggleSound()" title="Alternar som ambiente">
+  <span id="brava-sound-icon" style="color:#1E90FF; font-size:13px">♩</span>
+  <span id="brava-sound-label">SOM · ON</span>
+</div>
 <script>
 (function(){
   var c  = document.getElementById('brava-cursor');
@@ -51,55 +67,82 @@
 })();
 </script>
 <script>
-/* ── Som tecnológico sutil ao entrar na página ──────────────────────
-   Web Audio API: acorde digital suave (3 camadas) + fade in/out.
-   Sem arquivo externo. Inicia após 800ms (espera render inicial).
-   Gain total muito baixo (.035) — quase imperceptível, sensação
-   subconsciente de "ambiente tech".
+/* ── Ruído marrom (brown noise) contínuo — ambiente tech electronico ──
+   Brown noise = integração do white noise → som grave, quente, relaxante.
+   Gerado por Web Audio API: sem arquivo externo, loop infinito.
+   Volume baixo (.045) — presença sutil, não intrusiva.
+   Tag de controle no canto inf esq com toggle ON/OFF.
 */
+var _bravaAudioCtx = null;
+var _bravaNoiseNode = null;
+var _bravaMasterGain = null;
+var _bravaSoundOn = true;
+
+function bravoToggleSound() {
+  _bravaSoundOn = !_bravaSoundOn;
+  var lbl  = document.getElementById('brava-sound-label');
+  var icon = document.getElementById('brava-sound-icon');
+  if (_bravaMasterGain) {
+    var now = _bravaAudioCtx.currentTime;
+    _bravaMasterGain.gain.cancelScheduledValues(now);
+    _bravaMasterGain.gain.linearRampToValueAtTime(
+      _bravaSoundOn ? 0.045 : 0, now + 0.6
+    );
+  }
+  if (lbl)  lbl.textContent  = _bravaSoundOn ? 'SOM · ON' : 'SOM · OFF';
+  if (icon) icon.style.color = _bravaSoundOn ? '#1E90FF' : 'rgba(255,255,255,.3)';
+}
+
+function _startBrownNoise() {
+  try {
+    _bravaAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var ctx = _bravaAudioCtx;
+    var bufferSize = ctx.sampleRate * 4; // 4s buffer em loop
+    var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    var data   = buffer.getChannelData(0);
+
+    // Gera brown noise: integração do white noise
+    var lastOut = 0;
+    for (var i = 0; i < bufferSize; i++) {
+      var white = (Math.random() * 2 - 1);
+      data[i] = (lastOut + (0.02 * white)) / 1.02;
+      lastOut  = data[i];
+      data[i] *= 3.5; // amplifica pra compensar o filtro
+    }
+
+    _bravaNoiseNode = ctx.createBufferSource();
+    _bravaNoiseNode.buffer = buffer;
+    _bravaNoiseNode.loop   = true;
+
+    // Filtro passa-baixa — corta agudos, deixa só o grave warm
+    var lpf = ctx.createBiquadFilter();
+    lpf.type            = 'lowpass';
+    lpf.frequency.value = 180;  // apenas abaixo de 180Hz
+    lpf.Q.value         = 0.5;
+
+    _bravaMasterGain = ctx.createGain();
+    _bravaMasterGain.gain.setValueAtTime(0, ctx.currentTime);
+    _bravaMasterGain.gain.linearRampToValueAtTime(0.045, ctx.currentTime + 2.5);
+
+    _bravaNoiseNode.connect(lpf);
+    lpf.connect(_bravaMasterGain);
+    _bravaMasterGain.connect(ctx.destination);
+    _bravaNoiseNode.start();
+  } catch(e) { console.warn('Brown noise error:', e); }
+}
+
 (function() {
-  function playBravaEntrance() {
-    try {
-      var ctx = new (window.AudioContext || window.webkitAudioContext)();
-      var now = ctx.currentTime;
-      var masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(0, now);
-      masterGain.gain.linearRampToValueAtTime(0.038, now + 0.6);   // fade in
-      masterGain.gain.setValueAtTime(0.038, now + 1.2);
-      masterGain.gain.linearRampToValueAtTime(0, now + 2.2);       // fade out
-      masterGain.connect(ctx.destination);
-
-      // 3 osciladores formando um acorde tech (4a + 5a)
-      [[220, 'sine'], [330, 'sine'], [440, 'triangle']].forEach(function(cfg, idx) {
-        var osc = ctx.createOscillator();
-        var gain = ctx.createGain();
-        osc.type = cfg[1];
-        osc.frequency.setValueAtTime(cfg[0], now);
-        // Detuning suave — sensação digital, não "beep"
-        osc.frequency.linearRampToValueAtTime(cfg[0] * 1.002, now + 1.5);
-        gain.gain.setValueAtTime(0.6 - idx * 0.12, now);
-        osc.connect(gain);
-        gain.connect(masterGain);
-        osc.start(now);
-        osc.stop(now + 2.5);
-      });
-    } catch(e) {}
+  var started = false;
+  function tryStart() {
+    if (started) return;
+    started = true;
+    _startBrownNoise();
   }
-
-  // Dispara após breve delay pra garantir que o contexto de audio
-  // possa ser criado (browsers exigem interação do user em alguns casos)
-  var fired = false;
-  function tryPlay() {
-    if (fired) return;
-    fired = true;
-    setTimeout(playBravaEntrance, 800);
-  }
-
-  // Tenta na carga direta
-  window.addEventListener('load', tryPlay, { once: true });
-  // Fallback: primeiro click/scroll (mobile e browsers restritivos)
-  ['click','touchstart','scroll','keydown'].forEach(function(ev) {
-    document.addEventListener(ev, tryPlay, { once: true, passive: true });
+  // Desktop: autoplay direto
+  window.addEventListener('load', function(){ setTimeout(tryStart, 600); }, { once:true });
+  // Mobile/Safari: precisa de interação
+  ['click','touchstart','keydown'].forEach(function(ev){
+    document.addEventListener(ev, tryStart, { once:true, passive:true });
   });
 })();
 </script>
