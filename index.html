@@ -45,17 +45,16 @@ body.brava-intro-active #nav-entrar {
   opacity:0;
   transform:translateY(-10px);
 }
-body.brava-intro-active .h1 {
+/* Hero — cada LINHA escondida individualmente p/ cascata */
+body.brava-intro-active .h1-line,
+body.brava-intro-active .lead-line {
   opacity:0;
-  transform:translateY(20px);
+  transform:translateY(18px);
+  display:block;
 }
-body.brava-intro-active .lead {
+body.brava-intro-active .cta-item {
   opacity:0;
   transform:translateY(14px);
-}
-body.brava-intro-active .hero-cta {
-  opacity:0;
-  transform:translateY(12px);
 }
 /* Showcase e seções abaixo */
 body.brava-intro-active #root > div > *:not(:first-child) {
@@ -261,19 +260,23 @@ body.brava-intro-p1 .brava-intro-blob {
   function animateHero() {
     if (heroAnimDone) return;
     heroAnimDone = true;
-    [
-      { sel:'.h1',       d:0.00 },
-      { sel:'.lead',     d:0.24 },
-      { sel:'.hero-cta', d:0.52 },
-    ].forEach(function (item) {
-      var el = document.querySelector(item.sel);
-      if (!el) return;
-      el.style.transition = 'opacity .5s ease ' + item.d + 's, transform .55s cubic-bezier(.22,1,.36,1) ' + item.d + 's';
+    /* Cascata linha por linha — do topo até os botões.
+       Cada linha tem seu próprio delay; duração ~.55s, gap .14s entre linhas. */
+    var lines = [];
+    document.querySelectorAll('.h1-line').forEach(function (el) { lines.push(el); });
+    document.querySelectorAll('.lead-line').forEach(function (el) { lines.push(el); });
+    document.querySelectorAll('.cta-item').forEach(function (el) { lines.push(el); });
+    var GAP = 0.14;
+    lines.forEach(function (el, i) {
+      var d = i * GAP;
+      el.style.transition = 'opacity .55s ease ' + d + 's, transform .6s cubic-bezier(.22,1,.36,1) ' + d + 's';
       el.style.opacity    = '1';
       el.style.transform  = 'translateY(0)';
     });
+    /* Showcase e seções abaixo entram em cascata após o Hero terminar */
+    var heroEnd = lines.length * GAP + 0.4;
     document.querySelectorAll('#root > div > *:not(:first-child)').forEach(function (el, i) {
-      el.style.transition = 'opacity .7s ease ' + (0.6 + i * 0.15) + 's';
+      el.style.transition = 'opacity .7s ease ' + (heroEnd + i * 0.15) + 's';
       el.style.opacity    = '1';
     });
   }
@@ -283,7 +286,7 @@ body.brava-intro-p1 .brava-intro-blob {
     finishDone = true;
     if (rafId) cancelAnimationFrame(rafId);
     body.classList.remove('brava-intro-active', 'brava-intro-p1');
-    document.querySelectorAll('.nav, [id^=nav-], .h1, .lead, .hero-cta, #root > div > *').forEach(function (el) {
+    document.querySelectorAll('.nav, [id^=nav-], .h1, .h1-line, .lead, .lead-line, .hero-cta, .cta-item, #root > div > *').forEach(function (el) {
       el.style.transition = '';
       el.style.opacity    = '';
       el.style.transform  = '';
@@ -400,7 +403,7 @@ function bravoToggleSound() {
   if (_bravaMasterGain) {
     var now = _bravaAudioCtx.currentTime;
     _bravaMasterGain.gain.cancelScheduledValues(now);
-    _bravaMasterGain.gain.linearRampToValueAtTime(_bravaSoundOn ? 0.045 : 0, now + 0.5);
+    _bravaMasterGain.gain.linearRampToValueAtTime(_bravaSoundOn ? 0.034 : 0, now + 0.5);
   }
   /* Toggle pill */
   var track = document.getElementById('brava-toggle-track');
@@ -455,7 +458,7 @@ function _startBrownNoise() {
 
     _bravaMasterGain = ctx.createGain();
     _bravaMasterGain.gain.setValueAtTime(0, ctx.currentTime);
-    _bravaMasterGain.gain.linearRampToValueAtTime(0.045, ctx.currentTime + 2.5);
+    _bravaMasterGain.gain.linearRampToValueAtTime(0.034, ctx.currentTime + 2.5);
 
     _bravaNoiseNode.connect(lpf);
     lpf.connect(_bravaMasterGain);

@@ -73,18 +73,20 @@ function Hero({ headline, cta, accents }) {
         <div className="hero-grid">
           <div>
             <h1 className="h1">
-              <span style={{ display: 'block' }}>Tenha uma plataforma</span>
-              <span className="gradient-text" style={{ display: 'block' }}>para atendimento e venda com IA</span>
+              <span className="h1-line" style={{ display: 'block' }}>Tenha uma plataforma</span>
+              <span className="h1-line gradient-text" style={{ display: 'block' }}>para atendimento e venda com IA</span>
             </h1>
-            <p className="lead hero-sub" style={{ whiteSpace: 'pre-line' }}>
-              {'Arquitetura com múltiplos funcionários de IA pra atender,\nvender e organizar tudo em um só lugar\ncom seu logo, cores e sua equipe'}
+            <p className="lead hero-sub">
+              <span className="lead-line" style={{ display: 'block' }}>Arquitetura com múltiplos funcionários de IA pra atender,</span>
+              <span className="lead-line" style={{ display: 'block' }}>vender e organizar tudo em um só lugar</span>
+              <span className="lead-line" style={{ display: 'block' }}>com seu logo, cores e sua equipe</span>
             </p>
             <div className="hero-cta">
-              <a href={WA_LINK} className="btn btn-primary">
+              <a href={WA_LINK} className="btn btn-primary cta-item">
                 Falar com um especialista
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               </a>
-              <a href="#planos" className="btn btn-ghost">Ver planos</a>
+              <a href="#planos" className="btn btn-ghost cta-item">Ver planos</a>
             </div>
           </div>
         </div>
