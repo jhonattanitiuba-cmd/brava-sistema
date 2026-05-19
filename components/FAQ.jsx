@@ -100,7 +100,10 @@ function FinalCTA() {
       <div className="glow-blob purple" style={{ width: 600, height: 600, top: -100, left: -100, opacity: 0.4 }}></div>
       <div className="glow-blob blue" style={{ width: 600, height: 600, bottom: -100, right: -100, opacity: 0.4 }}></div>
       <div className="container" style={{ maxWidth: 920, textAlign: 'center' }}>
-        <div className="eyebrow" style={{ margin: '0 auto' }}><span className="dot"></span>Última chamada</div>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'JetBrains Mono, monospace', letterSpacing:'0.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)', margin:'0 auto' }}>
+          <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
+          Última chamada
+        </div>
         <h2 className="h1" style={{ marginTop: 24, fontSize: 'clamp(36px, 4.6vw, 64px)' }}>
           Sua próxima venda pode estar te esperando agora. <br/>
           <span className="gradient-text">E ninguém respondeu.</span>

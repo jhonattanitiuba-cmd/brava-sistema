@@ -32,7 +32,10 @@ function Objections() {
     <section className="section light" id="objecoes">
       <div className="container">
         <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto 56px' }}>
-          <div className="eyebrow"><span className="dot"></span>Quebra de objeções</div>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'JetBrains Mono, monospace', letterSpacing:'0.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
+            Quebra de objeções
+          </div>
           <h2 className="h2" style={{ marginTop: 20 }}>
             As <span className="gradient-text">dúvidas honestas</span> que você tem agora.
           </h2>
