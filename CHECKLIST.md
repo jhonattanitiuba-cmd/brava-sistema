@@ -129,3 +129,40 @@ ORDER BY pg_total_relation_size(C.oid) DESC;
 - ✅ A cada release (deploy LP / admin / edge function)
 - ✅ Toda segunda-feira de manhã
 - ✅ Quando um cliente reclamar de algo
+
+---
+
+## Mapa lógico do banco (ordem de dependência)
+
+Cada tabela tem `COMMENT ON TABLE` no Supabase com o número da camada — clique
+na tabela no Studio pra ver a descrição.
+
+```
+Camada 0 — Identidade & Multi-tenant
+├── [00] workspaces            ← raiz: todo recurso pertence a 1 workspace
+├── [01] workspace_members     ← quem tem acesso (role: owner/admin/member)
+└── [02] usuarios              ← perfis (espelha auth.users + metadata)
+
+Camada 1 — Billing
+├── [10] subscriptions         ← Stripe customer_id + price_id ativo
+├── [11] mrr_clients           ← clientes ativos (snapshot dashboard)
+└── [12] mrr_pagamentos        ← histórico recebimentos confirmados
+
+Camada 2 — WhatsApp / Evolution
+├── [20] wa_instancias         ← 1 por número WhatsApp conectado
+├── [21] wa_contatos           ← contatos & grupos (1 por jid)
+├── [22] wa_chats              ← conversas (com last_message_* preview)
+├── [23] wa_mensagens          ← mensagens individuais (raw + extraído)
+└── [24] wa_eventos_log        ← log webhook (TTL automático)
+```
+
+**Regra:** uma camada N só depende de camadas com número menor.
+Ex: `wa_mensagens` (23) referencia `wa_chats` (22) que referencia
+`wa_instancias` (20) que referencia `workspaces` (00).
+
+**Por que não renomeei as tabelas com prefixos numéricos:**
+Renomear quebraria edge functions, RLS policies, foreign keys, realtime
+publication, função `user_can_access_instancia`, todo o admin JSX. Ganho
+visual no Studio não vale o risco. A solução é o `COMMENT ON TABLE`
+que aparece como descrição ao clicar — ordem lógica preservada sem
+nenhuma quebra.
