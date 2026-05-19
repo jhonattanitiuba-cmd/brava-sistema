@@ -90,7 +90,7 @@ function ProductShowcase() {
         {/* Tabs de navegação */}
         <div style={{
           display: 'flex', justifyContent: 'center', gap: 6,
-          flexWrap: 'wrap', marginBottom: 56,
+          flexWrap: 'wrap', marginBottom: 20,
         }}>
           {SCREENS.map((s, i) => {
             const isSel = active === i;
