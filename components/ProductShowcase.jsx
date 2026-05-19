@@ -10,7 +10,7 @@ const SCREENS = [
   { file: 'dashboard.png',    label: 'Dashboard',    desc: 'Visão completa da operação: MRR, clientes, conversas e chamados' },
   { file: 'whatsapp.png',     label: 'WhatsApp',     desc: 'Atendimento centralizado com IA respondendo em tempo real' },
   { file: 'pipeline.png',     label: 'Pipeline',     desc: 'Funil kanban arrastável com todos os clientes em movimento' },
-  { file: 'analytics.png',    label: 'Analytics',    desc: '+136% crescimento MRR · CAC R$380 · LTV R$14.250 · Churn 2.1%' },
+  { file: 'analytics.png',    label: 'Analytics',    desc: 'Analise os resultados do seu tráfego' },
   { file: 'mrr.png',          label: 'MRR',          desc: 'Gestão, atendimento e vendas' },
   { file: 'chamados.png',     label: 'Suporte',      desc: '5 chamados abertos · triagem por prioridade · resposta direto ao cliente' },
   { file: 'agenda.png',       label: 'Agenda',       desc: 'Calendário integrado com eventos e próximos compromissos' },
@@ -135,48 +135,46 @@ function ProductShowcase() {
                   cursor: isActive ? 'default' : 'pointer',
                 }}
               >
-                {/* Vidro flutuante + saber azul seamless */}
+                {/* Frame com cantos quadrados + saber constante */}
                 <div style={{
-                  borderRadius: 18,
+                  borderRadius: 4,          /* cantos quase quadrados */
                   padding: 1.5,
                   position: 'relative',
-                  background: isActive ? 'transparent' : 'rgba(255,255,255,.05)',
+                  background: isActive ? 'transparent' : 'rgba(255,255,255,.04)',
                   boxShadow: isActive
-                    ? '0 40px 100px -20px rgba(0,0,0,.85), 0 0 50px -10px rgba(30,144,255,.25), inset 0 1px 0 rgba(255,255,255,.15)'
+                    ? '0 40px 100px -20px rgba(0,0,0,.85), 0 0 50px -10px rgba(30,144,255,.22)'
                     : '0 16px 40px -10px rgba(0,0,0,.5)',
                   transition: 'box-shadow .5s',
                   overflow: 'hidden',
                 }}>
-                  {/* Saber: cometa azul constante 0→360 sem quebra
-                      Linha base .015 garante que 0deg = 360deg = mesmo alfa → seamless */}
+                  {/* Saber: linha fina uniforme circulando a velocidade CONSTANTE
+                      — beam estreito (4deg) sem cauda longa, speed visualmente uniforme */}
                   {isActive && (
                     <span style={{
-                      position: 'absolute', inset: 0, borderRadius: 18, zIndex: 0,
+                      position: 'absolute', inset: 0, zIndex: 0,
                       background: [
                         'conic-gradient(from 0deg,',
-                        '  rgba(30,144,255,.015)   0deg,',
-                        '  rgba(30,144,255,.015) 180deg,',   /* metade escura */
-                        '  rgba(30,144,255,.12)  280deg,',   /* começa clarear */
-                        '  rgba(30,144,255,.55)  340deg,',   /* cauda */
-                        '  rgba(100,190,255,.85) 352deg,',   /* cabeça do cometa */
-                        '  rgba(220,240,255,.95) 356deg,',   /* pico brilhante */
-                        '  rgba(100,190,255,.85) 358deg,',   /* cai rápido */
-                        '  rgba(30,144,255,.015) 360deg',    /* = 0deg: seamless */
+                        '  rgba(30,144,255,.0)   0deg,',
+                        '  rgba(30,144,255,.0)  354deg,',  /* quase tudo transparente */
+                        '  rgba(30,144,255,.4)  356deg,',  /* rampa de entrada */
+                        '  rgba(100,200,255,.9) 358deg,',  /* pico fino */
+                        '  rgba(30,144,255,.4)  359deg,',  /* saída */
+                        '  rgba(30,144,255,.0)  360deg',   /* = 0deg seamless */
                         ')',
                       ].join(''),
-                      animation: 'showcase-saber 10s linear infinite',
+                      animation: 'showcase-saber 6s linear infinite',
                       pointerEvents: 'none',
                     }}/>
                   )}
-                  {/* Fundo cobre o interior — deixa só 1.5px de borda visível */}
+                  {/* Fundo cobre — deixa só 1.5px de borda visível */}
                   <span style={{
-                    position: 'absolute', inset: 1.5, borderRadius: 16.5, zIndex: 1,
+                    position: 'absolute', inset: 1.5, zIndex: 1,
                     background: '#04070E',
                     pointerEvents: 'none',
                   }}/>
-                  {/* Screenshot direto, sem barra */}
+                  {/* Screenshot — tamanho natural, sem distorção */}
                   <div style={{
-                    borderRadius: 18,
+                    borderRadius: 0,          /* cantos quadrados internos */
                     overflow: 'hidden',
                     display: 'block',
                     lineHeight: 0,
