@@ -93,9 +93,18 @@ function bravoToggleSound() {
   if (icon) icon.style.color = _bravaSoundOn ? '#1E90FF' : 'rgba(255,255,255,.3)';
 }
 
+/* Expõe o contexto compartilhado pra outros scripts (swoosh, etc) */
+window._getBravaCtx = function() {
+  if (!_bravaAudioCtx) {
+    _bravaAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (_bravaAudioCtx.state === 'suspended') _bravaAudioCtx.resume();
+  return _bravaAudioCtx;
+};
+
 function _startBrownNoise() {
   try {
-    _bravaAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    _bravaAudioCtx = window._getBravaCtx();
     var ctx = _bravaAudioCtx;
     var bufferSize = ctx.sampleRate * 4; // 4s buffer em loop
     var buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);

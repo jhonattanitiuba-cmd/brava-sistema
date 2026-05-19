@@ -18,30 +18,38 @@ const SCREENS = [
   { file: 'configuracoes.png',label: 'Configurações',desc: 'Configure a IA do seu jeito, em minutos' },
 ];
 
-/* Swoosh suave ao trocar de tela — ruído filtrado com sweep de freq */
+/* Swoosh muito suave ao trocar de tela
+   — usa contexto compartilhado do brown noise (evita bloqueio de autoplay)
+   — mais lento, mais baixo, mais suave */
 function playSwoosh() {
   try {
-    var ctx = new (window.AudioContext || window.webkitAudioContext)();
-    var bufSize = Math.floor(ctx.sampleRate * 0.22); // 220ms
+    // Reutiliza contexto do brown noise (ja autorizado pelo usuario)
+    var ctx = (typeof window._getBravaCtx === 'function')
+      ? window._getBravaCtx()
+      : new (window.AudioContext || window.webkitAudioContext)();
+    if (!ctx) return;
+
+    var dur  = 0.55; // mais lento: 550ms (era 220ms)
+    var bufSize = Math.floor(ctx.sampleRate * dur);
     var buf  = ctx.createBuffer(1, bufSize, ctx.sampleRate);
     var data = buf.getChannelData(0);
     for (var i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
 
-    var src  = ctx.createBufferSource();
+    var src = ctx.createBufferSource();
     src.buffer = buf;
 
-    // Filtro band-pass: varre de ~900Hz → 200Hz
-    var bpf  = ctx.createBiquadFilter();
-    bpf.type = 'bandpass';
-    bpf.Q.value = 1.8;
-    bpf.frequency.setValueAtTime(900, ctx.currentTime);
-    bpf.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.22);
+    // Band-pass mais estreito: varre 600 → 100Hz (mais grave/suave)
+    var bpf = ctx.createBiquadFilter();
+    bpf.type    = 'bandpass';
+    bpf.Q.value = 2.5;
+    bpf.frequency.setValueAtTime(600, ctx.currentTime);
+    bpf.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + dur);
 
-    // Envelope de volume: ataque 0 → sobe → cai
+    // Volume bem baixo (.04) com ataque lento
     var gain = ctx.createGain();
     gain.gain.setValueAtTime(0, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.09, ctx.currentTime + 0.05);
-    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.22);
+    gain.gain.linearRampToValueAtTime(0.04, ctx.currentTime + 0.12); // ataque lento
+    gain.gain.linearRampToValueAtTime(0,    ctx.currentTime + dur);  // fade out suave
 
     src.connect(bpf);
     bpf.connect(gain);
