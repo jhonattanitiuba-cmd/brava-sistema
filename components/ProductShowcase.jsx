@@ -136,7 +136,7 @@ function ProductShowcase() {
                 {/* Frame com cantos quadrados + saber constante */}
                 <div style={{
                   borderRadius: 4,          /* cantos quase quadrados */
-                  padding: 1.5,
+                  padding: 2,
                   position: 'relative',
                   background: isActive ? 'transparent' : 'rgba(255,255,255,.04)',
                   boxShadow: isActive
@@ -145,28 +145,28 @@ function ProductShowcase() {
                   transition: 'box-shadow .5s',
                   overflow: 'hidden',
                 }}>
-                  {/* Saber: linha fina uniforme circulando a velocidade CONSTANTE
-                      — beam estreito (4deg) sem cauda longa, speed visualmente uniforme */}
+                  {/* Saber visível: beam 20deg, alpha forte, faz o quadrado */}
                   {isActive && (
                     <span style={{
                       position: 'absolute', inset: 0, zIndex: 0,
                       background: [
                         'conic-gradient(from 0deg,',
                         '  rgba(30,144,255,.0)   0deg,',
-                        '  rgba(30,144,255,.0)  354deg,',  /* quase tudo transparente */
-                        '  rgba(30,144,255,.4)  356deg,',  /* rampa de entrada */
-                        '  rgba(100,200,255,.9) 358deg,',  /* pico fino */
-                        '  rgba(30,144,255,.4)  359deg,',  /* saída */
-                        '  rgba(30,144,255,.0)  360deg',   /* = 0deg seamless */
+                        '  rgba(30,144,255,.0)  335deg,',   /* escuro */
+                        '  rgba(30,144,255,.35) 345deg,',   /* rampa entrada */
+                        '  rgba(80,170,255,.80) 352deg,',   /* cauda */
+                        '  rgba(180,225,255,1.0) 357deg,',  /* pico — branco azulado */
+                        '  rgba(80,170,255,.80) 359deg,',   /* saída rápida */
+                        '  rgba(30,144,255,.0)  360deg',    /* = 0deg seamless */
                         ')',
                       ].join(''),
-                      animation: 'showcase-saber 6s linear infinite',
+                      animation: 'showcase-saber 5s linear infinite',
                       pointerEvents: 'none',
                     }}/>
                   )}
-                  {/* Fundo cobre — deixa só 1.5px de borda visível */}
+                  {/* Fundo cobre — 2px de borda saber visível */}
                   <span style={{
-                    position: 'absolute', inset: 1.5, zIndex: 1,
+                    position: 'absolute', inset: 2, zIndex: 1,
                     background: '#04070E',
                     pointerEvents: 'none',
                   }}/>
