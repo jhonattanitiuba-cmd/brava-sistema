@@ -68,8 +68,8 @@ body.brava-intro-p1 .brava-intro-blob {
 <div id="brava-cursor"></div>
 <div id="brava-cursor-tail"></div>
 
-<!-- Áudio intro — toca ao carregar a página -->
-<audio id="brava-intro-audio" src="/introbravasof.mp3" preload="auto"></audio>
+<!-- Áudio intro — toca ao carregar a página (autoplay+playsinline aumenta sucesso) -->
+<audio id="brava-intro-audio" src="/introbravasof.mp3" preload="auto" autoplay playsinline></audio>
 
 <!-- Blobs visíveis antes do React montar (fase 1) -->
 <div class="brava-intro-blob" id="brava-blob-1" style="
@@ -286,31 +286,64 @@ body.brava-intro-p1 .brava-intro-blob {
     rafId = requestAnimationFrame(syncFrame);
   }
 
-  /* ── Tenta tocar o áudio em paralelo com a animação ──────────
-     Se bloqueado, a animação continua no timer; o som entra
-     no primeiro clique/tecla e sincroniza com o ponto atual.  */
-  function tryPlayAudio() {
+  /* ── Disparo agressivo de áudio ─────────────────────────────────
+     1. Aguarda o áudio ter dados (canplay) antes de tentar tocar
+     2. Tenta play() — autoplay attribute já está no <audio>
+     3. Se falhar, escuta TODA interação possível e retoca sincronizado
+     4. pageshow/visibilitychange também disparam (volta de cache, etc) */
+  var _playAttempts = 0;
+
+  function attemptPlay(syncToClock) {
+    _playAttempts++;
     audio.volume = 0.85;
+    audio.muted  = false;
+    if (syncToClock) {
+      var t = getClock();
+      if (t < FINISH_T) audio.currentTime = t;
+    }
     var p = audio.play();
-    if (!p) { _audioLive = true; return; }
-    p.then(function () {
-      _audioLive = true;
-    }).catch(function () {
-      /* Autoplay bloqueado — aguarda primeira interação do usuário */
-      function onInteract() {
-        var elapsed = getClock(); /* onde a animação está agora */
-        if (elapsed < FINISH_T) {
-          audio.currentTime = elapsed; /* sincroniza com timer */
-          audio.play().then(function () { _audioLive = true; }).catch(function () {});
-        }
-      }
-      ['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) {
-        document.addEventListener(ev, function fn() {
-          document.removeEventListener(ev, fn);
-          onInteract();
-        }, { once: true, passive: true });
-      });
+    if (!p) { _audioLive = true; return Promise.resolve(); }
+    return p.then(function () { _audioLive = true; });
+  }
+
+  function installInteractionFallback() {
+    var fired = false;
+    function fire() {
+      if (fired) return;
+      fired = true;
+      events.forEach(function (ev) { window.removeEventListener(ev, fire, true); });
+      attemptPlay(true).catch(function () {});
+    }
+    var events = ['pointerdown','touchstart','keydown','click','mousedown','touchend'];
+    events.forEach(function (ev) {
+      window.addEventListener(ev, fire, { capture: true, passive: true });
     });
+    /* Volta de bfcache (F5 em alguns browsers) */
+    window.addEventListener('pageshow', function () {
+      if (!_audioLive && !finishDone) attemptPlay(true).catch(function () {});
+    });
+    /* Aba volta a ficar visível */
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && !_audioLive && !finishDone) {
+        attemptPlay(true).catch(function () {});
+      }
+    });
+  }
+
+  function tryPlayAudio() {
+    /* Se o áudio ainda não tem dados suficientes, espera canplay */
+    if (audio.readyState < 2) {
+      audio.addEventListener('canplay', function once() {
+        audio.removeEventListener('canplay', once);
+        attemptPlay(false).catch(function () { installInteractionFallback(); });
+      }, { once: true });
+      /* Mesmo assim tenta agora — autoplay attr pode ter funcionado */
+      attemptPlay(false).catch(function () {});
+    } else {
+      attemptPlay(false).catch(function () { installInteractionFallback(); });
+    }
+    /* Sempre instala o fallback de interação (defensivo) */
+    installInteractionFallback();
   }
 
   audio.addEventListener('ended', finishIntro);
