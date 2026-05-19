@@ -18,6 +18,38 @@ const SCREENS = [
   { file: 'configuracoes.png',label: 'Configurações',desc: 'Configure a IA do seu jeito, em minutos' },
 ];
 
+/* Swoosh suave ao trocar de tela — ruído filtrado com sweep de freq */
+function playSwoosh() {
+  try {
+    var ctx = new (window.AudioContext || window.webkitAudioContext)();
+    var bufSize = Math.floor(ctx.sampleRate * 0.22); // 220ms
+    var buf  = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+    var src  = ctx.createBufferSource();
+    src.buffer = buf;
+
+    // Filtro band-pass: varre de ~900Hz → 200Hz
+    var bpf  = ctx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.Q.value = 1.8;
+    bpf.frequency.setValueAtTime(900, ctx.currentTime);
+    bpf.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.22);
+
+    // Envelope de volume: ataque 0 → sobe → cai
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.09, ctx.currentTime + 0.05);
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.22);
+
+    src.connect(bpf);
+    bpf.connect(gain);
+    gain.connect(ctx.destination);
+    src.start();
+  } catch(e) {}
+}
+
 function ProductShowcase() {
   const [active, setActive] = React.useState(1); // central = dashboard
   const [hovered, setHovered] = React.useState(null);
@@ -55,7 +87,7 @@ function ProductShowcase() {
           {SCREENS.map((s, i) => {
             const isSel = active === i;
             return (
-              <button key={i} onClick={() => setActive(i)} style={{
+              <button key={i} onClick={() => { setActive(i); if (i !== active) playSwoosh(); }} style={{
                 padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
                 fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Inter',
                 background: isSel ? '#000' : 'transparent',
@@ -96,7 +128,7 @@ function ProductShowcase() {
 
             return (
               <div key={i}
-                onClick={() => !isActive && setActive(i)}
+                onClick={() => { if (!isActive) { setActive(i); playSwoosh(); } }}
                 onMouseEnter={() => setHovered(i)}
                 onMouseLeave={() => setHovered(null)}
                 style={{
