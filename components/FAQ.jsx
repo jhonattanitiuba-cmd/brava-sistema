@@ -1,8 +1,8 @@
 /* global React, WA_LINK */
 
 const FAQS = [
-  { q: 'Quanto tempo leva pra estar rodando?', a: 'Entre 3 e 7 dias úteis. A configuração começa imediatamente após o fechamento, e seu agente IA está respondendo em poucos dias.' },
-  { q: 'Funciona pra qualquer tipo de negócio?', a: 'Sim. A plataforma foi construída pra resolver a dor do atendimento, independente da vertical. Hoje atendemos saúde, agro, automotivo, imobiliário, estacionamento, e-commerce, indústria, turismo, construção e outros.' },
+  { q: 'Quanto tempo leva pra estar rodando?', a: 'A configuração começa imediatamente após o fechamento, e seu agente IA está respondendo em poucas horas.' },
+  { q: 'Funciona pra qualquer tipo de negócio?', a: 'Sim. A plataforma foi construída pra resolver a dor do atendimento, independente da vertical. Hoje atendemos + de 18 nichos.' },
   { q: 'E se minha equipe não tem traquejo com tecnologia?', a: 'A interface é parecida com WhatsApp Web. E entregamos o sistema configurado e pronto. Quem usa WhatsApp consegue usar a Brava.' },
   { q: 'Como funciona o suporte?', a: 'Tem uma aba de Suporte direto dentro do sistema. Você abre chamado, sugere melhoria ou tira dúvida e fala diretamente com o time da Brava. Tempo de resposta varia conforme o plano: de 30 minutos (Enterprise) a 1 dia útil (Essencial).' },
   { q: 'Posso usar com mais de um número de WhatsApp?', a: 'Sim. Plano Essencial libera 1 número, Performance libera 2, Scale libera 5, Enterprise libera ilimitado.' },
