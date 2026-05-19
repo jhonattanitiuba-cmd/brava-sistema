@@ -56,6 +56,7 @@ const PLANS = [
       { strong: 'Tudo do Performance, mais:' },
       '30 atendentes',
       '5 números WhatsApp',
+      { hot: true, label: 'Site institucional INCLUSO', sub: 'Construído pela Brava, integrado ao CRM. Cada visitante vira lead direto no funil.' },
       'API REST e webhooks',
       'Integração com n8n',
       'Múltiplos pipelines',
@@ -90,7 +91,16 @@ function Plans() {
       <div className="glow-blob blue" style={{ width: 600, height: 600, bottom: 0, right: '10%', opacity: 0.3 }}></div>
       <div className="container">
         <div style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto 64px' }}>
-          <div className="eyebrow"><span className="dot"></span>Planos</div>
+          <div style={{ display:'inline-flex', alignItems:'center', gap:7,
+            padding:'6px 16px', borderRadius:999,
+            background:'#1E90FF', color:'#fff',
+            fontSize:11, fontFamily:'JetBrains Mono, monospace',
+            letterSpacing:'0.12em', fontWeight:600, textTransform:'uppercase',
+            boxShadow:'0 4px 14px rgba(30,144,255,.35)',
+          }}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
+            Planos
+          </div>
           <h2 className="h2" style={{ marginTop: 20 }}>
             Escolha o plano que combina com <span className="gradient-text">seu momento</span>.
           </h2>
@@ -123,7 +133,7 @@ function Plans() {
                   color: '#fff',
                   whiteSpace: 'nowrap',
                   boxShadow: '0 8px 24px -8px rgba(123,63,228,0.6)'
-                }}>⭐ {p.badge}</span>
+                }}>{p.badge}</span>
               )}
               <div style={{
                 background: 'var(--bg-card)',
@@ -132,7 +142,7 @@ function Plans() {
                 height: '100%',
                 display: 'flex', flexDirection: 'column'
               }}>
-                <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{p.tag}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontFamily: 'Montserrat, Inter, sans-serif', fontWeight: 400, lineHeight: 1.4 }}>{p.tag}</div>
                 <h3 style={{
                   fontFamily: 'Space Grotesk', fontSize: 26, fontWeight: 600,
                   margin: '8px 0 18px', letterSpacing: '-0.02em'
@@ -237,14 +247,34 @@ function Plans() {
           borderRadius: 16
         }}>
           {[
-            { l: 'Pagamento', v: 'Cartão, Pix ou boleto · mensal ou anual' },
-            { l: 'Configuração inclusa', v: 'Processo guiado, agentes treinados com você' },
-            { l: 'Sem fidelidade', v: 'Cancela quando quiser, sem multa' },
-            { l: 'Garantia de 7 dias', v: '100% do valor de volta, sem perguntas' },
+            {
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
+              l: 'Pagamento', v: 'Cartão, Pix ou boleto · mensal ou anual',
+            },
+            {
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>,
+              l: 'Configuração inclusa', v: 'Processo guiado, agentes treinados com você',
+            },
+            {
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>,
+              l: 'Sem fidelidade', v: 'Cancela quando quiser, sem multa',
+            },
+            {
+              icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+              l: 'Garantia de 7 dias', v: '100% do valor de volta, sem perguntas',
+            },
           ].map((x, i) => (
-            <div key={i}>
-              <div className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{x.l}</div>
-              <div style={{ marginTop: 6, fontSize: 14, color: 'var(--text-primary)' }}>{x.v}</div>
+            <div key={i} style={{ display:'flex', gap:14, alignItems:'flex-start' }}>
+              <div style={{
+                flexShrink:0, width:36, height:36, borderRadius:10,
+                background:'rgba(30,144,255,.08)', border:'1px solid rgba(30,144,255,.18)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                color:'#1E90FF', marginTop:2,
+              }}>{x.icon}</div>
+              <div>
+                <div style={{ fontSize:11, color:'var(--text-tertiary)', fontFamily:'JetBrains Mono,monospace', letterSpacing:'0.1em', textTransform:'uppercase' }}>{x.l}</div>
+                <div style={{ marginTop:5, fontSize:14, color:'var(--text-primary)', lineHeight:1.45 }}>{x.v}</div>
+              </div>
             </div>
           ))}
         </div>

@@ -96,7 +96,6 @@ function App() {
       <SocialProof />
       <Plans />
       <Objections />
-      <Guarantee />
       <FAQ />
       <FinalCTA />
       <PSFooter />
