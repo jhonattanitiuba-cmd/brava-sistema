@@ -7,15 +7,15 @@
 //   dashboard.png, whatsapp.png, pipeline.png, agenda.png, mrr.png
 
 const SCREENS = [
-  { file: 'dashboard.png',    label: 'Dashboard',    desc: 'Visão completa da operação: MRR, clientes, conversas e chamados' },
-  { file: 'whatsapp.png',     label: 'WhatsApp',     desc: 'Atendimento centralizado com IA respondendo em tempo real' },
-  { file: 'pipeline.png',     label: 'Pipeline',     desc: 'Funil kanban arrastável com todos os clientes em movimento' },
+  { file: 'dashboard.png',    label: 'Dashboard',    desc: 'Visão geral da operação em tempo real' },
+  { file: 'whatsapp.png',     label: 'WhatsApp',     desc: 'IA respondendo, humanos assumindo quando necessário' },
+  { file: 'pipeline.png',     label: 'Pipeline',     desc: 'Do lead ao fechamento, tudo organizado' },
   { file: 'analytics.png',    label: 'Analytics',    desc: 'Analise os resultados do seu tráfego' },
   { file: 'mrr.png',          label: 'MRR',          desc: 'Gestão, atendimento e vendas' },
-  { file: 'chamados.png',     label: 'Suporte',      desc: '5 chamados abertos · triagem por prioridade · resposta direto ao cliente' },
-  { file: 'agenda.png',       label: 'Agenda',       desc: 'Calendário integrado com eventos e próximos compromissos' },
-  { file: 'equipe.png',       label: 'Equipe',       desc: '4 membros · 3 online · atribuição de chamados por cargo' },
-  { file: 'configuracoes.png',label: 'Configurações',desc: 'IA configurável por instância · prompts · tempo de resposta · webhooks' },
+  { file: 'chamados.png',     label: 'Suporte',      desc: 'Chamados organizados, equipe respondendo no prazo' },
+  { file: 'agenda.png',       label: 'Agenda',       desc: 'Eventos e compromissos sincronizados com o time' },
+  { file: 'equipe.png',       label: 'Equipe',       desc: 'Time, roles e atribuições num só lugar' },
+  { file: 'configuracoes.png',label: 'Configurações',desc: 'Configure a IA do seu jeito, em minutos' },
 ];
 
 function ProductShowcase() {
@@ -58,9 +58,6 @@ function ProductShowcase() {
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
             }}>Numa única tela.</span>
           </h2>
-          <p style={{ marginTop: 18, fontSize: 18, color: 'rgba(255,255,255,.60)', lineHeight: 1.5 }}>
-            {SCREENS[active]?.desc || 'Tudo integrado, com seu logo, para sua equipe.'}
-          </p>
         </div>
 
         {/* Tabs de navegação */}
@@ -100,11 +97,12 @@ function ProductShowcase() {
           })}
         </div>
 
-        {/* Galeria 3D perspectiva */}
-        <div style={{
+        {/* Galeria 3D perspectiva — com animação de entrada por scroll */}
+        <div className="reveal" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 0, position: 'relative', perspective: '1200px',
           height: 560,
+          animation: 'showcase-entry 1s cubic-bezier(.22,1,.36,1) both',
         }}>
           {SCREENS.map((s, i) => {
             const offset = i - active;
@@ -203,6 +201,43 @@ function ProductShowcase() {
         </div>
 
       </div>
+
+      {/* Descrição abaixo do mockup — animada com perspectiva */}
+      <div style={{
+        textAlign: 'center', marginTop: 52, padding: '0 24px',
+        position: 'relative',
+      }}>
+        <div style={{
+          display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+          animation: 'showcase-desc 0.5s cubic-bezier(.22,1,.36,1) both',
+          animationDelay: '0.15s',
+        }} key={active}>
+          {/* Label da tela ativa */}
+          <span style={{
+            fontSize: 10, fontFamily: 'JetBrains Mono, monospace',
+            letterSpacing: '.16em', textTransform: 'uppercase',
+            color: 'rgba(30,144,255,.7)', fontWeight: 500,
+          }}>{SCREENS[active]?.label}</span>
+          {/* Descrição principal */}
+          <p style={{
+            margin: 0, fontSize: 17,
+            color: 'rgba(255,255,255,.65)',
+            fontFamily: 'Inter', fontWeight: 400, lineHeight: 1.45,
+            maxWidth: 480,
+          }}>{SCREENS[active]?.desc}</p>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes showcase-entry {
+          from { opacity:0; transform:perspective(900px) rotateX(10deg) translateY(40px); }
+          to   { opacity:1; transform:perspective(900px) rotateX(0deg)  translateY(0); }
+        }
+        @keyframes showcase-desc {
+          from { opacity:0; transform:translateY(14px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+      `}</style>
     </section>
   );
 }
