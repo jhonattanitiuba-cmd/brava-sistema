@@ -2928,21 +2928,42 @@ function AIChat() {
             flexDirection: m.from === 'user' ? 'row-reverse' : 'row',
             alignItems:'flex-end',
           }}>
-            <div style={{
-              width:28, height:28, borderRadius:'50%', flexShrink:0,
-              background: m.from === 'ai' ? 'var(--grad)' : 'var(--bg-3)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-            }}>
-              {m.from === 'ai'
-                ? <Icon name="Sparkles" size={13} style={{color:'#fff'}}/>
-                : <span style={{fontSize:10,fontWeight:700,color:'var(--t2)'}}>VC</span>
-              }
-            </div>
+            {/* Avatar: logo Brava (fundo preto) pra bot, iniciais do user */}
+            {m.from === 'ai' ? (
+              <div style={{
+                width:28, height:28, borderRadius:'50%', flexShrink:0,
+                background:'#000', border:'1px solid rgba(123,63,228,.35)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                overflow:'hidden',
+                boxShadow:'0 0 8px rgba(123,63,228,.20)',
+              }}>
+                <img
+                  src="/admin/app/brava-logo-white.png"
+                  alt="Brava"
+                  style={{ width:16, height:'auto', objectFit:'contain',
+                           filter:'brightness(0) invert(1)' }}
+                  onError={e=>{ e.target.style.display='none'; }}
+                />
+              </div>
+            ) : (
+              <div style={{
+                width:28, height:28, borderRadius:'50%', flexShrink:0,
+                background:'linear-gradient(135deg,var(--purple),var(--blue))',
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                <span style={{fontSize:10,fontWeight:700,color:'#fff'}}>VC</span>
+              </div>
+            )}
             <div style={{
               maxWidth:'75%', padding:'10px 14px', borderRadius:12,
               fontSize:13.5, lineHeight:1.55,
-              background: m.from === 'ai' ? 'var(--bg-3)' : 'rgba(123,63,228,.18)',
-              color: m.from === 'ai' ? '#A0A0AA' : '#F5F5F7',
+              background: m.from === 'ai'
+                ? 'rgba(255,255,255,.04)'
+                : 'linear-gradient(135deg, rgba(123,63,228,.22), rgba(30,144,255,.18))',
+              color: m.from === 'ai' ? 'var(--t1)' : '#F5F5F7',
+              border: m.from === 'ai'
+                ? '1px solid rgba(255,255,255,.06)'
+                : '1px solid rgba(123,63,228,.25)',
               borderBottomLeftRadius: m.from === 'ai' ? 4 : 12,
               borderBottomRightRadius: m.from === 'user' ? 4 : 12,
             }}>
@@ -2952,11 +2973,19 @@ function AIChat() {
         ))}
         {loading && (
           <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
-            <div style={{width:28,height:28,borderRadius:'50%',background:'var(--grad)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <Icon name="Sparkles" size={13} style={{color:'#fff'}}/>
+            <div style={{
+              width:28, height:28, borderRadius:'50%',
+              background:'#000', border:'1px solid rgba(123,63,228,.35)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              overflow:'hidden',
+            }}>
+              <img src="/admin/app/brava-logo-white.png" alt="Brava"
+                style={{ width:16, height:'auto', objectFit:'contain', filter:'brightness(0) invert(1)' }}
+                onError={e=>{ e.target.style.display='none'; }}
+              />
             </div>
-            <div style={{padding:'10px 14px',borderRadius:'12px 12px 12px 4px',background:'var(--bg-3)',display:'flex',gap:5,alignItems:'center'}}>
-              {[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:'50%',background:'#6E6E78',display:'inline-block',animation:`bounce 1.2s ${i*.15}s infinite`}}/>)}
+            <div style={{padding:'10px 14px',borderRadius:'12px 12px 12px 4px',background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.06)',display:'flex',gap:5,alignItems:'center'}}>
+              {[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:'50%',background:'var(--purple)',opacity:.7,display:'inline-block',animation:`bounce 1.2s ${i*.15}s infinite`}}/>)}
             </div>
           </div>
         )}
@@ -10240,6 +10269,20 @@ function useSyncEvoConfig() {
           instance: inst.evolution_instance_name,
           apikey: inst.evolution_apikey,
         });
+      }
+      // Sincroniza foto do perfil WhatsApp como foto do usuario logado.
+      // Se a instancia ativa tem profile_pic_url (foto do WhatsApp do dono),
+      // salva em brava_user_photo:<email> pra SidebarUserCard + HeaderUserAvatar
+      // mostrarem a foto real em vez de app/jhonattan.jpg
+      if (inst.profile_pic_url && inst.owner_email) {
+        try {
+          const key = 'brava_user_photo:' + inst.owner_email.toLowerCase().trim();
+          const atual = localStorage.getItem(key);
+          if (atual !== inst.profile_pic_url) {
+            localStorage.setItem(key, inst.profile_pic_url);
+            window.dispatchEvent(new Event('brava_photo_changed'));
+          }
+        } catch {}
       }
       return;
     }
