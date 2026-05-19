@@ -70,17 +70,18 @@ function ProductShowcase() {
 
         {/* Tabs de navegação */}
         <div style={{
-          display: 'flex', justifyContent: 'center', gap: 8,
+          display: 'flex', justifyContent: 'center', gap: 6,
           flexWrap: 'wrap', marginBottom: 56,
         }}>
           {SCREENS.map((s, i) => (
             <button key={i} onClick={() => setActive(i)} style={{
-              padding: '8px 18px', borderRadius: 999, cursor: 'pointer',
-              fontSize: 13, fontWeight: 500, fontFamily: 'Inter',
-              background: active === i ? 'rgba(30,144,255,.15)' : 'rgba(255,255,255,.04)',
-              color: active === i ? '#1E90FF' : 'rgba(255,255,255,.50)',
-              border: `1px solid ${active === i ? 'rgba(30,144,255,.35)' : 'rgba(255,255,255,.08)'}`,
+              padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
+              fontSize: 13, fontWeight: active === i ? 600 : 400, fontFamily: 'Inter',
+              background: active === i ? '#000' : 'transparent',
+              color: active === i ? '#fff' : 'rgba(255,255,255,.40)',
+              border: active === i ? '1px solid rgba(255,255,255,.18)' : '1px solid transparent',
               transition: 'all .2s',
+              boxShadow: active === i ? '0 2px 12px rgba(0,0,0,.4)' : 'none',
             }}>
               {s.label}
             </button>
@@ -122,84 +123,45 @@ function ProductShowcase() {
                   cursor: isActive ? 'default' : 'pointer',
                 }}
               >
-                {/* MacBook shell */}
+                {/* Vidro flutuante */}
                 <div style={{
-                  background: 'linear-gradient(180deg,#3A3A3C 0%,#2C2C2E 50%,#1C1C1E 100%)',
-                  borderRadius: '14px 14px 4px 4px',
-                  padding: '28px 14px 10px',
-                  border: '1px solid rgba(255,255,255,.10)',
+                  borderRadius: 20,
+                  padding: 3,
+                  background: isActive
+                    ? 'linear-gradient(135deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.04) 100%)'
+                    : 'linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.02) 100%)',
                   boxShadow: isActive
-                    ? '0 50px 120px -30px rgba(0,0,0,.8), 0 0 80px -20px rgba(123,63,228,.35), 0 0 60px -20px rgba(30,144,255,.20)'
-                    : '0 30px 60px -20px rgba(0,0,0,.6)',
-                  position: 'relative',
+                    ? '0 40px 100px -20px rgba(0,0,0,.8), 0 0 60px -10px rgba(123,63,228,.30), 0 0 40px -10px rgba(30,144,255,.20), inset 0 1px 0 rgba(255,255,255,.20)'
+                    : '0 20px 50px -10px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08)',
+                  transition: 'box-shadow .5s',
                 }}>
-                  {/* Camera */}
+                  {/* Screenshot direto, sem barra */}
                   <div style={{
-                    position: 'absolute', top: 10, left: '50%', transform: 'translateX(-50%)',
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: '#0A0A0A', border: '1px solid rgba(255,255,255,.06)',
-                  }}/>
-                  {/* Screen */}
-                  <div style={{
-                    background: '#000', borderRadius: 6,
-                    border: '1px solid rgba(0,0,0,.6)',
+                    borderRadius: 18,
                     overflow: 'hidden',
-                    aspectRatio: '1536/960',
-                    boxShadow: isActive ? 'inset 0 0 0 1px rgba(255,255,255,.06)' : 'none',
+                    display: 'block',
+                    lineHeight: 0,
                   }}>
-                    {/* Tab bar */}
-                    <div style={{
-                      height: 28, background: '#000',
-                      borderBottom: '1px solid rgba(255,255,255,.06)',
-                      display: 'flex', alignItems: 'center', padding: '0 10px', gap: 5,
-                    }}>
-                      {['#FF5F57','#FFBD2E','#28C840'].map((c,j) => (
-                        <span key={j} style={{ width: 8, height: 8, borderRadius: '50%', background: c }}/>
-                      ))}
-                    </div>
-                    {/* Screenshot */}
                     <img
                       src={`/screenshots/${s.file}`}
                       alt={s.label}
                       style={{
-                        width: '100%', height: 'calc(100% - 28px)',
-                        objectFit: 'fill',
+                        width: '100%',
+                        height: 'auto',
                         display: 'block',
-                        filter: isActive ? 'none' : 'brightness(.7)',
+                        filter: isActive ? 'none' : 'brightness(.65)',
                         transition: 'filter .4s',
                       }}
                       onError={e => {
-                        // Fallback elegante se screenshot ainda nao foi colocado
                         e.target.style.display = 'none';
                         const fb = document.createElement('div');
-                        fb.style.cssText = `height:100%;background:#0E0E14;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.2);font-size:13px;font-family:JetBrains Mono`;
+                        fb.style.cssText = `aspect-ratio:1536/960;background:#0E0E14;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.2);font-size:13px;font-family:JetBrains Mono,monospace;border-radius:18px`;
                         fb.textContent = s.label;
                         e.target.parentNode.appendChild(fb);
                       }}
                     />
                   </div>
                 </div>
-                {/* Base MacBook */}
-                <div style={{
-                  height: 5, background: 'linear-gradient(180deg,#2A2A2C,#1C1C1E)',
-                  margin: '0 -2px', borderTop: '1px solid rgba(255,255,255,.04)',
-                }}/>
-                <div style={{
-                  height: 16, background: 'linear-gradient(180deg,#222224,#1A1A1C)',
-                  borderRadius: '0 0 8px 8px',
-                  display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-                  border: '1px solid rgba(255,255,255,.04)', borderTop: 'none',
-                }}>
-                  <div style={{ width: 90, height: 5, background: '#0A0A0A', borderRadius: '0 0 4px 4px' }}/>
-                </div>
-                {/* Label abaixo */}
-                {isActive && (
-                  <div style={{
-                    textAlign: 'center', marginTop: 18,
-                    fontSize: 13, color: 'rgba(255,255,255,.45)',
-                    fontFamily: 'JetBrains Mono', letterSpacing: '.08em', textTransform: 'uppercase',
-                  }}>{s.label}</div>
-                )}
               </div>
             );
           })}
