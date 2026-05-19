@@ -15,14 +15,9 @@ function Nav() {
           <a href="#prova">Clientes</a>
           <a href="#faq">Perguntas</a>
           <a className="btn btn-sm btn-ghost btn-whatsapp" href={WA_LINK}>WhatsApp</a>
-          <a className="btn btn-sm btn-ghost" href={`/app/?login=1&theme=${tema()}`}>Entrar</a>
-          <a className="btn btn-sm" href={`/app/?new=1&theme=${tema()}`}
-             style={{
-               background:'linear-gradient(90deg,#7B3FE4,#1E90FF)',
-               color:'#fff',
-               boxShadow:'0 4px 14px rgba(30,144,255,.35)',
-             }}>
-            Teste grátis 7 dias
+          <a className="btn btn-sm" href={`/app/?login=1&theme=${tema()}`}
+             style={{ background:'#1E90FF', color:'#fff', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
+            Entrar
           </a>
         </div>
       </div>
@@ -75,17 +70,11 @@ function Hero({ headline, cta, accents }) {
               {'Arquitetura com múltiplos funcionários de IA pra atender,\nvender e organizar tudo em um só lugar\ncom seu logo, cores e sua equipe'}
             </p>
             <div className="hero-cta">
-              <a href={`/app/?new=1&theme=${(document.documentElement.getAttribute('data-theme')||'dark')}`} className="btn btn-primary">
-                Começar grátis · 7 dias
+              <a href={WA_LINK} className="btn btn-primary">
+                Falar com um especialista
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               </a>
-              <a href={WA_LINK} className="btn btn-ghost">Falar com especialista</a>
-            </div>
-            <div style={{marginTop:14, fontSize:13, color:'rgba(255,255,255,.6)', display:'flex', alignItems:'center', gap:6}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#25D366" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12"/>
-              </svg>
-              Sem cartão de crédito · Sem fidelidade · Cancele quando quiser
+              <a href="#planos" className="btn btn-ghost">Ver planos</a>
             </div>
           </div>
           <CRMMockup />
