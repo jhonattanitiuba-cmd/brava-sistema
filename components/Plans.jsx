@@ -36,7 +36,6 @@ const PLANS = [
       { strong: 'Tudo do Essencial, mais:' },
       '10 atendentes',
       '2 números WhatsApp',
-      { hot: true, label: 'Site institucional INCLUSO', sub: 'Construído pela Brava, integrado ao CRM. Cada visitante vira lead direto no funil.' },
       'Pipeline de vendas (funil kanban)',
       'Analytics e relatórios completos',
       'Múltiplos agentes de IA configuráveis',

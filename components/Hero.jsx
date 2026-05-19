@@ -14,7 +14,30 @@ function Nav() {
           <a href="#planos">Planos</a>
           <a href="#prova">Clientes</a>
           <a href="#faq">Perguntas</a>
-          <a className="btn btn-sm btn-ghost btn-whatsapp" href={WA_LINK}>WhatsApp</a>
+          {/* WhatsApp — saber verde delicado, velocidade 8s */}
+          <a href={WA_LINK} style={{
+            position:'relative', overflow:'hidden',
+            display:'inline-flex', alignItems:'center', justifyContent:'center',
+            height:40, padding:'0 18px', borderRadius:999,
+            fontSize:14, fontWeight:500, color:'#fff',
+            background:'#25D366',
+            textDecoration:'none', flexShrink:0,
+          }}>
+            {/* Anel saber */}
+            <span style={{
+              position:'absolute', inset:0, borderRadius:999,
+              background:'conic-gradient(from 0deg, transparent 0deg 240deg, rgba(255,255,255,.20) 280deg, rgba(255,255,255,.55) 310deg, rgba(255,255,255,.20) 330deg, transparent 360deg)',
+              animation:'wa-saber 8s linear infinite',
+              pointerEvents:'none',
+            }}/>
+            {/* Fundo sólido sobre o anel pra não vazar */}
+            <span style={{
+              position:'absolute', inset:2, borderRadius:999,
+              background:'#25D366',
+            }}/>
+            <span style={{position:'relative', zIndex:1}}>WhatsApp</span>
+            <style>{`@keyframes wa-saber { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+          </a>
           <a className="btn btn-sm" href={`/app/?login=1&theme=${tema()}`}
              style={{ background:'#1E90FF', color:'#fff', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
             Entrar
