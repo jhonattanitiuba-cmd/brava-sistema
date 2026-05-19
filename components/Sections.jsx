@@ -1,4 +1,4 @@
-/* global React */
+/* global React, FeatureIcon */
 
 function ProposalBlock() {
   const metrics = [
@@ -446,21 +446,42 @@ function BenefitsBlock() {
             <div key={i} style={{
               background: 'var(--bg-elevated)',
               padding: '28px 26px',
-              minHeight: 180
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              minHeight: 180,
+              position: 'relative',
+              transition: 'background .25s',
+            }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.025)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                {/* Icone contextual em tile elegante */}
                 <span style={{
-                  width: 28, height: 28, borderRadius: 8,
-                  background: 'var(--brava-gradient)',
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'linear-gradient(135deg, rgba(123,63,228,.18) 0%, rgba(30,144,255,.12) 100%)',
+                  border: '1px solid rgba(123,63,228,.25)',
                   display: 'grid', placeItems: 'center',
-                  color: '#fff'
+                  boxShadow: '0 4px 14px rgba(123,63,228,.10)',
                 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5"/></svg>
+                  <FeatureIcon text={b.t} size={16} color="#A78BFA" tile={false} />
                 </span>
-                <span className="mono" style={{ fontSize: 11, color: 'var(--text-tertiary)', letterSpacing: '0.08em' }}>0{i + 1 < 10 ? i + 1 : ''}{i + 1 >= 10 ? i + 1 : ''}</span>
+                {/* Numero do card refinado */}
+                <span className="mono" style={{
+                  fontSize: 10, color: 'var(--text-tertiary)',
+                  letterSpacing: '0.14em', fontWeight: 500,
+                  padding: '3px 8px', borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,.06)',
+                  background: 'rgba(255,255,255,.02)',
+                }}>{String(i + 1).padStart(2, '0')} / 10</span>
               </div>
-              <h3 style={{ fontFamily: 'Space Grotesk', fontSize: 19, fontWeight: 600, margin: 0, letterSpacing: '-0.01em', lineHeight: 1.25 }}>{b.t}</h3>
-              <p style={{ margin: '10px 0 0', fontSize: 14.5, lineHeight: 1.55, color: 'var(--text-secondary)' }}>{b.d}</p>
+              <h3 style={{
+                fontFamily: 'Space Grotesk', fontSize: 19, fontWeight: 600,
+                margin: 0, letterSpacing: '-0.01em', lineHeight: 1.25,
+                color: 'var(--text-primary)',
+              }}>{b.t}</h3>
+              <p style={{
+                margin: '10px 0 0', fontSize: 14.5, lineHeight: 1.55,
+                color: 'var(--text-secondary)',
+              }}>{b.d}</p>
             </div>
           ))}
         </div>

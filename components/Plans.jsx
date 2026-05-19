@@ -1,4 +1,4 @@
-/* global React, WA_LINK */
+/* global React, WA_LINK, FeatureIcon */
 
 // Links de pagamento do Stripe — trocar pelos links de PRODUCAO quando migrar.
 // Hoje sao links de TESTE (test_*) — funcionam normal mas nao cobram dinheiro real.
@@ -155,18 +155,35 @@ function Plans() {
                 >
                   {p.id === 'enterprise' ? 'Conversar com vendas' : 'Assinar agora'}
                 </a>
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 12 }}>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
                   {p.features.map((f, i) => {
                     if (typeof f === 'string') {
                       return (
-                        <li key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7B3FE4" strokeWidth="2.5" style={{ flex: '0 0 16px', marginTop: 2 }}><path d="M20 6L9 17l-5-5"/></svg>
+                        <li key={i} style={{
+                          display: 'flex', gap: 12, alignItems: 'center',
+                          fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.4,
+                        }}>
+                          <FeatureIcon
+                            text={f}
+                            size={14}
+                            color={p.highlight ? '#1E90FF' : '#7B3FE4'}
+                            tileBg={p.highlight ? 'rgba(30,144,255,.10)' : 'rgba(123,63,228,.10)'}
+                            tileBorder={p.highlight ? 'rgba(30,144,255,.22)' : 'rgba(123,63,228,.20)'}
+                          />
                           <span>{f}</span>
                         </li>
                       );
                     }
                     if (f.strong) {
-                      return <li key={i} style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 600, fontFamily: 'JetBrains Mono', letterSpacing: '0.03em', textTransform: 'uppercase' }}>{f.strong}</li>;
+                      return (
+                        <li key={i} style={{
+                          fontSize: 11, color: 'var(--text-tertiary)',
+                          fontWeight: 600, fontFamily: 'JetBrains Mono',
+                          letterSpacing: '0.10em', textTransform: 'uppercase',
+                          marginTop: 8, marginBottom: 2,
+                          paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,.06)',
+                        }}>{f.strong}</li>
+                      );
                     }
                     if (f.hot) {
                       return (
