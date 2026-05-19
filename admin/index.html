@@ -8217,118 +8217,128 @@ const RECORRENCIA = [
 
 const SC = { 'Em Prod':'#1D9E75','Ativo':'#1E90FF','Implementação':'#7B3FE4','Comercial':'#BA7517','Proposta Apresentada':'#BA7517','Em breve':'#6E6E78','':'' };
 
-/* ─── Store reativo de RECORRENCIA (CRUD + persist + events) ─────────────
-   Mesma arquitetura do CLIENTES_CRM: o seed RECORRENCIA fica imutavel,
-   e aplicamos por cima edits / adds / deletes vindos do localStorage.
-   Cada item tem __id estavel (usado como chave de patch), mesmo que o
-   campo `cliente` seja renomeado pelo usuario.
+/* ─── Store MRR — Supabase (tabela mrr_clients) ────────────────────────
+   Substituiu o store localStorage anterior.
+   __id = campo id do Supabase (UUID) para compatibilidade com o componente MRR.
+
+   Mapeamentos:
+   DB  implementacao        → UI impl
+   DB  vencimento_dia (int) → UI dia (string "Dia 30" ou "")
+   DB  id (uuid)            → UI __id
 */
-const REC_KEYS = {
-  edits:   'brava_rec_edits',
-  deleted: 'brava_rec_deleted',
-  extras:  'brava_rec_extras',
-};
-const _recReadJSON = (k, def) => { try { const s = localStorage.getItem(k); return s ? JSON.parse(s) : def; } catch { return def; } };
-const _recId = (r, i) => r.__id || `seed_${i}_${r.cliente}`;
 
-function getRecorrencia() {
-  const edits   = _recReadJSON(REC_KEYS.edits, {});
-  const deleted = _recReadJSON(REC_KEYS.deleted, []);
-  const extras  = _recReadJSON(REC_KEYS.extras, []);
-  const seedComId = RECORRENCIA.map((r,i) => ({ ...r, __id: _recId(r,i) }));
-  const merged = [...seedComId, ...extras].filter(r => !deleted.includes(r.__id));
-  return merged.map(r => edits[r.__id] ? { ...r, ...edits[r.__id] } : r);
-}
-
-const fireRecChanged = () => window.dispatchEvent(new Event('brava_rec_changed'));
-
-function editRecorrencia(id, patch) {
-  const edits = _recReadJSON(REC_KEYS.edits, {});
-  edits[id] = { ...(edits[id] || {}), ...patch };
-  localStorage.setItem(REC_KEYS.edits, JSON.stringify(edits));
-  fireRecChanged();
-}
-
-function addRecorrencia(item) {
-  const extras = _recReadJSON(REC_KEYS.extras, []);
-  const novo = {
-    __id: `new_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-    cliente: '', servico: '', nicho: '', impl: 0, mensal: 0, dia: '', status: 'Comercial',
-    ...item,
+// DB → UI
+function _mrrFromDB(r) {
+  return {
+    ...r,
+    __id:   r.id,
+    impl:   parseFloat(r.implementacao)  || 0,
+    mensal: parseFloat(r.mensal)         || 0,
+    dia:    r.vencimento_dia ? `Dia ${r.vencimento_dia}` : '',
   };
-  extras.push(novo);
-  localStorage.setItem(REC_KEYS.extras, JSON.stringify(extras));
-  fireRecChanged();
-  return novo.__id;
 }
 
-function deleteRecorrencia(id) {
-  // se for extra, remove do array; senao, marca como deleted
-  const extras = _recReadJSON(REC_KEYS.extras, []);
-  const filtrados = extras.filter(r => r.__id !== id);
-  if (filtrados.length !== extras.length) {
-    localStorage.setItem(REC_KEYS.extras, JSON.stringify(filtrados));
-  } else {
-    const deleted = _recReadJSON(REC_KEYS.deleted, []);
-    if (!deleted.includes(id)) {
-      deleted.push(id);
-      localStorage.setItem(REC_KEYS.deleted, JSON.stringify(deleted));
-    }
+// UI patch → DB patch (remove campos UI-only, normaliza nomes)
+function _mrrToDB(patch) {
+  const out = { ...patch };
+  if ('impl'   in out) { out.implementacao = parseFloat(out.impl) || 0;  delete out.impl; }
+  if ('dia'    in out) {
+    const n = parseInt(String(out.dia || '').replace(/\D/g,''));
+    out.vencimento_dia = isNaN(n) || n < 1 || n > 31 ? null : n;
+    delete out.dia;
   }
-  // limpa qualquer edit penduarado
-  const edits = _recReadJSON(REC_KEYS.edits, {});
-  if (edits[id]) { delete edits[id]; localStorage.setItem(REC_KEYS.edits, JSON.stringify(edits)); }
-  fireRecChanged();
+  // Remove campos que só existem no UI
+  delete out.__id; delete out.id; delete out.created_at; delete out.updated_at;
+  return out;
+}
+
+async function editRecorrencia(id, patch) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('mrr_clients').update(_mrrToDB(patch)).eq('id', id);
+  // Realtime vai re-renderizar o useRecorrencia
+}
+
+async function addRecorrencia(item) {
+  const cli = getSupa(); if (!cli) return null;
+  const base = { cliente:'', servico:'', nicho:'', impl:0, mensal:0, dia:'', status:'Comercial' };
+  const { data } = await cli.from('mrr_clients').insert(_mrrToDB({ ...base, ...item })).select().single();
+  return data?.id || null;
+}
+
+async function deleteRecorrencia(id) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('mrr_clients').delete().eq('id', id);
 }
 
 function useRecorrencia() {
-  const [list, setList] = React.useState(() => getRecorrencia());
+  const [list, setList] = React.useState([]);
   React.useEffect(() => {
-    const refresh = () => setList(getRecorrencia());
-    window.addEventListener('brava_rec_changed', refresh);
-    window.addEventListener('storage', refresh);
-    return () => {
-      window.removeEventListener('brava_rec_changed', refresh);
-      window.removeEventListener('storage', refresh);
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('mrr_clients').select('*').order('created_at', { ascending: true });
+      if (alive && data) setList(data.map(_mrrFromDB));
     };
+    load();
+    const ch = cli.channel('rt:mrr_clients')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mrr_clients' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
   }, []);
   return list;
 }
 
-/* ─── Store de PAGAMENTOS mensais ─────────────────────────────────────────
-   Schema: { [recId]: { [YYYY-MM]: { pago: bool, data: 'YYYY-MM-DD' } } }
-   - recId  = __id da linha de RECORRENCIA
-   - YYYY-MM = competencia do pagamento
-   - data   = dia em que foi marcado como pago
+/* ─── Store de PAGAMENTOS mensais — Supabase (tabela mrr_pagamentos) ──────
+   Schema resultante (mesmo que antes pra manter compatibilidade):
+   { [cliente_id (=recId=__id)]: { [YYYY-MM]: { pago: bool, data: 'YYYY-MM-DD' } } }
 */
-const PAG_KEY = 'brava_pagamentos';
+
+async function setPagamento(recId, ym, info) {
+  const cli = getSupa(); if (!cli) return;
+  if (info === null) {
+    await cli.from('mrr_pagamentos').delete().eq('cliente_id', recId).eq('competencia', ym);
+  } else {
+    await cli.from('mrr_pagamentos').upsert({
+      cliente_id:     recId,
+      competencia:    ym,
+      pago:           !!info.pago,
+      data_pagamento: info.data || null,
+    }, { onConflict: 'cliente_id,competencia' });
+  }
+}
+
+// Shim pra manter compatibilidade com código legado que usa getPagamentos() sync
+// Retorna o último estado em cache. usePagamentos() é a versão reativa.
+let _pagamentosCache = {};
+function getPagamentos() { return _pagamentosCache; }
+
+// legado: só pra evitar undefined em setores que ainda usam firePagChanged
 const firePagChanged = () => window.dispatchEvent(new Event('brava_pag_changed'));
 
-function getPagamentos() {
-  try { return JSON.parse(localStorage.getItem(PAG_KEY) || '{}'); } catch { return {}; }
-}
-function setPagamento(recId, ym, info) {
-  const all = getPagamentos();
-  if (!all[recId]) all[recId] = {};
-  if (info === null) {
-    delete all[recId][ym];
-    if (!Object.keys(all[recId]).length) delete all[recId];
-  } else {
-    all[recId][ym] = info;
-  }
-  localStorage.setItem(PAG_KEY, JSON.stringify(all));
-  firePagChanged();
-}
+// ─── shim pra ModalRec que usava setPagamento síncrono ────────────────────
+// (deixa o código do modal funcionar sem refatoração)
 function usePagamentos() {
-  const [all, setAll] = React.useState(() => getPagamentos());
+  const [all, setAll] = React.useState({});
   React.useEffect(() => {
-    const refresh = () => setAll(getPagamentos());
-    window.addEventListener('brava_pag_changed', refresh);
-    window.addEventListener('storage', refresh);
-    return () => {
-      window.removeEventListener('brava_pag_changed', refresh);
-      window.removeEventListener('storage', refresh);
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('mrr_pagamentos').select('*');
+      if (!alive || !data) return;
+      // Transforma pra: { [cliente_id]: { [YYYY-MM]: { pago, data } } }
+      const out = {};
+      data.forEach(p => {
+        if (!out[p.cliente_id]) out[p.cliente_id] = {};
+        out[p.cliente_id][p.competencia] = { pago: p.pago, data: p.data_pagamento };
+      });
+      _pagamentosCache = out; // atualiza cache sync pra getPagamentos()
+      setAll(out);
     };
+    load();
+    const ch = cli.channel('rt:mrr_pagamentos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mrr_pagamentos' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
   }, []);
   return all;
 }
