@@ -3309,7 +3309,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     }
 
     setSyncState(s => ({ ...s, running:false, done:true, errors: errorsAcc, chats: totalChats, messages: totalMessages, total: totalChatsReported }));
+
+    // Garante que o admin esteja lendo do Supabase (sync alimenta Supabase, faz sentido)
+    try {
+      if (localStorage.getItem('brava_supa_enabled') === '0') {
+        setSupaEnabledStore(true);
+      }
+    } catch {}
+
     window.dispatchEvent(new Event('brava_wa_refresh'));
+    window.dispatchEvent(new Event('brava_supa_changed'));
     showToast?.(`Sincronizado: ${totalMessages} mensagens em ${totalChats} chats`, 'success');
   }
 
@@ -3325,6 +3334,14 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       .filter(c => c.last_message_ts || c.last_message_text || (c.unread_count > 0))
       .map(supaNormalizeChat);
   }, [supaChatsState.chats, contatosSalvosMap]);
+
+  // Auto-ativa Supabase se temos dados lá mas o toggle está em Evolution direto
+  // (fix pra casos onde localStorage ficou com brava_supa_enabled=0 antigo)
+  React.useEffect(() => {
+    if (!supaEnabled && supaChatsState.chats.length > 0) {
+      setSupaEnabledStore(true);
+    }
+  }, [supaEnabled, supaChatsState.chats.length]);
 
   // === Fluxo Evolution direto (legado) ===
   const evoCfg = useEvoConfig();
