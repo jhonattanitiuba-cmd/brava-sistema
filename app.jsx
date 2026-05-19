@@ -97,7 +97,6 @@ function App() {
       <Plans />
       <Objections />
       <Guarantee />
-      <Urgency />
       <FAQ />
       <FinalCTA />
       <PSFooter />
