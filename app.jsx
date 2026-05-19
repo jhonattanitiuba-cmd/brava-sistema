@@ -91,7 +91,7 @@ function App() {
       {/* ── Fundo unificado Hero + ProductShowcase ─────────── */}
       <div style={{ position:'relative', overflow:'hidden', background:'#05050D' }}>
         {/* Blob roxo animado lento */}
-        <div style={{
+        <div className="app-glow-blob" style={{
           position:'absolute', top:'-5%', left:'-5%',
           width:'60%', height:'70%',
           background:'radial-gradient(ellipse, rgba(123,63,228,.28) 0%, rgba(123,63,228,.08) 45%, transparent 70%)',
@@ -99,7 +99,7 @@ function App() {
           pointerEvents:'none',
         }}/>
         {/* Blob azul animado lento */}
-        <div style={{
+        <div className="app-glow-blob" style={{
           position:'absolute', bottom:'-5%', right:'-5%',
           width:'55%', height:'65%',
           background:'radial-gradient(ellipse, rgba(30,144,255,.22) 0%, rgba(30,144,255,.06) 45%, transparent 70%)',
@@ -107,7 +107,7 @@ function App() {
           pointerEvents:'none',
         }}/>
         {/* Blob roxo secundario — centro baixo */}
-        <div style={{
+        <div className="app-glow-blob" style={{
           position:'absolute', bottom:'20%', left:'30%',
           width:'40%', height:'40%',
           background:'radial-gradient(ellipse, rgba(123,63,228,.10) 0%, transparent 70%)',
