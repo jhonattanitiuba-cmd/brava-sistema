@@ -128,9 +128,12 @@ body.brava-intro-p1 .brava-intro-blob {
 <script>
 /* ══════════════════════════════════════════════════════════════════
    INTRO FRAME-ACCURATE — introbravasof.mp3 @ 25fps   (zero-delay)
-   Classe brava-intro-active já aplicada pelo script inline no topo
-   do <body> — CSS esconde tudo ANTES do React renderizar.
-   Aqui só tocamos o áudio + RAF loop (sem esperar React montar).
+
+   RELÓGIO DUPLO — animação NUNCA depende do autoplay de áudio:
+   • performance.now() → relógio primário, começa imediatamente
+   • audio.currentTime → sincroniza quando browser permite autoplay
+   Se o áudio for bloqueado, a animação roda igual; o som entra
+   assim que o browser liberar (primeiro clique/tecla).
 
    Cues (hh:mm:ss:ff @ 25fps → segundos):
    00:00:00:06 → 0.24s  Logo
@@ -148,7 +151,6 @@ body.brava-intro-p1 .brava-intro-blob {
   if (!audio) return;
   var body = document.body;
 
-  /* Garante classe (já adicionada pelo script inline, mas defensivo) */
   body.classList.add('brava-intro-active', 'brava-intro-p1');
 
   var CUES = [
@@ -163,13 +165,26 @@ body.brava-intro-p1 .brava-intro-blob {
   var HERO_START = 2.32;
   var FINISH_T   = 5.12;
 
+  /* ── Relógio duplo ─────────────────────────────────────────────
+     _startPerfTs : performance.now() no momento que o RAF começa
+     _audioLive   : true quando audio.play() foi bem-sucedido
+     getClock()   : retorna o tempo em segundos desde o início     */
+  var _startPerfTs = null;
+  var _audioLive   = false;
+
+  function getClock() {
+    if (_audioLive && !audio.paused && audio.currentTime > 0)
+      return audio.currentTime;           /* mais preciso quando tocando */
+    if (_startPerfTs === null) return 0;
+    return (performance.now() - _startPerfTs) / 1000;
+  }
+
   var triggered    = {};
-  var pending      = []; /* ids cujo elemento ainda não está no DOM */
+  var pending      = [];
   var heroAnimDone = false;
   var finishDone   = false;
   var rafId;
 
-  /* Revela um elemento pelo id (inline style sobrepõe CSS não-!important) */
   function doReveal(el) {
     el.style.transition = 'opacity .35s ease, transform .4s cubic-bezier(.22,1,.36,1)';
     el.style.opacity    = '1';
@@ -179,10 +194,9 @@ body.brava-intro-p1 .brava-intro-blob {
   function reveal(id) {
     var el = document.getElementById(id);
     if (el) doReveal(el);
-    else    pending.push(id); /* React ainda não montou — tenta no próximo frame */
+    else    pending.push(id);
   }
 
-  /* Tenta revelar itens que ainda não estavam no DOM quando o cue disparou */
   function flushPending() {
     if (!pending.length) return;
     var left = [];
@@ -194,7 +208,6 @@ body.brava-intro-p1 .brava-intro-blob {
     pending = left;
   }
 
-  /* Hero: camadas de cima pra baixo em 0.84s */
   function animateHero() {
     if (heroAnimDone) return;
     heroAnimDone = true;
@@ -209,7 +222,6 @@ body.brava-intro-p1 .brava-intro-blob {
       el.style.opacity    = '1';
       el.style.transform  = 'translateY(0)';
     });
-    /* Showcase e seções abaixo entram em cascata */
     document.querySelectorAll('#root > div > *:not(:first-child)').forEach(function (el, i) {
       el.style.transition = 'opacity .7s ease ' + (0.6 + i * 0.15) + 's';
       el.style.opacity    = '1';
@@ -221,7 +233,6 @@ body.brava-intro-p1 .brava-intro-blob {
     finishDone = true;
     if (rafId) cancelAnimationFrame(rafId);
     body.classList.remove('brava-intro-active', 'brava-intro-p1');
-    /* Limpa estilos inline — volta ao fluxo normal do CSS */
     document.querySelectorAll('[id^=nav-], .h1, .lead, .hero-cta, #root > div > *').forEach(function (el) {
       el.style.transition = '';
       el.style.opacity    = '';
@@ -233,43 +244,57 @@ body.brava-intro-p1 .brava-intro-blob {
     });
   }
 
-  /* RAF loop — frame-accurate (≈ 16ms resolução vs timeupdate ~250ms) */
-  function syncFrame() {
-    var t = audio.currentTime;
+  function syncFrame(ts) {
+    /* Inicia o relógio performance no primeiro frame */
+    if (_startPerfTs === null) _startPerfTs = ts;
+
+    var t = getClock();
     flushPending();
+
     CUES.forEach(function (cue) {
       if (!triggered[cue.id] && t >= cue.t) {
         triggered[cue.id] = true;
         reveal(cue.id);
       }
     });
+
     if (t >= HERO_START) animateHero();
     if (t >= FINISH_T)   { finishIntro(); return; }
     rafId = requestAnimationFrame(syncFrame);
   }
 
-  /* Toca o áudio — sem esperar DOMContentLoaded nem React montar.
-     O elemento <audio> já está no DOM acima deste script. */
-  function tryPlay() {
+  /* ── Tenta tocar o áudio em paralelo com a animação ──────────
+     Se bloqueado, a animação continua no timer; o som entra
+     no primeiro clique/tecla e sincroniza com o ponto atual.  */
+  function tryPlayAudio() {
     audio.volume = 0.85;
     var p = audio.play();
-    if (p) p.catch(function () {
-      /* Autoplay bloqueado (mobile/Safari) — aguarda interação */
-      ['click', 'touchstart', 'keydown'].forEach(function (ev) {
+    if (!p) { _audioLive = true; return; }
+    p.then(function () {
+      _audioLive = true;
+    }).catch(function () {
+      /* Autoplay bloqueado — aguarda primeira interação do usuário */
+      function onInteract() {
+        var elapsed = getClock(); /* onde a animação está agora */
+        if (elapsed < FINISH_T) {
+          audio.currentTime = elapsed; /* sincroniza com timer */
+          audio.play().then(function () { _audioLive = true; }).catch(function () {});
+        }
+      }
+      ['pointerdown', 'touchstart', 'keydown'].forEach(function (ev) {
         document.addEventListener(ev, function fn() {
           document.removeEventListener(ev, fn);
-          audio.currentTime = 0;
-          audio.play().catch(function () {});
-        }, { once: true });
+          onInteract();
+        }, { once: true, passive: true });
       });
     });
   }
 
   audio.addEventListener('ended', finishIntro);
 
-  /* ── Disparo imediato — sem setTimeout, sem DOMContentLoaded ── */
-  tryPlay();
-  requestAnimationFrame(syncFrame);
+  /* ── Disparo imediato: RAF + áudio em paralelo ── */
+  requestAnimationFrame(syncFrame); /* animação começa SEM depender de áudio */
+  tryPlayAudio();
 })();
 </script>
 
