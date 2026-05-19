@@ -175,7 +175,7 @@ body.brava-intro-p1 .brava-intro-blob {
                  2.04s  Perguntas
    00:00:02:02 → 2.08s  WhatsApp
    00:00:02:04 → 2.16s  Entrar
-   00:00:02:08 → 2.32s  Hero (h1 → lead → cta, 0.84s)
+   00:00:02:06 → 2.24s  Hero começa (cascata linha por linha)
    00:00:05:03 → 5.12s  Fim
    ══════════════════════════════════════════════════════════════════ */
 (function () {
@@ -196,7 +196,7 @@ body.brava-intro-p1 .brava-intro-blob {
     { t:2.08,  id:'nav-whatsapp'   },
     { t:2.16,  id:'nav-entrar'     },
   ];
-  var HERO_START = 2.32;
+  var HERO_START = 2.24;  /* dispara logo após o nav-entrar (2.16s) */
   var FINISH_T   = 5.12;
 
   /* ── Relógio duplo ─────────────────────────────────────────────

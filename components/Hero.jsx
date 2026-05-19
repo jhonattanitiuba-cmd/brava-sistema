@@ -79,7 +79,7 @@ function Hero({ headline, cta, accents }) {
             <p className="lead hero-sub">
               <span className="lead-line" style={{ display: 'block' }}>Arquitetura com múltiplos funcionários de IA pra atender,</span>
               <span className="lead-line" style={{ display: 'block' }}>vender e organizar tudo em um só lugar</span>
-              <span className="lead-line" style={{ display: 'block' }}>com seu logo, cores e sua equipe</span>
+              <span className="lead-line" style={{ display: 'block' }}>com sua logo, cores e equipe</span>
             </p>
             <div className="hero-cta">
               <a href={WA_LINK} className="btn btn-primary cta-item">
