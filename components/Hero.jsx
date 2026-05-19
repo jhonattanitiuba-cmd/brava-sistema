@@ -58,8 +58,10 @@ function Nav() {
           <a href="#planos">Planos</a>
           <a href="#prova">Clientes</a>
           <a href="#faq">Perguntas</a>
-          {/* WhatsApp — ghost + saber verde na borda, hover pinta inteiro */}
-          <WaBtn href={WA_LINK} />
+          <a className="btn btn-sm btn-ghost btn-whatsapp" href={WA_LINK}
+            style={{ background:'#25D366', color:'#fff', border:'none' }}>
+            WhatsApp
+          </a>
           <a className="btn btn-sm" href={`/app/?login=1&theme=${tema()}`}
              style={{ background:'#1E90FF', color:'#fff', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
             Entrar
