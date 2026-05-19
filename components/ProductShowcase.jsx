@@ -144,7 +144,7 @@ function ProductShowcase() {
                     background: '#000', borderRadius: 6,
                     border: '1px solid rgba(0,0,0,.6)',
                     overflow: 'hidden',
-                    aspectRatio: '16/10',
+                    aspectRatio: '1536/960',
                     boxShadow: isActive ? 'inset 0 0 0 1px rgba(255,255,255,.06)' : 'none',
                   }}>
                     {/* Tab bar */}
@@ -163,7 +163,7 @@ function ProductShowcase() {
                       alt={s.label}
                       style={{
                         width: '100%', height: 'calc(100% - 28px)',
-                        objectFit: 'cover', objectPosition: 'top left',
+                        objectFit: 'fill',
                         display: 'block',
                         filter: isActive ? 'none' : 'brightness(.7)',
                         transition: 'filter .4s',
