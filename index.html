@@ -16,6 +16,59 @@
 <style id="__om-edit-overrides"></style>
 </head>
 <body>
+<script>
+/* ── Som tecnológico sutil ao entrar na página ──────────────────────
+   Web Audio API: acorde digital suave (3 camadas) + fade in/out.
+   Sem arquivo externo. Inicia após 800ms (espera render inicial).
+   Gain total muito baixo (.035) — quase imperceptível, sensação
+   subconsciente de "ambiente tech".
+*/
+(function() {
+  function playBravaEntrance() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var now = ctx.currentTime;
+      var masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0, now);
+      masterGain.gain.linearRampToValueAtTime(0.038, now + 0.6);   // fade in
+      masterGain.gain.setValueAtTime(0.038, now + 1.2);
+      masterGain.gain.linearRampToValueAtTime(0, now + 2.2);       // fade out
+      masterGain.connect(ctx.destination);
+
+      // 3 osciladores formando um acorde tech (4a + 5a)
+      [[220, 'sine'], [330, 'sine'], [440, 'triangle']].forEach(function(cfg, idx) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        osc.type = cfg[1];
+        osc.frequency.setValueAtTime(cfg[0], now);
+        // Detuning suave — sensação digital, não "beep"
+        osc.frequency.linearRampToValueAtTime(cfg[0] * 1.002, now + 1.5);
+        gain.gain.setValueAtTime(0.6 - idx * 0.12, now);
+        osc.connect(gain);
+        gain.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 2.5);
+      });
+    } catch(e) {}
+  }
+
+  // Dispara após breve delay pra garantir que o contexto de audio
+  // possa ser criado (browsers exigem interação do user em alguns casos)
+  var fired = false;
+  function tryPlay() {
+    if (fired) return;
+    fired = true;
+    setTimeout(playBravaEntrance, 800);
+  }
+
+  // Tenta na carga direta
+  window.addEventListener('load', tryPlay, { once: true });
+  // Fallback: primeiro click/scroll (mobile e browsers restritivos)
+  ['click','touchstart','scroll','keydown'].forEach(function(ev) {
+    document.addEventListener(ev, tryPlay, { once: true, passive: true });
+  });
+})();
+</script>
 <div id="root"></div>
 
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
