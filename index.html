@@ -12,6 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
 <link rel="stylesheet" href="styles.css" />
+<link rel="preload" href="/introbravasof.mp3" as="audio" type="audio/mpeg" />
 
 <style id="__om-edit-overrides"></style>
 <style>
@@ -219,11 +220,11 @@ body.brava-intro-p1 .brava-intro-blob {
 
   audio.addEventListener('ended', finishIntro);
 
-  /* Inicia quando o DOM estiver pronto */
+  /* Inicia imediatamente — sem delay */
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startIntro);
   } else {
-    setTimeout(startIntro, 100);
+    startIntro();
   }
 })();
 </script>
