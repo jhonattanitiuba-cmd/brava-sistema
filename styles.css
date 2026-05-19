@@ -219,8 +219,8 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,0.034) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.034) 1px, transparent 1px);
   background-size: 56px 56px;
   mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, #000 50%, transparent 80%);
   -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, #000 50%, transparent 80%);
@@ -230,8 +230,8 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
 
 .section.light .grid-bg {
   background-image:
-    linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+    linear-gradient(rgba(0,0,0,0.043) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.043) 1px, transparent 1px);
 }
 
 .section .container { position: relative; z-index: 1; }
