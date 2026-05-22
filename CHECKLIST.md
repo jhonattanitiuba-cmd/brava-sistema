@@ -119,9 +119,33 @@ ORDER BY pg_total_relation_size(C.oid) DESC;
 |---|---|---|
 | Lista de chats vazia no admin | Sync histórico não rodou | `wa-sync-history` + `wa_reconcile_chats` |
 | Mensagens novas não aparecem | WS caído / token expirado | F5 no admin; ver realtime logs |
-| 500 no `wa-webhook` | Evolution mandando payload novo | Ver Functions → Logs do Supabase |
+| 500 no `wa-webhook` em mensagens de mídia | Long.js do Baileys (`{low,high}` em bigint) | **CORRIGIDO em v6** com `toNumber()` — não deve mais ocorrer |
+| 500 no `wa-webhook` em outros payloads | Evolution mandando payload novo | Ver `wa_eventos_log` onde `event_type LIKE '%error%'` |
 | Intro toca duas vezes | bfcache do browser | Já mitigado, mas verificar se persiste |
 | IA não responde | Edge `wa-ia-responder` 500 ou OpenAI quota | Logs + Supabase secrets |
+
+### Lição aprendida (Maio/2026): Long.js do Baileys
+
+Baileys serializa números grandes (`fileLength`, `seconds`, `messageTimestamp`)
+como objetos Long.js: `{"low": 32645, "high": 0, "unsigned": true}`. Postgres
+não converte isso pra bigint — gera 500 em **toda mensagem de mídia**.
+
+**Padrão de defesa** (já aplicado em `wa-webhook` v6 e `wa-sync-history` v4):
+```ts
+function toNumber(v: any): number | null {
+  if (v == null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string') return Number(v) || null;
+  if (typeof v === 'bigint') return Number(v);
+  if (typeof v === 'object' && 'low' in v && 'high' in v) {
+    return (v.high * 0x100000000) + (v.low >>> 0);
+  }
+  return null;
+}
+```
+
+**Sempre use `toNumber()` antes de gravar campos numéricos** que venham
+do payload do Evolution/Baileys (qualquer campo da árvore `message.*`).
 
 ---
 
