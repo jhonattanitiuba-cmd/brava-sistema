@@ -633,6 +633,7 @@ function useCount(target, duration = 1200, delay = 0) {
 const NAV = [
   { key:'dashboard',  label:'Dashboard',   icon:'LayoutDashboard', badge:null },
   { key:'clientes',   label:'WhatsApp',    icon:'MessageCircle',   badge:23 },
+  { key:'monitoramento', label:'Monitoramento', icon:'Activity',   badge:null },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
   { key:'agenda',     label:'Agenda',      icon:'CalendarCheck',   badge:null },
   { key:'mrr',        label:'MRR',         icon:'TrendingUp',      badge:null },
@@ -4705,6 +4706,414 @@ const CHAMADOS_INIT = [
 ];
 const PRIORIDADE_COR = { 'Alta':'#A32D2D', 'Média':'#BA7517', 'Baixa':'#1D9E75' };
 const CHAMADO_STATUS_COR = { 'Aberto':'#A32D2D', 'Em andamento':'#BA7517', 'Resolvido':'#1D9E75' };
+
+// ═══════════════════════════════════════════════════════════════════════
+// MONITORAMENTO DE PROGRESSO
+// 4 dimensões: entregáveis · WhatsApp · MRR · tempo na fase
+// ═══════════════════════════════════════════════════════════════════════
+
+// Hook: carrega checkpoints e métricas agregadas por cliente
+function useMonitoramento() {
+  const [data, setData] = React.useState({ checkpoints:[], waMetrics:{}, loading:true });
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) { setData(d => ({...d, loading:false})); return; }
+    let alive = true;
+    const carregar = async () => {
+      try {
+        // Checkpoints de todos os clientes
+        const { data: checkpoints } = await cli.from('project_checkpoints').select('*').order('cliente_nome', { ascending:true }).order('ordem');
+        // Métricas WhatsApp dos últimos 7 dias por instância
+        const { data: msgs7d } = await cli.from('wa_mensagens')
+          .select('instancia_id, from_me, ia_generated, timestamp')
+          .gte('timestamp', new Date(Date.now() - 7*86400000).toISOString())
+          .limit(20000);
+        const waMetrics = {};
+        (msgs7d || []).forEach(m => {
+          if (!waMetrics[m.instancia_id]) waMetrics[m.instancia_id] = { total:0, in:0, out:0, ia:0, ultima:0 };
+          waMetrics[m.instancia_id].total++;
+          if (m.from_me) waMetrics[m.instancia_id].out++; else waMetrics[m.instancia_id].in++;
+          if (m.ia_generated) waMetrics[m.instancia_id].ia++;
+          const t = new Date(m.timestamp).getTime();
+          if (t > waMetrics[m.instancia_id].ultima) waMetrics[m.instancia_id].ultima = t;
+        });
+        if (alive) setData({ checkpoints: checkpoints || [], waMetrics, loading:false });
+      } catch (e) {
+        if (alive) { console.warn('monitoramento:', e); setData(d => ({...d, loading:false})); }
+      }
+    };
+    carregar();
+    const t = setInterval(carregar, 30000); // refresh suave 30s
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  return data;
+}
+
+// Calcula saúde geral 0-100 baseado em 4 fatores
+function calcSaude({ percentEntreg, msgsUltimos7d, mrrAtivo, diasNaFase }) {
+  const f1 = (percentEntreg || 0) * 0.40;
+  const f2 = (msgsUltimos7d > 5 ? 100 : msgsUltimos7d * 20) * 0.30;
+  const f3 = (mrrAtivo ? 100 : 0) * 0.20;
+  const f4 = (diasNaFase <= 14 ? 100 : Math.max(0, 100 - (diasNaFase-14)*5)) * 0.10;
+  return Math.round(f1 + f2 + f3 + f4);
+}
+function saudeCor(score) {
+  if (score >= 75) return { cor:'#1D9E75', label:'Saudável' };
+  if (score >= 50) return { cor:'#BA7517', label:'Atenção' };
+  return { cor:'#A32D2D', label:'Crítico' };
+}
+
+function Monitoramento({ pipelineCols, onImpersonate }) {
+  const { checkpoints, waMetrics, loading } = useMonitoramento();
+  const clientes = useClientesReactivos();
+  const [filtroFase, setFiltroFase] = React.useState('todas');
+  const [detalheCliente, setDetalheCliente] = React.useState(null);
+
+  // Agrupa checkpoints por cliente_slug
+  const checkpointsByCliente = React.useMemo(() => {
+    const map = {};
+    checkpoints.forEach(c => {
+      if (!map[c.cliente_slug]) map[c.cliente_slug] = [];
+      map[c.cliente_slug].push(c);
+    });
+    return map;
+  }, [checkpoints]);
+
+  // Constrói lista de projetos enriquecida
+  const projetos = React.useMemo(() => {
+    return clientes.map(c => {
+      const slug = c.slug || c.nome.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cks = checkpointsByCliente[slug] || [];
+      const done = cks.filter(k => k.done).length;
+      const total = cks.length || 1;
+      const percentEntreg = Math.round((done / total) * 100);
+      const proxAcao = cks.find(k => !k.done);
+      // Fase atual: usa do cliente OU primeira fase com checkpoint pendente
+      const faseAtual = proxAcao?.fase || 'prod';
+      const faseObj = (pipelineCols || []).find(f => f.id === faseAtual);
+      // Métricas WhatsApp (busca pela instância vinculada — TODO: melhor join)
+      const wa = waMetrics[c.instancia_id] || { total:0, in:0, out:0, ia:0, ultima:0 };
+      const horasUltimaMsg = wa.ultima ? Math.round((Date.now() - wa.ultima) / 3600000) : 999;
+      const mrrAtivo = c.status === 'Ativo' || c.status === 'Em Prod';
+      const saude = calcSaude({ percentEntreg, msgsUltimos7d: wa.total, mrrAtivo, diasNaFase: 5 });
+      const saudeInfo = saudeCor(saude);
+      return { ...c, slug, cks, done, total, percentEntreg, proxAcao, faseAtual, faseObj, wa, horasUltimaMsg, mrrAtivo, saude, saudeInfo };
+    });
+  }, [clientes, checkpointsByCliente, waMetrics, pipelineCols]);
+
+  const projetosFiltrados = filtroFase === 'todas' ? projetos : projetos.filter(p => p.faseAtual === filtroFase);
+
+  // KPIs do topo
+  const mrrTotal = projetos.filter(p => p.mrrAtivo).length * 1990; // estimativa simples
+  const totalCheckpoints = checkpoints.length;
+  const totalDone = checkpoints.filter(c => c.done).length;
+  const totalMsgs = Object.values(waMetrics).reduce((s, w) => s + w.total, 0);
+  const totalIa = Object.values(waMetrics).reduce((s, w) => s + w.ia, 0);
+  const percentIa = totalMsgs ? Math.round((totalIa / totalMsgs) * 100) : 0;
+  const projetosCriticos = projetos.filter(p => p.saude < 50).length;
+
+  return (
+    <div style={{padding:'0 8px'}}>
+      <h2 style={{margin:'0 0 24px', fontSize:24, fontWeight:600, color:'var(--t1)', fontFamily:'var(--f-d)'}}>
+        Monitoramento de Progresso
+      </h2>
+
+      {/* KPIs topo */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:24}}>
+        <KpiCard label="MRR Ativo" value={`R$ ${mrrTotal.toLocaleString('pt-BR')}`} sub={`${projetos.filter(p=>p.mrrAtivo).length} clientes pagando`} icon="DollarSign" cor="#1D9E75"/>
+        <KpiCard label="Entregáveis" value={`${totalDone}/${totalCheckpoints}`} sub={totalCheckpoints ? `${Math.round((totalDone/totalCheckpoints)*100)}% concluídos` : 'Sem checkpoints'} icon="CheckCircle" cor="#1E90FF"/>
+        <KpiCard label="Msgs 7 dias" value={totalMsgs.toLocaleString('pt-BR')} sub={`${percentIa}% pela IA`} icon="MessageCircle" cor="#7B3FE4"/>
+        <KpiCard label="Projetos críticos" value={String(projetosCriticos)} sub={projetosCriticos > 0 ? 'Precisam de atenção' : 'Tudo no controle'} icon="AlertCircle" cor={projetosCriticos > 0 ? '#A32D2D' : '#1D9E75'}/>
+      </div>
+
+      {/* Filtros */}
+      <div style={{display:'flex', gap:8, marginBottom:18, flexWrap:'wrap', alignItems:'center'}}>
+        <span style={{fontSize:13, color:'var(--t3)', marginRight:4}}>Fase:</span>
+        <button onClick={()=>setFiltroFase('todas')} style={_filtroBtn(filtroFase==='todas')}>Todas ({projetos.length})</button>
+        {(pipelineCols || []).map(f => {
+          const n = projetos.filter(p => p.faseAtual === f.id).length;
+          return n > 0 ? (
+            <button key={f.id} onClick={()=>setFiltroFase(f.id)} style={_filtroBtn(filtroFase===f.id, f.cor)}>
+              {f.nome} ({n})
+            </button>
+          ) : null;
+        })}
+      </div>
+
+      {loading && <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Carregando...</div>}
+
+      {/* Cards de projeto */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:16}}>
+        {projetosFiltrados.map(p => (
+          <ProjetoCard key={p.nome} projeto={p} onClick={() => setDetalheCliente(p)} onImpersonate={onImpersonate}/>
+        ))}
+      </div>
+
+      {projetosFiltrados.length === 0 && !loading && (
+        <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+          Nenhum projeto nessa fase.
+        </div>
+      )}
+
+      {/* Modal de detalhe */}
+      {detalheCliente && <ProjetoDetalheModal projeto={detalheCliente} pipelineCols={pipelineCols} onClose={()=>setDetalheCliente(null)} onChange={() => window.dispatchEvent(new Event('brava_checkpoints_changed'))}/>}
+    </div>
+  );
+}
+
+function _filtroBtn(active, cor) {
+  return {
+    padding:'6px 12px', borderRadius:999, fontSize:12.5, fontFamily:'var(--f-b)',
+    fontWeight:active ? 600 : 500, cursor:'pointer', transition:'all .15s',
+    background: active ? (cor || 'var(--purple)') : 'transparent',
+    color: active ? '#fff' : 'var(--t2)',
+    border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
+  };
+}
+
+function KpiCard({ label, value, sub, icon, cor }) {
+  return (
+    <div style={{
+      background:'var(--bg-2)', borderRadius:12, padding:'16px 18px',
+      border:'1px solid var(--border)',
+    }}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+        <span style={{fontSize:12, color:'var(--t3)', fontWeight:500, textTransform:'uppercase', letterSpacing:'.04em'}}>{label}</span>
+        <div style={{
+          width:32, height:32, borderRadius:8, background:cor+'18', display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          <Icon name={icon} size={16} style={{color:cor}}/>
+        </div>
+      </div>
+      <div style={{fontSize:26, fontWeight:700, color:'var(--t1)', fontFamily:'var(--f-d)', lineHeight:1.1}}>{value}</div>
+      {sub && <div style={{fontSize:11.5, color:'var(--t3)', marginTop:4}}>{sub}</div>}
+    </div>
+  );
+}
+
+function ProjetoCard({ projeto: p, onClick, onImpersonate }) {
+  return (
+    <div onClick={onClick} style={{
+      background:'var(--bg-2)', borderRadius:12, padding:16, cursor:'pointer',
+      border:'1px solid var(--border)', transition:'border-color .15s, transform .15s',
+    }}
+      onMouseEnter={e=>{e.currentTarget.style.borderColor=p.saudeInfo.cor+'66'; e.currentTarget.style.transform='translateY(-2px)';}}
+      onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)';}}
+    >
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12}}>
+        <ClienteAvatar nome={p.nome} init={p.init} color={p.color} logoUrl={p.logoUrl} size={36}/>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontSize:14.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{p.nome}</div>
+          <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{p.servico || 'Serviços diversos'}</div>
+        </div>
+        <span style={{
+          fontSize:10.5, padding:'3px 8px', borderRadius:999, fontWeight:600,
+          background: p.saudeInfo.cor+'18', color: p.saudeInfo.cor,
+        }}>
+          ● {p.saudeInfo.label}
+        </span>
+      </div>
+
+      {/* Barra de progresso */}
+      <div style={{marginBottom:10}}>
+        <div style={{display:'flex', justifyContent:'space-between', fontSize:11, color:'var(--t3)', marginBottom:5}}>
+          <span style={{fontFamily:'var(--f-m)'}}>{p.faseObj?.nome || p.faseAtual}</span>
+          <span style={{fontFamily:'var(--f-m)', fontWeight:600, color:'var(--t1)'}}>{p.done}/{p.total} · {p.percentEntreg}%</span>
+        </div>
+        <div style={{height:6, background:'var(--bg-3)', borderRadius:3, overflow:'hidden'}}>
+          <div style={{
+            height:'100%', width:`${p.percentEntreg}%`,
+            background: p.saudeInfo.cor, transition:'width .35s',
+          }}/>
+        </div>
+      </div>
+
+      {/* Próxima ação */}
+      {p.proxAcao && (
+        <div style={{
+          padding:'8px 10px', background:'var(--bg-3)', borderRadius:7, marginBottom:10,
+          fontSize:12, color:'var(--t2)',
+        }}>
+          <span style={{color:'var(--t3)', fontSize:10.5, fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.04em'}}>Próxima ação:</span>
+          <div style={{marginTop:3, color:'var(--t1)', fontWeight:500}}>{p.proxAcao.titulo}</div>
+        </div>
+      )}
+
+      {/* Métricas mini */}
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, fontSize:11.5}}>
+        <div style={{textAlign:'center', padding:6, background:'var(--bg-3)', borderRadius:6}}>
+          <div style={{color:'var(--t3)', fontSize:10}}>Msgs 7d</div>
+          <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)'}}>{p.wa.total}</div>
+        </div>
+        <div style={{textAlign:'center', padding:6, background:'var(--bg-3)', borderRadius:6}}>
+          <div style={{color:'var(--t3)', fontSize:10}}>IA %</div>
+          <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)'}}>{p.wa.total ? Math.round((p.wa.ia/p.wa.total)*100) : 0}%</div>
+        </div>
+        <div style={{textAlign:'center', padding:6, background:'var(--bg-3)', borderRadius:6}}>
+          <div style={{color:'var(--t3)', fontSize:10}}>Última</div>
+          <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)'}}>
+            {p.horasUltimaMsg < 24 ? `${p.horasUltimaMsg}h` : p.horasUltimaMsg < 999 ? `${Math.round(p.horasUltimaMsg/24)}d` : '—'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProjetoDetalheModal({ projeto: p, pipelineCols, onClose, onChange }) {
+  const [cks, setCks] = React.useState(p.cks);
+  const [novoTitulo, setNovoTitulo] = React.useState('');
+
+  const toggleDone = async (ck) => {
+    const novo = !ck.done;
+    setCks(arr => arr.map(c => c.id === ck.id ? {...c, done: novo, done_at: novo ? new Date().toISOString() : null} : c));
+    try {
+      const cli = getSupa();
+      await cli.from('project_checkpoints').update({ done: novo, done_at: novo ? new Date().toISOString() : null }).eq('id', ck.id);
+      onChange?.();
+    } catch (e) { showToast?.('Erro ao salvar', 'error'); }
+  };
+
+  const adicionar = async () => {
+    if (!novoTitulo.trim()) return;
+    try {
+      const cli = getSupa();
+      const { data: ws } = await cli.from('workspaces').select('id').limit(1).maybeSingle();
+      const { data: novo } = await cli.from('project_checkpoints').insert({
+        workspace_id: ws?.id,
+        cliente_slug: p.slug,
+        cliente_nome: p.nome,
+        servico_categoria: 'custom',
+        fase: 'impl',
+        titulo: novoTitulo.trim(),
+        ordem: cks.length + 1,
+      }).select().single();
+      if (novo) {
+        setCks(arr => [...arr, novo]);
+        setNovoTitulo('');
+        onChange?.();
+      }
+    } catch (e) { showToast?.('Erro ao adicionar', 'error'); }
+  };
+
+  const removeCk = async (ck) => {
+    if (!confirm(`Remover "${ck.titulo}"?`)) return;
+    try {
+      const cli = getSupa();
+      await cli.from('project_checkpoints').delete().eq('id', ck.id);
+      setCks(arr => arr.filter(c => c.id !== ck.id));
+      onChange?.();
+    } catch (e) { showToast?.('Erro ao remover', 'error'); }
+  };
+
+  // Agrupa por fase
+  const porFase = {};
+  cks.forEach(c => {
+    if (!porFase[c.fase]) porFase[c.fase] = [];
+    porFase[c.fase].push(c);
+  });
+  const fasesOrdem = (pipelineCols || []).map(f => f.id).filter(id => porFase[id]?.length);
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{
+        background:'var(--bg-2)', borderRadius:14, width:680, maxWidth:'95vw', maxHeight:'88vh',
+        border:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden',
+      }}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <ClienteAvatar nome={p.nome} init={p.init} color={p.color} logoUrl={p.logoUrl} size={42}/>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{p.nome}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>
+              {p.done}/{p.total} entregues · {p.percentEntreg}% · {p.faseObj?.nome || p.faseAtual}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width:32, height:32, borderRadius:8, border:'none', background:'transparent',
+            color:'var(--t3)', cursor:'pointer', fontSize:18,
+          }}>×</button>
+        </div>
+
+        {/* Lista por fase */}
+        <div style={{flex:1, overflowY:'auto', padding:'8px 0'}}>
+          {fasesOrdem.map(faseId => {
+            const fase = (pipelineCols || []).find(f => f.id === faseId);
+            const items = porFase[faseId];
+            const doneCount = items.filter(c => c.done).length;
+            return (
+              <div key={faseId} style={{padding:'8px 22px'}}>
+                <div style={{
+                  display:'flex', alignItems:'center', gap:8, marginBottom:8, marginTop:6,
+                  fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase',
+                }}>
+                  <span style={{width:8, height:8, borderRadius:'50%', background: fase?.cor || 'var(--t3)'}}/>
+                  {fase?.nome || faseId} · {doneCount}/{items.length}
+                </div>
+                {items.map(ck => (
+                  <div key={ck.id} style={{
+                    display:'flex', alignItems:'center', gap:10, padding:'8px 10px',
+                    borderRadius:7, transition:'background .12s', cursor:'pointer',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background='var(--bg-3)'}
+                    onMouseLeave={e => e.currentTarget.style.background='transparent'}
+                  >
+                    <input type="checkbox" checked={ck.done} onChange={() => toggleDone(ck)}
+                      style={{width:18, height:18, cursor:'pointer', accentColor:'var(--purple)'}}/>
+                    <span style={{
+                      flex:1, fontSize:13.5, color: ck.done ? 'var(--t3)' : 'var(--t1)',
+                      textDecoration: ck.done ? 'line-through' : 'none',
+                    }}>{ck.titulo}</span>
+                    {ck.done_at && (
+                      <span style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)'}}>
+                        ✓ {new Date(ck.done_at).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}
+                      </span>
+                    )}
+                    <button onClick={() => removeCk(ck)} style={{
+                      width:24, height:24, padding:0, border:'none', background:'transparent', color:'var(--t3)',
+                      cursor:'pointer', borderRadius:4, opacity:.4,
+                    }}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='1'}
+                      onMouseLeave={e=>e.currentTarget.style.opacity='.4'}
+                      title="Remover"
+                    >
+                      <Icon name="X" size={12}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Adicionar novo */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', gap:8}}>
+          <input
+            value={novoTitulo}
+            onChange={e=>setNovoTitulo(e.target.value)}
+            onKeyDown={e=>{if(e.key==='Enter') adicionar();}}
+            placeholder="Adicionar nova tarefa..."
+            style={{
+              flex:1, padding:'9px 12px', borderRadius:7,
+              border:'1px solid var(--border)', background:'var(--bg-3)',
+              color:'var(--t1)', fontSize:13, outline:'none',
+            }}
+          />
+          <button onClick={adicionar} disabled={!novoTitulo.trim()} style={{
+            padding:'0 16px', borderRadius:7, border:'none',
+            background: novoTitulo.trim() ? 'var(--purple)' : 'var(--bg-3)',
+            color:'#fff', fontSize:13, fontWeight:600, cursor: novoTitulo.trim() ? 'pointer' : 'not-allowed',
+          }}>
+            Adicionar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Chamados() {
   const [chamados, setChamados] = useState(() => {
@@ -11100,6 +11509,7 @@ function App() {
       <main className="main">
         {page === 'dashboard' ? <Dashboard onImpersonate={setImpersonate} pipelineCols={pipelineCols} setPage={setPage} onNovoCliente={()=>setNovoClienteAberto(true)} onExportar={exportarCSV} busca={busca}/>
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
+          : page === 'monitoramento' ? <Monitoramento pipelineCols={pipelineCols} onImpersonate={setImpersonate}/>
           : page === 'mrr'      ? <MRR/>
           : page === 'pipeline' ? <Pipeline cols={pipelineCols} setCols={setPipelineCols}/>
           : page === 'agenda'   ? <Agenda/>
