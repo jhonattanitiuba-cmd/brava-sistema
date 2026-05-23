@@ -5345,18 +5345,63 @@ const EQUIPE_INIT = [
 ];
 const ROLE_COR = { 'Diretoria':'#7B3FE4', 'CS / Suporte':'#1D9E75', 'Dev':'#1E90FF', 'Comercial':'#BA7517' };
 
-function Equipe() {
-  const [equipe, setEquipe] = useState(() => {
-    try { const s = localStorage.getItem('brava_equipe'); if (s) return JSON.parse(s); } catch(e){}
-    return EQUIPE_INIT;
-  });
-  useEffect(() => { localStorage.setItem('brava_equipe', JSON.stringify(equipe)); }, [equipe]);
+// ═══════════════════════════════════════════════════════════════
+// EQUIPE — dados reais de workspace_team + convites pendentes
+// ═══════════════════════════════════════════════════════════════
+const ROLE_LABEL = {
+  owner: 'Owner', admin: 'Admin', manager: 'Manager',
+  agent: 'Agente', viewer: 'Viewer',
+};
+const ROLE_COR_NEW = {
+  owner: '#7B3FE4', admin: '#1E90FF', manager: '#1D9E75',
+  agent: '#BA7517', viewer: '#6E6E78',
+};
 
-  const adicionar = () => {
-    const nome = prompt('Nome do membro:'); if (!nome) return;
-    const email = prompt('E-mail:'); if (!email) return;
-    const role = prompt('Cargo (Diretoria, CS / Suporte, Dev, Comercial):') || 'Dev';
-    setEquipe(e => [...e, { id:Date.now(), nome, email, role, status:'offline', foto:null, tenants:'–', chamados:0 }]);
+function useTeamMembers() {
+  const [membros, setMembros] = React.useState([]);
+  const [convites, setConvites] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) { setLoading(false); return; }
+    let alive = true;
+    const carregar = async () => {
+      try {
+        const [m, c] = await Promise.all([
+          cli.from('workspace_team').select('*'),
+          cli.from('convites').select('*').is('accepted_at', null).order('invited_at', { ascending: false }),
+        ]);
+        if (alive) {
+          setMembros(m.data || []);
+          setConvites(c.data || []);
+          setLoading(false);
+        }
+      } catch (e) { console.warn('team:', e); if (alive) setLoading(false); }
+    };
+    carregar();
+    const ch = cli.channel('rt:team')
+      .on('postgres_changes', { event:'*', schema:'public', table:'convites' }, carregar)
+      .on('postgres_changes', { event:'*', schema:'public', table:'workspace_members' }, carregar)
+      .on('postgres_changes', { event:'*', schema:'public', table:'usuarios' }, carregar)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return { membros, convites, loading };
+}
+
+function Equipe() {
+  const { membros, convites, loading } = useTeamMembers();
+  const [convidarAberto, setConvidarAberto] = React.useState(false);
+  const [editando, setEditando] = React.useState(null);
+  const myEmail = (SESSAO?.email || '').toLowerCase();
+  const myRole = membros.find(m => m.email?.toLowerCase() === myEmail)?.role;
+  const podeConvidar = ['owner','admin'].includes(myRole);
+
+  // Status online: last_sign_in nas últimas 24h = "ativo recentemente"
+  const isOnline = (m) => {
+    const ts = m.auth_ultimo_login || m.ultimo_login;
+    if (!ts) return false;
+    return (Date.now() - new Date(ts).getTime()) < 10 * 60 * 1000; // 10min
   };
 
   return (
@@ -5364,53 +5409,337 @@ function Equipe() {
       <div className="page-head">
         <div>
           <div className="page-head__title">Equipe Brava</div>
-          <div className="page-head__sub">{equipe.length} membros · {equipe.filter(m=>m.status==='online').length} online agora</div>
+          <div className="page-head__sub">
+            {loading ? 'Carregando...' : `${membros.length} membro${membros.length===1?'':'s'} · ${membros.filter(isOnline).length} online agora${convites.length > 0 ? ` · ${convites.length} convite${convites.length===1?'':'s'} pendente${convites.length===1?'':'s'}` : ''}`}
+          </div>
         </div>
         <div className="page-head__actions">
-          <button className="btn btn-primary" onClick={adicionar}><Icon name="Plus" size={14}/>Adicionar membro</button>
+          {podeConvidar && (
+            <button className="btn btn-primary" onClick={()=>setConvidarAberto(true)}>
+              <Icon name="Plus" size={14}/>Convidar membro
+            </button>
+          )}
         </div>
       </div>
 
+      {/* CONVITES PENDENTES */}
+      {convites.length > 0 && (
+        <div style={{marginBottom:20}}>
+          <h3 style={{fontSize:12, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', margin:'0 0 10px'}}>
+            Convites pendentes ({convites.length})
+          </h3>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10}}>
+            {convites.map(c => (
+              <ConviteCard key={c.id} convite={c} podeGerenciar={podeConvidar}/>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* MEMBROS ATIVOS */}
+      {membros.length > 0 && (
+        <h3 style={{fontSize:12, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', margin:'0 0 10px'}}>
+          Membros ativos
+        </h3>
+      )}
       <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
-        {equipe.map(m => (
-          <div key={m.id} style={{
-            background:'#000000', border:'1px solid #2A2A3A', borderRadius:14, padding:22,
+        {membros.map(m => (
+          <div key={m.user_id} onClick={()=>podeConvidar && setEditando(m)} style={{
+            background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:18,
             transition:'border-color .2s, transform .2s, box-shadow .2s',
+            cursor: podeConvidar ? 'pointer' : 'default',
+            opacity: m.ativo === false ? .55 : 1,
           }}
-            onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(123,63,228,.5)';e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow='0 12px 32px rgba(0,0,0,.4)';}}
-            onMouseLeave={e=>{e.currentTarget.style.borderColor='#2A2A3A';e.currentTarget.style.transform='translateY(0)';e.currentTarget.style.boxShadow='none';}}>
+            onMouseEnter={e=>{if(podeConvidar){e.currentTarget.style.borderColor='rgba(123,63,228,.5)';e.currentTarget.style.transform='translateY(-2px)';}}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.transform='translateY(0)';}}>
             <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:14}}>
               <div style={{position:'relative'}}>
                 <div style={{
                   width:46, height:46, borderRadius:'50%',
-                  background: m.foto ? `#1B1B27 url('${ASSET(m.foto)}') center 25%/cover no-repeat` : '#1B1B27',
+                  background: m.foto_url
+                    ? `url('${m.foto_url}') center/cover, var(--bg-3)`
+                    : 'linear-gradient(135deg, var(--purple), var(--blue))',
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontFamily:'var(--f-d)', fontWeight:700, fontSize:14,
-                  color: m.foto ? 'transparent' : '#A0A0AA',
-                  overflow:'hidden'
+                  color: m.foto_url ? 'transparent' : '#fff', overflow:'hidden',
                 }}>
-                  {m.nome.split(' ').slice(0,2).map(n=>n[0]).join('')}
+                  {!m.foto_url && (m.nome || m.email || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}
                 </div>
-                <div style={{position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%', background: m.status==='online' ? '#1D9E75' : '#6E6E78', border:'2px solid #000000'}}/>
+                <div style={{
+                  position:'absolute', bottom:0, right:0, width:11, height:11, borderRadius:'50%',
+                  background: isOnline(m) ? '#1D9E75' : '#6E6E78',
+                  border:'2px solid var(--bg-2)',
+                }}/>
               </div>
               <div style={{flex:1, minWidth:0}}>
-                <div style={{fontWeight:600, fontSize:14, color:'#F5F5F7'}}>{m.nome}</div>
-                <div style={{fontSize:12, color:'#A0A0AA', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{m.email}</div>
+                <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>{m.nome || m.email}</div>
+                <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{m.email}</div>
               </div>
             </div>
-            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:12}}>
-              <span style={{fontSize:11, padding:'3px 10px', borderRadius:999, background:(ROLE_COR[m.role]||'#6E6E78')+'33', color:ROLE_COR[m.role]||'#A0A0AA', fontFamily:'var(--f-m)', fontWeight:500}}>{m.role}</span>
+            <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:10, flexWrap:'wrap'}}>
+              <span style={{
+                fontSize:11, padding:'3px 10px', borderRadius:999,
+                background:(ROLE_COR_NEW[m.role]||'#6E6E78')+'22',
+                color:ROLE_COR_NEW[m.role]||'#A0A0AA',
+                fontFamily:'var(--f-m)', fontWeight:600,
+              }}>{ROLE_LABEL[m.role] || m.role}</span>
+              {m.ativo === false && <span style={{fontSize:10, padding:'2px 7px', borderRadius:999, background:'#A32D2D22', color:'#ff8585', fontWeight:600}}>INATIVO</span>}
+              {!m.email_confirmado && <span style={{fontSize:10, padding:'2px 7px', borderRadius:999, background:'#BA751722', color:'#F5A623', fontWeight:600}}>EMAIL N/CONFIRMADO</span>}
             </div>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0', borderBottom:'1px solid #1F1F2A'}}>
-              <div style={{fontSize:13, color:'#A0A0AA'}}>Tenants</div>
-              <div style={{fontFamily:'var(--f-d)', fontSize:14, fontWeight:600, color:'#F5F5F7', fontSize:12.5}}>{m.tenants}</div>
-            </div>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 0'}}>
-              <div style={{fontSize:13, color:'#A0A0AA'}}>Chamados ativos</div>
-              <div style={{fontFamily:'var(--f-d)', fontSize:14, fontWeight:600, color: m.chamados>0 ? '#BA7517' : '#1D9E75'}}>{m.chamados}</div>
+            <div style={{fontSize:11.5, color:'var(--t3)', marginTop:8}}>
+              {(m.auth_ultimo_login || m.ultimo_login)
+                ? `Último login: ${new Date(m.auth_ultimo_login || m.ultimo_login).toLocaleDateString('pt-BR')} ${new Date(m.auth_ultimo_login || m.ultimo_login).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'})}`
+                : 'Nunca acessou'}
             </div>
           </div>
         ))}
+      </div>
+
+      {!loading && membros.length === 0 && (
+        <div style={{padding:40, textAlign:'center', color:'var(--t3)', background:'var(--bg-2)', borderRadius:12}}>
+          Nenhum membro ainda. Clique em <b>"Convidar membro"</b> pra começar.
+        </div>
+      )}
+
+      {convidarAberto && <ConvidarMembroModal onClose={()=>setConvidarAberto(false)}/>}
+      {editando && <EditarMembroModal membro={editando} onClose={()=>setEditando(null)}/>}
+    </div>
+  );
+}
+
+function ConviteCard({ convite, podeGerenciar }) {
+  const cancelar = async () => {
+    if (!confirm(`Cancelar convite pra ${convite.email}?`)) return;
+    const cli = getSupa();
+    await cli.from('convites').delete().eq('id', convite.id);
+    showToast?.('Convite cancelado', 'success');
+  };
+  const reenviar = async () => {
+    try {
+      const cli = getSupa();
+      const { data: sess } = await cli.auth.getSession();
+      const token = sess?.session?.access_token;
+      const res = await fetch(`${SUPA_CFG.url}/functions/v1/invite-user`, {
+        method:'POST',
+        headers:{'content-type':'application/json', 'apikey':SUPA_CFG.publishableKey, 'authorization':`Bearer ${token}`},
+        body: JSON.stringify({ email: convite.email, role: convite.role, workspace_id: convite.workspace_id }),
+      });
+      const data = await res.json();
+      if (data.ok) showToast?.('Convite reenviado', 'success');
+      else showToast?.('Erro: ' + (data.error || data.detail), 'error');
+    } catch (e) { showToast?.('Erro: ' + e.message, 'error'); }
+  };
+
+  const expirado = new Date(convite.expires_at) < new Date();
+  return (
+    <div style={{
+      padding:'12px 14px', background:'var(--bg-2)', borderRadius:10,
+      border:`1px dashed ${expirado ? '#A32D2D55' : 'var(--border)'}`,
+      display:'flex', alignItems:'center', gap:10,
+    }}>
+      <div style={{
+        width:32, height:32, borderRadius:'50%',
+        background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        color:'#fff', fontWeight:700, fontSize:13,
+      }}>{convite.email[0].toUpperCase()}</div>
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{fontSize:13, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+          {convite.email}
+        </div>
+        <div style={{fontSize:11, color:'var(--t3)'}}>
+          {ROLE_LABEL[convite.role]} · {expirado ? 'Expirado' : `expira em ${Math.ceil((new Date(convite.expires_at) - Date.now()) / 86400000)}d`}
+        </div>
+      </div>
+      {podeGerenciar && (
+        <>
+          <button onClick={reenviar} title="Reenviar convite" style={_iconBtn('var(--blue)')}><Icon name="RefreshCw" size={13}/></button>
+          <button onClick={cancelar} title="Cancelar" style={_iconBtn('#E5544D')}><Icon name="X" size={13}/></button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ConvidarMembroModal({ onClose }) {
+  const [email, setEmail] = React.useState('');
+  const [role, setRole] = React.useState('agent');
+  const [enviando, setEnviando] = React.useState(false);
+  const [erro, setErro] = React.useState('');
+
+  const enviar = async (e) => {
+    e?.preventDefault?.();
+    if (!email.includes('@')) { setErro('Email inválido'); return; }
+    setEnviando(true); setErro('');
+    try {
+      const cli = getSupa();
+      const { data: sess } = await cli.auth.getSession();
+      const token = sess?.session?.access_token;
+      // Pega o workspace_id do user logado
+      const { data: ws } = await cli.from('workspace_members').select('workspace_id').limit(1).maybeSingle();
+      const workspace_id = ws?.workspace_id;
+      if (!workspace_id) throw new Error('Workspace não encontrado');
+
+      const res = await fetch(`${SUPA_CFG.url}/functions/v1/invite-user`, {
+        method:'POST',
+        headers:{'content-type':'application/json', 'apikey':SUPA_CFG.publishableKey, 'authorization':`Bearer ${token}`},
+        body: JSON.stringify({ email: email.toLowerCase().trim(), role, workspace_id }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) { setErro(data.error || data.detail || 'Erro desconhecido'); return; }
+      showToast?.(`Convite enviado pra ${email}`, 'success');
+      onClose();
+    } catch (e) { setErro(String(e.message || e)); }
+    finally { setEnviando(false); }
+  };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <form onSubmit={enviar} style={{
+        background:'var(--bg-2)', borderRadius:14, padding:24, width:420, maxWidth:'94vw',
+        border:'1px solid var(--border)',
+      }}>
+        <h3 style={{margin:'0 0 6px', fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>
+          Convidar membro
+        </h3>
+        <p style={{fontSize:13, color:'var(--t3)', margin:'0 0 18px'}}>
+          Um email será enviado com link pra criar a conta.
+        </p>
+
+        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>E-mail</label>
+        <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoFocus
+          placeholder="pessoa@exemplo.com" style={{
+            width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid var(--border)',
+            background:'var(--bg-3)', color:'var(--t1)', fontSize:14, marginBottom:14, outline:'none',
+          }}/>
+
+        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>Função</label>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6, marginBottom:erro?8:18}}>
+          {['admin','manager','agent','viewer'].map(r => (
+            <button key={r} type="button" onClick={()=>setRole(r)} style={{
+              padding:'10px 8px', borderRadius:7,
+              background: role===r ? ROLE_COR_NEW[r] : 'var(--bg-3)',
+              color: role===r ? '#fff' : 'var(--t1)',
+              border:`1px solid ${role===r ? 'transparent' : 'var(--border)'}`,
+              fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .15s',
+            }}>{ROLE_LABEL[r]}</button>
+          ))}
+        </div>
+
+        {erro && <div style={{fontSize:12, color:'#ff8585', marginBottom:14, padding:'8px 10px', background:'rgba(255,133,133,.08)', borderRadius:6}}>{erro}</div>}
+
+        <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
+          <button type="button" onClick={onClose} style={{
+            padding:'10px 18px', borderRadius:8, border:'none', background:'var(--bg-3)', color:'var(--t1)',
+            fontSize:13, fontWeight:500, cursor:'pointer',
+          }}>Cancelar</button>
+          <button type="submit" disabled={enviando || !email.includes('@')} style={{
+            padding:'10px 20px', borderRadius:8, border:'none',
+            background: enviando || !email.includes('@') ? 'var(--bg-3)' : 'linear-gradient(90deg,var(--purple),var(--blue))',
+            color:'#fff', fontSize:13, fontWeight:600, cursor: enviando ? 'wait' : 'pointer',
+          }}>{enviando ? 'Enviando...' : 'Enviar convite'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function EditarMembroModal({ membro, onClose }) {
+  const [role, setRole] = React.useState(membro.role);
+  const [ativo, setAtivo] = React.useState(membro.ativo !== false);
+  const [salvando, setSalvando] = React.useState(false);
+
+  const salvar = async () => {
+    setSalvando(true);
+    try {
+      const cli = getSupa();
+      if (role !== membro.role) {
+        await cli.from('workspace_members').update({ role })
+          .eq('user_id', membro.user_id).eq('workspace_id', membro.workspace_id);
+      }
+      if (ativo !== (membro.ativo !== false)) {
+        await cli.from('usuarios').update({ ativo }).eq('id', membro.user_id);
+      }
+      showToast?.('Salvo', 'success');
+      onClose();
+    } catch (e) { showToast?.('Erro: ' + e.message, 'error'); }
+    finally { setSalvando(false); }
+  };
+
+  const remover = async () => {
+    if (!confirm(`Remover ${membro.nome || membro.email} do workspace? Histórico fica preservado.`)) return;
+    try {
+      const cli = getSupa();
+      await cli.from('workspace_members').delete()
+        .eq('user_id', membro.user_id).eq('workspace_id', membro.workspace_id);
+      showToast?.('Membro removido', 'success');
+      onClose();
+    } catch (e) { showToast?.('Erro: ' + e.message, 'error'); }
+  };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{
+        background:'var(--bg-2)', borderRadius:14, padding:24, width:440, maxWidth:'94vw',
+        border:'1px solid var(--border)',
+      }}>
+        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:18}}>
+          <div style={{
+            width:48, height:48, borderRadius:'50%',
+            background: membro.foto_url ? `url('${membro.foto_url}') center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            color:'#fff', fontWeight:700, fontSize:16,
+          }}>
+            {!membro.foto_url && (membro.nome || membro.email || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:16, color:'var(--t1)', fontWeight:600}}>{membro.nome || membro.email}</div>
+            <div style={{fontSize:12, color:'var(--t3)'}}>{membro.email}</div>
+          </div>
+        </div>
+
+        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>Função</label>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6, marginBottom:18}}>
+          {['owner','admin','manager','agent','viewer'].map(r => (
+            <button key={r} onClick={()=>setRole(r)} style={{
+              padding:'10px 8px', borderRadius:7,
+              background: role===r ? ROLE_COR_NEW[r] : 'var(--bg-3)',
+              color: role===r ? '#fff' : 'var(--t1)',
+              border:`1px solid ${role===r ? 'transparent' : 'var(--border)'}`,
+              fontSize:12.5, fontWeight:600, cursor:'pointer',
+            }}>{ROLE_LABEL[r]}</button>
+          ))}
+        </div>
+
+        <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--bg-3)', borderRadius:7, cursor:'pointer', marginBottom:18}}>
+          <input type="checkbox" checked={ativo} onChange={e=>setAtivo(e.target.checked)} style={{width:16, height:16, accentColor:'var(--purple)'}}/>
+          <span style={{flex:1, fontSize:13.5, color:'var(--t1)'}}>Membro ativo</span>
+          <span style={{fontSize:11, color:'var(--t3)'}}>{ativo ? 'Pode acessar' : 'Bloqueado'}</span>
+        </label>
+
+        <div style={{display:'flex', gap:8, justifyContent:'space-between'}}>
+          <button onClick={remover} style={{
+            padding:'10px 14px', borderRadius:8, border:'none', background:'transparent',
+            color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer',
+          }}>Remover do workspace</button>
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={onClose} style={{
+              padding:'10px 18px', borderRadius:8, border:'none', background:'var(--bg-3)', color:'var(--t1)',
+              fontSize:13, fontWeight:500, cursor:'pointer',
+            }}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{
+              padding:'10px 20px', borderRadius:8, border:'none',
+              background:'linear-gradient(90deg,var(--purple),var(--blue))',
+              color:'#fff', fontSize:13, fontWeight:600, cursor: salvando ? 'wait' : 'pointer',
+            }}>{salvando ? 'Salvando...' : 'Salvar'}</button>
+          </div>
+        </div>
       </div>
     </div>
   );
