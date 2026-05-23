@@ -10923,15 +10923,422 @@ function DragPlaceholder({ cor, h }) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// PIPELINE — modal estilo Trello + hooks de banco
+// ═══════════════════════════════════════════════════════════════
+
+// Mapa LocalStorage card.id → uuid no banco (preenchido on-demand)
+const _pipeCardDbCache = new Map(); // cardKey -> { dbId, checklist, comments, etiquetaIds, descricao, agente_id, contact_jid, data_vencimento }
+const _pipeCardSubs = new Set();
+function _notifyPipeCard(key) { _pipeCardSubs.forEach(fn => { try { fn(key); } catch {} }); }
+
+// Hook: indexador global (rodar 1x no app, popula cache de TODOS os cards do workspace)
+function usePipelineDbIndex() {
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) return;
+    let alive = true;
+    const carregar = async () => {
+      try {
+        const { data: cards } = await cli.from('pipeline_cards')
+          .select('id, titulo, descricao, agente_id, contact_jid, data_vencimento, instancia_id')
+          .is('archived_at', null);
+        if (!alive || !cards) return;
+        // Carrega checklist e comments em batch
+        const cardIds = cards.map(c => c.id);
+        const [check, comm, etiq] = await Promise.all([
+          cli.from('pipeline_card_checklist').select('card_id, done').in('card_id', cardIds.length ? cardIds : ['00000000-0000-0000-0000-000000000000']),
+          cli.from('pipeline_card_comments').select('card_id').in('card_id', cardIds.length ? cardIds : ['00000000-0000-0000-0000-000000000000']),
+          cli.from('pipeline_card_etiquetas').select('card_id, etiqueta_id').in('card_id', cardIds.length ? cardIds : ['00000000-0000-0000-0000-000000000000']),
+        ]);
+        _pipeCardDbCache.clear();
+        cards.forEach(c => {
+          const cks = (check.data || []).filter(x => x.card_id === c.id);
+          const cms = (comm.data || []).filter(x => x.card_id === c.id);
+          const ets = (etiq.data || []).filter(x => x.card_id === c.id).map(x => x.etiqueta_id);
+          _pipeCardDbCache.set(c.titulo, {
+            dbId: c.id,
+            descricao: c.descricao,
+            agente_id: c.agente_id,
+            contact_jid: c.contact_jid,
+            instancia_id: c.instancia_id,
+            data_vencimento: c.data_vencimento,
+            checklistDone: cks.filter(x => x.done).length,
+            checklistTotal: cks.length,
+            commentsCount: cms.length,
+            etiquetaIds: ets,
+          });
+        });
+        _notifyPipeCard(null);
+      } catch (e) { console.warn('pipe index:', e); }
+    };
+    carregar();
+    const ch = cli.channel('rt:pipeline_index')
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_cards' }, carregar)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_checklist' }, carregar)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_comments' }, carregar)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_etiquetas' }, carregar)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+}
+
+// Hook: re-render quando dados de pipeline cards mudam
+function usePipeCardsTick() {
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const fn = () => setTick(t => t+1);
+    _pipeCardSubs.add(fn);
+    return () => _pipeCardSubs.delete(fn);
+  }, []);
+  return tick;
+}
+
+// Cria card no banco se não existir, retorna db record
+async function ensurePipelineCardInDb(card, workspaceId) {
+  const cli = getSupa();
+  if (!cli || !workspaceId) return null;
+  // Procura existente pelo titulo
+  const { data: existing } = await cli.from('pipeline_cards')
+    .select('*').eq('workspace_id', workspaceId).eq('titulo', card.nome).maybeSingle();
+  if (existing) return existing;
+  // Cria
+  const { data: novo } = await cli.from('pipeline_cards').insert({
+    workspace_id: workspaceId,
+    titulo: card.nome,
+    descricao: card.sub || null,
+    contact_jid: card.jid || null,
+  }).select().single();
+  return novo;
+}
+
+// Mini-badges nos cards do pipeline
+function PipelineCardBadges({ cardKey, cardNome }) {
+  usePipeCardsTick();
+  const dbData = _pipeCardDbCache.get(cardNome);
+  if (!dbData) return null;
+  const { checklistDone, checklistTotal, commentsCount, etiquetaIds } = dbData;
+  if (checklistTotal === 0 && commentsCount === 0 && etiquetaIds.length === 0 && !dbData.data_vencimento) return null;
+  return (
+    <div style={{display:'flex', alignItems:'center', gap:8, marginTop:8, marginLeft:34, flexWrap:'wrap'}}>
+      {checklistTotal > 0 && (
+        <span style={{
+          display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5,
+          color: checklistDone === checklistTotal ? '#1D9E75' : 'var(--t3)',
+          fontFamily:'var(--f-m)', fontWeight:600,
+        }}>
+          <Icon name={checklistDone === checklistTotal ? 'Check' : 'Square'} size={11}/>
+          {checklistDone}/{checklistTotal}
+        </span>
+      )}
+      {commentsCount > 0 && (
+        <span style={{display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)'}}>
+          <Icon name="MessageCircle" size={11}/>{commentsCount}
+        </span>
+      )}
+      {dbData.data_vencimento && (() => {
+        const venc = new Date(dbData.data_vencimento);
+        const dias = Math.ceil((venc - Date.now()) / 86400000);
+        const cor = dias < 0 ? '#A32D2D' : dias < 3 ? '#BA7517' : 'var(--t3)';
+        return (
+          <span style={{display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5, color:cor, fontFamily:'var(--f-m)', fontWeight:600}}>
+            <Icon name="Clock" size={11}/>
+            {venc.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}
+          </span>
+        );
+      })()}
+      {etiquetaIds.length > 0 && (
+        <span style={{display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5, color:'var(--purple)', fontFamily:'var(--f-m)'}}>
+          <Icon name="Tag" size={11}/>{etiquetaIds.length}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Modal completo de detalhe do card (estilo Trello)
+function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
+  const [dbCard, setDbCard] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [checklist, setChecklist] = React.useState([]);
+  const [comments, setComments] = React.useState([]);
+  const [descricao, setDescricao] = React.useState('');
+  const [editaDesc, setEditaDesc] = React.useState(false);
+  const [novoCheck, setNovoCheck] = React.useState('');
+  const [novoComent, setNovoComent] = React.useState('');
+  const [agenteId, setAgenteId] = React.useState(null);
+  const [dataVenc, setDataVenc] = React.useState('');
+  const { membros } = useTeamMembers();
+
+  // Carrega dados do banco (cria card se necessário)
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const cli = getSupa();
+      if (!cli) return;
+      const { data: ws } = await cli.from('workspace_members').select('workspace_id').limit(1).maybeSingle();
+      const wsId = ws?.workspace_id;
+      if (!wsId) { setLoading(false); return; }
+      const db = await ensurePipelineCardInDb(card, wsId);
+      if (!alive || !db) return;
+      setDbCard(db);
+      setDescricao(db.descricao || '');
+      setAgenteId(db.agente_id || null);
+      setDataVenc(db.data_vencimento || '');
+      // Carrega checklist + comments
+      const [chk, com] = await Promise.all([
+        cli.from('pipeline_card_checklist').select('*').eq('card_id', db.id).order('ordem'),
+        cli.from('pipeline_card_comments').select('*').eq('card_id', db.id).order('created_at', { ascending: false }),
+      ]);
+      if (alive) {
+        setChecklist(chk.data || []);
+        setComments(com.data || []);
+        setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [card.nome]);
+
+  const salvarCampo = async (campo, valor) => {
+    if (!dbCard) return;
+    const cli = getSupa();
+    await cli.from('pipeline_cards').update({ [campo]: valor || null }).eq('id', dbCard.id);
+    setDbCard(c => ({ ...c, [campo]: valor }));
+  };
+
+  const toggleCheck = async (ck) => {
+    const cli = getSupa();
+    const novo = !ck.done;
+    setChecklist(arr => arr.map(c => c.id === ck.id ? {...c, done: novo, done_at: novo ? new Date().toISOString() : null} : c));
+    await cli.from('pipeline_card_checklist').update({ done: novo, done_at: novo ? new Date().toISOString() : null }).eq('id', ck.id);
+  };
+  const addCheck = async () => {
+    if (!novoCheck.trim() || !dbCard) return;
+    const cli = getSupa();
+    const { data } = await cli.from('pipeline_card_checklist').insert({
+      card_id: dbCard.id, titulo: novoCheck.trim(), ordem: checklist.length + 1,
+    }).select().single();
+    if (data) {
+      setChecklist(arr => [...arr, data]);
+      setNovoCheck('');
+    }
+  };
+  const removeCheck = async (ck) => {
+    const cli = getSupa();
+    await cli.from('pipeline_card_checklist').delete().eq('id', ck.id);
+    setChecklist(arr => arr.filter(c => c.id !== ck.id));
+  };
+
+  const addComment = async () => {
+    if (!novoComent.trim() || !dbCard) return;
+    const cli = getSupa();
+    const { data: sess } = await cli.auth.getSession();
+    const { data } = await cli.from('pipeline_card_comments').insert({
+      card_id: dbCard.id, user_id: sess?.session?.user?.id, texto: novoComent.trim(),
+    }).select().single();
+    if (data) {
+      setComments(arr => [data, ...arr]);
+      setNovoComent('');
+    }
+  };
+
+  const arquivar = async () => {
+    if (!dbCard || !confirm('Arquivar este card? Pode ser recuperado depois.')) return;
+    const cli = getSupa();
+    await cli.from('pipeline_cards').update({ archived_at: new Date().toISOString() }).eq('id', dbCard.id);
+    showToast?.('Card arquivado', 'success');
+    onClose();
+  };
+
+  const doneCount = checklist.filter(c => c.done).length;
+  const agenteObj = membros.find(m => m.user_id === agenteId);
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{
+        background:'var(--bg-2)', borderRadius:14, width:680, maxWidth:'95vw', maxHeight:'90vh',
+        border:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden',
+      }}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <ClienteAvatar nome={card.nome} init={card.init} color={card.color} logoUrl={card.logoUrl} size={42}/>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{card.nome}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2, display:'flex', alignItems:'center', gap:6}}>
+              <span style={{width:8, height:8, borderRadius:'50%', background: colCor}}/>
+              {colNome}
+              {checklist.length > 0 && <span>· {doneCount}/{checklist.length} entregues</span>}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            width:32, height:32, borderRadius:8, border:'none', background:'transparent',
+            color:'var(--t3)', cursor:'pointer', fontSize:18,
+          }}>×</button>
+        </div>
+
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          {loading ? <div style={{padding:30, textAlign:'center', color:'var(--t3)'}}>Carregando...</div> : (
+            <>
+              {/* DESCRIÇÃO */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:6, display:'flex', alignItems:'center', gap:6}}>
+                  <Icon name="Pencil" size={11}/> Descrição
+                  {!editaDesc && descricao && <button onClick={()=>setEditaDesc(true)} style={{marginLeft:'auto', fontSize:11, color:'var(--purple)', background:'transparent', border:'none', cursor:'pointer'}}>editar</button>}
+                </div>
+                {editaDesc || !descricao ? (
+                  <>
+                    <textarea
+                      value={descricao} onChange={e=>setDescricao(e.target.value)}
+                      onBlur={() => { salvarCampo('descricao', descricao); setEditaDesc(false); }}
+                      autoFocus={editaDesc}
+                      placeholder="Adicione uma descrição..."
+                      rows={3}
+                      style={{
+                        width:'100%', padding:'10px 12px', borderRadius:7,
+                        background:'var(--bg-3)', border:'1px solid var(--border)',
+                        color:'var(--t1)', fontSize:13.5, outline:'none', resize:'vertical', fontFamily:'inherit',
+                      }}
+                    />
+                  </>
+                ) : (
+                  <div onClick={()=>setEditaDesc(true)} style={{
+                    padding:'10px 12px', background:'var(--bg-3)', borderRadius:7,
+                    color:'var(--t1)', fontSize:13.5, cursor:'pointer', whiteSpace:'pre-wrap',
+                  }}>{descricao}</div>
+                )}
+              </div>
+
+              {/* ATRIBUIÇÃO + VENCIMENTO */}
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
+                <div>
+                  <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:6}}>
+                    <Icon name="UserCircle" size={11} style={{marginRight:4}}/>Atribuído
+                  </div>
+                  <select value={agenteId || ''} onChange={e=>{setAgenteId(e.target.value || null); salvarCampo('agente_id', e.target.value || null);}}
+                    style={{
+                      width:'100%', padding:'8px 10px', borderRadius:7,
+                      background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13,
+                    }}>
+                    <option value="">— Ninguém</option>
+                    {membros.map(m => <option key={m.user_id} value={m.user_id}>{m.nome || m.email}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:6}}>
+                    <Icon name="Clock" size={11} style={{marginRight:4}}/>Vencimento
+                  </div>
+                  <input type="date" value={dataVenc} onChange={e=>{setDataVenc(e.target.value); salvarCampo('data_vencimento', e.target.value || null);}}
+                    style={{
+                      width:'100%', padding:'8px 10px', borderRadius:7,
+                      background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13,
+                    }}/>
+                </div>
+              </div>
+
+              {/* CHECKLIST */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
+                  <Icon name="Check" size={11}/> Checklist {checklist.length > 0 && `(${doneCount}/${checklist.length})`}
+                </div>
+                {checklist.length > 0 && (
+                  <div style={{height:4, background:'var(--bg-3)', borderRadius:2, overflow:'hidden', marginBottom:10}}>
+                    <div style={{height:'100%', width:`${(doneCount/checklist.length)*100}%`, background:'var(--purple)', transition:'width .25s'}}/>
+                  </div>
+                )}
+                {checklist.map(ck => (
+                  <div key={ck.id} style={{display:'flex', alignItems:'center', gap:9, padding:'6px 8px', borderRadius:6, cursor:'pointer'}}
+                    onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+                    onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                    <input type="checkbox" checked={ck.done} onChange={()=>toggleCheck(ck)}
+                      style={{width:16, height:16, cursor:'pointer', accentColor:'var(--purple)'}}/>
+                    <span style={{flex:1, fontSize:13.5, color: ck.done ? 'var(--t3)' : 'var(--t1)', textDecoration: ck.done ? 'line-through' : 'none'}}>{ck.titulo}</span>
+                    <button onClick={()=>removeCheck(ck)} style={{width:22, height:22, padding:0, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', opacity:.4}}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.4'}>
+                      <Icon name="X" size={11}/>
+                    </button>
+                  </div>
+                ))}
+                <div style={{display:'flex', gap:6, marginTop:6}}>
+                  <input value={novoCheck} onChange={e=>setNovoCheck(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addCheck()}
+                    placeholder="Adicionar item..."
+                    style={{flex:1, padding:'7px 10px', borderRadius:6, background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:12.5, outline:'none'}}/>
+                  <button onClick={addCheck} disabled={!novoCheck.trim()} style={{padding:'0 12px', borderRadius:6, border:'none', background:novoCheck.trim() ? 'var(--purple)' : 'var(--bg-3)', color:'#fff', fontSize:12, cursor: novoCheck.trim() ? 'pointer' : 'not-allowed'}}>+</button>
+                </div>
+              </div>
+
+              {/* VÍNCULO WHATSAPP */}
+              {dbCard?.contact_jid && (
+                <div style={{marginBottom:20, padding:'10px 12px', background:'rgba(37,211,102,.06)', borderRadius:7, border:'1px solid rgba(37,211,102,.2)'}}>
+                  <div style={{fontSize:11, color:'var(--wa-green)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:4}}>
+                    <Icon name="MessageCircle" size={11} style={{marginRight:4}}/>WhatsApp vinculado
+                  </div>
+                  <div style={{fontSize:13, color:'var(--t1)'}}>{dbCard.contact_jid.replace('@s.whatsapp.net','')}</div>
+                </div>
+              )}
+
+              {/* COMENTÁRIOS */}
+              <div style={{marginBottom:6}}>
+                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
+                  <Icon name="MessageCircle" size={11}/> Comentários {comments.length > 0 && `(${comments.length})`}
+                </div>
+                <div style={{display:'flex', gap:8, marginBottom:14}}>
+                  <input value={novoComent} onChange={e=>setNovoComent(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addComment()}
+                    placeholder="Escrever comentário..."
+                    style={{flex:1, padding:'9px 12px', borderRadius:7, background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13, outline:'none'}}/>
+                  <button onClick={addComment} disabled={!novoComent.trim()} style={{padding:'0 16px', borderRadius:7, border:'none', background:novoComent.trim() ? 'var(--purple)' : 'var(--bg-3)', color:'#fff', fontSize:13, cursor: novoComent.trim() ? 'pointer' : 'not-allowed'}}>Postar</button>
+                </div>
+                {comments.map(c => {
+                  const user = membros.find(m => m.user_id === c.user_id);
+                  return (
+                    <div key={c.id} style={{display:'flex', gap:10, marginBottom:12}}>
+                      <div style={{
+                        width:32, height:32, borderRadius:'50%', flexShrink:0,
+                        background: user?.foto_url ? `url('${user.foto_url}') center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        color:'#fff', fontWeight:700, fontSize:11,
+                      }}>{!user?.foto_url && ((user?.nome || user?.email || '?')[0].toUpperCase())}</div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:12, color:'var(--t2)', marginBottom:3}}>
+                          <b style={{color:'var(--t1)'}}>{user?.nome || user?.email || 'Você'}</b>
+                          <span style={{marginLeft:6, color:'var(--t3)'}}>{new Date(c.created_at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'})}</span>
+                        </div>
+                        <div style={{fontSize:13, color:'var(--t1)', whiteSpace:'pre-wrap', padding:'8px 10px', background:'var(--bg-3)', borderRadius:7}}>{c.texto}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {comments.length === 0 && <div style={{fontSize:12, color:'var(--t3)', textAlign:'center', padding:14}}>Sem comentários ainda</div>}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between'}}>
+          <button onClick={arquivar} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer'}}>
+            <Icon name="Trash2" size={12} style={{marginRight:5}}/>Arquivar card
+          </button>
+          <button onClick={onClose} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--purple)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>Fechar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Pipeline({ cols, setCols }) {
+  // ✨ Indexa cards no banco pra mostrar badges nos cards
+  usePipelineDbIndex();
   const [editando, setEditando] = useState(null);
   const [novoNome, setNovoNome] = useState('');
-  // dragState: { card, fromCol, fromIdx, height }
   const [drag, setDrag] = useState(null);
-  // dropTarget: { colId, idx }  → onde vai inserir
   const [dropTarget, setDropTarget] = useState(null);
-  // colHover: id da coluna sendo hover
   const [colHover, setColHover] = useState(null);
+  // ✨ Modal de detalhe do card (estilo Trello)
+  const [detalheCard, setDetalheCard] = React.useState(null); // { card, colNome, colCor }
 
   const updateCol = (id, patch) => setCols(cs => cs.map(c => c.id===id ? {...c,...patch} : c));
   const addCol = () => {
@@ -11118,6 +11525,7 @@ function Pipeline({ cols, setCols }) {
                       }}
                       onDragEnd={onDragEnd}
                       onDragOver={e => onCardDragOver(e, col.id, idx)}
+                      onClick={() => setDetalheCard({ card, colNome: col.nome, colCor: col.cor })}
                       style={{
                         background:'var(--bg-2)', border:'1px solid var(--border-soft)',
                         borderLeft:`3px solid ${card.color}`, borderRadius:10,
@@ -11137,6 +11545,8 @@ function Pipeline({ cols, setCols }) {
                       </div>
                       {card.sub && <div style={{fontSize:11.5,color:'var(--t3)',marginLeft:34}}>{card.sub}</div>}
                       {card.nicho && <div style={{fontSize:11,color:'var(--t2)',marginLeft:34,marginTop:2}}>{card.nicho}</div>}
+                      {/* ✨ Indicadores rápidos do card (checklist/comments/etiquetas) */}
+                      <PipelineCardBadges cardKey={card.id} cardNome={card.nome}/>
                     </div>
                   </React.Fragment>
                 );
@@ -11164,6 +11574,15 @@ function Pipeline({ cols, setCols }) {
           </div>
         );})}
       </div>
+      {/* ✨ Modal de detalhe do card (estilo Trello) */}
+      {detalheCard && (
+        <PipelineCardDetalheModal
+          card={detalheCard.card}
+          colNome={detalheCard.colNome}
+          colCor={detalheCard.colCor}
+          onClose={() => setDetalheCard(null)}
+        />
+      )}
     </div>
   );
 }
