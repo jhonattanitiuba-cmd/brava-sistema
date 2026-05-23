@@ -3434,7 +3434,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     col.cards.some(k => k.nome === contato?.name)
   );
   const mudarFase = (colId) => {
-    if (moverNoPipeline && contato) moverNoPipeline(contato.name, colId);
+    if (!moverNoPipeline || !contato) return;
+    // Passa o contato COMPLETO pra moverNoPipeline criar o card se ainda nao existir
+    moverNoPipeline(contato, colId);
+    const colNome = (pipelineCols||[]).find(c => c.id === colId)?.nome || colId;
+    showToast?.(`${contato.name} → ${colNome}`, 'success');
   };
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [ativo, msgs.length]);
@@ -10869,15 +10873,36 @@ function App() {
   useEffect(() => { localStorage.setItem('brava_pipeline', JSON.stringify(pipelineCols)); }, [pipelineCols]);
   useEffect(() => { localStorage.setItem('brava_extra_crm', JSON.stringify(extraCRM)); }, [extraCRM]);
 
-  const moverNoPipeline = (nomeCliente, paraColId) => {
+  // moverNoPipeline aceita string (nome) OU objeto contato/cliente.
+  // - Se for objeto E nao existir card com aquele nome, CRIA o card na coluna.
+  // - Se ja existir, MOVE pra coluna indicada.
+  const moverNoPipeline = (clienteOuNome, paraColId) => {
+    const nomeCliente = typeof clienteOuNome === 'string' ? clienteOuNome : clienteOuNome?.nome || clienteOuNome?.name;
+    if (!nomeCliente) return;
     setPipelineCols(cs => {
-      const card = cs.flatMap(c=>c.cards).find(k=>k.nome===nomeCliente);
-      if (!card) return cs;
-      return cs.map(c => {
-        if (c.cards.some(k=>k.nome===nomeCliente)) return {...c, cards: c.cards.filter(k=>k.nome!==nomeCliente)};
-        if (c.id === paraColId) return {...c, cards:[...c.cards, card]};
-        return c;
-      });
+      const existing = cs.flatMap(c=>c.cards).find(k=>k.nome===nomeCliente);
+      if (existing) {
+        // MOVE card existente
+        return cs.map(c => {
+          if (c.cards.some(k=>k.nome===nomeCliente)) return {...c, cards: c.cards.filter(k=>k.nome!==nomeCliente)};
+          if (c.id === paraColId) return {...c, cards:[...c.cards, existing]};
+          return c;
+        });
+      }
+      // CRIA card novo a partir do objeto contato (ou stub se for so nome)
+      if (typeof clienteOuNome !== 'object') return cs;
+      const c0 = clienteOuNome;
+      const novoCard = {
+        id: (c0.id || nomeCliente) + '_' + Date.now(),
+        nome: nomeCliente,
+        sub: c0.empresa || c0.servico || c0.via || c0.canal || 'WhatsApp',
+        nicho: c0.nicho || c0.tag || null,
+        color: c0.color || '#7B3FE4',
+        init: c0.init || (nomeCliente.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase()),
+        logoUrl: c0.logoUrl || c0.profile_pic_url || null,
+        jid: c0.id || null,    // mantem ref pro chat WhatsApp
+      };
+      return cs.map(c => c.id === paraColId ? {...c, cards:[...c.cards, novoCard]} : c);
     });
   };
 
