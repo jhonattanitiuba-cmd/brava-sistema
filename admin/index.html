@@ -5580,28 +5580,63 @@ function useSupaChats() {
         setChats(data || []);
         setError(null);
 
-        // ✨ Carrega fotos de perfil dos contatos e popula o cache compartilhado
-        //    (EvoAvatar lê de _evoPicCache; modo Supabase precisa popular ele)
+        // ✨ Carrega FOTOS + NOMES dos contatos e popula caches compartilhados
+        //    EvoAvatar lê de _evoPicCache; nomes vão pra _evoContacts.byJid
+        //    IMPORTANTE: só notifica subs se houver MUDANÇA real (evita piscar).
         try {
           const { data: contatos } = await cli
             .from('wa_contatos')
-            .select('jid, profile_pic_url')
+            .select('jid, profile_pic_url, push_name, profile_name, verified_name, phone_jid, is_group')
             .eq('instancia_id', activeInstanceId)
-            .not('profile_pic_url', 'is', null)
             .limit(2000);
-          if (alive && contatos && typeof _evoPicCache !== 'undefined') {
+          if (alive && contatos) {
+            let picsChanged = 0;
+            let contatosChanged = 0;
             for (const ct of contatos) {
-              if (ct.jid && ct.profile_pic_url) {
-                _evoPicCache.set(ct.jid, { url: ct.profile_pic_url, ts: Date.now() });
+              if (!ct.jid) continue;
+              // Foto: só seta no cache se URL mudou (evita piscar nas re-renders)
+              if (ct.profile_pic_url && typeof _evoPicCache !== 'undefined') {
+                const atual = _evoPicCache.get(ct.jid);
+                if (!atual || atual.url !== ct.profile_pic_url) {
+                  _evoPicCache.set(ct.jid, { url: ct.profile_pic_url, ts: Date.now() });
+                  picsChanged++;
+                }
+              }
+              // Contato: nome real (push_name > profile_name > verified_name)
+              if (typeof _evoContacts !== 'undefined') {
+                const nomeReal = ct.push_name || ct.profile_name || ct.verified_name || null;
+                if (nomeReal) {
+                  const existing = _evoContacts.byJid.get(ct.jid);
+                  const novoObj = {
+                    id: ct.jid,
+                    pushName: ct.push_name,
+                    profileName: ct.profile_name,
+                    verifiedName: ct.verified_name,
+                    profilePicUrl: ct.profile_pic_url,
+                    lid: ct.jid.endsWith('@lid') ? ct.jid : null,
+                  };
+                  // Só atualiza se houver mudança real (comparando nome principal)
+                  if (!existing || existing.pushName !== ct.push_name || existing.profileName !== ct.profile_name) {
+                    _evoContacts.byJid.set(ct.jid, novoObj);
+                    contatosChanged++;
+                  }
+                  // Mapeamento @lid -> @s.whatsapp.net (se aplicável)
+                  if (ct.jid.endsWith('@lid') && ct.phone_jid) {
+                    _evoContacts.lidToPhone.set(ct.jid, ct.phone_jid);
+                  }
+                }
               }
             }
-            if (typeof evoNotifyPic === 'function') evoNotifyPic();
-            else if (typeof _evoPicSubs !== 'undefined') {
+            // Notifica APENAS se algo mudou de verdade (corta o flicker)
+            if (picsChanged > 0 && typeof _evoPicSubs !== 'undefined') {
               _evoPicSubs.forEach(fn => { try { fn(); } catch {} });
+            }
+            if (contatosChanged > 0 && typeof _evoNotifyContacts === 'function') {
+              _evoNotifyContacts();
             }
           }
         } catch (picErr) {
-          console.warn('[supaChats] fotos:', picErr);
+          console.warn('[supaChats] contatos/fotos:', picErr);
         }
       } catch (e) { if (alive) setError(e.message || String(e)); }
       finally { if (alive) setLoading(false); }
@@ -6037,7 +6072,19 @@ function supaNormalizeChat(c) {
   // usa esse nome em vez do telefone/pushName. Acessa direto do localStorage
   // (sem hook aqui, mas re-render acontece via dependency em contatosSalvos no useMemo).
   const salvo = (typeof getContatoSalvo === 'function') ? getContatoSalvo(remoteJid) : null;
-  const nomeBase = isGroup ? (rawName || 'Grupo') : (evoFormatPhone(remoteJid) || 'Contato');
+  // ✨ Tenta usar nome real do contato (pushName/profileName/verifiedName) antes do telefone
+  let nomeContato = null;
+  if (!isGroup && typeof _evoContacts !== 'undefined') {
+    const ct = _evoContacts.byJid.get(remoteJid);
+    nomeContato = ct?.pushName || ct?.profileName || ct?.verifiedName || null;
+    // Filtra nomes "falsos" tipo "@5511..." ou só números
+    if (nomeContato && (nomeContato.startsWith('@') || /^[\d\s+\-()]+$/.test(nomeContato))) {
+      nomeContato = null;
+    }
+  }
+  const nomeBase = isGroup
+    ? (rawName || 'Grupo')
+    : (nomeContato || evoFormatPhone(remoteJid) || 'Contato');
   const name = salvo?.nome || nomeBase;
   return {
     id: remoteJid,
