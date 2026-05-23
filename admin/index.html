@@ -3160,6 +3160,67 @@ function PresenceLabel({ contato, usandoReal, iaProcessando }) {
   return <span style={{fontSize:12, color:cor, marginTop:1}}>{label}</span>;
 }
 
+/* ✨ Renderiza texto no padrão WhatsApp.
+   Suporta:
+   - Quebras de linha (\n preservadas)
+   - *bold*  → **bold**
+   - _italic_ → italic
+   - ~strike~ → strike
+   - ```mono``` → monospace inline
+   - URLs → anchor clicável
+   - Parágrafos com espaço duplo entre eles */
+function renderWaText(text) {
+  if (!text) return null;
+  const linhas = String(text).split('\n');
+  return linhas.map((linha, lineIdx) => (
+    <React.Fragment key={lineIdx}>
+      {lineIdx > 0 && <br/>}
+      {linha === '' && lineIdx > 0 && <span style={{display:'inline-block', height:4}}/>}
+      {_parseWaFormatting(linha)}
+    </React.Fragment>
+  ));
+}
+
+// Parse inline: *bold*, _italic_, ~strike~, ```mono```, URLs
+function _parseWaFormatting(linha) {
+  if (!linha) return null;
+  // Regex que captura todos os tokens: ```...```, *...*, _..._, ~...~, URL, ou texto livre
+  // Ordem importa: mono primeiro (3 backticks), depois URL, depois bold/italic/strike
+  const RE = /(```([^`]+)```)|((?:https?:\/\/|www\.)[^\s<>"']+)|(\*([^*\n]+)\*)|(_([^_\n]+)_)|(~([^~\n]+)~)|([^*_~`\s]+|\s+|.)/g;
+  const out = [];
+  let m;
+  let key = 0;
+  while ((m = RE.exec(linha)) !== null) {
+    if (m[2] !== undefined) {
+      // mono
+      out.push(<code key={key++} style={{
+        fontFamily:'JetBrains Mono, Consolas, monospace', fontSize:'.9em',
+        background:'rgba(128,128,128,.18)', padding:'1px 5px', borderRadius:3,
+      }}>{m[2]}</code>);
+    } else if (m[3] !== undefined) {
+      // url
+      const url = m[3];
+      const href = url.startsWith('http') ? url : 'https://' + url;
+      out.push(<a key={key++} href={href} target="_blank" rel="noopener noreferrer" style={{
+        color:'var(--wa-link, #53bdeb)', textDecoration:'underline', wordBreak:'break-all',
+      }} onClick={e => e.stopPropagation()}>{url}</a>);
+    } else if (m[5] !== undefined) {
+      // bold
+      out.push(<strong key={key++} style={{fontWeight:600}}>{_parseWaFormatting(m[5])}</strong>);
+    } else if (m[7] !== undefined) {
+      // italic
+      out.push(<em key={key++}>{_parseWaFormatting(m[7])}</em>);
+    } else if (m[9] !== undefined) {
+      // strike
+      out.push(<span key={key++} style={{textDecoration:'line-through', opacity:.7}}>{_parseWaFormatting(m[9])}</span>);
+    } else if (m[10] !== undefined) {
+      // texto/espaço
+      out.push(m[10]);
+    }
+  }
+  return out;
+}
+
 /* Renderiza imagem inline (baixa base64 sob demanda) */
 function MediaImage({ message, S }) {
   const m = useEvoMedia(message);
@@ -4216,8 +4277,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                     </div>
                   );
                 })()}
-                {/* Texto puro */}
-                {m.kind === 'text' && m.text}
+                {/* Texto formatado (preserva \n + bold/italic/strike/mono/links no padrão WhatsApp) */}
+                {m.kind === 'text' && renderWaText(m.text)}
                 {/* Status/hora */}
                 <div style={{ fontSize:10.5, color:S.textSec, marginTop:3, textAlign:'right', display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end', padding: m.kind === 'image' ? '0 8px 4px' : 0 }}>
                   {m.failed && <span style={{color:'#ff8585', fontSize:9.5}}>falhou</span>}
