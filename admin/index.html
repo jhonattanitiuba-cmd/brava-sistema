@@ -6561,11 +6561,41 @@ async function evoEnsureMedia(message) {
   _evoMediaCache.set(id, { loading:true });
   _evoNotifyMedia(id);
   try {
-    const raw = message.raw || message; // permite passar o normalizado ou o cru
-    const data = await evo.getBase64FromMedia(raw);
+    const raw = message.raw || message;
+    // ✨ Constrói o key + message correto pro Evolution descriptografar.
+    // wa_mensagens.raw guarda o payload original do webhook (com key + message).
+    const evoKey = raw?.key || (raw?.message_id ? {
+      id: raw.message_id,
+      remoteJid: raw.chat_jid,
+      fromMe: !!raw.from_me,
+      participant: raw.sender_jid || undefined,
+    } : null);
+    const evoMessage = raw?.message || raw?.raw?.message || null;
+    if (!evoKey) throw new Error('Sem key da mensagem');
+
+    let data;
+    // ✨ MODO SUPABASE: usa wa-proxy (apikey fica no server)
+    if (typeof supa !== 'undefined' && typeof supaProxyCall === 'function') {
+      try {
+        data = await supaProxyCall({
+          path: `/chat/getBase64FromMediaMessage/{{instance}}`,
+          method: 'POST',
+          body: {
+            message: evoMessage ? { key: evoKey, message: evoMessage } : { key: evoKey },
+            convertToMp4: false,
+          },
+        });
+      } catch (proxyErr) {
+        console.warn('[media] supaProxy falhou, tentando evo direto:', proxyErr.message);
+        // fallback pra evo direto (legado)
+        data = await evo.getBase64FromMedia(raw);
+      }
+    } else {
+      data = await evo.getBase64FromMedia(raw);
+    }
     const base64 = data?.base64 || data?.media || data?.data;
-    const mimetype = data?.mimetype || message.meta?.mimetype || 'application/octet-stream';
-    const fileName = data?.fileName || message.meta?.fileName || `arquivo`;
+    const mimetype = data?.mimetype || message.meta?.mimetype || raw?.media_mimetype || 'application/octet-stream';
+    const fileName = data?.fileName || message.meta?.fileName || raw?.media_filename || `arquivo`;
     if (!base64) throw new Error('Sem base64 no retorno');
     _evoMediaCache.set(id, { base64, mimetype, fileName });
     _evoNotifyMedia(id);
