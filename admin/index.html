@@ -3488,6 +3488,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   // Agente atribuido + status do chat (Realtime)
   const { agenteId, status: statusChat, atribuir: atribuirAgente, setStatus: setStatusChat } = useSupaChatAgente(supaEnabled ? ativo : null);
   const usuariosLista = useUsuariosLista();
+  // ✨ Filtro de privacidade: se a instância tem owner_email setado (privada),
+  //    só esse owner pode ser agente. Senão, todos do workspace.
+  const agentesPermitidos = React.useMemo(() => {
+    const ownerEmail = activeInstance?.owner_email?.toLowerCase().trim();
+    if (!ownerEmail) return usuariosLista; // instância compartilhada
+    return usuariosLista.filter(u => (u.email || '').toLowerCase().trim() === ownerEmail);
+  }, [usuariosLista, activeInstance?.owner_email]);
+  // Se o user logado nao tem acesso à instância privada, esconde "Atribuir a mim"
+  const meuEmailPodeAtribuir = !activeInstance?.owner_email
+    || (SESSAO?.email || '').toLowerCase().trim() === activeInstance.owner_email.toLowerCase().trim();
   const meuUserId = useUsuarioLogadoId();
   // Toca som + notif quando alguem transfere um chat pra mim
   useTransferenciaWatcher(meuUserId);
@@ -4034,7 +4044,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                   <div style={{padding:'8px 12px 6px', fontSize:10.5, color:S.textSec, fontWeight:600, letterSpacing:'.06em', textTransform:'uppercase'}}>
                     Atribuir agente
                   </div>
-                  {meuUserId && (
+                  {meuUserId && meuEmailPodeAtribuir && (
                     <div onClick={()=>{ atribuirAgente(meuUserId); setAgenteDropAberto(false); showToast?.('Voce assumiu este chat', 'success'); }} style={{
                       display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:6,
                       cursor:'pointer', color:S.textPrimary,
@@ -4047,8 +4057,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                       {agenteId === meuUserId && <Icon name="Check" size={13} style={{color:'var(--wa-green)'}}/>}
                     </div>
                   )}
-                  <div style={{height:1, background:S.border, margin:'4px 0'}}/>
-                  {usuariosLista.filter(u => u.id !== meuUserId).map(u => (
+                  {agentesPermitidos.filter(u => u.id !== meuUserId).length > 0 && (
+                    <div style={{height:1, background:S.border, margin:'4px 0'}}/>
+                  )}
+                  {/* ✨ Instância privada: avisa que só o owner pode receber atribuição */}
+                  {activeInstance?.owner_email && agentesPermitidos.length === 0 && (
+                    <div style={{padding:'10px 12px', fontSize:11.5, color:S.textSec, fontStyle:'italic'}}>
+                      Instância privada · só {activeInstance.owner_email} pode receber atribuição
+                    </div>
+                  )}
+                  {agentesPermitidos.filter(u => u.id !== meuUserId).map(u => (
                     <div key={u.id} onClick={()=>{ atribuirAgente(u.id); setAgenteDropAberto(false); showToast?.(`Chat atribuido a ${u.nome}`, 'success'); }} style={{
                       display:'flex', alignItems:'center', gap:8, padding:'8px 12px', borderRadius:6,
                       cursor:'pointer', color:S.textPrimary,
