@@ -5337,11 +5337,131 @@ let _supa = null;
 function getSupa() {
   if (_supa) return _supa;
   if (typeof window.supabase === 'undefined') return null;
+  // ✨ persistSession + autoRefreshToken TRUE → JWT vai junto nas queries (RLS funciona)
   _supa = window.supabase.createClient(SUPA_CFG.url, SUPA_CFG.publishableKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      storageKey: 'brava_sb_auth',
+      detectSessionInUrl: false,
+    },
     realtime: { params: { eventsPerSecond: 20 } },
   });
   return _supa;
+}
+
+// ✨ Hook: garante que ha uma sessao Supabase Auth ativa.
+// Se nao houver, mostra modal de login (email pre-preenchido).
+// Apos login, JWT eh persistido e queries com RLS funcionam.
+function useSupaAuthGate() {
+  const [needLogin, setNeedLogin] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+  const [userId, setUserId] = React.useState(null);
+
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) { setLoading(false); return; }
+    let alive = true;
+    cli.auth.getSession().then(({ data }) => {
+      if (!alive) return;
+      const sess = data?.session;
+      if (sess?.user?.id) {
+        setUserId(sess.user.id);
+        setNeedLogin(false);
+      } else {
+        setNeedLogin(true);
+      }
+      setLoading(false);
+    });
+    const { data: sub } = cli.auth.onAuthStateChange((_evt, session) => {
+      if (!alive) return;
+      if (session?.user?.id) {
+        setUserId(session.user.id);
+        setNeedLogin(false);
+      } else {
+        setUserId(null);
+        setNeedLogin(true);
+      }
+    });
+    return () => { alive = false; sub?.subscription?.unsubscribe?.(); };
+  }, []);
+
+  return { needLogin, loading, userId };
+}
+
+// ✨ Modal de login Supabase Auth (RLS-aware)
+function SupaLoginModal({ defaultEmail, onSuccess }) {
+  const [email, setEmail] = React.useState(defaultEmail || '');
+  const [senha, setSenha] = React.useState('');
+  const [erro, setErro] = React.useState('');
+  const [carregando, setCarregando] = React.useState(false);
+
+  async function entrar(e) {
+    e?.preventDefault?.();
+    setErro(''); setCarregando(true);
+    try {
+      const cli = getSupa();
+      const { data, error } = await cli.auth.signInWithPassword({ email, password: senha });
+      if (error) throw error;
+      if (data?.session) onSuccess?.(data.session);
+    } catch (err) {
+      setErro(err?.message || 'Erro ao autenticar');
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  return (
+    <div style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.78)', backdropFilter:'blur(8px)',
+      zIndex:100000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <form onSubmit={entrar} style={{
+        background:'#0E0E14', borderRadius:14, padding:28, width:420, maxWidth:'94vw',
+        border:'1px solid #1F1F2A', boxShadow:'0 24px 60px rgba(0,0,0,.5)',
+      }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+          <div style={{
+            width:38, height:38, borderRadius:8, background:'linear-gradient(135deg,#7B3FE4,#1E90FF)',
+            display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700,
+          }}>B</div>
+          <h3 style={{ margin:0, fontSize:17, color:'#F5F5F7', fontFamily:'Inter, sans-serif', fontWeight:600 }}>
+            Acesso à Plataforma
+          </h3>
+        </div>
+        <p style={{ fontSize:13, color:'#A0A0AA', margin:'0 0 18px', lineHeight:1.5 }}>
+          Conecte-se com sua conta Brava para acessar as conversas em tempo real.
+        </p>
+
+        <label style={{ display:'block', fontSize:12, color:'#A0A0AA', marginBottom:6, fontWeight:500 }}>E-mail</label>
+        <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="username" style={{
+          width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid #2A2A3A',
+          background:'#1B1B27', color:'#F5F5F7', fontSize:14, marginBottom:14, outline:'none',
+        }}/>
+
+        <label style={{ display:'block', fontSize:12, color:'#A0A0AA', marginBottom:6, fontWeight:500 }}>Senha</label>
+        <input type="password" required value={senha} onChange={e=>setSenha(e.target.value)} autoComplete="current-password" autoFocus style={{
+          width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid #2A2A3A',
+          background:'#1B1B27', color:'#F5F5F7', fontSize:14, marginBottom:erro?8:18, outline:'none',
+        }}/>
+
+        {erro && <div style={{
+          fontSize:12, color:'#ff8585', marginBottom:14, padding:'8px 10px',
+          background:'rgba(255,133,133,.08)', borderRadius:6, border:'1px solid rgba(255,133,133,.2)',
+        }}>{erro}</div>}
+
+        <button type="submit" disabled={carregando || !email || !senha} style={{
+          width:'100%', padding:'11px 0', borderRadius:8, border:'none',
+          background: carregando ? '#2A2A3A' : 'linear-gradient(90deg,#7B3FE4,#1E90FF)',
+          color:'#fff', fontSize:14, fontWeight:600, fontFamily:'Inter, sans-serif',
+          cursor: carregando ? 'wait' : 'pointer', transition:'opacity .15s',
+          opacity: (!email || !senha) ? .5 : 1,
+        }}>
+          {carregando ? 'Autenticando…' : 'Entrar'}
+        </button>
+      </form>
+    </div>
+  );
 }
 
 // Toggle: modo Supabase (ON) usa o banco como source of truth + Realtime
@@ -10685,6 +10805,9 @@ function useSyncEvoConfig() {
 }
 
 function App() {
+  // ✨ Auth gate: se nao houver sessao Supabase Auth, mostra modal de login
+  //    (necessario pra JWT chegar nas queries e RLS funcionar)
+  const { needLogin, loading: authLoading } = useSupaAuthGate();
   // Gera notificacoes automaticas a partir de eventos reais do banco (erros IA, etc)
   useNotifGenerator();
   // Mantem credenciais Evolution sincronizadas com instancia ativa
@@ -10762,6 +10885,16 @@ function App() {
     document.addEventListener('click', close);
     return () => document.removeEventListener('click', close);
   }, [notifAberta]);
+
+  // ✨ Auth gate: precisa de sessao Supabase Auth pra RLS funcionar
+  if (authLoading) return (
+    <div style={{
+      position:'fixed', inset:0, background:'#05050D', display:'flex',
+      alignItems:'center', justifyContent:'center', color:'#A0A0AA',
+      fontFamily:'Inter, sans-serif', fontSize:14,
+    }}>Carregando sessão…</div>
+  );
+  if (needLogin) return <SupaLoginModal defaultEmail={SESSAO?.email || 'diretoria@brava.company'} onSuccess={() => window.location.reload()} />;
 
   if (impersonate) return (
     <>
