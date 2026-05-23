@@ -5499,12 +5499,21 @@ function useSupaEnabled() {
 async function supaProxyCall({ path, method = 'GET', body, instanceId }) {
   // Snapshot da instancia ativa no momento da chamada
   const instanciaIdAtCall = instanceId || SUPA_CFG.instanciaId;
+  // ✨ Pega JWT da sessao Supabase Auth (precisa ser JWT real, nao publishable key)
+  let bearer = SUPA_CFG.publishableKey;
+  try {
+    const cli = getSupa();
+    if (cli) {
+      const { data } = await cli.auth.getSession();
+      if (data?.session?.access_token) bearer = data.session.access_token;
+    }
+  } catch {}
   const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-proxy`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'apikey': SUPA_CFG.publishableKey,
-      'authorization': `Bearer ${SUPA_CFG.publishableKey}`,
+      'authorization': `Bearer ${bearer}`,
     },
     body: JSON.stringify({ instancia_id: instanciaIdAtCall, path, method, body }),
   });
