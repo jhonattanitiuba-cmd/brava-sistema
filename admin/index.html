@@ -3327,13 +3327,17 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const supaChatsState = useSupaChats();        // sempre roda (cheap), mas so usa se supaEnabled
   // Reage a mudancas nos contatos salvos (nome editado, etc) re-normalizando os chats
   const contatosSalvosMap = useTodosContatosSalvos();
+  // ✨ Re-renderiza quando _evoContacts.byJid e _evoPicCache mudam
+  //    (necessario pra mostrar nomes reais e fotos no modo Supabase)
+  const contatosTick = useContatosTick();
+  const picsTick = usePicsTick();
   const supaChats = React.useMemo(() => {
     // Filtro de seguranca: descarta chats fantasma (sem ultima msg E sem unread)
     // Tipicamente sao @lid de Linked Devices sem conversa real.
     return supaChatsState.chats
       .filter(c => c.last_message_ts || c.last_message_text || (c.unread_count > 0))
       .map(supaNormalizeChat);
-  }, [supaChatsState.chats, contatosSalvosMap]);
+  }, [supaChatsState.chats, contatosSalvosMap, contatosTick, picsTick]);
 
   // Auto-ativa Supabase se temos dados lá mas o toggle está em Evolution direto
   // (fix pra casos onde localStorage ficou com brava_supa_enabled=0 antigo)
@@ -6542,6 +6546,29 @@ function useEvoContacts() {
     return () => { _evoContacts.subs.delete(fn); };
   }, [cfg?.url, cfg?.instance, cfg?.apikey]);
   return _evoContacts;
+}
+
+/* ✨ Hook reativo SEMPRE ativo — re-renderiza quando _evoContacts.byJid muda.
+   Necessário no modo Supabase porque _evoContacts é Map fora do React. */
+function useContatosTick() {
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const fn = () => setTick(t => t + 1);
+    _evoContacts.subs.add(fn);
+    return () => { _evoContacts.subs.delete(fn); };
+  }, []);
+  return tick;
+}
+
+/* ✨ Hook reativo pra fotos de perfil — re-render quando _evoPicCache muda */
+function usePicsTick() {
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const fn = () => setTick(t => t + 1);
+    _evoPicSubs.add(fn);
+    return () => { _evoPicSubs.delete(fn); };
+  }, []);
+  return tick;
 }
 
 /* ── Presenca (online/digitando/gravando) ── */
