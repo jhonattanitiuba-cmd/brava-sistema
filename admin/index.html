@@ -5575,6 +5575,30 @@ function useSupaChats() {
         if (error) throw error;
         setChats(data || []);
         setError(null);
+
+        // ✨ Carrega fotos de perfil dos contatos e popula o cache compartilhado
+        //    (EvoAvatar lê de _evoPicCache; modo Supabase precisa popular ele)
+        try {
+          const { data: contatos } = await cli
+            .from('wa_contatos')
+            .select('jid, profile_pic_url')
+            .eq('instancia_id', activeInstanceId)
+            .not('profile_pic_url', 'is', null)
+            .limit(2000);
+          if (alive && contatos && typeof _evoPicCache !== 'undefined') {
+            for (const ct of contatos) {
+              if (ct.jid && ct.profile_pic_url) {
+                _evoPicCache.set(ct.jid, { url: ct.profile_pic_url, ts: Date.now() });
+              }
+            }
+            if (typeof evoNotifyPic === 'function') evoNotifyPic();
+            else if (typeof _evoPicSubs !== 'undefined') {
+              _evoPicSubs.forEach(fn => { try { fn(); } catch {} });
+            }
+          }
+        } catch (picErr) {
+          console.warn('[supaChats] fotos:', picErr);
+        }
       } catch (e) { if (alive) setError(e.message || String(e)); }
       finally { if (alive) setLoading(false); }
     };
