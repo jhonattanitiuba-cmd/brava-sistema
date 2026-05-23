@@ -1781,7 +1781,7 @@ function WhatsAppSwitcher({ setPage }) {
 
   if (loading || instances.length === 0) {
     return (
-      <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:'rgba(255,255,255,.04)',borderRadius:8,fontSize:12,color:'var(--t3)'}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:'var(--bg-3)',borderRadius:8,fontSize:12,color:'var(--t3)'}}>
         <Icon name="MessageCircle" size={14}/>
         {loading ? 'Carregando...' : 'Sem WhatsApp'}
       </div>
@@ -1799,14 +1799,14 @@ function WhatsAppSwitcher({ setPage }) {
         style={{
           display:'flex', alignItems:'center', gap:8,
           padding:'6px 10px 6px 8px',
-          background:'rgba(255,255,255,.04)',
-          border:'1px solid rgba(255,255,255,.06)',
+          background:'var(--bg-3)',
+          border:'1px solid var(--border)',
           borderRadius:8, cursor:'pointer', color:'var(--t1)',
           fontFamily:'var(--f-b)', fontSize:13, fontWeight:500,
           transition:'background .15s',
         }}
-        onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,.07)'}
-        onMouseLeave={e => e.currentTarget.style.background='rgba(255,255,255,.04)'}
+        onMouseEnter={e => e.currentTarget.style.background='rgba(128,128,128,.12)'}
+        onMouseLeave={e => e.currentTarget.style.background='var(--bg-3)'}
       >
         {/* Avatar com status dot sobreposto. Se houver foto do perfil, usa.
             Senao, fallback pro logo verde WhatsApp + dot ao lado. */}
@@ -1828,7 +1828,7 @@ function WhatsAppSwitcher({ setPage }) {
               position:'absolute', bottom:-1, right:-1,
               width:8, height:8, borderRadius:'50%',
               background:statusColor(active?.status),
-              boxShadow:'0 0 0 2px #000',
+              boxShadow:'0 0 0 2px var(--bg-1)',
             }}/>
           </div>
         ) : (
@@ -1861,7 +1861,7 @@ function WhatsAppSwitcher({ setPage }) {
         <div style={{
           position:'absolute', top:'calc(100% + 6px)', left:0, zIndex:1000,
           width:280, background:'var(--bg-2)', border:'1px solid var(--border)',
-          borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.5)', overflow:'hidden',
+          borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.25)', overflow:'hidden',
         }}>
           <div style={{maxHeight:320, overflowY:'auto'}}>
             {instances.map(inst => {
@@ -1896,7 +1896,7 @@ function WhatsAppSwitcher({ setPage }) {
                     borderLeft: isActive ? '3px solid var(--purple)' : '3px solid transparent',
                     transition:'background .12s',
                   }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background='rgba(255,255,255,.04)'; }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background='rgba(128,128,128,.10)'; }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background='transparent'; }}
                 >
                   {/* Avatar: foto se houver, status dot se nao */}
@@ -1969,12 +1969,12 @@ function WhatsAppSwitcher({ setPage }) {
                     title="Mais ações"
                     style={{
                       width:24, height:24, padding:0, borderRadius:6,
-                      background: menuInstanceId === inst.id ? 'rgba(255,255,255,.10)' : 'transparent',
+                      background: menuInstanceId === inst.id ? 'rgba(128,128,128,.15)' : 'transparent',
                       border:'none', cursor:'pointer', flexShrink:0,
                       display:'flex', alignItems:'center', justifyContent:'center',
                       color:'var(--t3)', transition:'background .12s, color .12s',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background='rgba(255,255,255,.10)'; e.currentTarget.style.color='var(--t1)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.background='rgba(128,128,128,.15)'; e.currentTarget.style.color='var(--t1)'; }}
                     onMouseLeave={e => { if (menuInstanceId !== inst.id) { e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)'; } }}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
@@ -1988,7 +1988,7 @@ function WhatsAppSwitcher({ setPage }) {
                         position:'absolute', right:8, top:'calc(50% + 10px)',
                         background:'var(--bg-3)', border:'1px solid var(--border)',
                         borderRadius:8, padding:4, minWidth:170, zIndex:10,
-                        boxShadow:'0 8px 24px rgba(0,0,0,.6)',
+                        boxShadow:'0 8px 24px rgba(0,0,0,.25)',
                       }}>
                       {inst.status !== 'open' && (
                         <button onClick={() => handleReconectar(inst)} style={_menuItemStyle('#1E90FF')}>
