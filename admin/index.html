@@ -3332,6 +3332,18 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   //    (necessario pra mostrar nomes reais e fotos no modo Supabase)
   const contatosTick = useContatosTick();
   const picsTick = usePicsTick();
+  // ✨ Etiquetas: lista global + map jid->etiquetas pra renderizar chips na lista
+  const { list: todasEtiquetas } = useEtiquetas();
+  const todasChatEtiquetas = useTodasChatEtiquetas();
+  const etiquetasByJid = React.useMemo(() => {
+    const map = {};
+    const byId = Object.fromEntries(todasEtiquetas.map(e => [e.id, e]));
+    todasChatEtiquetas.forEach((etiquetaIds, key) => {
+      const jid = key.split('|')[1];
+      map[jid] = etiquetaIds.map(id => byId[id]).filter(Boolean);
+    });
+    return map;
+  }, [todasEtiquetas, todasChatEtiquetas]);
   const supaChats = React.useMemo(() => {
     // Filtro de seguranca: descarta chats fantasma (sem ultima msg E sem unread)
     // Tipicamente sao @lid de Linked Devices sem conversa real.
@@ -3801,6 +3813,17 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                   <span style={{ fontSize:14.5, fontWeight:500, color:S.textPrimary, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name}</span>
                   <span style={{ fontSize:11, color: c.unread>0 ? S.green : S.textSec, whiteSpace:'nowrap', flexShrink:0, textTransform:'lowercase' }}>{c.time}</span>
                 </div>
+                {/* ✨ Chips das etiquetas aplicadas neste chat */}
+                {(etiquetasByJid[c.id] || []).length > 0 && (
+                  <div style={{display:'flex', gap:4, marginTop:5, flexWrap:'wrap'}}>
+                    {(etiquetasByJid[c.id] || []).slice(0, 3).map(e => (
+                      <EtiquetaChip key={e.id} etiqueta={e} size="sm"/>
+                    ))}
+                    {(etiquetasByJid[c.id] || []).length > 3 && (
+                      <span style={{fontSize:10, color:S.textSec}}>+{etiquetasByJid[c.id].length - 3}</span>
+                    )}
+                  </div>
+                )}
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:3, gap:8 }}>
                   <span style={{ fontSize:13, color:S.textSec, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', flex:1, minWidth:0 }}>{c.preview}</span>
                   {/* Badge agente atribuido (estilo Chatwoot) */}
@@ -4014,6 +4037,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               <div style={{ width:6, height:6, borderRadius:'50%', background: iaAtiva ? 'var(--wa-green)' : S.textSec, boxShadow: iaAtiva ? '0 0 6px var(--wa-green)' : '' }}/>
               IA {iaAtiva ? 'ATIVA' : 'PAUSADA'}
             </button>
+            {/* ✨ Botão de etiquetas */}
+            <BtnEtiquetasHeader chatJid={contato?.id} S={S}/>
             <div onClick={()=>setSidebarAberta(v=>!v)} style={{
               width:36, height:36, borderRadius:'50%',
               display:'flex', alignItems:'center', justifyContent:'center',
@@ -6305,6 +6330,415 @@ function useSupaChatAgente(chatJid) {
    Hierarquia: ai_enabled_global da INSTANCIA > ai_enabled do CHAT.
    Se a instancia tem IA OFF, TODOS os chats sao PAUSADOS (forcado).
    Se a instancia tem IA ON, le ai_enabled do chat (default true). */
+/* ─── ETIQUETAS · hooks + componentes ────────────────────────────────
+   Sistema flexível de tags coloridas por workspace.
+   - useEtiquetas(): todas as etiquetas do workspace (com realtime)
+   - useChatEtiquetas(jid): etiquetas aplicadas no chat (com realtime)
+   - applyEtiqueta / removeEtiqueta: toggle
+*/
+const PALETA_ETIQUETAS = [
+  '#E5544D', '#F5A623', '#1D9E75', '#1E90FF',
+  '#7B3FE4', '#5BC0DE', '#BA7517', '#A32D2D',
+  '#FF6B9D', '#00C8B0', '#FFB800', '#6E6E78',
+];
+
+function useEtiquetas() {
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    const cli = getSupa();
+    if (!cli) { setLoading(false); return; }
+    let alive = true;
+    const carregar = async () => {
+      const { data } = await cli.from('etiquetas').select('*').order('ordem');
+      if (alive) { setList(data || []); setLoading(false); }
+    };
+    carregar();
+    const ch = cli.channel('rt:etiquetas')
+      .on('postgres_changes', { event:'*', schema:'public', table:'etiquetas' }, carregar)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return { list, loading };
+}
+
+function useChatEtiquetas(chatJid) {
+  const [ids, setIds] = React.useState([]);
+  const activeInstanceId = useActiveInstanceId();
+  React.useEffect(() => {
+    if (!chatJid || !activeInstanceId) { setIds([]); return; }
+    const cli = getSupa();
+    if (!cli) return;
+    let alive = true;
+    const carregar = async () => {
+      const { data } = await cli.from('chat_etiquetas')
+        .select('etiqueta_id')
+        .eq('instancia_id', activeInstanceId).eq('chat_jid', chatJid);
+      if (alive) setIds((data || []).map(r => r.etiqueta_id));
+    };
+    carregar();
+    const ch = cli.channel(`rt:chat_etiquetas:${activeInstanceId}:${chatJid}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'chat_etiquetas', filter:`chat_jid=eq.${chatJid}` }, carregar)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [chatJid, activeInstanceId]);
+  return ids;
+}
+
+// Cache global de etiquetas por chat (pra renderizar nos cards da lista sem N queries)
+const _chatEtiquetasCache = new Map(); // "instId|jid" -> [etiquetaId]
+const _chatEtiquetasSubs = new Set();
+function _notifyEtiquetas() { _chatEtiquetasSubs.forEach(fn => { try { fn(); } catch {} }); }
+
+function useTodasChatEtiquetas() {
+  const [, force] = React.useState(0);
+  const activeInstanceId = useActiveInstanceId();
+  React.useEffect(() => {
+    if (!activeInstanceId) return;
+    const cli = getSupa();
+    if (!cli) return;
+    let alive = true;
+    const carregar = async () => {
+      const { data } = await cli.from('chat_etiquetas')
+        .select('chat_jid, etiqueta_id')
+        .eq('instancia_id', activeInstanceId);
+      if (!alive) return;
+      _chatEtiquetasCache.clear();
+      (data || []).forEach(r => {
+        const k = activeInstanceId + '|' + r.chat_jid;
+        if (!_chatEtiquetasCache.has(k)) _chatEtiquetasCache.set(k, []);
+        _chatEtiquetasCache.get(k).push(r.etiqueta_id);
+      });
+      _notifyEtiquetas();
+    };
+    carregar();
+    const fn = () => force(x => x+1);
+    _chatEtiquetasSubs.add(fn);
+    const ch = cli.channel(`rt:chat_etiquetas:all:${activeInstanceId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'chat_etiquetas', filter:`instancia_id=eq.${activeInstanceId}` }, carregar)
+      .subscribe();
+    return () => { alive = false; _chatEtiquetasSubs.delete(fn); cli.removeChannel(ch); };
+  }, [activeInstanceId]);
+  return _chatEtiquetasCache;
+}
+
+async function applyEtiqueta(instanciaId, chatJid, etiquetaId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('chat_etiquetas').insert({ instancia_id: instanciaId, chat_jid: chatJid, etiqueta_id: etiquetaId });
+}
+async function removeEtiqueta(instanciaId, chatJid, etiquetaId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('chat_etiquetas').delete()
+    .eq('instancia_id', instanciaId).eq('chat_jid', chatJid).eq('etiqueta_id', etiquetaId);
+}
+
+/* Chip visual de etiqueta — usado na lista e no header */
+function EtiquetaChip({ etiqueta, size='sm', onRemove }) {
+  if (!etiqueta) return null;
+  const padding = size === 'sm' ? '2px 8px' : '4px 10px';
+  const fontSize = size === 'sm' ? 10.5 : 12;
+  return (
+    <span style={{
+      display:'inline-flex', alignItems:'center', gap:5,
+      padding, borderRadius:999, fontSize, fontWeight:600,
+      background: etiqueta.cor + '22',
+      color: etiqueta.cor,
+      border: `1px solid ${etiqueta.cor}55`,
+      whiteSpace:'nowrap',
+    }}>
+      <span style={{width:6, height:6, borderRadius:'50%', background: etiqueta.cor}}/>
+      {etiqueta.nome}
+      {onRemove && (
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{
+          width:14, height:14, padding:0, border:'none', background:'transparent',
+          color: etiqueta.cor, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          marginLeft:2, opacity:.6,
+        }}
+          onMouseEnter={e=>e.currentTarget.style.opacity='1'}
+          onMouseLeave={e=>e.currentTarget.style.opacity='.6'}
+        >×</button>
+      )}
+    </span>
+  );
+}
+
+/* Popover: lista de etiquetas pra aplicar/remover num chat */
+function EtiquetasPopover({ chatJid, onClose, anchor='right' }) {
+  const { list: etiquetas } = useEtiquetas();
+  const aplicadasIds = useChatEtiquetas(chatJid);
+  const activeInstanceId = useActiveInstanceId();
+  const [busca, setBusca] = React.useState('');
+  const [gerenciarAberto, setGerenciarAberto] = React.useState(false);
+
+  const filtradas = etiquetas.filter(e => e.nome.toLowerCase().includes(busca.toLowerCase()));
+
+  const toggle = async (e) => {
+    if (aplicadasIds.includes(e.id)) await removeEtiqueta(activeInstanceId, chatJid, e.id);
+    else await applyEtiqueta(activeInstanceId, chatJid, e.id);
+  };
+
+  return (
+    <>
+      <div onClick={onClose} style={{position:'fixed', inset:0, zIndex:9998}}/>
+      <div style={{
+        position:'absolute', top:'calc(100% + 6px)', [anchor]:0, zIndex:9999,
+        width:260, background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.25)', overflow:'hidden',
+      }}>
+        <div style={{padding:'10px 12px', borderBottom:'1px solid var(--border-soft)'}}>
+          <input
+            value={busca} onChange={e=>setBusca(e.target.value)} autoFocus
+            placeholder="Buscar ou criar etiqueta..."
+            style={{
+              width:'100%', padding:'7px 10px', borderRadius:6,
+              background:'var(--bg-3)', border:'1px solid var(--border)',
+              color:'var(--t1)', fontSize:13, outline:'none',
+            }}
+          />
+        </div>
+        <div style={{maxHeight:260, overflowY:'auto', padding:'4px 0'}}>
+          {filtradas.length === 0 && (
+            <div style={{padding:'16px', textAlign:'center', color:'var(--t3)', fontSize:12}}>
+              {busca ? 'Nenhuma encontrada' : 'Sem etiquetas'}
+            </div>
+          )}
+          {filtradas.map(e => {
+            const aplicada = aplicadasIds.includes(e.id);
+            return (
+              <div key={e.id} onClick={() => toggle(e)} style={{
+                display:'flex', alignItems:'center', gap:9, padding:'7px 12px',
+                cursor:'pointer', transition:'background .1s',
+              }}
+                onMouseEnter={ev => ev.currentTarget.style.background='var(--bg-3)'}
+                onMouseLeave={ev => ev.currentTarget.style.background='transparent'}
+              >
+                <span style={{width:12, height:12, borderRadius:3, background:e.cor, flexShrink:0}}/>
+                <span style={{flex:1, fontSize:13, color:'var(--t1)'}}>{e.nome}</span>
+                {aplicada && <Icon name="Check" size={14} style={{color:e.cor}}/>}
+              </div>
+            );
+          })}
+        </div>
+        <div onClick={() => setGerenciarAberto(true)} style={{
+          padding:'9px 12px', borderTop:'1px solid var(--border-soft)',
+          display:'flex', alignItems:'center', gap:7, cursor:'pointer',
+          fontSize:12.5, color:'var(--t2)',
+        }}
+          onMouseEnter={ev => ev.currentTarget.style.background='var(--bg-3)'}
+          onMouseLeave={ev => ev.currentTarget.style.background='transparent'}
+        >
+          <Icon name="Settings" size={13}/>
+          Gerenciar etiquetas
+        </div>
+      </div>
+      {gerenciarAberto && <GerenciarEtiquetasModal onClose={() => setGerenciarAberto(false)}/>}
+    </>
+  );
+}
+
+/* Modal: CRUD de etiquetas */
+function GerenciarEtiquetasModal({ onClose }) {
+  const { list: etiquetas } = useEtiquetas();
+  const [editando, setEditando] = React.useState(null); // etiqueta sendo editada OU {} pra nova
+
+  const salvar = async (etiq) => {
+    const cli = getSupa();
+    try {
+      const { data: ws } = await cli.from('workspaces').select('id').limit(1).maybeSingle();
+      if (etiq.id) {
+        await cli.from('etiquetas').update({ nome: etiq.nome, cor: etiq.cor }).eq('id', etiq.id);
+      } else {
+        await cli.from('etiquetas').insert({
+          workspace_id: ws?.id, nome: etiq.nome, cor: etiq.cor,
+          ordem: etiquetas.length + 1,
+        });
+      }
+      setEditando(null);
+    } catch (e) { showToast?.('Erro: ' + e.message, 'error'); }
+  };
+
+  const excluir = async (id) => {
+    if (!confirm('Excluir esta etiqueta? Será removida de todos os chats.')) return;
+    const cli = getSupa();
+    try { await cli.from('etiquetas').delete().eq('id', id); }
+    catch (e) { showToast?.('Erro: ' + e.message, 'error'); }
+  };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{
+        background:'var(--bg-2)', borderRadius:14, width:480, maxWidth:'95vw', maxHeight:'88vh',
+        border:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden',
+      }}>
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
+          <h3 style={{margin:0, fontSize:16, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>
+            Gerenciar etiquetas
+          </h3>
+          <button onClick={onClose} style={{
+            width:32, height:32, borderRadius:8, border:'none', background:'transparent',
+            color:'var(--t3)', cursor:'pointer', fontSize:18,
+          }}>×</button>
+        </div>
+
+        <div style={{flex:1, overflowY:'auto', padding:'8px 0'}}>
+          {etiquetas.map(e => (
+            <div key={e.id} style={{
+              display:'flex', alignItems:'center', gap:10, padding:'10px 22px',
+              transition:'background .12s',
+            }}
+              onMouseEnter={ev => ev.currentTarget.style.background='var(--bg-3)'}
+              onMouseLeave={ev => ev.currentTarget.style.background='transparent'}
+            >
+              <span style={{width:16, height:16, borderRadius:4, background:e.cor, flexShrink:0}}/>
+              <span style={{flex:1, fontSize:13.5, color:'var(--t1)'}}>{e.nome}</span>
+              <button onClick={() => setEditando(e)} style={_iconBtn()} title="Editar">
+                <Icon name="Pencil" size={13}/>
+              </button>
+              <button onClick={() => excluir(e.id)} style={_iconBtn('#E5544D')} title="Excluir">
+                <Icon name="Trash2" size={13}/>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)'}}>
+          <button onClick={() => setEditando({ nome: '', cor: PALETA_ETIQUETAS[0] })} style={{
+            width:'100%', padding:'10px 0', borderRadius:8, border:'1px dashed var(--border)',
+            background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500,
+            cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+          }}>
+            <Icon name="Plus" size={13}/>
+            Nova etiqueta
+          </button>
+        </div>
+      </div>
+      {editando && <EditarEtiquetaModal etiqueta={editando} onSalvar={salvar} onClose={() => setEditando(null)}/>}
+    </div>
+  );
+}
+
+function EditarEtiquetaModal({ etiqueta, onSalvar, onClose }) {
+  const [nome, setNome] = React.useState(etiqueta.nome || '');
+  const [cor, setCor] = React.useState(etiqueta.cor || PALETA_ETIQUETAS[0]);
+
+  const handleSalvar = (e) => {
+    e?.preventDefault?.();
+    if (!nome.trim()) return;
+    onSalvar({ ...etiqueta, nome: nome.trim(), cor });
+  };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.8)', backdropFilter:'blur(6px)',
+      zIndex:10002, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <form onSubmit={handleSalvar} style={{
+        background:'var(--bg-2)', borderRadius:14, padding:24, width:380, maxWidth:'94vw',
+        border:'1px solid var(--border)',
+      }}>
+        <h3 style={{margin:'0 0 14px', fontSize:15, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>
+          {etiqueta.id ? 'Editar etiqueta' : 'Nova etiqueta'}
+        </h3>
+
+        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>Nome</label>
+        <input value={nome} onChange={e=>setNome(e.target.value)} autoFocus maxLength={30}
+          placeholder="Ex: Cliente Premium"
+          style={{
+            width:'100%', padding:'9px 12px', borderRadius:7,
+            border:'1px solid var(--border)', background:'var(--bg-3)',
+            color:'var(--t1)', fontSize:13.5, outline:'none', marginBottom:14,
+          }}
+        />
+
+        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:8, fontWeight:500}}>Cor</label>
+        <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginBottom:18}}>
+          {PALETA_ETIQUETAS.map(c => (
+            <button key={c} type="button" onClick={() => setCor(c)} style={{
+              width:'100%', aspectRatio:'1', padding:0, border: cor === c ? '2px solid var(--t1)' : '2px solid transparent',
+              borderRadius:8, background:c, cursor:'pointer', transition:'transform .1s',
+            }}
+              onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
+              onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+            />
+          ))}
+        </div>
+
+        {/* Preview */}
+        <div style={{marginBottom:18, padding:'10px 12px', background:'var(--bg-3)', borderRadius:7}}>
+          <div style={{fontSize:11, color:'var(--t3)', marginBottom:6}}>Preview:</div>
+          <EtiquetaChip etiqueta={{ nome: nome || 'Etiqueta', cor }} size="md"/>
+        </div>
+
+        <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
+          <button type="button" onClick={onClose} style={{
+            padding:'9px 16px', borderRadius:7, border:'none', background:'var(--bg-3)',
+            color:'var(--t1)', fontSize:13, fontWeight:500, cursor:'pointer',
+          }}>Cancelar</button>
+          <button type="submit" disabled={!nome.trim()} style={{
+            padding:'9px 18px', borderRadius:7, border:'none',
+            background: nome.trim() ? 'var(--purple)' : 'var(--bg-3)',
+            color:'#fff', fontSize:13, fontWeight:600, cursor: nome.trim() ? 'pointer' : 'not-allowed',
+          }}>Salvar</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function _iconBtn(cor) {
+  return {
+    width:28, height:28, padding:0, borderRadius:6,
+    background:'transparent', border:'none', cursor:'pointer',
+    color: cor || 'var(--t3)', display:'flex', alignItems:'center', justifyContent:'center',
+    transition:'background .12s, color .12s',
+  };
+}
+
+/* Botão de etiquetas no header da conversa.
+   Mostra chips das etiquetas aplicadas + ícone "+" pra abrir popover */
+function BtnEtiquetasHeader({ chatJid, S }) {
+  const { list: etiquetas } = useEtiquetas();
+  const aplicadasIds = useChatEtiquetas(chatJid);
+  const [aberto, setAberto] = React.useState(false);
+  const activeInstanceId = useActiveInstanceId();
+  const aplicadas = etiquetas.filter(e => aplicadasIds.includes(e.id));
+
+  if (!chatJid) return null;
+
+  return (
+    <div style={{position:'relative', display:'flex', alignItems:'center', gap:4}}>
+      {/* Chips das etiquetas aplicadas */}
+      {aplicadas.slice(0, 2).map(e => (
+        <EtiquetaChip key={e.id} etiqueta={e} size="sm"
+          onRemove={() => removeEtiqueta(activeInstanceId, chatJid, e.id)}/>
+      ))}
+      {aplicadas.length > 2 && (
+        <span style={{
+          fontSize:10.5, color:S.textSec, padding:'2px 6px',
+          background:'rgba(128,128,128,.12)', borderRadius:999,
+        }}>+{aplicadas.length - 2}</span>
+      )}
+      {/* Botão de gerenciar */}
+      <button onClick={()=>setAberto(v=>!v)} title="Etiquetas" style={{
+        width:30, height:30, padding:0, borderRadius:'50%',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        background: aberto ? 'rgba(123,63,228,.12)' : 'transparent',
+        color: aberto ? 'var(--purple)' : S.textSec,
+        border:'none', cursor:'pointer', transition:'all .15s',
+      }}
+        onMouseEnter={e=>{if(!aberto) e.currentTarget.style.background='rgba(128,128,128,.1)';}}
+        onMouseLeave={e=>{if(!aberto) e.currentTarget.style.background='transparent';}}
+      >
+        <Icon name="Tag" size={15}/>
+      </button>
+      {aberto && <EtiquetasPopover chatJid={chatJid} onClose={()=>setAberto(false)}/>}
+    </div>
+  );
+}
+
 function useSupaChatIa(chatJid) {
   const [ativa, setAtiva] = React.useState(false);  // ✨ default FALSE (seguro)
   const [globalAtiva, setGlobalAtiva] = React.useState(false);
