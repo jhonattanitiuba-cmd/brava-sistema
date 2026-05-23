@@ -5853,15 +5853,18 @@ function useSupaChatAgente(chatJid) {
   return { agenteId: info.agenteId, status: info.status, atribuir, setStatus };
 }
 
-/* Hook: estado de IA ATIVA/PAUSADA por chat (wa_chats.ai_enabled).
-   Le do banco + escuta Realtime + retorna funcao pra toggle. */
+/* Hook: estado de IA ATIVA/PAUSADA por chat.
+   Hierarquia: ai_enabled_global da INSTANCIA > ai_enabled do CHAT.
+   Se a instancia tem IA OFF, TODOS os chats sao PAUSADOS (forcado).
+   Se a instancia tem IA ON, le ai_enabled do chat (default true). */
 function useSupaChatIa(chatJid) {
-  const [ativa, setAtiva] = React.useState(true);
+  const [ativa, setAtiva] = React.useState(false);  // ✨ default FALSE (seguro)
+  const [globalAtiva, setGlobalAtiva] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
-  const activeInstanceId = useActiveInstanceId(); // reativo a troca de instancia
+  const activeInstanceId = useActiveInstanceId();
 
   React.useEffect(() => {
-    if (!chatJid) return;
+    if (!chatJid || !activeInstanceId) return;
     const cli = getSupa();
     if (!cli) return;
     let alive = true;
@@ -5869,9 +5872,22 @@ function useSupaChatIa(chatJid) {
     const carregar = async () => {
       setLoading(true);
       try {
-        const { data } = await cli.from('wa_chats')
-          .select('ai_enabled').eq('instancia_id', activeInstanceId).eq('jid', chatJid).maybeSingle();
-        if (alive) setAtiva(data?.ai_enabled !== false);
+        // 1. Verifica IA global da instancia
+        const { data: inst } = await cli.from('wa_instancias')
+          .select('ai_enabled_global').eq('id', activeInstanceId).maybeSingle();
+        const globalOn = inst?.ai_enabled_global === true;
+        if (!alive) return;
+        setGlobalAtiva(globalOn);
+
+        if (!globalOn) {
+          // IA da instancia esta off → forca PAUSADA pra todos os chats dela
+          setAtiva(false);
+        } else {
+          // IA da instancia esta on → respeita flag do chat (default true)
+          const { data: chat } = await cli.from('wa_chats')
+            .select('ai_enabled').eq('instancia_id', activeInstanceId).eq('jid', chatJid).maybeSingle();
+          if (alive) setAtiva(chat?.ai_enabled !== false);
+        }
       } catch {}
       finally { if (alive) setLoading(false); }
     };
@@ -5880,8 +5896,14 @@ function useSupaChatIa(chatJid) {
     // Realtime: reage a mudancas DESTA instancia + DESTE chat
     const ch = cli.channel(`rt:chatia:${activeInstanceId}:${chatJid}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_chats', filter: `jid=eq.${chatJid}` }, (p) => {
-        if (alive && p.new && typeof p.new.ai_enabled === 'boolean' && p.new.instancia_id === activeInstanceId) {
+        if (alive && p.new && typeof p.new.ai_enabled === 'boolean' && p.new.instancia_id === activeInstanceId && globalAtiva) {
           setAtiva(p.new.ai_enabled);
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'wa_instancias', filter: `id=eq.${activeInstanceId}` }, (p) => {
+        if (alive && p.new && typeof p.new.ai_enabled_global === 'boolean') {
+          setGlobalAtiva(p.new.ai_enabled_global);
+          if (!p.new.ai_enabled_global) setAtiva(false);
         }
       })
       .subscribe();
@@ -5891,6 +5913,11 @@ function useSupaChatIa(chatJid) {
 
   const setIaAtiva = React.useCallback(async (valor) => {
     if (!chatJid) return;
+    // Se quer ATIVAR mas a instancia tem IA global OFF, alerta e nao deixa
+    if (valor && !globalAtiva) {
+      showToast?.('Esta instância está com IA desativada globalmente. Ative em Configurações > IA primeiro.', 'warning');
+      return;
+    }
     setAtiva(valor); // otimista
     const cli = getSupa();
     try {
@@ -5899,9 +5926,9 @@ function useSupaChatIa(chatJid) {
       console.warn('Erro ao atualizar ai_enabled:', e);
       setAtiva(!valor); // rollback
     }
-  }, [chatJid, activeInstanceId]);
+  }, [chatJid, activeInstanceId, globalAtiva]);
 
-  return { ativa, setIaAtiva, loading };
+  return { ativa, setIaAtiva, loading, globalAtiva };
 }
 
 function useSupaMessages(chatJid) {
