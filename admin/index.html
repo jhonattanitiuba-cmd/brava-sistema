@@ -10941,7 +10941,7 @@ function usePipelineDbIndex() {
     const carregar = async () => {
       try {
         const { data: cards } = await cli.from('pipeline_cards')
-          .select('id, titulo, descricao, agente_id, contact_jid, data_vencimento, instancia_id')
+          .select('id, titulo, descricao, agente_id, contact_jid, data_vencimento, instancia_id, foto_url')
           .is('archived_at', null);
         if (!alive || !cards) return;
         // Carrega checklist e comments em batch
@@ -10963,6 +10963,7 @@ function usePipelineDbIndex() {
             contact_jid: c.contact_jid,
             instancia_id: c.instancia_id,
             data_vencimento: c.data_vencimento,
+            foto_url: c.foto_url,
             checklistDone: cks.filter(x => x.done).length,
             checklistTotal: cks.length,
             commentsCount: cms.length,
@@ -11068,6 +11069,9 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
   const [novoComent, setNovoComent] = React.useState('');
   const [agenteId, setAgenteId] = React.useState(null);
   const [dataVenc, setDataVenc] = React.useState('');
+  const [fotoUrl, setFotoUrl] = React.useState(null);
+  const [uploadingFoto, setUploadingFoto] = React.useState(false);
+  const fileInputRef = React.useRef(null);
   const { membros } = useTeamMembers();
 
   // Carrega dados do banco (cria card se necessário)
@@ -11085,6 +11089,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
       setDescricao(db.descricao || '');
       setAgenteId(db.agente_id || null);
       setDataVenc(db.data_vencimento || '');
+      setFotoUrl(db.foto_url || null);
       // Carrega checklist + comments
       const [chk, com] = await Promise.all([
         cli.from('pipeline_card_checklist').select('*').eq('card_id', db.id).order('ordem'),
@@ -11142,6 +11147,51 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
     }
   };
 
+  // ✨ Upload de foto do card
+  const onUploadFoto = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || !dbCard) return;
+    if (file.size > 3 * 1024 * 1024) { showToast?.('Arquivo > 3MB. Reduza ou comprima.', 'error'); return; }
+    if (!file.type.startsWith('image/')) { showToast?.('Só imagens (JPG/PNG/WEBP/GIF)', 'error'); return; }
+    setUploadingFoto(true);
+    try {
+      const cli = getSupa();
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${dbCard.id}/${Date.now()}.${ext}`;
+      // Remove foto antiga (se houver) pra não acumular lixo
+      if (fotoUrl) {
+        const oldPath = fotoUrl.split('/pipeline-cards/')[1];
+        if (oldPath) await cli.storage.from('pipeline-cards').remove([oldPath]).catch(()=>{});
+      }
+      const { error: upErr } = await cli.storage.from('pipeline-cards').upload(path, file, {
+        cacheControl: '3600', upsert: false, contentType: file.type,
+      });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = cli.storage.from('pipeline-cards').getPublicUrl(path);
+      await salvarCampo('foto_url', publicUrl);
+      setFotoUrl(publicUrl);
+      showToast?.('Foto atualizada', 'success');
+    } catch (err) {
+      showToast?.('Erro: ' + (err.message || err), 'error');
+    } finally {
+      setUploadingFoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+  const removerFoto = async () => {
+    if (!fotoUrl || !confirm('Remover a foto deste card?')) return;
+    try {
+      const cli = getSupa();
+      const oldPath = fotoUrl.split('/pipeline-cards/')[1];
+      if (oldPath) await cli.storage.from('pipeline-cards').remove([oldPath]).catch(()=>{});
+      await salvarCampo('foto_url', null);
+      setFotoUrl(null);
+      showToast?.('Foto removida', 'success');
+    } catch (err) {
+      showToast?.('Erro: ' + (err.message || err), 'error');
+    }
+  };
+
   const arquivar = async () => {
     if (!dbCard || !confirm('Arquivar este card? Pode ser recuperado depois.')) return;
     const cli = getSupa();
@@ -11164,7 +11214,39 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
       }}>
         {/* Header */}
         <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
-          <ClienteAvatar nome={card.nome} init={card.init} color={card.color} logoUrl={card.logoUrl} size={42}/>
+          {/* ✨ Avatar editável — click upload */}
+          <div style={{position:'relative', flexShrink:0}}>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={onUploadFoto} style={{display:'none'}}/>
+            <div onClick={()=>!uploadingFoto && fileInputRef.current?.click()}
+              title={uploadingFoto ? 'Enviando...' : 'Clique pra trocar a foto'}
+              style={{cursor: uploadingFoto ? 'wait' : 'pointer', position:'relative'}}>
+              <ClienteAvatar
+                nome={card.nome}
+                init={card.init}
+                color={card.color}
+                logoUrl={fotoUrl || card.logoUrl}
+                size={42}/>
+              {/* Overlay câmera no hover */}
+              <div style={{
+                position:'absolute', inset:0, borderRadius:'50%',
+                background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center',
+                opacity: uploadingFoto ? 1 : 0,
+                transition:'opacity .15s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={e => e.currentTarget.style.opacity = uploadingFoto ? '1' : '0'}>
+                <Icon name={uploadingFoto ? 'RefreshCw' : 'Image'} size={14} style={{color:'#fff'}}/>
+              </div>
+            </div>
+            {fotoUrl && (
+              <button onClick={removerFoto} title="Remover foto" style={{
+                position:'absolute', top:-4, right:-4, width:18, height:18, borderRadius:'50%',
+                background:'#E5544D', color:'#fff', border:'2px solid var(--bg-2)',
+                fontSize:9, fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                padding:0, lineHeight:1,
+              }}>×</button>
+            )}
+          </div>
           <div style={{flex:1, minWidth:0}}>
             <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{card.nome}</h3>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:2, display:'flex', alignItems:'center', gap:6}}>
@@ -11540,7 +11622,10 @@ function Pipeline({ cols, setCols }) {
                       onMouseEnter={e => { if (!drag) { e.currentTarget.style.borderColor = 'rgba(123,63,228,.4)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.15)'; }}}
                       onMouseLeave={e => { if (!drag) { e.currentTarget.style.borderColor = 'var(--border-soft)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 0 rgba(0,0,0,.05)'; }}}>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:card.sub?6:0}}>
-                        <ClienteAvatar nome={card.nome} init={card.init} color={card.color} logoUrl={card.logoUrl} size={28}/>
+                        <ClienteAvatar
+                          nome={card.nome} init={card.init} color={card.color}
+                          logoUrl={_pipeCardDbCache.get(card.nome)?.foto_url || card.logoUrl}
+                          size={28}/>
                         <div style={{fontWeight:600,fontSize:13,color:'var(--t1)',flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{card.nome}</div>
                       </div>
                       {card.sub && <div style={{fontSize:11.5,color:'var(--t3)',marginLeft:34}}>{card.sub}</div>}
