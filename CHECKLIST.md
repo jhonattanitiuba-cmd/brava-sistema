@@ -124,6 +124,17 @@ ORDER BY pg_total_relation_size(C.oid) DESC;
 | Intro toca duas vezes | bfcache do browser | Já mitigado, mas verificar se persiste |
 | IA não responde | Edge `wa-ia-responder` 500 ou OpenAI quota | Logs + Supabase secrets |
 
+### Lição aprendida (Maio/2026): wa-proxy precisa usar EVOLUTION_API_KEY global
+
+A coluna `wa_instancias.evolution_apikey` pode ter sido copiada errada entre
+instâncias (token de uma sendo usado por outras). Evolution retorna 401
+quando o token não bate. **`wa-proxy` v6 prefere `EVOLUTION_API_KEY` do env**
+(master key) e só usa o da instância como fallback. Funciona pra todas.
+
+Endpoint `/chat/getBase64FromMediaMessage` é assim que mídia é descriptografada
+(Baileys cripto). Sem isso, fotos/áudios/docs mostram "Falha ao baixar" ou
+"Unauthorized".
+
 ### Lição aprendida (Maio/2026): Long.js do Baileys
 
 Baileys serializa números grandes (`fileLength`, `seconds`, `messageTimestamp`)
