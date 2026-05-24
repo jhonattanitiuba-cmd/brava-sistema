@@ -10589,6 +10589,128 @@ async function marcarExtratoIgnorado(extratoId, ignorado = true) {
   await cli.from('fin_extrato_bancario').update({ ignorado }).eq('id', extratoId);
 }
 
+/* ─── Hooks Projetos / Cliente 360 (Sprint B) ─── */
+// Lista de "clientes-grupo" agregando seus projetos (contratos)
+function useClientesGrupos() {
+  const recorrencia = useRecorrencia();
+  return React.useMemo(() => {
+    const grupos = new Map();
+    (recorrencia || []).forEach(r => {
+      const grupo = r.cliente_grupo || r.cliente || 'Sem grupo';
+      if (!grupos.has(grupo)) {
+        grupos.set(grupo, { grupo, projetos: [], mensal_total:0, impl_total:0, valor_total:0 });
+      }
+      const g = grupos.get(grupo);
+      g.projetos.push(r);
+      g.mensal_total += Number(r.mensal || 0);
+      g.impl_total   += Number(r.impl || 0);
+      g.valor_total  += Number(r.mensal || 0) + Number(r.impl || 0);
+    });
+    return Array.from(grupos.values()).sort((a,b) => b.valor_total - a.valor_total);
+  }, [recorrencia]);
+}
+
+// Parcelas de um projeto (reativo)
+function useProjetoParcelas(projetoId) {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    if (!projetoId) { setList([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('mrr_parcelas').select('*').eq('projeto_id', projetoId).order('numero');
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel(`rt:mrr_parcelas:${projetoId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_parcelas', filter:`projeto_id=eq.${projetoId}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [projetoId]);
+  return list;
+}
+
+async function adicionarParcela(projetoId, parcela) {
+  const cli = getSupa(); if (!cli) return null;
+  const { data, error } = await cli.from('mrr_parcelas').insert({ ...parcela, projeto_id: projetoId }).select().single();
+  if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  return data;
+}
+async function editarParcela(id, patch) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('mrr_parcelas').update(patch).eq('id', id);
+}
+async function deletarParcela(id) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('mrr_parcelas').delete().eq('id', id);
+}
+
+// Anexos de um projeto (reativo)
+function useProjetoAnexos(projetoId) {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    if (!projetoId) { setList([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('mrr_projeto_anexos').select('*').eq('projeto_id', projetoId).order('uploaded_at', { ascending:false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel(`rt:mrr_projeto_anexos:${projetoId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_projeto_anexos', filter:`projeto_id=eq.${projetoId}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [projetoId]);
+  return list;
+}
+
+// Upload de arquivo (PDF/DOC/imagem) pro bucket mrr-anexos + cadastra na tabela
+async function uploadAnexoProjeto(projetoId, file, categoria) {
+  const cli = getSupa(); if (!cli) return null;
+  if (file.size > 25 * 1024 * 1024) { showToast?.('Arquivo > 25MB', 'error'); return null; }
+  const { data: sess } = await cli.auth.getSession();
+  const userId = sess?.session?.user?.id;
+  const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  const path = `${projetoId}/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const { error: upErr } = await cli.storage.from('mrr-anexos').upload(path, file, { cacheControl:'3600', upsert:false, contentType: file.type });
+  if (upErr) { showToast?.('Erro upload: '+upErr.message,'error'); return null; }
+  // Pra bucket privado, gera signed URL com validade 1 ano
+  const { data: signed } = await cli.storage.from('mrr-anexos').createSignedUrl(path, 60*60*24*365);
+  const url = signed?.signedUrl;
+  if (!url) { showToast?.('Erro ao gerar URL', 'error'); return null; }
+  const { data, error } = await cli.from('mrr_projeto_anexos').insert({
+    projeto_id: projetoId, tipo:'file', nome: file.name, url, mime: file.type,
+    tamanho_bytes: file.size, storage_path: path, categoria: categoria || 'Outro',
+    uploaded_by: userId,
+  }).select().single();
+  if (error) { showToast?.('Erro cadastro: '+error.message,'error'); return null; }
+  return data;
+}
+
+// Adiciona link externo (Google Drive, OneDrive, etc)
+async function adicionarLinkAnexo(projetoId, nome, url, categoria) {
+  const cli = getSupa(); if (!cli) return null;
+  const { data: sess } = await cli.auth.getSession();
+  const userId = sess?.session?.user?.id;
+  // Normaliza URL
+  if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+  const { data, error } = await cli.from('mrr_projeto_anexos').insert({
+    projeto_id: projetoId, tipo:'link', nome: nome || url, url, categoria: categoria || 'Outro',
+    uploaded_by: userId,
+  }).select().single();
+  if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  return data;
+}
+
+async function deletarAnexoProjeto(anexo) {
+  const cli = getSupa(); if (!cli) return;
+  if (anexo.tipo === 'file' && anexo.storage_path) {
+    await cli.storage.from('mrr-anexos').remove([anexo.storage_path]).catch(()=>{});
+  }
+  await cli.from('mrr_projeto_anexos').delete().eq('id', anexo.id);
+}
+
 /* ─── Hooks Conciliação inteligente (Sprint A) ─── */
 // Lista de sugestões pendentes (score 50-84%) + lançamentos sem sugestão (< 50% / nenhum match)
 function useConciliacoesPendentes() {
