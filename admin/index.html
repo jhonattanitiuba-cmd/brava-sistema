@@ -12520,6 +12520,8 @@ function FinRecorrencia({ onNovoContrato }) {
 // ═══════════════════════════════════════════════════════════════
 function Financeiro() {
   const [tab, setTab] = useState('dashboard');
+  // Filtro global de mês: YYYY-MM. Default = mês atual.
+  const [mesFiltro, setMesFiltro] = useState(() => YM(new Date()));
   const recorrencia = useRecorrencia();
   const pagamentos = usePagamentos();
   const despesas = useDespesas();
@@ -12533,13 +12535,62 @@ function Financeiro() {
     { id:'caixa',        label:'Fluxo de caixa',        icon:'Wallet'     },
   ];
 
+  // Gera 12 meses pra trás + 1 mês à frente
+  const opcoesMes = React.useMemo(() => {
+    const arr = [];
+    const hoje = new Date();
+    for (let i = -12; i <= 1; i++) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+      const ym = YM(d);
+      const label = d.toLocaleDateString('pt-BR', { month:'long', year:'numeric' });
+      arr.push({ ym, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    }
+    return arr.reverse(); // mais recente primeiro
+  }, []);
+
+  const mesAtualLabel = (opcoesMes.find(o => o.ym === mesFiltro)?.label) || mesFiltro;
+  const ymAtualSistema = YM(new Date());
+  const ehMesCorrente = mesFiltro === ymAtualSistema;
+
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <div className="page-head__title">Financeiro</div>
           <div className="page-head__sub">
-            {recorrencia.length} contratos de recorrência · {despesas.length} despesas cadastradas · {caixa.length} lançamentos manuais
+            {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos manuais · período: <strong style={{color:'var(--t1)'}}>{mesAtualLabel}</strong>
+          </div>
+        </div>
+        <div className="page-head__actions">
+          {/* Seletor de mês */}
+          <div style={{display:'flex', alignItems:'center', gap:6, padding:'6px 8px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8}}>
+            <button onClick={()=>{
+              const idx = opcoesMes.findIndex(o => o.ym === mesFiltro);
+              if (idx < opcoesMes.length - 1) setMesFiltro(opcoesMes[idx+1].ym);
+            }} title="Mês anterior" style={{width:24, height:24, borderRadius:5, border:'none', background:'transparent', color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
+              <Icon name="ChevronLeft" size={14}/>
+            </button>
+            <select value={mesFiltro} onChange={e=>setMesFiltro(e.target.value)} style={{
+              padding:'6px 10px', background:'transparent', border:'none', color:'var(--t1)',
+              fontSize:13, fontWeight:600, cursor:'pointer', outline:'none', textTransform:'capitalize',
+              minWidth:140,
+            }}>
+              {opcoesMes.map(o => (
+                <option key={o.ym} value={o.ym}>{o.label}{o.ym === ymAtualSistema ? ' (atual)' : ''}</option>
+              ))}
+            </select>
+            <button onClick={()=>{
+              const idx = opcoesMes.findIndex(o => o.ym === mesFiltro);
+              if (idx > 0) setMesFiltro(opcoesMes[idx-1].ym);
+            }} title="Próximo mês" style={{width:24, height:24, borderRadius:5, border:'none', background:'transparent', color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
+              <Icon name="ChevronRight" size={14}/>
+            </button>
+            {!ehMesCorrente && (
+              <button onClick={()=>setMesFiltro(ymAtualSistema)} title="Voltar pro mês atual" style={{
+                padding:'4px 9px', borderRadius:5, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)',
+                color:'var(--blue)', fontSize:11, fontWeight:600, cursor:'pointer', marginLeft:4,
+              }}>Hoje</button>
+            )}
           </div>
         </div>
       </div>
@@ -12564,11 +12615,11 @@ function Financeiro() {
         ))}
       </div>
 
-      {/* Render condicional da tab */}
-      {tab === 'dashboard'   && <FinDashboard recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
-      {tab === 'recorrencia' && <FinRecorrencia/>}
-      {tab === 'despesas'    && <FinDespesas despesas={despesas} despesasPag={despesasPag}/>}
-      {tab === 'caixa'       && <FinCaixa recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
+      {/* Render condicional da tab — todas recebem mesFiltro */}
+      {tab === 'dashboard'   && <FinDashboard mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
+      {tab === 'recorrencia' && <FinRecorrencia mesFiltro={mesFiltro}/>}
+      {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag}/>}
+      {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
     </div>
   );
 }
@@ -12642,15 +12693,17 @@ function calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, cai
 // ─────────────────────────────────────────────────────────────────
 // TAB 1: VISÃO GERAL (Dashboard) — KPIs reais + projeção
 // ─────────────────────────────────────────────────────────────────
-function FinDashboard({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
-  const hoje = new Date();
-  const ymHoje = YM(hoje);
-  const mesAtualLabel = hoje.toLocaleDateString('pt-BR', { month:'long' });
+function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
+  // mesFiltro = "YYYY-MM" (vem do Financeiro pai), default = mês atual
+  const ymHoje = mesFiltro || YM(new Date());
+  const [ano, mes] = ymHoje.split('-').map(Number);
+  const refDate = new Date(ano, mes - 1, 1);
+  const mesAtualLabel = refDate.toLocaleDateString('pt-BR', { month:'long' });
   const extratoReal = useExtratoBancario();
 
-  // Cálculo REAL baseado no extrato bancário (dados importados do BTG)
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10);
-  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10);
+  // Cálculo REAL baseado no extrato bancário (dados importados do BTG) — usa mesFiltro
+  const inicioMes = new Date(ano, mes - 1, 1).toISOString().slice(0,10);
+  const fimMes = new Date(ano, mes, 0).toISOString().slice(0,10);
   const movimentoMes = (extratoReal || []).filter(e => !e.ignorado && e.data >= inicioMes && e.data <= fimMes);
   const entradasReais = movimentoMes.filter(e => e.valor > 0).reduce((s,e) => s + Number(e.valor), 0);
   const saidasReais = Math.abs(movimentoMes.filter(e => e.valor < 0).reduce((s,e) => s + Number(e.valor), 0));
@@ -12783,19 +12836,21 @@ function CompararEntradasSaidas({ extrato }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB 3: DESPESAS — CRUD com edição inline + toggle pago/mês
 // ─────────────────────────────────────────────────────────────────
-function FinDespesas({ despesas, despesasPag }) {
+function FinDespesas({ mesFiltro, despesas, despesasPag }) {
   const [editando, setEditando] = useState(null);
   const [gerindoPag, setGerindoPag] = useState(null);
   const [filtroCat, setFiltroCat] = useState('todas');
   const [busca, setBusca] = useState('');
-  const [categorizandoExtrato, setCategorizandoExtrato] = useState(null); // lançamento do extrato pra virar despesa
+  const [categorizandoExtrato, setCategorizandoExtrato] = useState(null);
   const extrato = useExtratoBancario();
-  const hoje = new Date();
-  const ymHoje = YM(hoje);
+  const ymHoje = mesFiltro || YM(new Date());
+  const [ano, mes] = ymHoje.split('-').map(Number);
+  const refDate = new Date(ano, mes - 1, 1);
+  const hoje = refDate;
 
-  // Saídas reais do mês ainda não conciliadas (não vinculadas a despesa ou caixa)
-  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10);
-  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10);
+  // Saídas reais do mês selecionado ainda não conciliadas
+  const inicioMes = new Date(ano, mes - 1, 1).toISOString().slice(0,10);
+  const fimMes = new Date(ano, mes, 0).toISOString().slice(0,10);
   const saidasNaoConciliadas = (extrato || []).filter(e =>
     !e.ignorado && e.valor < 0 && e.data >= inicioMes && e.data <= fimMes &&
     !e.conciliado_despesa_pagamento_id && !e.conciliado_caixa_id
@@ -13235,18 +13290,21 @@ function DespesaHistoricoModal({ despesa, despesasPag, onClose }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB 4: FLUXO DE CAIXA — extrato + lançamento avulso + projeção
 // ─────────────────────────────────────────────────────────────────
-function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
+function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const [editando, setEditando] = useState(null);
-  const [importando, setImportando] = useState(false); // modal importar XLSX
-  const [conciliandoAberto, setConciliandoAberto] = useState(false); // modal conciliação
-  const [filtroTipo, setFiltroTipo] = useState('todos'); // todos / entrada / saida / nao-conciliado
+  const [importando, setImportando] = useState(false);
+  const [conciliandoAberto, setConciliandoAberto] = useState(false);
+  const [filtroTipo, setFiltroTipo] = useState('todos');
   const [sincronizandoBtg, setSincronizandoBtg] = useState(false);
   const extratoBancario = useExtratoBancario();
   const btgAccounts = useBtgAccounts();
   const ultimaSyncBtg = useBtgUltimaSync();
   const pendentesConciliacao = useConciliacoesPendentes();
-  const hoje = new Date();
-  const ymHoje = YM(hoje);
+  const ymHoje = mesFiltro || YM(new Date());
+  const [ano, mes] = ymHoje.split('-').map(Number);
+  const hoje = new Date(ano, mes - 1, 1);
+  const inicioMesFiltro = new Date(ano, mes - 1, 1).toISOString().slice(0,10);
+  const fimMesFiltro = new Date(ano, mes, 0).toISOString().slice(0,10);
 
   // Saldo total das contas BTG conectadas (somatório do saldo_atual mais recente)
   const saldoBtgTotal = btgAccounts.reduce((s, a) => s + (Number(a.saldo_atual) || 0), 0);
@@ -13316,7 +13374,10 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
     return itens;
   }, [caixa, extratoBancario]);
 
+  // Filtro pelo mês selecionado + tipo
   const filtrado = extrato.filter(i => {
+    // Filtra por mês escolhido
+    if (i.data && (i.data < inicioMesFiltro || i.data > fimMesFiltro)) return false;
     if (filtroTipo === 'todos') return true;
     if (filtroTipo === 'nao-conciliado') return i.naoConciliado === true;
     return i.tipo === filtroTipo;
