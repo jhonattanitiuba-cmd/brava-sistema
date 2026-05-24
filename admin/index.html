@@ -14856,15 +14856,19 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
         ))}
       </div>
 
-      {/* Identificação */}
-      <SecaoLabel icon="Building2">Identificação</SecaoLabel>
+      {/* Identificação — TUDO editável inline */}
+      <SecaoLabel icon="Building2">Identificação <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
-        <InfoCard label={cliente.tipo_pessoa === 'PF' ? 'CPF' : 'CNPJ'} value={cliente.cnpj_cpf || '—'}/>
-        <InfoCard label="Nome fantasia" value={cliente.nome_fantasia || '—'}/>
-        <InfoCard label="Email" value={cliente.contato_email || '—'}/>
-        <InfoCard label="Telefone" value={cliente.contato_telefone || '—'}/>
-        <InfoCard label="Contato" value={cliente.contato_nome ? `${cliente.contato_nome}${cliente.contato_cargo ? ' · ' + cliente.contato_cargo : ''}` : '—'}/>
-        <InfoCard label="Origem" value={cliente.origem || '—'}/>
+        <InfoCardEdit label={cliente.tipo_pessoa === 'PF' ? 'CPF' : 'CNPJ'} value={cliente.cnpj_cpf} field="cnpj_cpf" clienteId={cliente.id} placeholder={cliente.tipo_pessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}/>
+        <InfoCardEdit label="Nome fantasia" value={cliente.nome_fantasia} field="nome_fantasia" clienteId={cliente.id}/>
+        <InfoCardEdit label="Email" value={cliente.contato_email} field="contato_email" clienteId={cliente.id} type="email" placeholder="contato@empresa.com"/>
+        <InfoCardEdit label="Telefone" value={cliente.contato_telefone} field="contato_telefone" clienteId={cliente.id} placeholder="(11) 99999-9999"/>
+        <InfoCardEdit label="Contato (nome)" value={cliente.contato_nome} field="contato_nome" clienteId={cliente.id} placeholder="Nome de quem você fala"/>
+        <InfoCardEdit label="Cargo do contato" value={cliente.contato_cargo} field="contato_cargo" clienteId={cliente.id} placeholder="Sócio, Gerente..."/>
+        <InfoCardEdit label="Origem" value={cliente.origem} field="origem" clienteId={cliente.id} placeholder="Indicação, Inbound..."/>
+        <InfoCardEdit label="Nicho" value={cliente.nicho} field="nicho" clienteId={cliente.id} placeholder="Estética, Saúde..."/>
+        <InfoCardEdit label="Site" value={cliente.site} field="site" clienteId={cliente.id} placeholder="https://empresa.com.br"/>
+        <InfoCardEdit label="Cidade / UF" value={cliente.endereco_cidade ? `${cliente.endereco_cidade}${cliente.endereco_estado ? '/'+cliente.endereco_estado : ''}` : null} field="endereco_cidade" clienteId={cliente.id} placeholder="São Paulo"/>
       </div>
 
       {/* Últimos lançamentos */}
@@ -14901,32 +14905,116 @@ function InfoCard({ label, value }) {
   );
 }
 
+// Card editável inline — click pra editar, blur ou Enter pra salvar, Escape pra cancelar
+function InfoCardEdit({ label, value, field, clienteId, type = 'text', placeholder, onAfter }) {
+  const [editando, setEditando] = React.useState(false);
+  const [val, setVal] = React.useState(value || '');
+  const [saving, setSaving] = React.useState(false);
+  React.useEffect(() => { setVal(value || ''); }, [value]);
+
+  const salvar = async () => {
+    if (val === (value || '')) { setEditando(false); return; }
+    setSaving(true);
+    const r = await editCliente(clienteId, { [field]: val || null });
+    setSaving(false);
+    setEditando(false);
+    if (r.ok) {
+      showToast?.('✓ '+label+' atualizado','success');
+      onAfter?.();
+    } else {
+      showToast?.('Erro: '+r.erro,'error');
+      setVal(value || ''); // reverte
+    }
+  };
+
+  const cancelar = () => { setVal(value || ''); setEditando(false); };
+
+  return (
+    <div style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, position:'relative', cursor: editando ? 'text' : 'pointer'}}
+      onClick={() => !editando && setEditando(true)}
+      title="Clique para editar">
+      <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, marginBottom:2, fontWeight:600, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+        <span>{label}</span>
+        {!editando && <Icon name="Pencil" size={10} style={{color:'var(--t3)', opacity:.5}}/>}
+      </div>
+      {editando ? (
+        <input
+          autoFocus
+          type={type}
+          value={val}
+          disabled={saving}
+          onChange={e => setVal(e.target.value)}
+          onBlur={salvar}
+          onKeyDown={e => { if (e.key === 'Enter') salvar(); if (e.key === 'Escape') cancelar(); }}
+          placeholder={placeholder || ''}
+          style={{
+            width:'100%', background:'transparent', border:'none', outline:'none',
+            color:'var(--t1)', fontSize:13, fontFamily:'inherit', padding:0,
+          }}
+        />
+      ) : (
+        <div style={{fontSize:13, color: value ? 'var(--t1)' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+          {value || <span style={{fontStyle:'italic'}}>— clique pra preencher —</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── TAB: Projetos ───
 function Cliente360TabProjetos({ cliente, projetos, loading }) {
   const { list: statusConfig } = useStatusConfig();
+  const { list: clientes } = useClientes();
+  const recorrencia = useRecorrencia();
+  const [editando, setEditando] = React.useState(null); // {} novo, projeto-obj edit
   const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 
-  if (loading) return <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Carregando projetos...</div>;
-  if (projetos.length === 0) {
-    return (
-      <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
-        <Icon name="Layers" size={32} style={{opacity:.4, marginBottom:8}}/>
-        <div style={{fontSize:13, marginBottom:4}}>Este cliente ainda não tem projetos cadastrados.</div>
-        <div style={{fontSize:11.5}}>Crie no Financeiro › Recorrência.</div>
-      </div>
-    );
-  }
+  const novoProjeto = () => setEditando({ cliente_id: cliente.id, cliente: cliente.nome + ' - ' });
+
+  // Pra editar, precisa do projeto COMPLETO (mrr_clients), não da view
+  const abrirEdicao = async (projetoId) => {
+    const cli = getSupa(); if (!cli) return;
+    const { data } = await cli.from('projetos').select('*').eq('id', projetoId).maybeSingle();
+    if (data) setEditando(data);
+  };
+
+  const removerProjeto = async (projetoId, nome) => {
+    if (!confirm(`Remover projeto "${nome}"?\n\nIsto remove o contrato + parcelas + anexos. Pagamentos vinculados ficam órfãos.`)) return;
+    const cli = getSupa(); if (!cli) return;
+    const { error } = await cli.from('projetos').delete().eq('id', projetoId);
+    if (error) { showToast?.('Erro: '+error.message,'error'); return; }
+    showToast?.('Projeto removido','success');
+  };
 
   return (
     <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:10}}>
+      {/* Header com botão Novo */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
+        <div style={{fontSize:12, color:'var(--t3)'}}>
+          {projetos.length} projeto{projetos.length === 1 ? '' : 's'} desse cliente
+        </div>
+        <button onClick={novoProjeto} style={{padding:'7px 14px', borderRadius:8, border:'none', background:'var(--blue)', color:'#fff', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+          <Icon name="Plus" size={12}/>Novo projeto
+        </button>
+      </div>
+
+      {loading && <div style={{padding:30, textAlign:'center', color:'var(--t3)'}}>Carregando projetos...</div>}
+
+      {!loading && projetos.length === 0 && (
+        <div style={{padding:40, textAlign:'center', color:'var(--t3)', border:'1.5px dashed var(--border)', borderRadius:11}}>
+          <Icon name="Layers" size={32} style={{opacity:.4, marginBottom:8}}/>
+          <div style={{fontSize:13, marginBottom:8}}>Este cliente ainda não tem projetos.</div>
+          <button onClick={novoProjeto} style={{padding:'7px 16px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:12.5, cursor:'pointer'}}>
+            <Icon name="Plus" size={12}/> Criar primeiro projeto
+          </button>
+        </div>
+      )}
+
       {projetos.map(p => {
         const cfg = getStatusByKey(statusConfig, p.status_fase);
-        const totalEsperado = Number(p.implantacao_esperada||0) + Number(p.mensal_esperado||0) * (p.qtd_meses_pagos||0 || 12);
-        const totalRecebido = Number(p.total_recebido||0);
-        const pct = totalEsperado > 0 ? Math.min(100, (totalRecebido / totalEsperado) * 100) : 0;
         return (
           <div key={p.projeto_id} style={{padding:'14px 16px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10, borderLeft:`3px solid ${cfg.cor}`}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8, gap:8}}>
               <div style={{minWidth:0, flex:1}}>
                 <div style={{fontSize:14, color:'var(--t1)', fontWeight:600, marginBottom:3}}>{p.projeto_nome}</div>
                 <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
@@ -14934,9 +15022,7 @@ function Cliente360TabProjetos({ cliente, projetos, loading }) {
                     <Icon name={cfg.icone} size={9}/>{cfg.label}
                   </span>
                   {p.tipo_projeto && <span style={{fontSize:11, color:'var(--t3)'}}>{p.tipo_projeto}</span>}
-                  {p.e_repasse_terceiros && (
-                    <span style={{fontSize:10, color:'#BA7517', padding:'1px 6px', borderRadius:6, background:'rgba(186,117,23,.15)', fontWeight:600}}>REPASSE</span>
-                  )}
+                  {p.e_repasse_terceiros && <span style={{fontSize:10, color:'#BA7517', padding:'1px 6px', borderRadius:6, background:'rgba(186,117,23,.15)', fontWeight:600}}>REPASSE</span>}
                   {p.meses_em_atraso > 0 && (
                     <span style={{fontSize:10.5, color:'#ff8585', padding:'1px 6px', borderRadius:6, background:'rgba(163,45,45,.15)', fontWeight:600, display:'inline-flex', alignItems:'center', gap:3}}>
                       <Icon name="AlertCircle" size={9}/>
@@ -14945,21 +15031,32 @@ function Cliente360TabProjetos({ cliente, projetos, loading }) {
                   )}
                 </div>
               </div>
+              {/* Ações do projeto */}
+              <div style={{display:'flex', gap:5, flexShrink:0}}>
+                <button onClick={()=>abrirEdicao(p.projeto_id)} title="Editar projeto" style={{padding:'5px 9px', borderRadius:6, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t2)', fontSize:11, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:4}}>
+                  <Icon name="Pencil" size={10}/>Editar
+                </button>
+                <button onClick={()=>removerProjeto(p.projeto_id, p.projeto_nome)} title="Remover projeto" style={{padding:'5px 7px', borderRadius:6, border:'1px solid rgba(229,84,77,.30)', background:'transparent', color:'#E5544D', fontSize:11, cursor:'pointer'}}>
+                  <Icon name="Trash2" size={10}/>
+                </button>
+              </div>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10, marginBottom: pct > 0 ? 10 : 0}}>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10}}>
               <Mini label="Mensal" value={'R$ '+fmt(p.mensal_esperado)}/>
               <Mini label="Implantação" value={'R$ '+fmt(p.implantacao_esperada)}/>
               <Mini label="Recebido" value={'R$ '+fmt(p.total_recebido)} cor="#1D9E75"/>
               <Mini label="Meses pagos" value={String(p.qtd_meses_pagos || 0)}/>
             </div>
             {p.proxima_parcela_data && (
-              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:6, paddingTop:8, borderTop:'1px solid var(--border-soft)'}}>
+              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:8, paddingTop:8, borderTop:'1px solid var(--border-soft)'}}>
                 Próx. parcela: <span style={{color:'var(--t2)', fontWeight:600}}>R$ {fmt(p.proxima_parcela_valor)}</span> em {new Date(p.proxima_parcela_data).toLocaleDateString('pt-BR')}
               </div>
             )}
           </div>
         );
       })}
+
+      {editando && <ProjetoCadastroModal projeto={editando} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditando(null)}/>}
     </div>
   );
 }
@@ -15077,10 +15174,18 @@ function VincularProjetoModal({ extratoId, projetos, onClose }) {
   );
 }
 
-// ─── TAB: Anexos ───
+// ─── TAB: Anexos — upload, link, delete, tudo dinâmico ───
 function Cliente360TabAnexos({ cliente, projetos }) {
-  // Carrega anexos de todos os projetos do cliente
   const [anexos, setAnexos] = React.useState([]);
+  const [projetoId, setProjetoId] = React.useState('');
+  const [categoria, setCategoria] = React.useState('Outro');
+  const [modoLink, setModoLink] = React.useState(false);
+  const [linkNome, setLinkNome] = React.useState('');
+  const [linkUrl, setLinkUrl] = React.useState('');
+  const [uploading, setUploading] = React.useState(false);
+  const fileRef = React.useRef(null);
+
+  // Reativa: realtime nos anexos de TODOS os projetos do cliente
   React.useEffect(() => {
     if (!projetos.length) { setAnexos([]); return; }
     const cli = getSupa(); if (!cli) return;
@@ -15091,38 +15196,147 @@ function Cliente360TabAnexos({ cliente, projetos }) {
       if (alive) setAnexos(data || []);
     };
     load();
-  }, [projetos.length]);
+    const ch = cli.channel(`rt:anexos:cli:${cliente.id}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_anexos' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [projetos.length, cliente.id]);
+
+  // Pré-seleciona o primeiro projeto disponível
+  React.useEffect(() => {
+    if (!projetoId && projetos.length > 0) setProjetoId(projetos[0].projeto_id);
+  }, [projetos.length, projetoId]);
 
   const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '—';
+  const CATEGORIAS = ['Proposta','Contrato','Diagrama','Briefing','Apresentação','Outro'];
 
-  if (anexos.length === 0) {
+  const onUploadFile = async (e) => {
+    const f = e.target.files?.[0]; if (!f) return;
+    if (!projetoId) { showToast?.('Escolha um projeto primeiro','error'); return; }
+    setUploading(true);
+    const result = await uploadAnexoProjeto(projetoId, f, categoria);
+    setUploading(false);
+    if (result) showToast?.(`✓ ${f.name} enviado`,'success');
+    e.target.value = '';
+  };
+
+  const adicionarLink = async () => {
+    if (!projetoId) { showToast?.('Escolha um projeto','error'); return; }
+    if (!linkUrl.trim()) { showToast?.('Cole a URL','error'); return; }
+    const r = await adicionarLinkAnexo(projetoId, linkNome.trim() || linkUrl, linkUrl, categoria);
+    if (r) {
+      showToast?.('✓ Link adicionado','success');
+      setLinkNome(''); setLinkUrl(''); setModoLink(false);
+    }
+  };
+
+  const removerAnexo = async (anexo) => {
+    if (!confirm(`Remover "${anexo.nome}"?`)) return;
+    await deletarAnexoProjeto(anexo);
+    showToast?.('Anexo removido','success');
+  };
+
+  // Se não tem projeto algum no cliente, bloqueia
+  if (projetos.length === 0) {
     return (
       <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
         <Icon name="Paperclip" size={32} style={{opacity:.4, marginBottom:8}}/>
-        <div style={{fontSize:13}}>Nenhum anexo nos projetos deste cliente.</div>
-        <div style={{fontSize:11.5, marginTop:4}}>Anexa propostas, contratos e documentos pelo Financeiro › Projetos.</div>
+        <div style={{fontSize:13}}>Crie um projeto primeiro pra poder anexar arquivos.</div>
       </div>
     );
   }
 
   return (
-    <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:6}}>
-      {anexos.map(a => (
-        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{
-          padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8,
-          display:'flex', alignItems:'center', gap:10, textDecoration:'none', color:'var(--t1)',
-        }}>
-          <Icon name={a.tipo === 'link' ? 'Link' : 'FileText'} size={15} style={{color:'var(--blue)', flexShrink:0}}/>
-          <div style={{flex:1, minWidth:0}}>
-            <div style={{fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.nome}</div>
-            <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
-              {a.categoria || 'Outro'} · {projetoNome(a.projeto_id)}
-              {a.tamanho_bytes && <> · {(a.tamanho_bytes / 1024).toFixed(0)} KB</>}
+    <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:12}}>
+      {/* Toolbar: escolher projeto + categoria + ação */}
+      <div style={{padding:'12px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10}}>
+        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:10}}>
+          <div>
+            <label style={{fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600, marginBottom:4, display:'block'}}>Projeto destino</label>
+            <select value={projetoId} onChange={e=>setProjetoId(e.target.value)} style={{
+              width:'100%', padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)',
+              borderRadius:7, color:'var(--t1)', fontSize:12.5,
+            }}>
+              {projetos.map(p => <option key={p.projeto_id} value={p.projeto_id}>{p.projeto_nome}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600, marginBottom:4, display:'block'}}>Categoria</label>
+            <select value={categoria} onChange={e=>setCategoria(e.target.value)} style={{
+              width:'100%', padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)',
+              borderRadius:7, color:'var(--t1)', fontSize:12.5,
+            }}>
+              {CATEGORIAS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {!modoLink ? (
+          <div style={{display:'flex', gap:8}}>
+            <input ref={fileRef} type="file" onChange={onUploadFile} style={{display:'none'}} accept="*/*"/>
+            <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{
+              flex:1, padding:'10px', borderRadius:8, border:'1px solid var(--blue)',
+              background:'rgba(30,144,255,.10)', color:'var(--blue)', fontSize:13, fontWeight:600,
+              cursor: uploading ? 'wait' : 'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:6,
+            }}>
+              <Icon name={uploading ? 'RefreshCw' : 'Upload'} size={14}/>
+              {uploading ? 'Enviando...' : 'Enviar arquivo'}
+            </button>
+            <button onClick={()=>setModoLink(true)} style={{
+              padding:'10px 14px', borderRadius:8, border:'1px solid var(--border)',
+              background:'var(--bg-3)', color:'var(--t2)', fontSize:13, cursor:'pointer',
+              display:'inline-flex', alignItems:'center', gap:6,
+            }}>
+              <Icon name="Link" size={13}/>Link externo
+            </button>
+          </div>
+        ) : (
+          <div style={{display:'flex', flexDirection:'column', gap:8}}>
+            <input type="text" placeholder="Nome do link (opcional)" value={linkNome} onChange={e=>setLinkNome(e.target.value)} style={{
+              padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7, color:'var(--t1)', fontSize:12.5, outline:'none',
+            }}/>
+            <input type="url" placeholder="https://drive.google.com/..." value={linkUrl} onChange={e=>setLinkUrl(e.target.value)} autoFocus style={{
+              padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7, color:'var(--t1)', fontSize:12.5, outline:'none',
+            }}/>
+            <div style={{display:'flex', gap:8}}>
+              <button onClick={adicionarLink} style={{flex:1, padding:'8px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:12.5, fontWeight:600, cursor:'pointer'}}>Adicionar link</button>
+              <button onClick={()=>{setModoLink(false); setLinkUrl(''); setLinkNome('');}} style={{padding:'8px 14px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:12.5, cursor:'pointer'}}>Cancelar</button>
             </div>
           </div>
-          <Icon name="Download" size={13} style={{color:'var(--t3)'}}/>
-        </a>
-      ))}
+        )}
+      </div>
+
+      {/* Lista de anexos */}
+      {anexos.length === 0 ? (
+        <div style={{padding:30, textAlign:'center', color:'var(--t3)', border:'1.5px dashed var(--border)', borderRadius:10}}>
+          <Icon name="Paperclip" size={28} style={{opacity:.4, marginBottom:6}}/>
+          <div style={{fontSize:12.5}}>Nenhum anexo ainda. Use o painel acima pra subir.</div>
+        </div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
+          {anexos.map(a => (
+            <div key={a.id} style={{
+              padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8,
+              display:'flex', alignItems:'center', gap:10,
+            }}>
+              <Icon name={a.tipo === 'link' ? 'Link' : 'FileText'} size={15} style={{color:'var(--blue)', flexShrink:0}}/>
+              <a href={a.url} target="_blank" rel="noreferrer" style={{flex:1, minWidth:0, textDecoration:'none', color:'var(--t1)'}}>
+                <div style={{fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.nome}</div>
+                <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
+                  {a.categoria || 'Outro'} · {projetoNome(a.projeto_id)}
+                  {a.tamanho_bytes && <> · {(a.tamanho_bytes / 1024).toFixed(0)} KB</>}
+                </div>
+              </a>
+              <a href={a.url} target="_blank" rel="noreferrer" title="Abrir" style={{color:'var(--t3)', padding:5}}>
+                <Icon name="Download" size={13}/>
+              </a>
+              <button onClick={()=>removerAnexo(a)} title="Remover anexo" style={{padding:5, background:'transparent', border:'none', color:'#E5544D', cursor:'pointer'}}>
+                <Icon name="Trash2" size={13}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
