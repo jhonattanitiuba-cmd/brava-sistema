@@ -487,6 +487,8 @@ if (!document.documentElement.getAttribute('data-theme')) {
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
 <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+<!-- SheetJS (XLSX): parse de extratos bancários no browser, sem subir arquivo pro servidor -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script type="text/babel" src="app/icons.jsx"></script>
 <script type="text/babel" src="app/components.jsx"></script>
 <script type="text/babel">
@@ -10437,6 +10439,270 @@ function useCaixaLancamentos() {
   return list;
 }
 
+/* ─── Store EXTRATO BANCÁRIO — Supabase (tabela fin_extrato_bancario) ─── */
+
+// Normaliza descrição pra calcular hash de dedup determinístico (espaços, case, acentos)
+function _normalizeDesc(s) {
+  return (s || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')   // tira acentos
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')                          // só alfanum + espaço
+    .replace(/\s+/g, ' ').trim();
+}
+
+// SHA-1 via Web Crypto (síncrono no caller via await)
+async function _sha1(text) {
+  const buf = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest('SHA-1', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function calcHashLancamento({ data, valor, descricao }) {
+  const norm = `${data}|${Number(valor).toFixed(2)}|${_normalizeDesc(descricao)}`;
+  return _sha1(norm);
+}
+
+// Insert em batch com upsert por hash_dedup (ignora duplicados automaticamente)
+// Retorna { inseridos, duplicados }
+async function importarExtratoLancamentos(rows) {
+  const cli = getSupa(); if (!cli) return { inseridos: 0, duplicados: 0, erro: 'Sem conexão' };
+  const { data: sess } = await cli.auth.getSession();
+  const userId = sess?.session?.user?.id || null;
+  // Garante hash em todos
+  const prepped = [];
+  for (const r of rows) {
+    const hash = r.hash_dedup || await calcHashLancamento(r);
+    prepped.push({
+      data: r.data,
+      descricao: r.descricao,
+      valor: Number(r.valor),
+      saldo_apos: r.saldo_apos ?? null,
+      banco: r.banco || null,
+      agencia: r.agencia || null,
+      conta: r.conta || null,
+      hash_dedup: hash,
+      importado_por: userId,
+    });
+  }
+  // Upsert com onConflict hash_dedup → duplicados são silenciosamente ignorados
+  const { data, error } = await cli.from('fin_extrato_bancario')
+    .upsert(prepped, { onConflict: 'hash_dedup', ignoreDuplicates: true })
+    .select('id, hash_dedup');
+  if (error) return { inseridos: 0, duplicados: 0, erro: error.message };
+  const inseridos = (data || []).length;
+  return { inseridos, duplicados: prepped.length - inseridos };
+}
+
+async function deleteExtratoLancamento(id) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_extrato_bancario').delete().eq('id', id);
+}
+
+async function vincularExtratoComPagamento(extratoId, pagamentoId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_extrato_bancario').update({
+    conciliado_pagamento_id: pagamentoId,
+    conciliado_despesa_pagamento_id: null,
+    conciliado_caixa_id: null,
+  }).eq('id', extratoId);
+}
+
+async function vincularExtratoComDespesaPag(extratoId, despesaPagId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_extrato_bancario').update({
+    conciliado_pagamento_id: null,
+    conciliado_despesa_pagamento_id: despesaPagId,
+    conciliado_caixa_id: null,
+  }).eq('id', extratoId);
+}
+
+async function vincularExtratoComCaixa(extratoId, caixaId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_extrato_bancario').update({
+    conciliado_pagamento_id: null,
+    conciliado_despesa_pagamento_id: null,
+    conciliado_caixa_id: caixaId,
+  }).eq('id', extratoId);
+}
+
+async function desvincularExtrato(extratoId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_extrato_bancario').update({
+    conciliado_pagamento_id: null,
+    conciliado_despesa_pagamento_id: null,
+    conciliado_caixa_id: null,
+  }).eq('id', extratoId);
+}
+
+async function marcarExtratoIgnorado(extratoId, ignorado = true) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_extrato_bancario').update({ ignorado }).eq('id', extratoId);
+}
+
+function useExtratoBancario() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_extrato_bancario').select('*').order('data', { ascending: false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:fin_extrato_bancario')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_extrato_bancario' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
+// Converte data BR (DD/MM/AAAA) ou Date pra ISO (YYYY-MM-DD)
+function _toIsoDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString().slice(0,10);
+  const s = String(v).trim();
+  // DD/MM/AAAA
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // Já no formato ISO?
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  return null;
+}
+
+/* Parser de extrato XLSX (client-side via SheetJS).
+   Detecta automaticamente o layout do BS2 (Banco 208) e bancos similares.
+   File NUNCA sai do browser — tudo processado localmente.
+   Retorna: { meta: {banco, agencia, conta, periodo}, rows: [{data, descricao, valor, saldo_apos, hash_dedup}] } */
+async function parseExtratoXlsx(file) {
+  if (!window.XLSX) throw new Error('Biblioteca XLSX não carregou. Recarregue a página.');
+  const ab = await file.arrayBuffer();
+  const wb = window.XLSX.read(ab, { type: 'array', cellDates: true });
+  const sheetName = wb.SheetNames.find(n => /extrato/i.test(n)) || wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const data = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+
+  // Extrai metadados do header (linhas 1-12)
+  const meta = { banco: null, agencia: null, conta: null, periodo: null };
+  let headerRowIdx = -1;
+  for (let i = 0; i < Math.min(20, data.length); i++) {
+    const row = data[i] || [];
+    const txt = row.map(c => c == null ? '' : String(c)).join(' ').toLowerCase();
+    if (/banco/i.test(txt) && !meta.banco) {
+      const v = row.find((c,j) => j>0 && c != null && String(c).match(/\d+/));
+      if (v) meta.banco = String(v);
+    }
+    if (/ag[êe]ncia/i.test(txt) && !meta.agencia) {
+      const v = row.find((c,j) => j>0 && c != null && String(c).match(/\d+/));
+      if (v) meta.agencia = String(v);
+    }
+    if (/conta/i.test(txt) && !meta.conta) {
+      const v = row.find((c,j) => j>0 && c != null && String(c).match(/\d+/));
+      if (v) meta.conta = String(v);
+    }
+    // Detecta header da tabela ("Data de lançamento" ou "Data" + "Descrição" + "Valor")
+    const cellsLower = row.map(c => (c == null ? '' : String(c)).toLowerCase());
+    if (cellsLower.some(c => c.includes('data')) &&
+        cellsLower.some(c => c.includes('descri')) &&
+        cellsLower.some(c => c.match(/valor|entrad|s[aã]ida|cr[eé]dito|d[eé]bito/i))) {
+      headerRowIdx = i;
+      break;
+    }
+  }
+  if (headerRowIdx < 0) throw new Error('Não foi possível detectar o cabeçalho do extrato (procurando Data + Descrição + Valor).');
+
+  // Identifica colunas pelo header
+  const headerRow = data[headerRowIdx].map(c => (c == null ? '' : String(c)).toLowerCase());
+  const idxData  = headerRow.findIndex(c => c.includes('data'));
+  const idxDesc  = headerRow.findIndex(c => c.includes('descri'));
+  const idxValor = headerRow.findIndex(c => /entrad|s[aã]ida|valor|cr[eé]dito|d[eé]bito/i.test(c));
+  const idxSaldo = headerRow.findIndex(c => /saldo/i.test(c));
+  if (idxData < 0 || idxDesc < 0 || idxValor < 0) {
+    throw new Error('Colunas obrigatórias não encontradas (data/descrição/valor).');
+  }
+
+  // Lê as linhas de lançamento + calcula hash
+  const rows = [];
+  for (let i = headerRowIdx + 1; i < data.length; i++) {
+    const r = data[i] || [];
+    const dataIso = _toIsoDate(r[idxData]);
+    if (!dataIso) continue;
+    const desc = r[idxDesc] != null ? String(r[idxDesc]).trim() : '';
+    const valorRaw = r[idxValor];
+    if (valorRaw == null || valorRaw === '') continue;
+    const valor = typeof valorRaw === 'number' ? valorRaw : parseFloat(String(valorRaw).replace(',','.'));
+    if (isNaN(valor)) continue;
+    const saldo = idxSaldo >= 0 ? (typeof r[idxSaldo] === 'number' ? r[idxSaldo] : null) : null;
+    const hash_dedup = await calcHashLancamento({ data: dataIso, valor, descricao: desc });
+    rows.push({
+      data: dataIso,
+      descricao: desc,
+      valor,
+      saldo_apos: saldo,
+      banco: meta.banco,
+      agencia: meta.agencia,
+      conta: meta.conta,
+      hash_dedup,
+    });
+  }
+  return { meta, rows, sheetName };
+}
+
+// Algoritmo de match: sugere quais pagamentos/despesas do sistema podem corresponder
+// a um lançamento do extrato. Retorna { pagamentos:[], despesas:[] } ordenado por confiança.
+function sugerirMatch(lancamentoExtrato, opts) {
+  const { recorrencia = [], pagamentos = {}, despesas = [], despesasPag = {} } = opts;
+  const { data, valor, descricao } = lancamentoExtrato;
+  const isEntrada = valor > 0;
+  const valorAbs = Math.abs(Number(valor) || 0);
+  const descNorm = _normalizeDesc(descricao);
+  const dataMs = new Date(data + 'T00:00:00').getTime();
+
+  const matches = [];
+
+  if (isEntrada) {
+    // Procura em mrr_pagamentos: pagamentos com data próxima (±7d) e valor próximo (±2%)
+    Object.entries(pagamentos).forEach(([clienteId, meses]) => {
+      const cliente = recorrencia.find(r => r.__id === clienteId);
+      if (!cliente) return;
+      const nomeNorm = _normalizeDesc(cliente.cliente);
+      // Score por nome (palavras em comum)
+      const palavrasCliente = nomeNorm.split(' ').filter(w => w.length >= 4);
+      const nomeMatch = palavrasCliente.some(w => descNorm.includes(w));
+      // Pra cada mês pago: testa valor
+      Object.entries(meses).forEach(([ym, info]) => {
+        if (!info?.pago) return;
+        const diffValor = Math.abs(cliente.mensal - valorAbs);
+        const diffPercent = diffValor / Math.max(valorAbs, 1);
+        if (nomeMatch && diffPercent < 0.05) {
+          matches.push({ tipo:'pagamento', cliente_id: clienteId, cliente_nome: cliente.cliente, ym, valor: cliente.mensal, score: 100 - diffPercent*100 });
+        } else if (nomeMatch) {
+          matches.push({ tipo:'pagamento', cliente_id: clienteId, cliente_nome: cliente.cliente, ym, valor: cliente.mensal, score: 70 });
+        }
+      });
+    });
+  } else {
+    // Saída: procura em despesas pagas
+    Object.entries(despesasPag).forEach(([despId, meses]) => {
+      const desp = despesas.find(d => d.id === despId);
+      if (!desp) return;
+      const nomeNorm = _normalizeDesc(desp.descricao);
+      const palavras = nomeNorm.split(' ').filter(w => w.length >= 4);
+      const nomeMatch = palavras.some(w => descNorm.includes(w));
+      Object.entries(meses).forEach(([ym, info]) => {
+        if (!info?.pago) return;
+        const valorReal = Number(info.valor_pago ?? desp.valor) || 0;
+        const diff = Math.abs(valorReal - valorAbs) / Math.max(valorAbs, 1);
+        if (nomeMatch && diff < 0.05) {
+          matches.push({ tipo:'despesa_pag', despesa_id: despId, descricao: desp.descricao, ym, valor: valorReal, score: 100 - diff*100 });
+        }
+      });
+    });
+  }
+
+  return matches.sort((a,b) => b.score - a.score).slice(0, 5);
+}
+
 /* Helpers de competencia/atraso */
 const YM = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 const ymToDate = (ym) => { const [y,m] = ym.split('-').map(Number); return new Date(y, m-1, 1); };
@@ -11918,11 +12184,13 @@ function DespesaHistoricoModal({ despesa, despesasPag, onClose }) {
 // ─────────────────────────────────────────────────────────────────
 function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const [editando, setEditando] = useState(null);
-  const [filtroTipo, setFiltroTipo] = useState('todos'); // todos / entrada / saida
+  const [importando, setImportando] = useState(false); // modal importar XLSX
+  const [filtroTipo, setFiltroTipo] = useState('todos'); // todos / entrada / saida / nao-conciliado
+  const extratoBancario = useExtratoBancario();
   const hoje = new Date();
   const ymHoje = YM(hoje);
 
-  // Constrói extrato consolidado (lançamentos manuais + recebimentos da recorrência + despesas pagas)
+  // Constrói extrato consolidado (lançamentos manuais + recebimentos + despesas + extrato bancário)
   const extrato = React.useMemo(() => {
     const itens = [];
     // Lançamentos manuais
@@ -11958,17 +12226,40 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
         });
       });
     });
+    // ✨ Lançamentos importados do extrato bancário (que ainda não foram vinculados a nada)
+    // Quando vinculados, eles "somem" daqui pra evitar duplicação visual com o pagamento/despesa.
+    extratoBancario.forEach(l => {
+      if (l.ignorado) return;
+      const jaVinculado = l.conciliado_pagamento_id || l.conciliado_despesa_pagamento_id || l.conciliado_caixa_id;
+      if (jaVinculado) return; // já aparece via origem 'mrr' ou 'despesa' ou 'manual'
+      itens.push({
+        id: `bank:${l.id}`,
+        tipo: l.valor > 0 ? 'entrada' : 'saida',
+        descricao: l.descricao,
+        categoria: l.banco ? `Banco ${l.banco}` : 'Extrato bancário',
+        valor: Math.abs(Number(l.valor)),
+        data: l.data,
+        origem: 'banco',
+        raw: l, editable: false,
+        naoConciliado: true,
+      });
+    });
     // Ordena decrescente por data
     itens.sort((a,b) => (b.data || '').localeCompare(a.data || ''));
     return itens;
-  }, [caixa, pagamentos, recorrencia, despesas, despesasPag]);
+  }, [caixa, pagamentos, recorrencia, despesas, despesasPag, extratoBancario]);
 
-  const filtrado = extrato.filter(i => filtroTipo === 'todos' || i.tipo === filtroTipo);
+  const filtrado = extrato.filter(i => {
+    if (filtroTipo === 'todos') return true;
+    if (filtroTipo === 'nao-conciliado') return i.naoConciliado === true;
+    return i.tipo === filtroTipo;
+  });
 
   // Saldo CONCILIADO — mesma função usada no FinDashboard, garante que o número bate
   const saldoAtual = calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, caixa);
   const totalEntradas = extrato.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
   const totalSaidas = extrato.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
+  const totalNaoConciliado = extrato.filter(l => l.naoConciliado).length;
 
   // Projeção fim do mês: saldo atual + a receber - a pagar (mês corrente)
   const projFimMes = (() => {
@@ -11981,9 +12272,15 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   return (
     <div>
       {/* Header */}
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18}}>
-        <div style={{fontSize:13, color:'var(--t3)'}}>{extrato.length} movimentações no extrato (recebimentos + despesas + manuais)</div>
-        <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo lançamento</button>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18, gap:14, flexWrap:'wrap'}}>
+        <div style={{fontSize:13, color:'var(--t3)'}}>
+          {extrato.length} movimentações no extrato
+          {totalNaoConciliado > 0 && <span style={{color:'#BA7517', marginLeft:8, fontWeight:500}}>· {totalNaoConciliado} do banco aguardando conciliação</span>}
+        </div>
+        <div style={{display:'flex', gap:8}}>
+          <button onClick={()=>setImportando(true)} className="btn btn-outline"><Icon name="Upload" size={14}/>Importar extrato</button>
+          <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo lançamento</button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -12005,11 +12302,12 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
       </div>
 
       {/* Filtros */}
-      <div className="card" style={{padding:'14px 16px', marginBottom:14, display:'flex', gap:10, alignItems:'center'}}>
+      <div className="card" style={{padding:'14px 16px', marginBottom:14, display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
         {[
-          { id:'todos', label:'Tudo', cor:'var(--blue)' },
-          { id:'entrada', label:'Entradas', cor:'#1D9E75' },
-          { id:'saida', label:'Saídas', cor:'#A32D2D' },
+          { id:'todos',          label:'Tudo',                cor:'var(--blue)' },
+          { id:'entrada',        label:'Entradas',            cor:'#1D9E75' },
+          { id:'saida',          label:'Saídas',              cor:'#A32D2D' },
+          { id:'nao-conciliado', label:`Não conciliado (${totalNaoConciliado})`, cor:'#BA7517' },
         ].map(o => (
           <button key={o.id} onClick={()=>setFiltroTipo(o.id)} style={{
             padding:'6px 14px', borderRadius:7, fontSize:12.5, fontWeight:500, cursor:'pointer',
@@ -12018,7 +12316,7 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
             border:`1px solid ${filtroTipo === o.id ? o.cor+'55' : 'transparent'}`,
           }}>{o.label}</button>
         ))}
-        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>* Recebimentos da Recorrência e Despesas pagas entram aqui automaticamente</div>
+        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>* Recorrência, Despesas pagas e extrato do banco entram aqui automaticamente</div>
       </div>
 
       {/* Extrato */}
@@ -12050,18 +12348,30 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
                       {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                     </span>
                   </td>
-                  <td style={{padding:'10px 14px', color:'var(--t1)'}}>{l.descricao}</td>
+                  <td style={{padding:'10px 14px', color:'var(--t1)'}}>
+                    {l.descricao}
+                    {l.naoConciliado && (
+                      <span style={{marginLeft:8, padding:'1px 7px', borderRadius:999, fontSize:10, fontWeight:600, background:'rgba(186,117,23,.15)', color:'#BA7517', border:'1px solid rgba(186,117,23,.35)', verticalAlign:'middle'}}>
+                        ⚠ não conciliado
+                      </span>
+                    )}
+                  </td>
                   <td style={{padding:'10px 14px', color:'var(--t3)', fontSize:12.5}}>{l.categoria}</td>
                   <td style={{padding:'10px 14px', textAlign:'right', color: l.tipo === 'entrada' ? '#1D9E75' : '#ff8585', fontFamily:'var(--f-m)', fontWeight:600}}>
-                    {l.tipo === 'entrada' ? '+' : '−'} R$ {l.valor.toLocaleString('pt-BR')}
+                    {l.tipo === 'entrada' ? '+' : '−'} R$ {l.valor.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
                   </td>
                   <td style={{padding:'10px 14px', color:'var(--t3)', fontSize:11.5}}>
-                    {l.origem === 'manual' ? '✋ lançamento manual' : l.origem === 'mrr' ? '🔁 recorrência' : '📋 despesa fixa'}
+                    {l.origem === 'manual'  ? '✋ lançamento manual'
+                     : l.origem === 'mrr'   ? '🔁 recorrência'
+                     : l.origem === 'banco' ? '🏦 extrato bancário'
+                                            : '📋 despesa fixa'}
                   </td>
                   <td style={{padding:'10px 14px', textAlign:'right'}}>
                     {l.editable
                       ? <button onClick={()=>setEditando(l.raw)} title="Editar" style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--blue)', padding:4}}><Icon name="Pencil" size={14}/></button>
-                      : <span style={{fontSize:11, color:'var(--t3)'}}>auto</span>}
+                      : l.origem === 'banco'
+                        ? <span style={{fontSize:11, color:'#BA7517'}} title="Vincule no modal de conciliação">vincular</span>
+                        : <span style={{fontSize:11, color:'var(--t3)'}}>auto</span>}
                   </td>
                 </tr>
               ))}
@@ -12071,6 +12381,7 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
       </div>
 
       {editando && <CaixaLancamentoModal lancamento={editando} onClose={()=>setEditando(null)}/>}
+      {importando && <ImportarExtratoModal onClose={()=>setImportando(false)}/>}
     </div>
   );
 }
@@ -12178,6 +12489,204 @@ function CaixaLancamentoModal({ lancamento, onClose }) {
               <Icon name="Check" size={13}/>{novo ? 'Adicionar' : 'Salvar'}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// IMPORTAR EXTRATO BANCÁRIO — modal estilo black brava
+// Parse 100% client-side via SheetJS. Arquivo NUNCA sai do browser.
+// ─────────────────────────────────────────────────────────────────
+function ImportarExtratoModal({ onClose }) {
+  const [arquivo, setArquivo] = React.useState(null);
+  const [parsed, setParsed] = React.useState(null);    // { meta, rows, sheetName }
+  const [parseando, setParseando] = React.useState(false);
+  const [importando, setImportando] = React.useState(false);
+  const [resultado, setResultado] = React.useState(null); // { inseridos, duplicados }
+  const [erro, setErro] = React.useState('');
+  const fileRef = React.useRef(null);
+
+  const onArquivo = async (e) => {
+    setErro(''); setResultado(null); setParsed(null);
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!/\.(xlsx|xls)$/i.test(f.name)) { setErro('Use um arquivo .xlsx ou .xls'); return; }
+    if (f.size > 5 * 1024 * 1024) { setErro('Arquivo maior que 5MB. Quebre em partes menores.'); return; }
+    setArquivo(f); setParseando(true);
+    try {
+      const result = await parseExtratoXlsx(f);
+      if (result.rows.length === 0) throw new Error('Nenhum lançamento detectado no arquivo.');
+      setParsed(result);
+    } catch (err) {
+      setErro(err.message || String(err));
+      setArquivo(null);
+    } finally { setParseando(false); }
+  };
+
+  const importar = async () => {
+    if (!parsed || importando) return;
+    setImportando(true); setErro('');
+    try {
+      const res = await importarExtratoLancamentos(parsed.rows);
+      if (res.erro) { setErro(res.erro); return; }
+      setResultado(res);
+      showToast?.(`${res.inseridos} lançamentos importados (${res.duplicados} já existiam)`, 'success');
+    } catch (e) { setErro(e.message || String(e)); }
+    finally { setImportando(false); }
+  };
+
+  const fechar = () => onClose?.();
+
+  // Resumo do que será importado
+  const totalEntradas = parsed ? parsed.rows.filter(r => r.valor > 0).reduce((s,r) => s + r.valor, 0) : 0;
+  const totalSaidas   = parsed ? parsed.rows.filter(r => r.valor < 0).reduce((s,r) => s + r.valor, 0) : 0;
+  const primeirosLanc = parsed ? parsed.rows.slice(0, 6) : [];
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) fechar();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{width:'min(640px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Upload" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Importar extrato bancário</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Arquivo XLSX processado no navegador · não sai do seu computador</div>
+          </div>
+          <button onClick={fechar} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          {/* Estado 1: sem arquivo */}
+          {!parsed && !resultado && (
+            <>
+              <SecaoLabel icon="FileText">Arquivo do extrato (.xlsx ou .xls)</SecaoLabel>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={onArquivo} style={{display:'none'}}/>
+              <div onClick={()=>!parseando && fileRef.current?.click()} style={{
+                padding:'28px 14px', border:'1px dashed var(--border)', borderRadius:10,
+                background:'var(--bg-3)', cursor: parseando ? 'wait' : 'pointer', textAlign:'center', transition:'border-color .15s',
+              }}
+                onMouseEnter={e=>{if(!parseando) e.currentTarget.style.borderColor='var(--blue)';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';}}>
+                <Icon name={parseando ? 'RefreshCw' : 'Upload'} size={28} style={{color:'var(--blue)', opacity:.8}}/>
+                <div style={{marginTop:10, fontSize:14, color:'var(--t1)', fontWeight:500}}>
+                  {parseando ? 'Lendo arquivo...' : (arquivo?.name || 'Clique aqui pra selecionar o arquivo')}
+                </div>
+                {!parseando && <div style={{fontSize:11.5, color:'var(--t3)', marginTop:4}}>Suporta extratos do BS2, Itaú, Inter, Nubank e similares · até 5MB</div>}
+              </div>
+
+              <div style={{marginTop:16, padding:'12px 14px', background:'rgba(30,144,255,.05)', border:'1px solid rgba(30,144,255,.18)', borderRadius:8, display:'flex', gap:10, alignItems:'flex-start'}}>
+                <Icon name="Lock" size={14} style={{color:'var(--blue)', marginTop:2, flexShrink:0}}/>
+                <div style={{fontSize:12, color:'var(--t2)', lineHeight:1.5}}>
+                  <strong style={{color:'var(--blue)'}}>Segurança:</strong> o arquivo é lido no seu navegador. Apenas os lançamentos individuais (data, descrição, valor) vão pro banco de dados protegido por RLS. O arquivo XLSX nunca é enviado pra servidor algum.
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Estado 2: parseado, mostra preview */}
+          {parsed && !resultado && (
+            <>
+              <SecaoLabel icon="FileText">Arquivo processado</SecaoLabel>
+              <div style={{padding:'12px 14px', background:'var(--bg-3)', borderRadius:8, marginBottom:18, border:'1px solid var(--border)'}}>
+                <div style={{fontSize:13, color:'var(--t1)', fontWeight:500, marginBottom:6}}>{arquivo?.name}</div>
+                <div style={{fontSize:11.5, color:'var(--t3)', display:'flex', gap:14, flexWrap:'wrap'}}>
+                  {parsed.meta.banco   && <span>Banco <strong style={{color:'var(--t2)'}}>{parsed.meta.banco}</strong></span>}
+                  {parsed.meta.agencia && <span>Ag <strong style={{color:'var(--t2)'}}>{parsed.meta.agencia}</strong></span>}
+                  {parsed.meta.conta   && <span>Conta <strong style={{color:'var(--t2)'}}>{parsed.meta.conta}</strong></span>}
+                  <span>Sheet <strong style={{color:'var(--t2)'}}>{parsed.sheetName}</strong></span>
+                </div>
+              </div>
+
+              {/* KPIs do preview */}
+              <SecaoLabel icon="BarChart3" count={parsed.rows.length}>Resumo</SecaoLabel>
+              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:18}}>
+                {[
+                  { label:'Lançamentos', val: parsed.rows.length, cor:'var(--blue)', icon:'FileText' },
+                  { label:'Entradas',    val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`, cor:'#1D9E75', icon:'ArrowDownCircle' },
+                  { label:'Saídas',      val:`R$ ${Math.abs(totalSaidas).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`, cor:'#A32D2D', icon:'ArrowUpCircle' },
+                ].map((k,i) => (
+                  <div key={i} style={{padding:'12px 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8}}>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+                      <span style={{fontSize:11, color:'var(--t3)', textTransform:'uppercase', letterSpacing:'.05em', fontFamily:'var(--f-m)'}}>{k.label}</span>
+                      <Icon name={k.icon} size={13} style={{color:k.cor}}/>
+                    </div>
+                    <div style={{fontSize:15, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{k.val}</div>
+                  </div>
+                ))}
+              </div>
+
+              <SecaoLabel icon="History">Primeiros lançamentos (preview)</SecaoLabel>
+              <div style={{background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', marginBottom:14}}>
+                {primeirosLanc.map((l, i) => (
+                  <div key={i} style={{display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, padding:'9px 12px', borderBottom: i < primeirosLanc.length - 1 ? '1px solid var(--border-soft)' : 'none', alignItems:'center'}}>
+                    <div style={{fontSize:11.5, color:'var(--t3)', fontFamily:'var(--f-m)'}}>{formatBR(l.data)}</div>
+                    <div style={{fontSize:12.5, color:'var(--t2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{l.descricao}</div>
+                    <div style={{fontSize:12.5, color: l.valor > 0 ? '#1D9E75' : '#ff8585', fontFamily:'var(--f-m)', fontWeight:600, whiteSpace:'nowrap'}}>
+                      {l.valor > 0 ? '+' : '−'} R$ {Math.abs(l.valor).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                    </div>
+                  </div>
+                ))}
+                {parsed.rows.length > primeirosLanc.length && (
+                  <div style={{padding:'8px 12px', fontSize:11.5, color:'var(--t3)', textAlign:'center', borderTop:'1px solid var(--border-soft)'}}>
+                    + {parsed.rows.length - primeirosLanc.length} lançamentos não exibidos no preview
+                  </div>
+                )}
+              </div>
+
+              <div style={{padding:'10px 12px', background:'rgba(186,117,23,.05)', border:'1px solid rgba(186,117,23,.20)', borderRadius:8, fontSize:11.5, color:'var(--t2)', display:'flex', gap:8, alignItems:'flex-start'}}>
+                <Icon name="Info" size={13} style={{color:'#BA7517', marginTop:1, flexShrink:0}}/>
+                <span>Lançamentos com mesmo hash (data + valor + descrição) já existentes serão <strong>ignorados automaticamente</strong>. Você pode reimportar o mesmo arquivo sem duplicar nada.</span>
+              </div>
+            </>
+          )}
+
+          {/* Estado 3: importação concluída */}
+          {resultado && (
+            <div style={{textAlign:'center', padding:'30px 10px'}}>
+              <div style={{width:62, height:62, borderRadius:'50%', background:'rgba(29,158,117,.15)', display:'inline-flex', alignItems:'center', justifyContent:'center', marginBottom:14}}>
+                <Icon name="CheckCircle2" size={32} style={{color:'#1D9E75'}}/>
+              </div>
+              <h3 style={{margin:'0 0 8px', fontSize:18, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Importação concluída!</h3>
+              <div style={{fontSize:13.5, color:'var(--t2)', marginBottom:18, lineHeight:1.6}}>
+                <strong style={{color:'#1D9E75'}}>{resultado.inseridos}</strong> lançamento{resultado.inseridos===1?'':'s'} novo{resultado.inseridos===1?'':'s'} adicionado{resultado.inseridos===1?'':'s'} ao banco.<br/>
+                {resultado.duplicados > 0 && <><strong style={{color:'var(--t3)'}}>{resultado.duplicados}</strong> já existia{resultado.duplicados===1?'':'m'} e foi{resultado.duplicados===1?'':'ram'} ignorado{resultado.duplicados===1?'':'s'}.</>}
+              </div>
+              <div style={{fontSize:11.5, color:'var(--t3)'}}>Agora você pode vincular cada lançamento aos pagamentos do sistema na tab Fluxo de Caixa.</div>
+            </div>
+          )}
+
+          {erro && (
+            <div style={{marginTop:14, padding:'10px 14px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:7, fontSize:12.5, color:'#ff8585'}}>{erro}</div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10}}>
+          {!resultado && (
+            <button onClick={fechar} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+          )}
+          {parsed && !resultado && (
+            <button onClick={importar} disabled={importando} style={{
+              padding:'8px 18px', borderRadius:7, border:'none',
+              background: importando ? 'var(--bg-3)' : 'var(--blue)',
+              color:'#fff', fontSize:13, fontWeight:600, cursor: importando ? 'wait' : 'pointer',
+              display:'inline-flex', alignItems:'center', gap:6,
+            }}>
+              <Icon name={importando ? 'RefreshCw' : 'Check'} size={13}/>
+              {importando ? 'Importando...' : `Importar ${parsed.rows.length} lançamento${parsed.rows.length===1?'':'s'}`}
+            </button>
+          )}
+          {resultado && (
+            <button onClick={fechar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>Fechar</button>
+          )}
         </div>
       </div>
     </div>
