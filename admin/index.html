@@ -10591,6 +10591,44 @@ async function marcarExtratoIgnorado(extratoId, ignorado = true) {
 }
 
 /* ─── Hooks Clientes (Sprint C) — entidade mestre do CRM ─── */
+// ─── Hook unificado de status (fin_status_config) ───
+// 9 status canônicos: lead, em_negociacao, proposta_enviada, em_implantacao,
+// onboarding, ativo, inadimplente, pausado, encerrado
+// Cada um com label, cor hex, ícone e ordem.
+function useStatusConfig() {
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_status_config').select('*').order('ordem');
+      if (alive) { setList(data || []); setLoading(false); }
+    };
+    load();
+    const ch = cli.channel('rt:fin_status_config')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_status_config' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return { list, loading };
+}
+
+// Helper: pega config de status pelo key (com fallback pra legado)
+function getStatusByKey(list, key) {
+  if (!key) return { key:'lead', label:'Lead', cor:'#1E90FF', icone:'UserCircle', ordem:10 };
+  const found = (list || []).find(s => s.key === key);
+  if (found) return found;
+  // Fallback pra status legados que ainda podem existir
+  const legacy = {
+    prospecto:    { key:'prospecto',    label:'Prospecto',    cor:'#BA7517', icone:'TrendingUp',  ordem:25 },
+    suspenso:     { key:'suspenso',     label:'Suspenso',     cor:'#6E6E78', icone:'Clock',       ordem:70 },
+    inativo:      { key:'inativo',      label:'Inativo',      cor:'#2A2A3A', icone:'XCircle',     ordem:80 },
+    churn:        { key:'churn',        label:'Churn',        cor:'#A32D2D', icone:'AlertCircle', ordem:85 },
+  };
+  return legacy[key] || { key, label: String(key), cor:'#6E6E78', icone:'Circle', ordem:99 };
+}
+
 function useClientes() {
   const [list, setList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -13396,6 +13434,7 @@ function EscolherCliente({ isEntrada, recorrencia, despesas, onCancelar, onEscol
 // ═══════════════════════════════════════════════════════════════
 function ClientesCRM() {
   const { list: clientes, loading } = useClientes();
+  const { list: statusConfig } = useStatusConfig();
   const [editando, setEditando] = React.useState(null);     // {} pra novo, cliente obj pra edição
   const [busca, setBusca] = React.useState('');
   const [filtroStatus, setFiltroStatus] = React.useState('todos');
@@ -13417,6 +13456,13 @@ function ClientesCRM() {
     return m;
   }, [recorrencia]);
 
+  // Mapa rápido status->config
+  const cfgByKey = React.useMemo(() => {
+    const m = new Map();
+    (statusConfig || []).forEach(s => m.set(s.key, s));
+    return m;
+  }, [statusConfig]);
+
   const filtrados = React.useMemo(() => {
     let arr = [...clientes];
     if (filtroStatus !== 'todos') arr = arr.filter(c => c.status === filtroStatus);
@@ -13433,30 +13479,37 @@ function ClientesCRM() {
         (c.nicho || '').toLowerCase().includes(q)
       );
     }
-    // Ordena: ativos primeiro, depois alfabético
+    // Ordena: usa ordem do fin_status_config + alfabético
     arr.sort((a, b) => {
-      const ordemA = { ativo:0, prospecto:1, lead:2, suspenso:3, inativo:4, churn:5 }[a.status] || 9;
-      const ordemB = { ativo:0, prospecto:1, lead:2, suspenso:3, inativo:4, churn:5 }[b.status] || 9;
+      const ordemA = cfgByKey.get(a.status)?.ordem ?? 99;
+      const ordemB = cfgByKey.get(b.status)?.ordem ?? 99;
       if (ordemA !== ordemB) return ordemA - ordemB;
       return (a.nome || '').localeCompare(b.nome || '');
     });
     return arr;
-  }, [clientes, busca, filtroStatus, filtroCompleto]);
+  }, [clientes, busca, filtroStatus, filtroCompleto, cfgByKey]);
 
   const stats = React.useMemo(() => ({
     total: clientes.length,
     ativos: clientes.filter(c => c.status === 'ativo').length,
-    prospectos: clientes.filter(c => c.status === 'prospecto').length,
+    em_implantacao: clientes.filter(c => c.status === 'em_implantacao').length,
+    em_negociacao: clientes.filter(c => c.status === 'em_negociacao' || c.status === 'proposta_enviada').length,
     leads: clientes.filter(c => c.status === 'lead').length,
+    inadimplentes: clientes.filter(c => c.status === 'inadimplente').length,
     incompletos: clientes.filter(clienteEstaIncompleto).length,
   }), [clientes]);
+
+  // Status disponíveis pros filtros (do banco) + 'todos'
+  const statusFiltros = React.useMemo(() => {
+    return ['todos', ...((statusConfig || []).map(s => s.key))];
+  }, [statusConfig]);
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <div className="page-head__title">Clientes</div>
-          <div className="page-head__sub">{stats.total} cadastrados · {stats.ativos} ativos · {stats.prospectos} prospectos · {stats.incompletos} incompletos</div>
+          <div className="page-head__sub">{stats.total} cadastrados · {stats.ativos} ativos · {stats.em_implantacao} em implantação · {stats.em_negociacao} em negociação{stats.inadimplentes > 0 && <> · <span style={{color:'#ff8585'}}>{stats.inadimplentes} inadimplentes</span></>}{stats.incompletos > 0 && <> · {stats.incompletos} incompletos</>}</div>
         </div>
         <div className="page-head__actions">
           <button onClick={()=>setEditando({})} className="btn btn-primary">
@@ -13470,8 +13523,11 @@ function ClientesCRM() {
         {[
           { label:'Total cadastrados', val: stats.total, icon:'UsersRound', cor:'var(--blue)' },
           { label:'Ativos', val: stats.ativos, icon:'CheckCircle2', cor:'#1D9E75' },
-          { label:'Prospectos', val: stats.prospectos, icon:'TrendingUp', cor:'#BA7517' },
-          { label:'Cadastros incompletos', val: stats.incompletos, icon:'AlertCircle', cor: stats.incompletos > 0 ? '#A32D2D' : 'var(--t3)' },
+          { label:'Em implantação', val: stats.em_implantacao, icon:'Activity', cor:'#7B3FE4' },
+          { label: stats.inadimplentes > 0 ? 'Inadimplentes' : 'Em negociação',
+            val: stats.inadimplentes > 0 ? stats.inadimplentes : stats.em_negociacao,
+            icon: stats.inadimplentes > 0 ? 'AlertCircle' : 'MessageCircle',
+            cor: stats.inadimplentes > 0 ? '#A32D2D' : '#BA7517' },
         ].map((k,i) => (
           <div key={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
@@ -13490,15 +13546,23 @@ function ClientesCRM() {
             <Icon name="Search" size={13} style={{color:'var(--t3)'}}/>
             <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, CNPJ, email, telefone, nicho..." style={{flex:1, background:'none', border:'none', outline:'none', fontSize:13, color:'var(--t1)'}}/>
           </div>
-          {['todos','ativo','prospecto','lead','inativo','churn'].map(s => (
-            <button key={s} onClick={()=>setFiltroStatus(s)} style={{
-              padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
-              background: filtroStatus === s ? 'rgba(30,144,255,.15)' : 'transparent',
-              color: filtroStatus === s ? 'var(--blue)' : 'var(--t3)',
-              border:`1px solid ${filtroStatus === s ? 'var(--blue)' : 'transparent'}`,
-              textTransform:'capitalize',
-            }}>{s === 'todos' ? 'Todos status' : s}</button>
-          ))}
+          {statusFiltros.map(key => {
+            const cfg = key === 'todos' ? null : cfgByKey.get(key);
+            const ativo = filtroStatus === key;
+            const cor = ativo ? (cfg?.cor || 'var(--blue)') : 'var(--t3)';
+            return (
+              <button key={key} onClick={()=>setFiltroStatus(key)} style={{
+                padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
+                background: ativo ? cor+'22' : 'transparent',
+                color: cor,
+                border:`1px solid ${ativo ? cor : 'transparent'}`,
+                display:'inline-flex', alignItems:'center', gap:5,
+              }}>
+                {cfg?.icone && ativo && <Icon name={cfg.icone} size={11}/>}
+                {key === 'todos' ? 'Todos status' : (cfg?.label || key)}
+              </button>
+            );
+          })}
           <button onClick={()=>setFiltroCompleto(v => v === 'incompleto' ? 'todos' : 'incompleto')} style={{
             padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
             background: filtroCompleto === 'incompleto' ? 'rgba(163,45,45,.15)' : 'transparent',
@@ -13536,7 +13600,8 @@ function ClientesCRM() {
           {filtrados.map(c => {
             const s = statsPorCliente.get(c.id) || { projetos:0, mrr:0, impl:0 };
             const incompleto = clienteEstaIncompleto(c);
-            const statusCor = { ativo:'#1D9E75', prospecto:'#BA7517', lead:'#1E90FF', inativo:'var(--t3)', churn:'#A32D2D', suspenso:'#A32D2D' }[c.status] || 'var(--t3)';
+            const cfg = getStatusByKey(statusConfig, c.status);
+            const statusCor = cfg.cor;
             const iniciais = (c.nome || '?').split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
             return (
               <div key={c.id} onClick={()=>setEditando(c)} style={{
@@ -13554,9 +13619,15 @@ function ClientesCRM() {
                     fontFamily:'var(--f-d)', fontWeight:700, fontSize:14,
                   }}>{!c.foto_url && iniciais}</div>
                   <div style={{flex:1, minWidth:0}}>
-                    <div style={{fontSize:14, color:'var(--t1)', fontWeight:600, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.nome}</div>
-                    <div style={{fontSize:11.5, color:'var(--t3)', display:'flex', gap:8, alignItems:'center'}}>
-                      <span style={{padding:'2px 7px', borderRadius:999, background:statusCor+'22', color:statusCor, fontWeight:600, fontSize:10.5, textTransform:'uppercase', letterSpacing:.4}}>{c.status}</span>
+                    <div style={{fontSize:14, color:'var(--t1)', fontWeight:600, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:5}}>
+                      {c.nome}
+                      {c.status_lock && <Icon name="Lock" size={11} style={{color:'#BA7517', flexShrink:0}}/>}
+                    </div>
+                    <div style={{fontSize:11.5, color:'var(--t3)', display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+                      <span style={{padding:'2px 7px', borderRadius:999, background:statusCor+'22', color:statusCor, fontWeight:600, fontSize:10.5, letterSpacing:.3, display:'inline-flex', alignItems:'center', gap:4}}>
+                        <Icon name={cfg.icone} size={10}/>
+                        {cfg.label}
+                      </span>
                       {c.tipo_pessoa && <span>{c.tipo_pessoa}</span>}
                       {c.nicho && <><span>·</span><span>{c.nicho}</span></>}
                     </div>
@@ -13607,6 +13678,7 @@ function ClientesCRM() {
 // ─────────────────────────────────────────────────────────────────
 function ClienteCadastroModal({ cliente, onClose }) {
   const novo = !cliente?.id;
+  const { list: statusConfig } = useStatusConfig();
   const [form, setForm] = React.useState({
     nome: cliente?.nome || '',
     nome_fantasia: cliente?.nome_fantasia || '',
@@ -13630,7 +13702,8 @@ function ClienteCadastroModal({ cliente, onClose }) {
     porte: cliente?.porte || '',
     origem: cliente?.origem || '',
     data_aquisicao: cliente?.data_aquisicao || '',
-    status: cliente?.status || 'ativo',
+    status: cliente?.status || 'lead',
+    status_lock: cliente?.status_lock || false,
     tags: cliente?.tags || [],
     nota_interna: cliente?.nota_interna || '',
     cor: cliente?.cor || '#1E90FF',
@@ -13878,20 +13951,39 @@ function ClienteCadastroModal({ cliente, onClose }) {
 
             <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
               <div>
-                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Status</label>
-                <select style={inp} value={form.status} onChange={e=>set('status', e.target.value)}>
-                  <option value="lead">Lead</option>
-                  <option value="prospecto">Prospecto</option>
-                  <option value="ativo">Ativo</option>
-                  <option value="suspenso">Suspenso</option>
-                  <option value="inativo">Inativo</option>
-                  <option value="churn">Churn</option>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'flex', alignItems:'center', gap:6}}>
+                  Status
+                  {form.status_lock && <span style={{color:'#BA7517', fontSize:10, display:'inline-flex', alignItems:'center', gap:3}}><Icon name="Lock" size={9}/>travado manualmente</span>}
+                  {!form.status_lock && <span style={{color:'var(--t3)', fontSize:10}}>auto-calculado pelos projetos</span>}
+                </label>
+                <select style={{...inp, borderLeft: `3px solid ${getStatusByKey(statusConfig, form.status).cor}`}} value={form.status} onChange={e=>set('status', e.target.value)}>
+                  {(statusConfig || []).map(s => (
+                    <option key={s.key} value={s.key}>{s.label}{s.descricao ? ` — ${s.descricao}` : ''}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data de aquisição</label>
                 <input style={inp} type="date" value={form.data_aquisicao || ''} onChange={e=>set('data_aquisicao', e.target.value)}/>
               </div>
+            </div>
+
+            {/* Toggle status lock */}
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12, padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8}}>
+              <input
+                type="checkbox"
+                id="status_lock"
+                checked={!!form.status_lock}
+                onChange={e=>set('status_lock', e.target.checked)}
+                style={{cursor:'pointer', accentColor:'var(--blue)'}}
+              />
+              <label htmlFor="status_lock" style={{flex:1, fontSize:12.5, color:'var(--t2)', cursor:'pointer', userSelect:'none'}}>
+                <strong style={{color:'var(--t1)'}}>Travar status manualmente</strong>
+                <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>
+                  Quando travado, o status fica fixo e não é recalculado automaticamente pelos projetos.
+                </div>
+              </label>
+              {form.status_lock && <Icon name="Lock" size={14} style={{color:'#BA7517'}}/>}
             </div>
 
             {/* Tags */}

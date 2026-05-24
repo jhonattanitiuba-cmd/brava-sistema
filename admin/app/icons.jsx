@@ -87,6 +87,7 @@ const ICON_PATHS = {
   ArrowDownCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 12l4 4 4-4M12 8v8',
   ArrowUpCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16 12l-4-4-4 4M12 16V8',
   Repeat: 'm17 1 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+  Circle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
 };
 
 function Icon({ name, size = 18, stroke = 1.5, className = '', style = {} }) {
