@@ -10330,9 +10330,7 @@ async function editRecorrencia(id, patch) {
   const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return; }
   const { error } = await cli.from('projetos').update(_mrrToDB(patch)).eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); console.error('editRecorrencia:', error, patch); return; }
-  // Fallback: dispara evento global pra forçar re-load nos hooks que dependem de view
-  // (porque views não têm realtime nativo no Supabase)
-  window.dispatchEvent(new CustomEvent('brava:projeto_changed', { detail: { id, patch } }));
+  _bravaEmit('projeto', { op:'update', id, patch });
 }
 
 async function addRecorrencia(item) {
@@ -10345,8 +10343,7 @@ async function addRecorrencia(item) {
   if (merged.status && !item.status_fase) merged.status_fase = merged.status;
   const { data, error } = await cli.from('projetos').insert(_mrrToDB(merged)).select().single();
   if (error) { showToast?.('Erro ao criar: '+error.message,'error'); console.error('addRecorrencia:', error); return null; }
-  // Fallback: dispara event pra forçar reload em views/hooks dependentes
-  window.dispatchEvent(new CustomEvent('brava:projeto_changed', { detail: { id: data?.id, novo: true } }));
+  _bravaEmit('projeto', { op:'insert', id: data?.id });
   return data?.id || null;
 }
 
@@ -10354,7 +10351,7 @@ async function deleteRecorrencia(id) {
   const cli = getSupa(); if (!cli) return;
   const { error } = await cli.from('projetos').delete().eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); return; }
-  window.dispatchEvent(new CustomEvent('brava:projeto_changed', { detail: { id, deletado: true } }));
+  _bravaEmit('projeto', { op:'delete', id });
 }
 
 function useRecorrencia() {
@@ -10401,6 +10398,7 @@ async function setPagamento(recId, ym, info) {
     }, { onConflict: 'projeto_id,competencia' }));
   }
   if (err) { showToast?.('Erro pagamento: '+err.message,'error'); console.error('setPagamento:', err); return false; }
+  _bravaEmit('pagamento', { op: info === null ? 'delete' : 'upsert', projeto_id: recId, competencia: ym });
   return true;
 }
 
@@ -10411,6 +10409,29 @@ function getPagamentos() { return _pagamentosCache; }
 
 // legado: só pra evitar undefined em setores que ainda usam firePagChanged
 const firePagChanged = () => window.dispatchEvent(new Event('brava_pag_changed'));
+
+/* ═══════════════════════════════════════════════════════════════════
+   Sprint K: helper central de evento cross-component
+   Toda mutation (add/edit/delete) dispara brava:{tabela}_changed.
+   Hooks de listagem escutam e re-load.
+   Garante propagação total mesmo se realtime do Supabase atrasar.
+   ═══════════════════════════════════════════════════════════════════ */
+function _bravaEmit(tabela, payload = {}) {
+  try {
+    window.dispatchEvent(new CustomEvent(`brava:${tabela}_changed`, { detail: payload }));
+    // Event genérico pra dashboards/loggers
+    window.dispatchEvent(new CustomEvent('brava:db_changed', { detail: { tabela, ...payload } }));
+  } catch {}
+}
+// Hook utilitário: re-roda load() quando recebe brava:{tabela}_changed
+function useBravaChangeListener(tabela, load) {
+  React.useEffect(() => {
+    const handler = () => load?.();
+    const evt = `brava:${tabela}_changed`;
+    window.addEventListener(evt, handler);
+    return () => window.removeEventListener(evt, handler);
+  }, [tabela, load]);
+}
 
 // ─── shim pra ModalRec que usava setPagamento síncrono ────────────────────
 // (deixa o código do modal funcionar sem refatoração)
@@ -10435,7 +10456,13 @@ function usePagamentos() {
     const ch = cli.channel('rt:projeto_pagamentos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projeto_pagamentos' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:pagamento_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:pagamento_changed', onChange);
+    };
   }, []);
   return all;
 }
@@ -10452,6 +10479,7 @@ async function addDespesa(item) {
   const base = { descricao:'', categoria:'Outro', valor:0, recorrente:true, dia_vencimento:null, data_unica:null, ativo:true };
   const { data, error } = await cli.from('fin_despesas').insert({ ...base, ...item }).select().single();
   if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  _bravaEmit('despesa', { op:'insert', id: data?.id });
   return data?.id || null;
 }
 async function editDespesa(id, patch) {
@@ -10459,12 +10487,14 @@ async function editDespesa(id, patch) {
   const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
   const { error } = await cli.from('fin_despesas').update(clean).eq('id', id);
   if (error) { showToast?.('Erro ao salvar: '+error.message,'error'); console.error('editDespesa:', error, patch); return false; }
+  _bravaEmit('despesa', { op:'update', id, patch });
   return true;
 }
 async function deleteDespesa(id) {
   const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return false; }
   const { error } = await cli.from('fin_despesas').delete().eq('id', id);
   if (error) { showToast?.('Erro ao excluir: '+error.message,'error'); return false; }
+  _bravaEmit('despesa', { op:'delete', id });
   showToast?.('Despesa removida','success');
   return true;
 }
@@ -10482,22 +10512,32 @@ function useDespesas() {
     const ch = cli.channel('rt:fin_despesas')
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_despesas' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:despesa_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:despesa_changed', onChange);
+    };
   }, []);
   return list;
 }
 
 /* Pagamentos efetivos das despesas (espelha projeto_pagamentos) */
 async function setDespesaPagamento(despesaId, ym, info) {
-  const cli = getSupa(); if (!cli) return;
+  const cli = getSupa(); if (!cli) return false;
+  let err;
   if (info === null) {
-    await cli.from('fin_despesas_pagamentos').delete().eq('despesa_id', despesaId).eq('competencia', ym);
+    ({ error: err } = await cli.from('fin_despesas_pagamentos').delete().eq('despesa_id', despesaId).eq('competencia', ym));
   } else {
-    await cli.from('fin_despesas_pagamentos').upsert({
+    ({ error: err } = await cli.from('fin_despesas_pagamentos').upsert({
       despesa_id: despesaId, competencia: ym,
       pago: !!info.pago, data_pagamento: info.data || null, valor_pago: info.valor_pago ?? null,
-    }, { onConflict: 'despesa_id,competencia' });
+    }, { onConflict: 'despesa_id,competencia' }));
   }
+  if (err) { showToast?.('Erro: '+err.message,'error'); return false; }
+  _bravaEmit('despesa_pagamento', { op: info === null ? 'delete' : 'upsert', despesa_id: despesaId, competencia: ym });
+  return true;
 }
 
 function useDespesasPagamentos() {
@@ -10519,7 +10559,13 @@ function useDespesasPagamentos() {
     const ch = cli.channel('rt:fin_despesas_pagamentos')
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_despesas_pagamentos' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:despesa_pagamento_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:despesa_pagamento_changed', onChange);
+    };
   }, []);
   return all;
 }
@@ -10530,6 +10576,7 @@ async function addCaixaLancamento(item) {
   const base = { tipo:'entrada', descricao:'', categoria:'Outro', valor:0, data: new Date().toISOString().slice(0,10), origem:'manual' };
   const { data, error } = await cli.from('fin_caixa_lancamentos').insert({ ...base, ...item }).select().single();
   if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  _bravaEmit('caixa', { op:'insert', id: data?.id });
   return data?.id || null;
 }
 async function editCaixaLancamento(id, patch) {
@@ -10537,12 +10584,14 @@ async function editCaixaLancamento(id, patch) {
   const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
   const { error } = await cli.from('fin_caixa_lancamentos').update(clean).eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  _bravaEmit('caixa', { op:'update', id, patch });
   return true;
 }
 async function deleteCaixaLancamento(id) {
   const cli = getSupa(); if (!cli) return false;
   const { error } = await cli.from('fin_caixa_lancamentos').delete().eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  _bravaEmit('caixa', { op:'delete', id });
   return true;
 }
 
@@ -10555,11 +10604,17 @@ function useCaixaLancamentos() {
       const { data } = await cli.from('fin_caixa_lancamentos').select('*').order('data', { ascending: false });
       if (alive && data) setList(data);
     };
+    const onChange = () => load();
+    window.addEventListener('brava:caixa_changed', onChange);
     load();
     const ch = cli.channel('rt:fin_caixa_lancamentos')
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_caixa_lancamentos' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:caixa_changed', onChange);
+    };
   }, []);
   return list;
 }
@@ -10774,6 +10829,7 @@ function getStatusByKey(list, key) {
 function useClientes() {
   const [list, setList] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const loadRef = React.useRef(() => {});
   React.useEffect(() => {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
@@ -10781,11 +10837,19 @@ function useClientes() {
       const { data } = await cli.from('clientes').select('*').order('nome');
       if (alive) { setList(data || []); setLoading(false); }
     };
+    loadRef.current = load;
     load();
     const ch = cli.channel('rt:clientes')
       .on('postgres_changes', { event:'*', schema:'public', table:'clientes' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    // Fallback: re-load se outra parte do app emitir
+    const onChange = () => load();
+    window.addEventListener('brava:cliente_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:cliente_changed', onChange);
+    };
   }, []);
   return { list, loading };
 }
@@ -10804,7 +10868,13 @@ function useCliente(id) {
     const ch = cli.channel(`rt:cliente:${id}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'clientes', filter:`id=eq.${id}` }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:cliente_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:cliente_changed', onChange);
+    };
   }, [id]);
   return cliente;
 }
@@ -10838,6 +10908,7 @@ async function addCliente(form) {
   Object.keys(payload).forEach(k => { if (payload[k] === '') payload[k] = null; });
   const { data, error } = await cli.from('clientes').insert(payload).select().single();
   if (error) return { ok:false, erro: error.message };
+  _bravaEmit('cliente', { op:'insert', id: data?.id });
   return { ok:true, cliente: data };
 }
 
@@ -10849,6 +10920,7 @@ async function editCliente(id, patch) {
   Object.keys(clean).forEach(k => { if (clean[k] === '') clean[k] = null; });
   const { error } = await cli.from('clientes').update(clean).eq('id', id);
   if (error) return { ok:false, erro: error.message };
+  _bravaEmit('cliente', { op:'update', id, patch });
   return { ok:true };
 }
 
@@ -10856,6 +10928,7 @@ async function deleteCliente(id) {
   const cli = getSupa(); if (!cli) return { ok:false };
   const { error } = await cli.from('clientes').delete().eq('id', id);
   if (error) return { ok:false, erro: error.message };
+  _bravaEmit('cliente', { op:'delete', id });
   return { ok:true };
 }
 
@@ -10942,7 +11015,13 @@ function useProjetoParcelas(projetoId) {
     const ch = cli.channel(`rt:projeto_parcelas:${projetoId}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_parcelas', filter:`projeto_id=eq.${projetoId}` }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:parcela_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:parcela_changed', onChange);
+    };
   }, [projetoId]);
   return list;
 }
@@ -10951,18 +11030,21 @@ async function adicionarParcela(projetoId, parcela) {
   const cli = getSupa(); if (!cli) return null;
   const { data, error } = await cli.from('projeto_parcelas').insert({ ...parcela, projeto_id: projetoId }).select().single();
   if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  _bravaEmit('parcela', { op:'insert', id: data?.id, projeto_id: projetoId });
   return data;
 }
 async function editarParcela(id, patch) {
   const cli = getSupa(); if (!cli) return false;
   const { error } = await cli.from('projeto_parcelas').update(patch).eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  _bravaEmit('parcela', { op:'update', id, patch });
   return true;
 }
 async function deletarParcela(id) {
   const cli = getSupa(); if (!cli) return false;
   const { error } = await cli.from('projeto_parcelas').delete().eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  _bravaEmit('parcela', { op:'delete', id });
   return true;
 }
 
@@ -10981,7 +11063,13 @@ function useProjetoAnexos(projetoId) {
     const ch = cli.channel(`rt:projeto_anexos:${projetoId}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_anexos', filter:`projeto_id=eq.${projetoId}` }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:anexo_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:anexo_changed', onChange);
+    };
   }, [projetoId]);
   return list;
 }
@@ -11006,6 +11094,7 @@ async function uploadAnexoProjeto(projetoId, file, categoria) {
     uploaded_by: userId,
   }).select().single();
   if (error) { showToast?.('Erro cadastro: '+error.message,'error'); return null; }
+  _bravaEmit('anexo', { op:'insert', id: data?.id, projeto_id: projetoId });
   return data;
 }
 
@@ -11021,6 +11110,7 @@ async function adicionarLinkAnexo(projetoId, nome, url, categoria) {
     uploaded_by: userId,
   }).select().single();
   if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  _bravaEmit('anexo', { op:'insert', id: data?.id, projeto_id: projetoId });
   return data;
 }
 
@@ -11030,6 +11120,7 @@ async function deletarAnexoProjeto(anexo) {
     await cli.storage.from('mrr-anexos').remove([anexo.storage_path]).catch(()=>{});
   }
   await cli.from('projeto_anexos').delete().eq('id', anexo.id);
+  _bravaEmit('anexo', { op:'delete', id: anexo.id, projeto_id: anexo.projeto_id });
 }
 
 /* ─── Sprint E: hooks de resumo financeiro por projeto/cliente ─── */
@@ -11084,7 +11175,15 @@ function useExtratoPorCliente(clienteId) {
     const ch = cli.channel(`rt:extrato:cli:${clienteId}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_extrato_bancario', filter:`cliente_id=eq.${clienteId}` }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:extrato_changed', onChange);
+    window.addEventListener('brava:caixa_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:extrato_changed', onChange);
+      window.removeEventListener('brava:caixa_changed', onChange);
+    };
   }, [clienteId]);
   return list;
 }
@@ -11105,7 +11204,13 @@ function useExtratoPorProjeto(projetoId) {
     const ch = cli.channel(`rt:extrato:proj:${projetoId}`)
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_extrato_bancario', filter:`projeto_id=eq.${projetoId}` }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:extrato_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:extrato_changed', onChange);
+    };
   }, [projetoId]);
   return list;
 }
@@ -11134,6 +11239,8 @@ async function vincularExtratoAoProjeto(extratoId, projetoId, opts = {}) {
     projeto_id: proj.id,
     cliente_id: proj.cliente_id,
   }).eq('id', extratoId);
+  _bravaEmit('extrato', { op:'vincular', id: extratoId, projeto_id: proj.id });
+  _bravaEmit('caixa', { op:'insert', id: caixa.id });
   return { ok:true };
 }
 
@@ -11314,7 +11421,15 @@ function useExtratoBancario() {
     const ch = cli.channel('rt:fin_extrato_bancario')
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_extrato_bancario' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const onChange = () => load();
+    window.addEventListener('brava:extrato_changed', onChange);
+    window.addEventListener('brava:caixa_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:extrato_changed', onChange);
+      window.removeEventListener('brava:caixa_changed', onChange);
+    };
   }, []);
   return list;
 }
