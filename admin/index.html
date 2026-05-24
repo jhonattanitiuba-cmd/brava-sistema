@@ -698,7 +698,6 @@ function useCount(target, duration = 1200, delay = 0) {
 const NAV = [
   { key:'dashboard',  label:'Dashboard',   icon:'LayoutDashboard', badge:null },
   { key:'clientes',   label:'WhatsApp',    icon:'MessageCircle',   badge:23 },
-  { key:'monitoramento', label:'Monitoramento', icon:'Activity',   badge:null },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
   { key:'clientes_crm', label:'Clientes',  icon:'UsersRound',      badge:null },
   { key:'projetos',   label:'Projetos',    icon:'Layers',          badge:null },
@@ -887,6 +886,16 @@ function SidebarUserCard({ setPage }) {
 const NOTIF_KEY = 'brava_notificacoes';
 const NOTIF_MAX = 30;
 
+// One-shot: limpa notifs antigas que possam ter ficado de versões mock
+(() => {
+  try {
+    const FLAG = 'brava_notif_clean_v2';
+    if (!localStorage.getItem(FLAG)) {
+      localStorage.removeItem('brava_notifs');
+      localStorage.setItem(FLAG, '1');
+    }
+  } catch {}
+})();
 function getNotificacoes() {
   try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '[]'); } catch { return []; }
 }
@@ -5926,58 +5935,129 @@ const LOGS_INIT = [
 ];
 const LEVEL_COR = { info:'#1E90FF', warn:'#BA7517', error:'#A32D2D' };
 
+// Hook: lê system_logs reativo
+function useSystemLogs() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('system_logs').select('*').order('criado_em', { ascending:false }).limit(200);
+      if (alive) setList(data || []);
+    };
+    load();
+    const ch = cli.channel('rt:system_logs')
+      .on('postgres_changes', { event:'*', schema:'public', table:'system_logs' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
+const TIPO_LOG_CONFIG = {
+  deploy:     { cor:'#7B3FE4', icone:'Upload',       label:'Deploy' },
+  migration:  { cor:'#1E90FF', icone:'Layers',       label:'Migration' },
+  sistema:    { cor:'#1D9E75', icone:'CheckCircle2', label:'Sistema' },
+  config:     { cor:'#BA7517', icone:'Settings',     label:'Config' },
+  seguranca:  { cor:'#A32D2D', icone:'Lock',         label:'Segurança' },
+  manutencao: { cor:'#6E6E78', icone:'RefreshCw',    label:'Manutenção' },
+};
+
 function Logs() {
+  const logs = useSystemLogs();
   const [filtro, setFiltro] = useState('todos');
-  const filtrados = LOGS_INIT.filter(l => filtro==='todos' || l.level===filtro);
+  const filtrados = logs.filter(l => filtro === 'todos' || l.tipo === filtro);
+
+  const fmtDataHora = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' });
+  };
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__title">Logs</div>
-          <div className="page-head__sub">Auditoria de ações · últimas 24h</div>
-        </div>
-        <div className="page-head__actions">
-          <button className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
+          <div className="page-head__title">Logs do sistema</div>
+          <div className="page-head__sub">Histórico real de deploys, migrations e eventos · {logs.length} {logs.length === 1 ? 'registro' : 'registros'}</div>
         </div>
       </div>
 
-      <div style={{display:'flex', gap:8, marginBottom:14}}>
-        {['todos','info','warn','error'].map(f => (
-          <button key={f} onClick={()=>setFiltro(f)} style={{
-            padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
-            background: filtro===f ? (LEVEL_COR[f]||'var(--purple)')+'22' : 'transparent',
-            color: filtro===f ? (LEVEL_COR[f]||'#c4a8ff') : 'var(--t2)',
-            border: `1px solid ${filtro===f ? (LEVEL_COR[f]||'var(--purple)')+'55' : 'var(--border)'}`,
-            textTransform:'uppercase', fontFamily:'var(--f-m)', letterSpacing:'.05em',
-          }}>{f}</button>
-        ))}
+      {/* Filtros por tipo */}
+      <div style={{display:'flex', gap:6, marginBottom:14, flexWrap:'wrap'}}>
+        <button onClick={()=>setFiltro('todos')} style={{
+          padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer',
+          background: filtro==='todos' ? 'rgba(30,144,255,.15)' : 'transparent',
+          color: filtro==='todos' ? 'var(--blue)' : 'var(--t3)',
+          border:`1px solid ${filtro==='todos' ? 'var(--blue)' : 'transparent'}`,
+        }}>Todos ({logs.length})</button>
+        {Object.entries(TIPO_LOG_CONFIG).map(([k,cfg]) => {
+          const qtd = logs.filter(l => l.tipo === k).length;
+          if (qtd === 0) return null;
+          const ativo = filtro === k;
+          return (
+            <button key={k} onClick={()=>setFiltro(k)} style={{
+              padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer',
+              background: ativo ? cfg.cor+'22' : 'transparent',
+              color: ativo ? cfg.cor : 'var(--t3)',
+              border:`1px solid ${ativo ? cfg.cor : 'transparent'}`,
+              display:'inline-flex', alignItems:'center', gap:5,
+            }}>
+              <Icon name={cfg.icone} size={11}/>{cfg.label} ({qtd})
+            </button>
+          );
+        })}
       </div>
 
-      <div className="card" style={{padding:0, overflow:'hidden'}}>
-        <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
-          <thead>
-            <tr style={{background:'#000000'}}>
-              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Hora</th>
-              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Nível</th>
-              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Usuário</th>
-              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Ação</th>
-              <th style={{padding:'10px 14px', textAlign:'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>Alvo</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtrados.map((l,i) => (
-              <tr key={i} style={{borderBottom:'1px solid var(--border-soft)'}}>
-                <td style={{padding:'10px 14px', fontFamily:'var(--f-m)', color:'var(--t3)', fontSize:12}}>{l.time}</td>
-                <td style={{padding:'10px 14px'}}><span style={{padding:'2px 8px', borderRadius:4, fontSize:10.5, fontFamily:'var(--f-m)', fontWeight:600, background:LEVEL_COR[l.level]+'22', color:LEVEL_COR[l.level], textTransform:'uppercase'}}>{l.level}</span></td>
-                <td style={{padding:'10px 14px', color:'var(--t1)', fontWeight:500}}>{l.user}</td>
-                <td style={{padding:'10px 14px', color:'var(--t2)'}}>{l.acao}</td>
-                <td style={{padding:'10px 14px', color:'var(--t3)', fontFamily:'var(--f-m)', fontSize:12}}>{l.alvo}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {/* Timeline de logs reais */}
+      {filtrados.length === 0 ? (
+        <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="ScrollText" size={32} style={{opacity:.4, marginBottom:8}}/>
+          <div style={{fontSize:13}}>Nenhum log neste filtro.</div>
+        </div>
+      ) : (
+        <div className="card" style={{padding:0, overflow:'hidden'}}>
+          {filtrados.map((l, i) => {
+            const cfg = TIPO_LOG_CONFIG[l.tipo] || { cor:'#6E6E78', icone:'Info', label:l.tipo };
+            return (
+              <div key={l.id} style={{
+                padding:'14px 18px',
+                borderBottom: i < filtrados.length-1 ? '1px solid var(--border-soft)' : 'none',
+                display:'flex', gap:14, alignItems:'flex-start',
+                transition:'background .15s',
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,.02)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{
+                  width:36, height:36, borderRadius:9, background:cfg.cor+'18',
+                  display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0,
+                }}>
+                  <Icon name={cfg.icone} size={15} style={{color:cfg.cor}}/>
+                </div>
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10, marginBottom:3}}>
+                    <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600}}>{l.titulo}</div>
+                    <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', flexShrink:0}}>{fmtDataHora(l.criado_em)}</div>
+                  </div>
+                  {l.descricao && (
+                    <div style={{fontSize:12, color:'var(--t2)', marginBottom:4, lineHeight:1.5}}>{l.descricao}</div>
+                  )}
+                  <div style={{display:'flex', gap:10, alignItems:'center', fontSize:11, color:'var(--t3)', marginTop:5}}>
+                    <span style={{padding:'2px 7px', borderRadius:5, background:cfg.cor+'18', color:cfg.cor, fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:.3}}>{cfg.label}</span>
+                    {l.autor && <span>👤 {l.autor}</span>}
+                    {l.commit_sha && (
+                      <a href={`https://github.com/jhonattanitiuba-cmd/brava-sistema/commit/${l.commit_sha}`} target="_blank" rel="noreferrer"
+                        style={{fontFamily:'var(--f-m)', color:'var(--blue)', textDecoration:'none', display:'inline-flex', alignItems:'center', gap:3}}>
+                        <Icon name="Link" size={9}/>{l.commit_sha.slice(0,7)}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -10056,94 +10136,94 @@ function Config() {
   );
 }
 
-/* ─── Analytics ─── */
+/* ─── Analytics — limpo, sem simulações. Pronto pra receber dados reais. ─── */
 function Analytics() {
-  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const mrrEvol = [12000,14200,15800,17500,19200,21000,22500,24100,25800,26900,27500,28400];
-  const conv    = [820,940,1060,1180,1340,1480,1620,1780,1920,2050,2180,2340];
-  const max1 = Math.max(...mrrEvol);
-  const max2 = Math.max(...conv);
+  const { list: clientesMestre } = useClientes();
+  const recorrencia = useRecorrencia();
+  const extrato = useExtratoBancario();
+  const { list: statusConfig } = useStatusConfig();
+
+  // Métricas REAIS do sistema
+  const totalClientes = clientesMestre.length;
+  const totalProjetos = recorrencia.length;
+  const projetosAtivos = recorrencia.filter(p => p.status_fase === 'ativo').length;
+  const mrrAtivo = recorrencia.filter(p => p.status_fase === 'ativo').reduce((s,p) => s + Number(p.mensal||0), 0);
+  const totalLancamentos = extrato.length;
+  const totalConciliados = extrato.filter(e =>
+    e.conciliado_pagamento_id || e.conciliado_caixa_id || e.conciliado_despesa_pagamento_id
+  ).length;
+  const taxaConciliacao = totalLancamentos > 0 ? (totalConciliados / totalLancamentos * 100).toFixed(1) : 0;
+
+  // Distribuição real por fase
+  const distFase = (statusConfig || []).map(s => ({
+    ...s,
+    qtd: recorrencia.filter(p => (p.status_fase || 'lead') === s.key).length,
+  })).filter(s => s.qtd > 0);
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <div className="page-head__title">Analytics</div>
-          <div className="page-head__sub">Visão analítica · últimos 12 meses</div>
+          <div className="page-head__sub">Métricas reais do sistema · {totalLancamentos} lançamentos · {totalClientes} clientes · {totalProjetos} projetos</div>
         </div>
       </div>
 
-      <div className="kpi-grid">
+      {/* KPIs reais */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
-          {l:'Crescimento MRR',  v:'+136%', d:'vs Jan/2026', c:'#1D9E75'},
-          {l:'Churn rate',       v:'2.1%', d:'média 12 meses', c:'#BA7517'},
-          {l:'LTV médio',        v:'R$ 14.250', d:'12x ticket médio', c:'#7B3FE4'},
-          {l:'CAC',              v:'R$ 380',  d:'payback em 4 meses', c:'#1E90FF'},
+          {l:'Clientes cadastrados', v: totalClientes, d:'na tabela mestre', c:'var(--blue)', i:'UsersRound'},
+          {l:'Projetos ativos', v: projetosAtivos, d:`de ${totalProjetos} totais`, c:'#1D9E75', i:'CheckCircle2'},
+          {l:'MRR ativo', v:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, d:'soma dos projetos ativos', c:'#1D9E75', i:'TrendingUp'},
+          {l:'Taxa de conciliação', v:`${taxaConciliacao}%`, d:`${totalConciliados}/${totalLancamentos} do extrato`, c: taxaConciliacao > 50 ? '#1D9E75' : '#BA7517', i:'Wallet'},
         ].map((k,i) => (
           <div key={i} className="kpi">
-            <div className="kpi__label">{k.l}</div>
-            <div className="kpi__value" style={{color:k.c}}>{k.v}</div>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.l}</div>
+              <div className="kpi__icon" style={{background:k.c+'22'}}><Icon name={k.i} size={17} style={{color:k.c}}/></div>
+            </div>
+            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.v}</div>
             <div className="kpi__delta" style={{color:'var(--t3)'}}>{k.d}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid-2">
-        <div className="card">
-          <div className="card__head"><div className="card__title">Evolução MRR · 12 meses</div></div>
-          <div className="chart" style={{height:160}}>
-            {mrrEvol.map((v,i) => (
-              <div key={i} className="chart-bar-wrap">
-                <div className={`chart-bar ${i===11?'today':'past'}`} style={{height:`${(v/max1)*100}%`}} title={`R$ ${v.toLocaleString('pt-BR')}`}/>
-                <div className="chart-label">{meses[i]}</div>
+      {/* Distribuição real por fase */}
+      <div className="card" style={{padding:'18px 20px', marginBottom:18}}>
+        <div className="card__head"><div className="card__title">Distribuição de projetos por fase (real)</div></div>
+        {distFase.length === 0 ? (
+          <div style={{padding:20, textAlign:'center', color:'var(--t3)', fontSize:13}}>Sem projetos cadastrados ainda</div>
+        ) : distFase.map(s => {
+          const pct = totalProjetos > 0 ? Math.round((s.qtd / totalProjetos) * 100) : 0;
+          return (
+            <div key={s.key} style={{marginBottom:10}}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
+                <div style={{display:'flex', alignItems:'center', gap:6, fontSize:12.5}}>
+                  <Icon name={s.icone} size={12} style={{color:s.cor}}/>
+                  <span style={{color:'var(--t1)', fontWeight:500}}>{s.label}</span>
+                </div>
+                <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)'}}>{s.qtd} · {pct}%</div>
               </div>
-            ))}
-          </div>
-        </div>
-        <div className="card">
-          <div className="card__head"><div className="card__title">Conversas processadas · 12 meses</div></div>
-          <div className="chart" style={{height:160}}>
-            {conv.map((v,i) => (
-              <div key={i} className="chart-bar-wrap">
-                <div className={`chart-bar ${i===11?'today':'past'}`} style={{height:`${(v/max2)*100}%`}} title={`${v} conversas`}/>
-                <div className="chart-label">{meses[i]}</div>
+              <div style={{height:6, background:'var(--bg-3)', borderRadius:3, overflow:'hidden'}}>
+                <div style={{height:'100%', width:`${pct}%`, background:s.cor, transition:'width .3s'}}/>
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
 
-      <div className="grid-3">
-        <div className="card">
-          <div className="card__head"><div className="card__title">Top nichos por MRR</div></div>
-          {[['Estacionamento',3960,'#7B3FE4'],['Aviação Civil',1440,'#BA7517'],['Saúde',1400,'#1D9E75'],['Construção',1400,'#1E90FF'],['Estética',2000,'#A32D2D']].sort((a,b)=>b[1]-a[1]).map(([n,v,c],i)=>(
-            <div key={i} className="stat-row">
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{width:8,height:8,borderRadius:'50%',background:c}}/>
-                <div className="stat-label">{n}</div>
-              </div>
-              <div className="stat-val" style={{color:'var(--success)'}}>R$ {v}</div>
+      {/* Aviso de evolução futura */}
+      <div className="card" style={{padding:'18px 20px', border:'1px dashed var(--border)'}}>
+        <div style={{display:'flex', alignItems:'flex-start', gap:12}}>
+          <div style={{width:36, height:36, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Lightbulb" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div>
+            <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, marginBottom:4}}>Métricas avançadas em construção</div>
+            <div style={{fontSize:12, color:'var(--t3)', lineHeight:1.5}}>
+              Em breve: evolução de MRR mês a mês, taxa de churn real, LTV médio, conversão por etapa, performance de IA. Todas serão calculadas a partir dos dados reais do banco — sem mocks.
             </div>
-          ))}
-        </div>
-        <div className="card">
-          <div className="card__head"><div className="card__title">Conversão por etapa</div></div>
-          {[['Lead → Qualificado','73%'],['Qualificado → Proposta','52%'],['Proposta → Fechamento','41%'],['Fechamento → Ativo','89%']].map(([k,v],i)=>(
-            <div key={i} style={{marginBottom:12}}>
-              <div className="stat-row" style={{borderBottom:'none',padding:'4px 0'}}>
-                <div className="stat-label">{k}</div>
-                <div className="stat-val">{v}</div>
-              </div>
-              <div className="progress"><div className="progress__fill" style={{width:v}}/></div>
-            </div>
-          ))}
-        </div>
-        <div className="card">
-          <div className="card__head"><div className="card__title">IA · performance</div></div>
-          <div className="stat-row"><div className="stat-label">Taxa de resolução</div><div className="stat-val" style={{color:'var(--success)'}}>91%</div></div>
-          <div className="stat-row"><div className="stat-label">Tempo médio resposta</div><div className="stat-val">22s</div></div>
-          <div className="stat-row"><div className="stat-label">Conversas/dia</div><div className="stat-val">1.247</div></div>
-          <div className="stat-row"><div className="stat-label">Custo por conversa</div><div className="stat-val">R$ 0,12</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -18316,7 +18396,6 @@ function App() {
       <main className="main">
         {page === 'dashboard' ? <Dashboard onImpersonate={setImpersonate} pipelineCols={pipelineCols} setPage={setPage} onNovoCliente={()=>setNovoClienteAberto(true)} onExportar={exportarCSV} busca={busca}/>
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
-          : page === 'monitoramento' ? <Monitoramento pipelineCols={pipelineCols} onImpersonate={setImpersonate}/>
           : page === 'mrr'      ? <Financeiro/>
           : page === 'pipeline' ? <PipelineProjetos/>
           : page === 'clientes_crm' ? <ClientesCRM/>
