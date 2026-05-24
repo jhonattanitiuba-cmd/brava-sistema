@@ -10662,65 +10662,76 @@ function ModalRec({ rec, onClose }) {
     onClose();
   };
 
-  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
-  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:'min(560px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)',
-        borderRadius:14, padding:'22px 24px', boxShadow:'0 24px 60px rgba(0,0,0,.5)'
-      }}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)', letterSpacing:'-.01em'}}>
-              {novo ? 'Novo contrato' : 'Editar contrato'}
-            </div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(560px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="TrendingUp" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{novo ? 'Novo contrato' : 'Editar contrato'}</h3>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza Recorrência e Dashboard em tempo real</div>
           </div>
-          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
-          <div style={{gridColumn:'span 2'}}>
-            <label style={lbl}>Cliente</label>
-            <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Nome do cliente / contrato"/>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Building2">Cliente</SecaoLabel>
+            <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Nome do cliente ou contrato" autoFocus/>
           </div>
-          <div>
-            <label style={lbl}>Serviço</label>
-            <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + CRM, Site, etc."/>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+            <div>
+              <SecaoLabel icon="Layers">Serviço</SecaoLabel>
+              <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + CRM, Site, etc."/>
+            </div>
+            <div>
+              <SecaoLabel icon="Tag">Nicho</SecaoLabel>
+              <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria, etc."/>
+            </div>
           </div>
-          <div>
-            <label style={lbl}>Nicho</label>
-            <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria, etc."/>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+            <div>
+              <SecaoLabel icon="ScrollText">Implantação (único)</SecaoLabel>
+              <input style={inp} type="number" min="0" value={form.impl} onChange={e=>set('impl', e.target.value)} placeholder="R$ 0,00"/>
+            </div>
+            <div>
+              <SecaoLabel icon="Repeat">Mensalidade</SecaoLabel>
+              <input style={inp} type="number" min="0" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="R$ 0,00"/>
+            </div>
           </div>
-          <div>
-            <label style={lbl}>Implementação (R$)</label>
-            <input style={inp} type="number" min="0" value={form.impl} onChange={e=>set('impl', e.target.value)}/>
-          </div>
-          <div>
-            <label style={lbl}>Mensal (R$)</label>
-            <input style={inp} type="number" min="0" value={form.mensal} onChange={e=>set('mensal', e.target.value)}/>
-          </div>
-          <div>
-            <label style={lbl}>Dia do vencimento</label>
-            <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: Dia 10"/>
-          </div>
-          <div>
-            <label style={lbl}>Status</label>
-            <select style={inp} value={form.status} onChange={e=>set('status', e.target.value)}>
-              {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+            <div>
+              <SecaoLabel icon="Calendar">Dia do vencimento</SecaoLabel>
+              <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: Dia 10"/>
+            </div>
+            <div>
+              <SecaoLabel icon="Activity">Status do contrato</SecaoLabel>
+              <select style={inp} value={form.status} onChange={e=>set('status', e.target.value)}>
+                {STATUS_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
           </div>
         </div>
 
-        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
           {!novo
-            ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button>
+            ? <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}><Icon name="Trash2" size={12}/>Remover</button>
             : <span/>}
           <div style={{display:'flex', gap:10}}>
-            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
-            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Adicionar' : 'Salvar'}</button>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name="Check" size={13}/>{novo ? 'Adicionar' : 'Salvar'}
+            </button>
           </div>
         </div>
       </div>
@@ -10761,77 +10772,93 @@ function ModalPagamentos({ rec, pagamentos, onClose }) {
 
   if (!rec.mensal || rec.mensal <= 0) {
     return (
-      <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
-        <div onClick={e=>e.stopPropagation()} style={{width:'min(460px,92vw)', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:24}}>
-          <div style={{fontFamily:'var(--f-d)', fontSize:16, fontWeight:600, color:'var(--t1)', marginBottom:8}}>{rec.cliente}</div>
-          <div style={{fontSize:13, color:'var(--t2)'}}>Este contrato nao tem mensalidade configurada. Edite o cliente para definir um valor mensal e dia de vencimento.</div>
-          <button onClick={onClose} className="btn btn-primary" style={{marginTop:18, width:'100%'}}>Fechar</button>
+      <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20}}>
+        <div onClick={e=>e.stopPropagation()} style={{width:'min(480px, 95vw)', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden'}}>
+          <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+            <div style={{width:38, height:38, borderRadius:9, background:'rgba(186,117,23,.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+              <Icon name="AlertCircle" size={17} style={{color:'#BA7517'}}/>
+            </div>
+            <div style={{flex:1, minWidth:0}}>
+              <h3 style={{margin:0, fontSize:16, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{rec.cliente}</h3>
+              <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Sem mensalidade configurada</div>
+            </div>
+            <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+          </div>
+          <div style={{padding:'18px 22px'}}>
+            <div style={{fontSize:13, color:'var(--t2)', lineHeight:1.5}}>Este contrato não tem mensalidade configurada. Edite o cliente para definir um valor mensal e dia de vencimento.</div>
+          </div>
+          <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end'}}>
+            <button onClick={onClose} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>Fechar</button>
+          </div>
         </div>
       </div>
     );
   }
 
+  const pagosCount = meses.filter(m => pagamentos[rec.__id]?.[m.ym]?.pago).length;
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:'min(560px, 94vw)', maxHeight:'88vh', overflow:'auto',
-        background:'var(--bg-2)', border:'1px solid var(--border)',
-        borderRadius:14, padding:'22px 24px'
-      }}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{rec.cliente}</div>
-            <div style={{fontSize:13, color:'var(--t3)', marginTop:3}}>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(580px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="History" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{rec.cliente}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>
               R$ {rec.mensal.toLocaleString('pt-BR')}/mês · vence dia {diaVenc || '–'}
             </div>
           </div>
-          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Histórico (12 meses)</div>
-        <div style={{display:'grid', gap:6}}>
-          {meses.map(m => {
-            const reg = pagamentos[rec.__id]?.[m.ym];
-            const refForStatus = { ...rec };
-            // calcula status pra cada mes considerando vencimento do mes
-            let badge;
-            if (reg?.pago) {
-              badge = { label:`Pago · ${formatBR(reg.data)}`, color:'#1D9E75' };
-            } else if (diaVenc) {
-              const venc = new Date(m.date.getFullYear(), m.date.getMonth(), Math.min(diaVenc, ultimoDiaMes(m.date.getFullYear(), m.date.getMonth())));
-              const h = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-              const dDias = Math.round((h - venc) / (24*60*60*1000));
-              if (dDias < 0) badge = { label:`Vence em ${-dDias}d`, color:'#BA7517' };
-              else if (dDias === 0) badge = { label:'Vence hoje', color:'#BA7517' };
-              else badge = { label:`Atrasado ${dDias}d`, color:'#A32D2D' };
-            } else {
-              badge = { label:'Sem vencimento', color:'#6E6E78' };
-            }
-            return (
-              <div key={m.ym} style={{
-                display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, alignItems:'center',
-                padding:'10px 12px', background: m.isAtual ? 'rgba(123,63,228,.08)' : 'var(--bg-3)',
-                border: m.isAtual ? '1px solid rgba(123,63,228,.35)' : '1px solid var(--border-soft)',
-                borderRadius:8
-              }}>
-                <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', textTransform:'capitalize'}}>{m.label}</div>
-                <div>
-                  <span style={{fontSize:11, padding:'3px 9px', borderRadius:999, background:badge.color+'22', color:badge.color, border:`1px solid ${badge.color}44`, fontWeight:500}}>{badge.label}</span>
-                </div>
-                <button onClick={()=>togglePago(m.ym, reg)} className="btn btn-sm" style={{
-                  background: reg?.pago ? 'transparent' : '#1D9E75',
-                  color: reg?.pago ? '#6E6E78' : '#fff',
-                  border: reg?.pago ? '1px solid var(--border)' : 'none',
-                  padding:'5px 11px', fontSize:12,
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <SecaoLabel icon="History" count={pagosCount > 0 ? `${pagosCount}/${meses.length}` : null}>Histórico de pagamentos (12 meses)</SecaoLabel>
+          <div style={{display:'grid', gap:6}}>
+            {meses.map(m => {
+              const reg = pagamentos[rec.__id]?.[m.ym];
+              let badge;
+              if (reg?.pago) {
+                badge = { label:`Pago · ${formatBR(reg.data)}`, color:'#1D9E75' };
+              } else if (diaVenc) {
+                const venc = new Date(m.date.getFullYear(), m.date.getMonth(), Math.min(diaVenc, ultimoDiaMes(m.date.getFullYear(), m.date.getMonth())));
+                const h = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+                const dDias = Math.round((h - venc) / (24*60*60*1000));
+                if (dDias < 0) badge = { label:`Vence em ${-dDias}d`, color:'#BA7517' };
+                else if (dDias === 0) badge = { label:'Vence hoje', color:'#BA7517' };
+                else badge = { label:`Atrasado ${dDias}d`, color:'#A32D2D' };
+              } else {
+                badge = { label:'Sem vencimento', color:'#6E6E78' };
+              }
+              return (
+                <div key={m.ym} style={{
+                  display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, alignItems:'center',
+                  padding:'10px 12px', background: m.isAtual ? 'rgba(30,144,255,.08)' : 'var(--bg-3)',
+                  border: m.isAtual ? '1px solid rgba(30,144,255,.35)' : '1px solid var(--border-soft)',
+                  borderRadius:8
                 }}>
-                  {reg?.pago ? 'Desmarcar' : 'Marcar pago'}
-                </button>
-              </div>
-            );
-          })}
+                  <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', textTransform:'capitalize'}}>{m.label}</div>
+                  <div>
+                    <span style={{fontSize:11, padding:'3px 9px', borderRadius:999, background:badge.color+'22', color:badge.color, border:`1px solid ${badge.color}44`, fontWeight:500}}>{badge.label}</span>
+                  </div>
+                  <button onClick={()=>togglePago(m.ym, reg)} style={{
+                    background: reg?.pago ? 'transparent' : '#1D9E75',
+                    color: reg?.pago ? 'var(--t3)' : '#fff',
+                    border: reg?.pago ? '1px solid var(--border)' : 'none',
+                    padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, cursor:'pointer',
+                  }}>{reg?.pago ? 'Desmarcar' : 'Marcar pago'}</button>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <button onClick={onClose} className="btn btn-outline" style={{marginTop:18, width:'100%'}}>Fechar</button>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>Fechar</button>
+        </div>
       </div>
     </div>
   );
@@ -11688,82 +11715,99 @@ function DespesaModal({ despesa, onClose }) {
     onClose();
   };
 
-  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
-  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px'}}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{novo ? 'Nova despesa' : 'Editar despesa'}</div>
-            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza fluxo de caixa em tempo real</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="CreditCard" size={17} style={{color:'var(--blue)'}}/>
           </div>
-          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{novo ? 'Nova despesa' : 'Editar despesa'}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza o fluxo de caixa em tempo real</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{display:'grid', gap:14}}>
-          <div>
-            <label style={lbl}>Descrição</label>
-            <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Aluguel escritório"/>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Pencil">Descrição</SecaoLabel>
+            <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Aluguel escritório" autoFocus/>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
-              <label style={lbl}>Categoria</label>
+              <SecaoLabel icon="Tag">Categoria</SecaoLabel>
               <select style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)}>
                 {CATEGORIAS_DESPESA.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
-              <label style={lbl}>Valor (R$)</label>
+              <SecaoLabel icon="DollarSign">Valor (R$)</SecaoLabel>
               <input style={inp} type="number" min="0" step="0.01" value={form.valor} onChange={e=>set('valor', e.target.value)}/>
             </div>
           </div>
-          <div>
-            <label style={lbl}>Tipo</label>
+
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Repeat">Tipo de cobrança</SecaoLabel>
             <div style={{display:'flex', gap:8}}>
               {[
-                { v:true, label:'Mensal recorrente' },
-                { v:false, label:'Avulso (uma vez)' },
+                { v:true,  label:'Mensal recorrente', icon:'Repeat' },
+                { v:false, label:'Avulso (uma vez)',  icon:'Clock'  },
               ].map(o => (
                 <button key={String(o.v)} onClick={()=>set('recorrente', o.v)} style={{
-                  flex:1, padding:'9px', borderRadius:7,
+                  flex:1, padding:'10px', borderRadius:8,
                   background: form.recorrente === o.v ? 'rgba(30,144,255,.12)' : 'var(--bg-3)',
                   color: form.recorrente === o.v ? 'var(--blue)' : 'var(--t2)',
                   border: form.recorrente === o.v ? '1px solid var(--blue)' : '1px solid var(--border)',
-                  fontSize:12.5, cursor:'pointer',
-                }}>{o.label}</button>
+                  fontSize:12.5, cursor:'pointer', display:'inline-flex', alignItems:'center', justifyContent:'center', gap:7, fontWeight:500,
+                }}>
+                  <Icon name={o.icon} size={13}/>{o.label}
+                </button>
               ))}
             </div>
           </div>
+
           {form.recorrente ? (
-            <div>
-              <label style={lbl}>Dia do vencimento</label>
+            <div style={{marginBottom:18}}>
+              <SecaoLabel icon="Calendar">Dia do vencimento</SecaoLabel>
               <input style={inp} type="number" min="1" max="31" value={form.dia_vencimento || ''} onChange={e=>set('dia_vencimento', e.target.value)} placeholder="1 a 31"/>
             </div>
           ) : (
-            <div>
-              <label style={lbl}>Data</label>
+            <div style={{marginBottom:18}}>
+              <SecaoLabel icon="Calendar">Data do pagamento</SecaoLabel>
               <input style={inp} type="date" value={form.data_unica} onChange={e=>set('data_unica', e.target.value)}/>
             </div>
           )}
-          <div>
-            <label style={lbl}>Observação (opcional)</label>
-            <textarea style={{...inp, resize:'vertical', fontFamily:'inherit', minHeight:60}} value={form.observacao} onChange={e=>set('observacao', e.target.value)} rows={2}/>
+
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="MessageCircle">Observação (opcional)</SecaoLabel>
+            <textarea style={{...inp, resize:'vertical', fontFamily:'inherit', minHeight:62}} value={form.observacao} onChange={e=>set('observacao', e.target.value)} rows={2} placeholder="Detalhes extras, contato do fornecedor, etc."/>
           </div>
-          <div>
-            <label style={{...lbl, marginBottom:0, display:'flex', alignItems:'center', gap:8, textTransform:'none', letterSpacing:0, fontSize:13}}>
-              <input type="checkbox" checked={form.ativo} onChange={e=>set('ativo', e.target.checked)} style={{accentColor:'var(--blue)', width:16, height:16}}/>
-              Ativa (entra no cálculo do fluxo de caixa)
-            </label>
-          </div>
+
+          <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer'}}>
+            <input type="checkbox" checked={form.ativo} onChange={e=>set('ativo', e.target.checked)} style={{accentColor:'var(--blue)', width:16, height:16, cursor:'pointer'}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13, color:'var(--t1)', fontWeight:500}}>Despesa ativa</div>
+              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>Entra no cálculo do saldo e do fluxo de caixa</div>
+            </div>
+          </label>
         </div>
 
-        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
-          {!novo ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button> : <span/>}
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
+          {!novo
+            ? <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}><Icon name="Trash2" size={12}/>Remover</button>
+            : <span/>}
           <div style={{display:'flex', gap:10}}>
-            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
-            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Adicionar' : 'Salvar'}</button>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name="Check" size={13}/>{novo ? 'Adicionar' : 'Salvar'}
+            </button>
           </div>
         </div>
       </div>
@@ -11784,36 +11828,49 @@ function DespesaHistoricoModal({ despesa, despesasPag, onClose }) {
   }, []);
   const valor = parseFloat(despesa.valor) || 0;
 
+  const pagosCount = meses.filter(m => despesasPag[despesa.id]?.[m.ym]?.pago).length;
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 94vw)', maxHeight:'88vh', overflow:'auto', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px'}}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{despesa.descricao}</div>
-            <div style={{fontSize:13, color:'var(--t3)', marginTop:3}}>R$ {valor.toLocaleString('pt-BR')} · {despesa.categoria}</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(560px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="History" size={17} style={{color:'var(--blue)'}}/>
           </div>
-          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{despesa.descricao}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>R$ {valor.toLocaleString('pt-BR')} · {despesa.categoria}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
-        <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Histórico (12 meses)</div>
-        <div style={{display:'grid', gap:6}}>
-          {meses.map(m => {
-            const reg = despesasPag[despesa.id]?.[m.ym];
-            return (
-              <div key={m.ym} style={{display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, alignItems:'center', padding:'10px 12px', background: m.isAtual ? 'rgba(30,144,255,.08)' : 'var(--bg-3)', border: m.isAtual ? '1px solid rgba(30,144,255,.35)' : '1px solid var(--border-soft)', borderRadius:8}}>
-                <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', textTransform:'capitalize'}}>{m.label}</div>
-                <div style={{fontSize:12, color:'var(--t3)'}}>{reg?.pago ? `Pago em ${formatBR(reg.data)} · R$ ${(reg.valor_pago ?? valor).toLocaleString('pt-BR')}` : 'Não pago'}</div>
-                <button onClick={()=>setDespesaPagamento(despesa.id, m.ym, reg?.pago ? null : { pago:true, data: hojeISO(), valor_pago: valor })}
-                  className="btn btn-sm" style={{
-                    background: reg?.pago ? 'transparent' : '#1D9E75',
-                    color: reg?.pago ? 'var(--t3)' : '#fff',
-                    border: reg?.pago ? '1px solid var(--border)' : 'none',
-                    padding:'5px 11px', fontSize:12,
-                  }}>{reg?.pago ? 'Desmarcar' : 'Marcar pago'}</button>
-              </div>
-            );
-          })}
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <SecaoLabel icon="History" count={pagosCount > 0 ? `${pagosCount}/${meses.length}` : null}>Histórico de pagamentos (12 meses)</SecaoLabel>
+          <div style={{display:'grid', gap:6}}>
+            {meses.map(m => {
+              const reg = despesasPag[despesa.id]?.[m.ym];
+              return (
+                <div key={m.ym} style={{display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, alignItems:'center', padding:'10px 12px', background: m.isAtual ? 'rgba(30,144,255,.08)' : 'var(--bg-3)', border: m.isAtual ? '1px solid rgba(30,144,255,.35)' : '1px solid var(--border-soft)', borderRadius:8}}>
+                  <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', textTransform:'capitalize'}}>{m.label}</div>
+                  <div style={{fontSize:12, color:'var(--t3)'}}>{reg?.pago ? `Pago em ${formatBR(reg.data)} · R$ ${(reg.valor_pago ?? valor).toLocaleString('pt-BR')}` : 'Não pago'}</div>
+                  <button onClick={()=>setDespesaPagamento(despesa.id, m.ym, reg?.pago ? null : { pago:true, data: hojeISO(), valor_pago: valor })}
+                    style={{
+                      background: reg?.pago ? 'transparent' : '#1D9E75',
+                      color: reg?.pago ? 'var(--t3)' : '#fff',
+                      border: reg?.pago ? '1px solid var(--border)' : 'none',
+                      padding:'5px 12px', fontSize:12, fontWeight:500, borderRadius:6, cursor:'pointer',
+                    }}>{reg?.pago ? 'Desmarcar' : 'Marcar pago'}</button>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <button onClick={onClose} className="btn btn-outline" style={{marginTop:18, width:'100%'}}>Fechar</button>
+
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>Fechar</button>
+        </div>
       </div>
     </div>
   );
@@ -12008,69 +12065,81 @@ function CaixaLancamentoModal({ lancamento, onClose }) {
     onClose();
   };
 
-  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
-  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
 
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px'}}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{novo ? 'Novo lançamento' : 'Editar lançamento'}</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Wallet" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{novo ? 'Novo lançamento' : 'Editar lançamento'}</h3>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Entrada ou saída avulsa do caixa</div>
           </div>
-          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{display:'grid', gap:14}}>
-          <div>
-            <label style={lbl}>Tipo</label>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Repeat">Tipo de movimentação</SecaoLabel>
             <div style={{display:'flex', gap:8}}>
               {[
                 { v:'entrada', label:'Entrada', cor:'#1D9E75', icon:'ArrowDownCircle' },
-                { v:'saida', label:'Saída', cor:'#A32D2D', icon:'ArrowUpCircle' },
+                { v:'saida',   label:'Saída',   cor:'#A32D2D', icon:'ArrowUpCircle'   },
               ].map(o => (
                 <button key={o.v} onClick={()=>set('tipo', o.v)} style={{
-                  flex:1, padding:'10px', borderRadius:7,
+                  flex:1, padding:'10px', borderRadius:8,
                   background: form.tipo === o.v ? o.cor+'22' : 'var(--bg-3)',
                   color: form.tipo === o.v ? o.cor : 'var(--t2)',
                   border: form.tipo === o.v ? `1px solid ${o.cor}55` : '1px solid var(--border)',
-                  fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                  fontSize:13, fontWeight:500, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
                 }}>
                   <Icon name={o.icon} size={13}/>{o.label}
                 </button>
               ))}
             </div>
           </div>
-          <div>
-            <label style={lbl}>Descrição</label>
-            <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Venda avulsa, Reembolso, ..."/>
+
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Pencil">Descrição</SecaoLabel>
+            <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Venda avulsa, reembolso, ajuste de saldo..." autoFocus/>
           </div>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14}}>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
             <div>
-              <label style={lbl}>Categoria</label>
+              <SecaoLabel icon="Tag">Categoria</SecaoLabel>
               <input style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)} placeholder="Ex: Venda extra"/>
             </div>
             <div>
-              <label style={lbl}>Valor (R$)</label>
+              <SecaoLabel icon="DollarSign">Valor (R$)</SecaoLabel>
               <input style={inp} type="number" min="0.01" step="0.01" value={form.valor} onChange={e=>set('valor', e.target.value)}/>
             </div>
             <div>
-              <label style={lbl}>Data</label>
+              <SecaoLabel icon="Calendar">Data</SecaoLabel>
               <input style={inp} type="date" value={form.data} onChange={e=>set('data', e.target.value)}/>
             </div>
           </div>
+
           <div>
-            <label style={lbl}>Observação</label>
-            <textarea style={{...inp, resize:'vertical', fontFamily:'inherit', minHeight:60}} value={form.observacao} onChange={e=>set('observacao', e.target.value)} rows={2}/>
+            <SecaoLabel icon="MessageCircle">Observação (opcional)</SecaoLabel>
+            <textarea style={{...inp, resize:'vertical', fontFamily:'inherit', minHeight:62}} value={form.observacao} onChange={e=>set('observacao', e.target.value)} rows={2} placeholder="Detalhes que ajudem a entender o lançamento depois"/>
           </div>
         </div>
 
-        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
-          {!novo ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button> : <span/>}
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
+          {!novo
+            ? <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}><Icon name="Trash2" size={12}/>Remover</button>
+            : <span/>}
           <div style={{display:'flex', gap:10}}>
-            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
-            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Adicionar' : 'Salvar'}</button>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name="Check" size={13}/>{novo ? 'Adicionar' : 'Salvar'}
+            </button>
           </div>
         </div>
       </div>
