@@ -6804,7 +6804,7 @@ function useTransferenciaWatcher(meuUserId) {
 }
 
 /* Hook: notifica + toca som quando uma conciliacao automatica acontece.
-   Escuta INSERT em mrr_pagamentos e fin_despesas_pagamentos.
+   Escuta INSERT em projeto_pagamentos e fin_despesas_pagamentos.
    Como o trigger no banco insere/atualiza esses registros via auto-conciliacao,
    o user fica sabendo em tempo real quando o sistema bate algo sozinho. */
 function useConciliacaoAutoWatcher() {
@@ -6815,10 +6815,10 @@ function useConciliacaoAutoWatcher() {
     setTimeout(() => { bootstrapped = true; }, 2000); // evita disparar pra registros antigos no replay inicial
 
     const ch = cli.channel('rt:conciliacao-auto-watch')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'mrr_pagamentos' }, async (p) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'projeto_pagamentos' }, async (p) => {
         if (!bootstrapped || !p.new?.pago) return;
         try {
-          const { data: cliente } = await cli.from('mrr_clients').select('cliente, mensal').eq('id', p.new.cliente_id).maybeSingle();
+          const { data: cliente } = await cli.from('projetos').select('cliente, mensal').eq('id', p.new.cliente_id).maybeSingle();
           if (!cliente) return;
           playTransferSound();
           if (typeof adicionarNotificacao === 'function') {
@@ -10259,7 +10259,7 @@ function ThemeToggle() {
 /* ─── Financeiro — paleta de status (usada em badges, gráficos, filtros) ─── */
 const SC = { 'Em Prod':'#1D9E75','Ativo':'#1E90FF','Implementação':'#7B3FE4','Comercial':'#BA7517','Proposta Apresentada':'#BA7517','Em breve':'#6E6E78','':'' };
 
-/* ─── Store MRR — Supabase (tabela mrr_clients) ────────────────────────
+/* ─── Store MRR — Supabase (tabela projetos) ────────────────────────
    Substituiu o store localStorage anterior.
    __id = campo id do Supabase (UUID) para compatibilidade com o componente MRR.
 
@@ -10296,7 +10296,7 @@ function _mrrToDB(patch) {
 
 async function editRecorrencia(id, patch) {
   const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return; }
-  const { error } = await cli.from('mrr_clients').update(_mrrToDB(patch)).eq('id', id);
+  const { error } = await cli.from('projetos').update(_mrrToDB(patch)).eq('id', id);
   if (error) { showToast?.('Erro: '+error.message,'error'); console.error('editRecorrencia:', error, patch); }
   // Realtime vai re-renderizar o useRecorrencia
 }
@@ -10309,14 +10309,14 @@ async function addRecorrencia(item) {
   // Garante que status_fase e status estão alinhados
   if (merged.status_fase && !item.status) merged.status = merged.status_fase;
   if (merged.status && !item.status_fase) merged.status_fase = merged.status;
-  const { data, error } = await cli.from('mrr_clients').insert(_mrrToDB(merged)).select().single();
+  const { data, error } = await cli.from('projetos').insert(_mrrToDB(merged)).select().single();
   if (error) { showToast?.('Erro ao criar: '+error.message,'error'); console.error('addRecorrencia:', error); return null; }
   return data?.id || null;
 }
 
 async function deleteRecorrencia(id) {
   const cli = getSupa(); if (!cli) return;
-  await cli.from('mrr_clients').delete().eq('id', id);
+  await cli.from('projetos').delete().eq('id', id);
 }
 
 function useRecorrencia() {
@@ -10325,19 +10325,19 @@ function useRecorrencia() {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('mrr_clients').select('*').order('created_at', { ascending: true });
+      const { data } = await cli.from('projetos').select('*').order('created_at', { ascending: true });
       if (alive && data) setList(data.map(_mrrFromDB));
     };
     load();
-    const ch = cli.channel('rt:mrr_clients')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mrr_clients' }, load)
+    const ch = cli.channel('rt:projetos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projetos' }, load)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
   }, []);
   return list;
 }
 
-/* ─── Store de PAGAMENTOS mensais — Supabase (tabela mrr_pagamentos) ──────
+/* ─── Store de PAGAMENTOS mensais — Supabase (tabela projeto_pagamentos) ──────
    Schema resultante (mesmo que antes pra manter compatibilidade):
    { [cliente_id (=recId=__id)]: { [YYYY-MM]: { pago: bool, data: 'YYYY-MM-DD' } } }
 */
@@ -10345,14 +10345,14 @@ function useRecorrencia() {
 async function setPagamento(recId, ym, info) {
   const cli = getSupa(); if (!cli) return;
   if (info === null) {
-    await cli.from('mrr_pagamentos').delete().eq('cliente_id', recId).eq('competencia', ym);
+    await cli.from('projeto_pagamentos').delete().eq('projeto_id', recId).eq('competencia', ym);
   } else {
-    await cli.from('mrr_pagamentos').upsert({
-      cliente_id:     recId,
+    await cli.from('projeto_pagamentos').upsert({
+      projeto_id:     recId,
       competencia:    ym,
       pago:           !!info.pago,
       data_pagamento: info.data || null,
-    }, { onConflict: 'cliente_id,competencia' });
+    }, { onConflict: 'projeto_id,competencia' });
   }
 }
 
@@ -10372,20 +10372,20 @@ function usePagamentos() {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('mrr_pagamentos').select('*');
+      const { data } = await cli.from('projeto_pagamentos').select('*');
       if (!alive || !data) return;
-      // Transforma pra: { [cliente_id]: { [YYYY-MM]: { pago, data } } }
+      // Transforma pra: { [projeto_id]: { [YYYY-MM]: { pago, data } } }
       const out = {};
       data.forEach(p => {
-        if (!out[p.cliente_id]) out[p.cliente_id] = {};
-        out[p.cliente_id][p.competencia] = { pago: p.pago, data: p.data_pagamento };
+        if (!out[p.projeto_id]) out[p.projeto_id] = {};
+        out[p.projeto_id][p.competencia] = { pago: p.pago, data: p.data_pagamento };
       });
       _pagamentosCache = out; // atualiza cache sync pra getPagamentos()
       setAll(out);
     };
     load();
-    const ch = cli.channel('rt:mrr_pagamentos')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mrr_pagamentos' }, load)
+    const ch = cli.channel('rt:projeto_pagamentos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projeto_pagamentos' }, load)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
   }, []);
@@ -10434,7 +10434,7 @@ function useDespesas() {
   return list;
 }
 
-/* Pagamentos efetivos das despesas (espelha mrr_pagamentos) */
+/* Pagamentos efetivos das despesas (espelha projeto_pagamentos) */
 async function setDespesaPagamento(despesaId, ym, info) {
   const cli = getSupa(); if (!cli) return;
   if (info === null) {
@@ -10641,9 +10641,9 @@ function RealtimeIndicator() {
   React.useEffect(() => {
     const cli = getSupa(); if (!cli) return;
     const tabelas = [
-      'mrr_clients','mrr_pagamentos','clientes','fin_extrato_bancario',
+      'projetos','projeto_pagamentos','clientes','fin_extrato_bancario',
       'fin_caixa_lancamentos','fin_despesas','fin_despesas_pagamentos',
-      'mrr_parcelas','fin_status_config','usuarios','etiquetas','chat_etiquetas',
+      'projeto_parcelas','fin_status_config','usuarios','etiquetas','chat_etiquetas',
     ];
     let ch = cli.channel('rt:global-pulse');
     tabelas.forEach(t => {
@@ -10837,7 +10837,7 @@ function useClienteStats(clienteId) {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('mrr_clients').select('mensal, implementacao').eq('cliente_id', clienteId);
+      const { data } = await cli.from('projetos').select('mensal, implementacao').eq('cliente_id', clienteId);
       if (!alive) return;
       const projetos = data?.length || 0;
       const mrr = (data || []).reduce((s,r) => s + Number(r.mensal||0), 0);
@@ -10878,12 +10878,12 @@ function useProjetoParcelas(projetoId) {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('mrr_parcelas').select('*').eq('projeto_id', projetoId).order('numero');
+      const { data } = await cli.from('projeto_parcelas').select('*').eq('projeto_id', projetoId).order('numero');
       if (alive && data) setList(data);
     };
     load();
-    const ch = cli.channel(`rt:mrr_parcelas:${projetoId}`)
-      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_parcelas', filter:`projeto_id=eq.${projetoId}` }, load)
+    const ch = cli.channel(`rt:projeto_parcelas:${projetoId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_parcelas', filter:`projeto_id=eq.${projetoId}` }, load)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
   }, [projetoId]);
@@ -10892,17 +10892,17 @@ function useProjetoParcelas(projetoId) {
 
 async function adicionarParcela(projetoId, parcela) {
   const cli = getSupa(); if (!cli) return null;
-  const { data, error } = await cli.from('mrr_parcelas').insert({ ...parcela, projeto_id: projetoId }).select().single();
+  const { data, error } = await cli.from('projeto_parcelas').insert({ ...parcela, projeto_id: projetoId }).select().single();
   if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
   return data;
 }
 async function editarParcela(id, patch) {
   const cli = getSupa(); if (!cli) return;
-  await cli.from('mrr_parcelas').update(patch).eq('id', id);
+  await cli.from('projeto_parcelas').update(patch).eq('id', id);
 }
 async function deletarParcela(id) {
   const cli = getSupa(); if (!cli) return;
-  await cli.from('mrr_parcelas').delete().eq('id', id);
+  await cli.from('projeto_parcelas').delete().eq('id', id);
 }
 
 // Anexos de um projeto (reativo)
@@ -10913,12 +10913,12 @@ function useProjetoAnexos(projetoId) {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('mrr_projeto_anexos').select('*').eq('projeto_id', projetoId).order('uploaded_at', { ascending:false });
+      const { data } = await cli.from('projeto_anexos').select('*').eq('projeto_id', projetoId).order('uploaded_at', { ascending:false });
       if (alive && data) setList(data);
     };
     load();
-    const ch = cli.channel(`rt:mrr_projeto_anexos:${projetoId}`)
-      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_projeto_anexos', filter:`projeto_id=eq.${projetoId}` }, load)
+    const ch = cli.channel(`rt:projeto_anexos:${projetoId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_anexos', filter:`projeto_id=eq.${projetoId}` }, load)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
   }, [projetoId]);
@@ -10939,7 +10939,7 @@ async function uploadAnexoProjeto(projetoId, file, categoria) {
   const { data: signed } = await cli.storage.from('mrr-anexos').createSignedUrl(path, 60*60*24*365);
   const url = signed?.signedUrl;
   if (!url) { showToast?.('Erro ao gerar URL', 'error'); return null; }
-  const { data, error } = await cli.from('mrr_projeto_anexos').insert({
+  const { data, error } = await cli.from('projeto_anexos').insert({
     projeto_id: projetoId, tipo:'file', nome: file.name, url, mime: file.type,
     tamanho_bytes: file.size, storage_path: path, categoria: categoria || 'Outro',
     uploaded_by: userId,
@@ -10955,7 +10955,7 @@ async function adicionarLinkAnexo(projetoId, nome, url, categoria) {
   const userId = sess?.session?.user?.id;
   // Normaliza URL
   if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
-  const { data, error } = await cli.from('mrr_projeto_anexos').insert({
+  const { data, error } = await cli.from('projeto_anexos').insert({
     projeto_id: projetoId, tipo:'link', nome: nome || url, url, categoria: categoria || 'Outro',
     uploaded_by: userId,
   }).select().single();
@@ -10968,7 +10968,7 @@ async function deletarAnexoProjeto(anexo) {
   if (anexo.tipo === 'file' && anexo.storage_path) {
     await cli.storage.from('mrr-anexos').remove([anexo.storage_path]).catch(()=>{});
   }
-  await cli.from('mrr_projeto_anexos').delete().eq('id', anexo.id);
+  await cli.from('projeto_anexos').delete().eq('id', anexo.id);
 }
 
 /* ─── Sprint E: hooks de resumo financeiro por projeto/cliente ─── */
@@ -10989,10 +10989,10 @@ function useProjetosResumoCliente(clienteId) {
     load();
     // Realtime nas tabelas-fonte (a view não tem realtime direto)
     const ch = cli.channel(`rt:proj_resumo:${clienteId}`)
-      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_pagamentos' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_pagamentos' }, load)
       .on('postgres_changes', { event:'*', schema:'public', table:'fin_caixa_lancamentos' }, load)
-      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_parcelas' }, load)
-      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_clients', filter:`cliente_id=eq.${clienteId}` }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_parcelas' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projetos', filter:`cliente_id=eq.${clienteId}` }, load)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
   }, [clienteId]);
@@ -11045,7 +11045,7 @@ function useExtratoPorProjeto(projetoId) {
 async function vincularExtratoAoProjeto(extratoId, projetoId, opts = {}) {
   const cli = getSupa(); if (!cli) return { ok:false, erro:'Sem conexão' };
   // Busca projeto pra pegar cliente_id
-  const { data: proj } = await cli.from('mrr_clients').select('id, cliente_id, cliente, mensal').eq('id', projetoId).maybeSingle();
+  const { data: proj } = await cli.from('projetos').select('id, cliente_id, cliente, mensal').eq('id', projetoId).maybeSingle();
   if (!proj) return { ok:false, erro:'Projeto não encontrado' };
   // Cria lançamento de caixa categorizado (entrada vinculada)
   const { data: lanc } = await cli.from('fin_extrato_bancario').select('descricao, valor, data').eq('id', extratoId).maybeSingle();
@@ -11354,7 +11354,7 @@ function sugerirMatch(lancamentoExtrato, opts) {
   const matches = [];
 
   if (isEntrada) {
-    // Procura em mrr_pagamentos: pagamentos com data próxima (±7d) e valor próximo (±2%)
+    // Procura em projeto_pagamentos: pagamentos com data próxima (±7d) e valor próximo (±2%)
     Object.entries(pagamentos).forEach(([clienteId, meses]) => {
       const cliente = recorrencia.find(r => r.__id === clienteId);
       if (!cliente) return;
@@ -14256,7 +14256,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
 
 // ═════════════════════════════════════════════════════════════════
 // PROJETOS CRM — Sprint G.1 + G.2
-// Aba dedicada pra projetos (mrr_clients): lista cards agrupados,
+// Aba dedicada pra projetos (projetos): lista cards agrupados,
 // filtros por status_fase, modal de criar/editar com parcelas
 // ═════════════════════════════════════════════════════════════════
 function ProjetosCRM() {
@@ -14495,7 +14495,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
         await editRecorrencia(projeto.id, payload);
         projetoId = projeto.id;
       }
-      // Se for projeto parcelado e tiver parcelas_planejadas, gera mrr_parcelas (se ainda não tem)
+      // Se for projeto parcelado e tiver parcelas_planejadas, gera projeto_parcelas (se ainda não tem)
       if (novo && form.tipo_projeto === 'parcelado' && form.parcelas_planejadas > 0 && form.valor_total_acordado > 0) {
         const cli = getSupa();
         if (cli) {
@@ -14512,7 +14512,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
               pago: false,
             });
           }
-          await cli.from('mrr_parcelas').insert(parcelas);
+          await cli.from('projeto_parcelas').insert(parcelas);
         }
       }
       showToast?.(novo ? 'Projeto criado' : 'Projeto atualizado', 'success');
@@ -14525,7 +14525,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
   const remover = async () => {
     if (!confirm(`Remover projeto "${projeto.cliente}"?\n\nIsto NÃO remove o cliente mestre, só este contrato.`)) return;
     const cli = getSupa(); if (!cli) return;
-    await cli.from('mrr_clients').delete().eq('id', projeto.id);
+    await cli.from('projetos').delete().eq('id', projeto.id);
     showToast?.('Projeto removido', 'success');
     onClose();
   };
@@ -15071,7 +15071,7 @@ function Cliente360TabAnexos({ cliente, projetos }) {
     let alive = true;
     const ids = projetos.map(p => p.projeto_id);
     const load = async () => {
-      const { data } = await cli.from('mrr_projeto_anexos').select('*').in('projeto_id', ids).order('uploaded_at', { ascending:false });
+      const { data } = await cli.from('projeto_anexos').select('*').in('projeto_id', ids).order('uploaded_at', { ascending:false });
       if (alive) setAnexos(data || []);
     };
     load();
@@ -16113,7 +16113,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
 
 // ═════════════════════════════════════════════════════════════════
 // PIPELINE PROJETOS — Sprint F.2
-// Lê projetos (mrr_clients) agrupados por status_fase (fin_status_config)
+// Lê projetos (projetos) agrupados por status_fase (fin_status_config)
 // Drag-and-drop atualiza status_fase no banco, click abre Cliente 360
 // ═════════════════════════════════════════════════════════════════
 function PipelineProjetos() {
@@ -16135,7 +16135,7 @@ function PipelineProjetos() {
   const moverProjeto = async (projetoId, novoStatus) => {
     const cli = getSupa();
     if (!cli) { showToast?.('Sem conexão com banco','error'); return; }
-    const { error } = await cli.from('mrr_clients').update({
+    const { error } = await cli.from('projetos').update({
       status_fase: novoStatus,
       status: novoStatus, // mantém legado em sync
       data_ultima_mudanca_fase: new Date().toISOString(),
