@@ -4633,51 +4633,52 @@ function SalvarContatoModal({ jid, sugestaoNome, onClose }) {
     onClose();
   };
 
-  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
-  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
-
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998, animation:'fade-in .15s'}}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:'min(480px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)',
-        borderRadius:14, padding:'22px 24px', boxShadow:'0 24px 60px rgba(0,0,0,.5)'
-      }}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>
-              {existente ? 'Editar contato' : 'Salvar contato'}
-            </div>
-            <div style={{fontSize:12, color:'var(--t3)', marginTop:3, fontFamily:'var(--f-m)'}}>{evoFormatPhone(jid) || jid}</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20, animation:'fade-in .15s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(500px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="UserCircle" size={17} style={{color:'var(--blue)'}}/>
           </div>
-          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{existente ? 'Editar contato' : 'Salvar contato'}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2, fontFamily:'var(--f-m)'}}>{evoFormatPhone(jid) || jid}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{display:'grid', gap:14}}>
-          <div>
-            <label style={lbl}>Nome *</label>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="UserCircle">Nome</SecaoLabel>
             <input style={inp} value={nome} onChange={e=>setNome(e.target.value)} placeholder="Nome completo" autoFocus/>
           </div>
-          <div>
-            <label style={lbl}>Empresa <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Building2">Empresa (opcional)</SecaoLabel>
             <input style={inp} value={empresa} onChange={e=>setEmpresa(e.target.value)} placeholder="Ex: Garcia Sadler"/>
           </div>
-          <div>
-            <label style={lbl}>Etiqueta <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Tag">Etiqueta (opcional)</SecaoLabel>
             <input style={inp} value={tag} onChange={e=>setTag(e.target.value)} placeholder="Cliente, Lead, Fornecedor..."/>
           </div>
           <div>
-            <label style={lbl}>Nota <span style={{color:'var(--t3)', textTransform:'none', letterSpacing:0, fontFamily:'var(--f-b)'}}>(opcional)</span></label>
-            <textarea style={{...inp, minHeight:60, resize:'vertical'}} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Lembrete sobre este contato..."/>
+            <SecaoLabel icon="MessageCircle">Nota (opcional)</SecaoLabel>
+            <textarea style={{...inp, minHeight:62, resize:'vertical', fontFamily:'inherit'}} value={nota} onChange={e=>setNota(e.target.value)} placeholder="Lembrete sobre este contato..."/>
           </div>
         </div>
 
-        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
           {existente
-            ? <button onClick={remover} className="btn" style={{background:'transparent', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button>
+            ? <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}><Icon name="Trash2" size={12}/>Remover</button>
             : <span/>}
           <div style={{display:'flex', gap:10}}>
-            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
-            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{existente ? 'Salvar' : 'Salvar contato'}</button>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name="Check" size={13}/>{existente ? 'Salvar' : 'Salvar contato'}
+            </button>
           </div>
         </div>
       </div>
@@ -5688,54 +5689,62 @@ function ConvidarMembroModal({ onClose }) {
     finally { setEnviando(false); }
   };
 
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
   return (
     <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
       position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
       zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
-      <form onSubmit={enviar} style={{
-        background:'var(--bg-2)', borderRadius:14, padding:24, width:420, maxWidth:'94vw',
-        border:'1px solid var(--border)',
-      }}>
-        <h3 style={{margin:'0 0 6px', fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>
-          Convidar membro
-        </h3>
-        <p style={{fontSize:13, color:'var(--t3)', margin:'0 0 18px'}}>
-          Um email será enviado com link pra criar a conta.
-        </p>
-
-        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>E-mail</label>
-        <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoFocus
-          placeholder="pessoa@exemplo.com" style={{
-            width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid var(--border)',
-            background:'var(--bg-3)', color:'var(--t1)', fontSize:14, marginBottom:14, outline:'none',
-          }}/>
-
-        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>Função</label>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6, marginBottom:erro?8:18}}>
-          {['admin','manager','agent','viewer'].map(r => (
-            <button key={r} type="button" onClick={()=>setRole(r)} style={{
-              padding:'10px 8px', borderRadius:7,
-              background: role===r ? ROLE_COR_NEW[r] : 'var(--bg-3)',
-              color: role===r ? '#fff' : 'var(--t1)',
-              border:`1px solid ${role===r ? 'transparent' : 'var(--border)'}`,
-              fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .15s',
-            }}>{ROLE_LABEL[r]}</button>
-          ))}
+      <form onSubmit={enviar} style={{width:'min(460px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Mail" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Convidar membro</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Um e-mail será enviado com link pra criar a conta</div>
+          </div>
+          <button type="button" onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        {erro && <div style={{fontSize:12, color:'#ff8585', marginBottom:14, padding:'8px 10px', background:'rgba(255,133,133,.08)', borderRadius:6}}>{erro}</div>}
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Mail">E-mail do convidado</SecaoLabel>
+            <input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoFocus placeholder="pessoa@exemplo.com" style={inp}/>
+          </div>
 
-        <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
-          <button type="button" onClick={onClose} style={{
-            padding:'10px 18px', borderRadius:8, border:'none', background:'var(--bg-3)', color:'var(--t1)',
-            fontSize:13, fontWeight:500, cursor:'pointer',
-          }}>Cancelar</button>
+          <div style={{marginBottom: erro ? 10 : 0}}>
+            <SecaoLabel icon="UserCircle">Função no workspace</SecaoLabel>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
+              {['admin','manager','agent','viewer'].map(r => (
+                <button key={r} type="button" onClick={()=>setRole(r)} style={{
+                  padding:'10px 8px', borderRadius:7,
+                  background: role===r ? ROLE_COR_NEW[r] : 'var(--bg-3)',
+                  color: role===r ? '#fff' : 'var(--t1)',
+                  border:`1px solid ${role===r ? 'transparent' : 'var(--border)'}`,
+                  fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .15s',
+                }}>{ROLE_LABEL[r]}</button>
+              ))}
+            </div>
+          </div>
+
+          {erro && <div style={{fontSize:12, color:'#ff8585', marginTop:14, padding:'8px 12px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:7}}>{erro}</div>}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10}}>
+          <button type="button" onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
           <button type="submit" disabled={enviando || !email.includes('@')} style={{
-            padding:'10px 20px', borderRadius:8, border:'none',
+            padding:'8px 18px', borderRadius:7, border:'none',
             background: enviando || !email.includes('@') ? 'var(--bg-3)' : 'var(--blue)',
             color:'#fff', fontSize:13, fontWeight:600, cursor: enviando ? 'wait' : 'pointer',
-          }}>{enviando ? 'Enviando...' : 'Enviar convite'}</button>
+            display:'inline-flex', alignItems:'center', gap:6,
+          }}>
+            <Icon name={enviando ? 'RefreshCw' : 'Mail'} size={13}/>
+            {enviando ? 'Enviando...' : 'Enviar convite'}
+          </button>
         </div>
       </form>
     </div>
@@ -5775,64 +5784,71 @@ function EditarMembroModal({ membro, onClose }) {
     } catch (e) { showToast?.('Erro: ' + e.message, 'error'); }
   };
 
+  const fotoUrl = getUserFoto(membro.email) || membro.foto_url;
+  const iniciais = (membro.nome || membro.email || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
   return (
     <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
       position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
       zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
-      <div style={{
-        background:'var(--bg-2)', borderRadius:14, padding:24, width:440, maxWidth:'94vw',
-        border:'1px solid var(--border)',
-      }}>
-        <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:18}}>
+      <div style={{width:'min(480px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header com avatar do membro */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
           <div style={{
-            width:48, height:48, borderRadius:'50%',
-            background: (getUserFoto(membro.email) || membro.foto_url) ? `url('${getUserFoto(membro.email) || membro.foto_url}') center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))',
+            width:42, height:42, borderRadius:'50%', flexShrink:0,
+            background: fotoUrl ? `url('${fotoUrl}') center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))',
             display:'flex', alignItems:'center', justifyContent:'center',
-            color:'#fff', fontWeight:700, fontSize:16,
+            color:'#fff', fontWeight:700, fontSize:14,
           }}>
-            {!membro.foto_url && (membro.nome || membro.email || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}
+            {!fotoUrl && iniciais}
           </div>
           <div style={{flex:1, minWidth:0}}>
-            <div style={{fontSize:16, color:'var(--t1)', fontWeight:600}}>{membro.nome || membro.email}</div>
-            <div style={{fontSize:12, color:'var(--t3)'}}>{membro.email}</div>
+            <h3 style={{margin:0, fontSize:16, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{membro.nome || membro.email}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{membro.email}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="UserCircle">Função no workspace</SecaoLabel>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
+              {['owner','admin','manager','agent','viewer'].map(r => (
+                <button key={r} onClick={()=>setRole(r)} style={{
+                  padding:'10px 8px', borderRadius:7,
+                  background: role===r ? ROLE_COR_NEW[r] : 'var(--bg-3)',
+                  color: role===r ? '#fff' : 'var(--t1)',
+                  border:`1px solid ${role===r ? 'transparent' : 'var(--border)'}`,
+                  fontSize:12.5, fontWeight:600, cursor:'pointer',
+                }}>{ROLE_LABEL[r]}</button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <SecaoLabel icon="Lock">Acesso ao sistema</SecaoLabel>
+            <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer'}}>
+              <input type="checkbox" checked={ativo} onChange={e=>setAtivo(e.target.checked)} style={{width:16, height:16, accentColor:'var(--blue)', cursor:'pointer'}}/>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13, color:'var(--t1)', fontWeight:500}}>Membro ativo</div>
+                <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>{ativo ? 'Pode acessar o sistema normalmente' : 'Bloqueado — não consegue fazer login'}</div>
+              </div>
+            </label>
           </div>
         </div>
 
-        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>Função</label>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6, marginBottom:18}}>
-          {['owner','admin','manager','agent','viewer'].map(r => (
-            <button key={r} onClick={()=>setRole(r)} style={{
-              padding:'10px 8px', borderRadius:7,
-              background: role===r ? ROLE_COR_NEW[r] : 'var(--bg-3)',
-              color: role===r ? '#fff' : 'var(--t1)',
-              border:`1px solid ${role===r ? 'transparent' : 'var(--border)'}`,
-              fontSize:12.5, fontWeight:600, cursor:'pointer',
-            }}>{ROLE_LABEL[r]}</button>
-          ))}
-        </div>
-
-        <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--bg-3)', borderRadius:7, cursor:'pointer', marginBottom:18}}>
-          <input type="checkbox" checked={ativo} onChange={e=>setAtivo(e.target.checked)} style={{width:16, height:16, accentColor:'var(--blue)'}}/>
-          <span style={{flex:1, fontSize:13.5, color:'var(--t1)'}}>Membro ativo</span>
-          <span style={{fontSize:11, color:'var(--t3)'}}>{ativo ? 'Pode acessar' : 'Bloqueado'}</span>
-        </label>
-
-        <div style={{display:'flex', gap:8, justifyContent:'space-between'}}>
-          <button onClick={remover} style={{
-            padding:'10px 14px', borderRadius:8, border:'none', background:'transparent',
-            color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer',
-          }}>Remover do workspace</button>
-          <div style={{display:'flex', gap:8}}>
-            <button onClick={onClose} style={{
-              padding:'10px 18px', borderRadius:8, border:'none', background:'var(--bg-3)', color:'var(--t1)',
-              fontSize:13, fontWeight:500, cursor:'pointer',
-            }}>Cancelar</button>
-            <button onClick={salvar} disabled={salvando} style={{
-              padding:'10px 20px', borderRadius:8, border:'none',
-              background:'linear-gradient(90deg,var(--purple),var(--blue))',
-              color:'#fff', fontSize:13, fontWeight:600, cursor: salvando ? 'wait' : 'pointer',
-            }}>{salvando ? 'Salvando...' : 'Salvar'}</button>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
+          <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}>
+            <Icon name="Trash2" size={12}/>Remover do workspace
+          </button>
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor: salvando ? 'wait' : 'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name={salvando ? 'RefreshCw' : 'Check'} size={13}/>
+              {salvando ? 'Salvando...' : 'Salvar'}
+            </button>
           </div>
         </div>
       </div>
@@ -6140,82 +6156,81 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
     onSalvar({ nome, servico, nicho, status, color, init: init.toUpperCase().slice(0,3), loginUrl: loginUrl || undefined, externo });
   };
 
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
   return (
-    <div onClick={onClose} style={{
-      position:'fixed', inset:0, background:'rgba(0,0,0,.6)', backdropFilter:'blur(6px)',
-      display:'flex', alignItems:'center', justifyContent:'center', zIndex:99999, padding:20
-    }}>
-      <form onSubmit={salvar} onClick={e=>e.stopPropagation()} style={{
-        background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14,
-        padding:24, width:520, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto',
-        boxShadow:'0 24px 64px rgba(0,0,0,.5)'
-      }}>
-        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
-          <div>
-            <div style={{fontSize:18, fontWeight:700, color:'var(--t1)', marginBottom:4}}>Editar cliente</div>
-            <div style={{fontSize:13, color:'var(--t3)'}}>{cliente.nome}</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:99999, padding:20}}>
+      <form onSubmit={salvar} onClick={e=>e.stopPropagation()} style={{width:'min(540px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Building2" size={17} style={{color:'var(--blue)'}}/>
           </div>
-          <button type="button" onClick={onClose} style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}>
-            <Icon name="XCircle" size={18}/>
-          </button>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Editar cliente</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{cliente.nome}</div>
+          </div>
+          <button type="button" onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{display:'grid', gap:14}}>
-          {[
-            ['Nome',            nome,     setNome,    'text'],
-            ['Serviço',         servico,  setServico, 'text'],
-            ['Nicho',           nicho,    setNicho,   'text'],
-            ['Iniciais (2-3)',  init,     setInit,    'text'],
-          ].map(([label, val, set, type]) => (
-            <div key={label}>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>{label}</label>
-              <input type={type} value={val} onChange={e=>set(e.target.value)} style={{
-                width:'100%', height:40, padding:'0 12px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none'
-              }}/>
-            </div>
-          ))}
-
-          <div>
-            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Status</label>
-            <select value={status} onChange={e=>setStatus(e.target.value)} style={{
-              width:'100%', height:40, padding:'0 12px', background:'var(--bg-3)',
-              border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none'
-            }}>
-              {['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'].map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Building2">Nome do cliente</SecaoLabel>
+            <input value={nome} onChange={e=>setNome(e.target.value)} style={inp}/>
           </div>
 
-          <div>
-            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Cor do avatar</label>
+          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:18}}>
+            <div>
+              <SecaoLabel icon="Layers">Serviço contratado</SecaoLabel>
+              <input value={servico} onChange={e=>setServico(e.target.value)} style={inp}/>
+            </div>
+            <div>
+              <SecaoLabel icon="Type">Iniciais (2-3)</SecaoLabel>
+              <input value={init} onChange={e=>setInit(e.target.value)} style={inp}/>
+            </div>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+            <div>
+              <SecaoLabel icon="Tag">Nicho</SecaoLabel>
+              <input value={nicho} onChange={e=>setNicho(e.target.value)} style={inp}/>
+            </div>
+            <div>
+              <SecaoLabel icon="Activity">Status</SecaoLabel>
+              <select value={status} onChange={e=>setStatus(e.target.value)} style={inp}>
+                {['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Palette">Cor do avatar</SecaoLabel>
             <div style={{display:'flex', gap:8, alignItems:'center'}}>
-              <input type="color" value={color.startsWith('#') ? color : '#7B3FE4'} onChange={e=>setColor(e.target.value)} style={{
-                width:50, height:40, padding:0, border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', background:'transparent'
-              }}/>
-              <input value={color} onChange={e=>setColor(e.target.value)} placeholder="#7B3FE4" style={{
-                flex:1, height:40, padding:'0 12px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none', fontFamily:'var(--f-m)'
-              }}/>
+              <input type="color" value={color.startsWith('#') ? color : '#7B3FE4'} onChange={e=>setColor(e.target.value)} style={{width:50, height:42, padding:0, border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', background:'transparent'}}/>
+              <input value={color} onChange={e=>setColor(e.target.value)} placeholder="#7B3FE4" style={{...inp, flex:1, fontFamily:'var(--f-m)'}}/>
             </div>
           </div>
 
-          <div>
-            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>URL de login (opcional)</label>
-            <input value={loginUrl} onChange={e=>setLoginUrl(e.target.value)} placeholder="/clientes/slug/login.html ou URL externa" style={{
-              width:'100%', height:40, padding:'0 12px', background:'var(--bg-3)',
-              border:'1px solid var(--border)', borderRadius:8, fontSize:13.5, color:'var(--t1)', outline:'none', fontFamily:'var(--f-m)'
-            }}/>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Link">URL de login (opcional)</SecaoLabel>
+            <input value={loginUrl} onChange={e=>setLoginUrl(e.target.value)} placeholder="/clientes/slug/login.html ou URL externa" style={{...inp, fontFamily:'var(--f-m)'}}/>
           </div>
 
-          <label style={{display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--t1)', cursor:'pointer'}}>
-            <input type="checkbox" checked={externo} onChange={e=>setExterno(e.target.checked)}/>
-            URL externa (abre em nova aba)
+          <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer'}}>
+            <input type="checkbox" checked={externo} onChange={e=>setExterno(e.target.checked)} style={{accentColor:'var(--blue)', width:16, height:16, cursor:'pointer'}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13, color:'var(--t1)', fontWeight:500}}>URL externa</div>
+              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>Abrir o login em nova aba do navegador</div>
+            </div>
           </label>
         </div>
 
-        <div style={{display:'flex', gap:10, marginTop:24, paddingTop:18, borderTop:'1px solid var(--border-soft)'}}>
-          <button type="submit" className="btn btn-primary"><Icon name="Check" size={14}/>Salvar alterações</button>
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancelar</button>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10}}>
+          <button type="button" onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+          <button type="submit" style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+            <Icon name="Check" size={13}/>Salvar alterações
+          </button>
         </div>
       </form>
     </div>
@@ -7236,17 +7251,18 @@ function GerenciarEtiquetasModal({ onClose }) {
       zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
       <div style={{
-        background:'var(--bg-2)', borderRadius:14, width:480, maxWidth:'95vw', maxHeight:'88vh',
+        background:'var(--bg)', borderRadius:14, width:480, maxWidth:'95vw', maxHeight:'88vh',
         border:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden',
       }}>
-        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-          <h3 style={{margin:0, fontSize:16, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>
-            Gerenciar etiquetas
-          </h3>
-          <button onClick={onClose} style={{
-            width:32, height:32, borderRadius:8, border:'none', background:'transparent',
-            color:'var(--t3)', cursor:'pointer', fontSize:18,
-          }}>×</button>
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Tag" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Gerenciar etiquetas</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{etiquetas.length} etiqueta{etiquetas.length===1?'':'s'} cadastrada{etiquetas.length===1?'':'s'}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
         <div style={{flex:1, overflowY:'auto', padding:'8px 0'}}>
@@ -7296,58 +7312,67 @@ function EditarEtiquetaModal({ etiqueta, onSalvar, onClose }) {
     onSalvar({ ...etiqueta, nome: nome.trim(), cor });
   };
 
+  const inp = { width:'100%', padding:'10px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
   return (
     <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
-      position:'fixed', inset:0, background:'rgba(0,0,0,.8)', backdropFilter:'blur(6px)',
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
       zIndex:10002, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
-      <form onSubmit={handleSalvar} style={{
-        background:'var(--bg-2)', borderRadius:14, padding:24, width:380, maxWidth:'94vw',
-        border:'1px solid var(--border)',
-      }}>
-        <h3 style={{margin:'0 0 14px', fontSize:15, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>
-          {etiqueta.id ? 'Editar etiqueta' : 'Nova etiqueta'}
-        </h3>
-
-        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:6, fontWeight:500}}>Nome</label>
-        <input value={nome} onChange={e=>setNome(e.target.value)} autoFocus maxLength={30}
-          placeholder="Ex: Cliente Premium"
-          style={{
-            width:'100%', padding:'9px 12px', borderRadius:7,
-            border:'1px solid var(--border)', background:'var(--bg-3)',
-            color:'var(--t1)', fontSize:13.5, outline:'none', marginBottom:14,
-          }}
-        />
-
-        <label style={{display:'block', fontSize:12, color:'var(--t3)', marginBottom:8, fontWeight:500}}>Cor</label>
-        <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6, marginBottom:18}}>
-          {PALETA_ETIQUETAS.map(c => (
-            <button key={c} type="button" onClick={() => setCor(c)} style={{
-              width:'100%', aspectRatio:'1', padding:0, border: cor === c ? '2px solid var(--t1)' : '2px solid transparent',
-              borderRadius:8, background:c, cursor:'pointer', transition:'transform .1s',
-            }}
-              onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
-              onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
-            />
-          ))}
+      <form onSubmit={handleSalvar} style={{width:'min(420px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Tag" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{etiqueta.id ? 'Editar etiqueta' : 'Nova etiqueta'}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Aparece em conversas e cards do Pipeline</div>
+          </div>
+          <button type="button" onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        {/* Preview */}
-        <div style={{marginBottom:18, padding:'10px 12px', background:'var(--bg-3)', borderRadius:7}}>
-          <div style={{fontSize:11, color:'var(--t3)', marginBottom:6}}>Preview:</div>
-          <EtiquetaChip etiqueta={{ nome: nome || 'Etiqueta', cor }} size="md"/>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Pencil">Nome da etiqueta</SecaoLabel>
+            <input value={nome} onChange={e=>setNome(e.target.value)} autoFocus maxLength={30} placeholder="Ex: Cliente Premium" style={inp}/>
+          </div>
+
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Palette">Cor</SecaoLabel>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6}}>
+              {PALETA_ETIQUETAS.map(c => (
+                <button key={c} type="button" onClick={() => setCor(c)} style={{
+                  width:'100%', aspectRatio:'1', padding:0, border: cor === c ? '2px solid var(--t1)' : '2px solid transparent',
+                  borderRadius:8, background:c, cursor:'pointer', transition:'transform .1s',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.transform='scale(1.1)'}
+                  onMouseLeave={e => e.currentTarget.style.transform='scale(1)'}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div>
+            <SecaoLabel icon="Eye">Pré-visualização</SecaoLabel>
+            <div style={{padding:'12px 14px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8}}>
+              <EtiquetaChip etiqueta={{ nome: nome || 'Etiqueta', cor }} size="md"/>
+            </div>
+          </div>
         </div>
 
-        <div style={{display:'flex', gap:8, justifyContent:'flex-end'}}>
-          <button type="button" onClick={onClose} style={{
-            padding:'9px 16px', borderRadius:7, border:'none', background:'var(--bg-3)',
-            color:'var(--t1)', fontSize:13, fontWeight:500, cursor:'pointer',
-          }}>Cancelar</button>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10}}>
+          <button type="button" onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
           <button type="submit" disabled={!nome.trim()} style={{
-            padding:'9px 18px', borderRadius:7, border:'none',
+            padding:'8px 18px', borderRadius:7, border:'none',
             background: nome.trim() ? 'var(--blue)' : 'var(--bg-3)',
             color:'#fff', fontSize:13, fontWeight:600, cursor: nome.trim() ? 'pointer' : 'not-allowed',
-          }}>Salvar</button>
+            display:'inline-flex', alignItems:'center', gap:6,
+          }}>
+            <Icon name="Check" size={13}/>Salvar
+          </button>
         </div>
       </form>
     </div>
@@ -10102,24 +10127,28 @@ function useKeyboardShortcuts({ setNovoCliente, setShortcutsOpen }) {
 function ShortcutsModal({ open, onClose }) {
   if (!open) return null;
   return (
-    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)', zIndex:99997, display:'flex', alignItems:'center', justifyContent:'center', padding:24, animation:'fade-in .2s'}}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:'100%', maxWidth:440, background:'var(--bg-2)', border:'1px solid var(--border)',
-        borderRadius:16, overflow:'hidden', animation:'scale-in .2s cubic-bezier(.22,1,.36,1)',
-      }}>
-        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border-soft)'}}>
-          <div style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:16, color:'var(--t1)'}}>Atalhos de teclado</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', zIndex:99997, display:'flex', alignItems:'center', justifyContent:'center', padding:20, animation:'fade-in .2s'}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(440px, 95vw)', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, overflow:'hidden', animation:'scale-in .2s cubic-bezier(.22,1,.36,1)'}}>
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Zap" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Atalhos de teclado</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Pressione qualquer tecla pra ativar a ação</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
         <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:10}}>
           {[
-            ['/', 'Focar busca'],
-            ['n', 'Novo cliente'],
-            ['?', 'Mostrar atalhos'],
-            ['Esc', 'Fechar modais'],
+            ['/',   'Focar a busca global'],
+            ['n',   'Adicionar novo cliente'],
+            ['?',   'Mostrar / ocultar atalhos'],
+            ['Esc', 'Fechar qualquer modal aberto'],
           ].map(([k,d]) => (
-            <div key={k} style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-              <span style={{fontSize:13.5, color:'var(--t2)'}}>{d}</span>
-              <kbd style={{padding:'3px 9px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:5, fontFamily:'var(--f-m)', fontSize:11, color:'var(--t1)', fontWeight:600}}>{k}</kbd>
+            <div key={k} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border-soft)', borderRadius:8}}>
+              <span style={{fontSize:13.5, color:'var(--t1)'}}>{d}</span>
+              <kbd style={{padding:'4px 10px', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:6, fontFamily:'var(--f-m)', fontSize:11, color:'var(--blue)', fontWeight:600}}>{k}</kbd>
             </div>
           ))}
         </div>
@@ -13412,120 +13441,91 @@ function NovoClienteModal({ onClose, onSalvar }) {
     onClose();
   };
 
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
   return (
-    <div onClick={onClose} style={{
-      position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)',
-      zIndex:99998, display:'flex', alignItems:'center', justifyContent:'center', padding:24,
-    }}>
-      <div onClick={e=>e.stopPropagation()} style={{
-        width:'100%', maxWidth:520, background:'var(--bg-2)',
-        border:'1px solid var(--border)', borderRadius:16,
-        boxShadow:'0 24px 60px rgba(0,0,0,.6)', overflow:'hidden',
-      }}>
-        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border-soft)', display:'flex', alignItems:'center', justifyContent:'space-between'}}>
-          <div>
-            <div style={{fontFamily:'var(--f-d)', fontWeight:600, fontSize:17, color:'var(--t1)'}}>Cadastrar novo cliente</div>
-            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Adicionado ao pipeline e ao CRM</div>
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', zIndex:99998, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(560px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Building2" size={17} style={{color:'var(--blue)'}}/>
           </div>
-          <button onClick={onClose} style={{width:30, height:30, borderRadius:8, color:'var(--t3)', cursor:'pointer'}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Cadastrar novo cliente</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Adicionado ao Pipeline e ao Financeiro</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
 
-        <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:14, maxHeight:'70vh', overflowY:'auto'}}>
-          {/* Nome */}
-          <div>
-            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Nome do cliente *</label>
-            <input value={form.nome} onChange={upd('nome')} placeholder="Ex: Clínica Reunidas" autoFocus style={{
-              width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
-              border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-            }}/>
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          <div style={{marginBottom:18}}>
+            <SecaoLabel icon="Building2">Nome do cliente</SecaoLabel>
+            <input value={form.nome} onChange={upd('nome')} placeholder="Ex: Clínica Reunidas" autoFocus style={inp}/>
           </div>
 
-          {/* Cor + Nicho */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:12}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:14, marginBottom:18}}>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Cor</label>
+              <SecaoLabel icon="Palette">Cor</SecaoLabel>
               <div style={{display:'flex', gap:6, padding:'10px 8px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flexWrap:'wrap'}}>
                 {cores.map(c => (
-                  <div key={c} onClick={()=>setCor(c)} style={{width:22, height:22, borderRadius:'50%', background:c, cursor:'pointer', border:cor===c?'2px solid #fff':'2px solid transparent', boxShadow:cor===c?'0 0 0 2px var(--purple)':'none'}}/>
+                  <div key={c} onClick={()=>setCor(c)} style={{width:22, height:22, borderRadius:'50%', background:c, cursor:'pointer', border: cor===c ? '2px solid #fff' : '2px solid transparent', boxShadow: cor===c ? '0 0 0 2px var(--blue)' : 'none'}}/>
                 ))}
               </div>
             </div>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Nicho</label>
-              <select value={form.nicho} onChange={upd('nicho')} style={{
-                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-              }}>
+              <SecaoLabel icon="Tag">Nicho</SecaoLabel>
+              <select value={form.nicho} onChange={upd('nicho')} style={inp}>
                 {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político'].map(n => <option key={n}>{n}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Serviço + Status */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Serviço</label>
-              <select value={form.servico} onChange={upd('servico')} style={{
-                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-              }}>
+              <SecaoLabel icon="Layers">Serviço contratado</SecaoLabel>
+              <select value={form.servico} onChange={upd('servico')} style={inp}>
                 {['IA','IA + API','IA + CRM','IA + API + CRM','Site','Sistema','Site + IA','IA + CRM + Site','Gestão de Tráfego','Google Meu Negócio'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Status</label>
-              <select value={form.status} onChange={upd('status')} style={{
-                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-              }}>
+              <SecaoLabel icon="Activity">Status do contrato</SecaoLabel>
+              <select value={form.status} onChange={upd('status')} style={inp}>
                 {['Comercial','Proposta Apresentada','Implementação','Ativo','Em Prod','Em breve'].map(s => <option key={s}>{s}</option>)}
               </select>
             </div>
           </div>
 
-          {/* Valores */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Implementação (R$)</label>
-              <input type="number" value={form.impl} onChange={upd('impl')} placeholder="0" style={{
-                width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-              }}/>
+              <SecaoLabel icon="ScrollText">Implantação</SecaoLabel>
+              <input type="number" value={form.impl} onChange={upd('impl')} placeholder="R$ 0" style={inp}/>
             </div>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Mensal (R$)</label>
-              <input type="number" value={form.mensal} onChange={upd('mensal')} placeholder="0" style={{
-                width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-              }}/>
+              <SecaoLabel icon="DollarSign">Mensalidade</SecaoLabel>
+              <input type="number" value={form.mensal} onChange={upd('mensal')} placeholder="R$ 0" style={inp}/>
             </div>
             <div>
-              <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Dia pag.</label>
-              <select value={form.dia} onChange={upd('dia')} style={{
-                width:'100%', height:42, padding:'0 12px', background:'var(--bg-3)',
-                border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-              }}>
-                <option value="">-</option>
+              <SecaoLabel icon="Calendar">Vencimento</SecaoLabel>
+              <select value={form.dia} onChange={upd('dia')} style={inp}>
+                <option value="">—</option>
                 <option>Dia 5</option><option>Dia 10</option><option>Dia 15</option><option>Dia 20</option><option>Dia 30</option>
               </select>
             </div>
           </div>
 
-          {/* Etiqueta */}
           <div>
-            <label style={{fontSize:12, fontWeight:500, color:'var(--t2)', marginBottom:6, display:'block'}}>Etiqueta (opcional)</label>
-            <input value={etiqueta} onChange={e=>setEtiqueta(e.target.value)} placeholder="Ex: VIP, Indicação, Urgente" style={{
-              width:'100%', height:42, padding:'0 14px', background:'var(--bg-3)',
-              border:'1px solid var(--border)', borderRadius:8, fontSize:14, color:'var(--t1)', outline:'none',
-            }}/>
+            <SecaoLabel icon="Tag">Etiqueta (opcional)</SecaoLabel>
+            <input value={etiqueta} onChange={e=>setEtiqueta(e.target.value)} placeholder="Ex: VIP, Indicação, Urgente" style={inp}/>
           </div>
         </div>
 
-        <div style={{padding:'14px 22px', borderTop:'1px solid var(--border-soft)', display:'flex', gap:10, justifyContent:'flex-end'}}>
-          <button onClick={onClose} className="btn btn-outline">Cancelar</button>
-          <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>Cadastrar cliente</button>
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:10}}>
+          <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+          <button onClick={salvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+            <Icon name="Check" size={13}/>Cadastrar cliente
+          </button>
         </div>
       </div>
     </div>
