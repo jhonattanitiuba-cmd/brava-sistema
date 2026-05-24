@@ -11130,6 +11130,27 @@ function PipelineCardBadges({ cardKey, cardNome }) {
   );
 }
 
+// ✨ Label de seção reutilizável com ícone azul à esquerda
+function SecaoLabel({ icon, children, count }) {
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', gap:8, marginBottom:10,
+      fontSize:11, color:'var(--t2)', fontWeight:600,
+      letterSpacing:'.06em', textTransform:'uppercase',
+    }}>
+      <Icon name={icon} size={13} style={{color:'var(--blue)', flexShrink:0}}/>
+      <span style={{flex:1}}>{children}</span>
+      {count != null && count > 0 && (
+        <span style={{
+          padding:'2px 7px', borderRadius:999,
+          background:'rgba(30,144,255,.12)', color:'var(--blue)',
+          fontSize:10.5, letterSpacing:0,
+        }}>{count}</span>
+      )}
+    </div>
+  );
+}
+
 // Modal completo de detalhe do card (estilo Trello)
 function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
   const [dbCard, setDbCard] = React.useState(null);
@@ -11226,6 +11247,16 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
       setComments(arr => [data, ...arr]);
       setNovoComent('');
     }
+  };
+
+  // ✨ Remove comentário (só do próprio user OU admin/owner do workspace)
+  const removeComment = async (c) => {
+    if (!confirm('Apagar este comentário?')) return;
+    try {
+      const cli = getSupa();
+      await cli.from('pipeline_card_comments').delete().eq('id', c.id);
+      setComments(arr => arr.filter(x => x.id !== c.id));
+    } catch (e) { showToast?.('Erro: ' + (e.message || e), 'error'); }
   };
 
   // ✨ Upload de foto do card
@@ -11369,7 +11400,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
       zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
       <div style={{
-        background:'var(--bg-2)', borderRadius:14, width:680, maxWidth:'95vw', maxHeight:'90vh',
+        background:'var(--bg)', borderRadius:14, width:680, maxWidth:'95vw', maxHeight:'90vh',
         border:'1px solid var(--border)', display:'flex', flexDirection:'column', overflow:'hidden',
       }}>
         {/* Header */}
@@ -11426,9 +11457,11 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
             <>
               {/* DESCRIÇÃO */}
               <div style={{marginBottom:20}}>
-                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:6, display:'flex', alignItems:'center', gap:6}}>
-                  <Icon name="Pencil" size={11}/> Descrição
-                  {!editaDesc && descricao && <button onClick={()=>setEditaDesc(true)} style={{marginLeft:'auto', fontSize:11, color:'var(--blue)', background:'transparent', border:'none', cursor:'pointer'}}>editar</button>}
+                <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8,
+                  fontSize:11, color:'var(--t2)', fontWeight:600, letterSpacing:'.06em', textTransform:'uppercase'}}>
+                  <Icon name="Pencil" size={13} style={{color:'var(--blue)'}}/>
+                  <span style={{flex:1}}>Descrição</span>
+                  {!editaDesc && descricao && <button onClick={()=>setEditaDesc(true)} style={{fontSize:11, color:'var(--blue)', background:'transparent', border:'none', cursor:'pointer', letterSpacing:0, textTransform:'none', fontWeight:500}}>editar</button>}
                 </div>
                 {editaDesc || !descricao ? (
                   <>
@@ -11456,9 +11489,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
               {/* ATRIBUIÇÃO + VENCIMENTO */}
               <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
                 <div>
-                  <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:6}}>
-                    <Icon name="UserCircle" size={11} style={{marginRight:4}}/>Atribuído
-                  </div>
+                  <SecaoLabel icon="UserCircle">Atribuído</SecaoLabel>
                   <select value={agenteId || ''} onChange={e=>{setAgenteId(e.target.value || null); salvarCampo('agente_id', e.target.value || null);}}
                     style={{
                       width:'100%', padding:'8px 10px', borderRadius:7,
@@ -11469,9 +11500,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
                   </select>
                 </div>
                 <div>
-                  <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:6}}>
-                    <Icon name="Clock" size={11} style={{marginRight:4}}/>Vencimento
-                  </div>
+                  <SecaoLabel icon="Clock">Vencimento</SecaoLabel>
                   <input type="date" value={dataVenc} onChange={e=>{setDataVenc(e.target.value); salvarCampo('data_vencimento', e.target.value || null);}}
                     style={{
                       width:'100%', padding:'8px 10px', borderRadius:7,
@@ -11482,9 +11511,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
 
               {/* CHECKLIST */}
               <div style={{marginBottom:20}}>
-                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
-                  <Icon name="Check" size={11}/> Checklist {checklist.length > 0 && `(${doneCount}/${checklist.length})`}
-                </div>
+                <SecaoLabel icon="Check" count={checklist.length > 0 ? `${doneCount}/${checklist.length}` : null}>Checklist</SecaoLabel>
                 {checklist.length > 0 && (
                   <div style={{height:4, background:'var(--bg-3)', borderRadius:2, overflow:'hidden', marginBottom:10}}>
                     <div style={{height:'100%', width:`${(doneCount/checklist.length)*100}%`, background:'var(--blue)', transition:'width .25s'}}/>
@@ -11514,19 +11541,18 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
 
               {/* VÍNCULO WHATSAPP */}
               {dbCard?.contact_jid && (
-                <div style={{marginBottom:20, padding:'10px 12px', background:'rgba(37,211,102,.06)', borderRadius:7, border:'1px solid rgba(37,211,102,.2)'}}>
-                  <div style={{fontSize:11, color:'var(--wa-green)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:4}}>
-                    <Icon name="MessageCircle" size={11} style={{marginRight:4}}/>WhatsApp vinculado
+                <div style={{marginBottom:20, padding:'12px 14px', background:'rgba(37,211,102,.05)', borderRadius:8, border:'1px solid rgba(37,211,102,.18)'}}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:4,
+                    fontSize:11, color:'var(--wa-green)', fontWeight:600, letterSpacing:'.06em', textTransform:'uppercase'}}>
+                    <Icon name="MessageCircle" size={13} style={{color:'var(--wa-green)'}}/>WhatsApp vinculado
                   </div>
-                  <div style={{fontSize:13, color:'var(--t1)'}}>{dbCard.contact_jid.replace('@s.whatsapp.net','')}</div>
+                  <div style={{fontSize:13, color:'var(--t1)', marginLeft:21}}>{dbCard.contact_jid.replace('@s.whatsapp.net','')}</div>
                 </div>
               )}
 
               {/* ✨ ANEXOS */}
               <div style={{marginBottom:20}}>
-                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
-                  <Icon name="Paperclip" size={11}/> Anexos {anexos.length > 0 && `(${anexos.length})`}
-                </div>
+                <SecaoLabel icon="Paperclip" count={anexos.length}>Anexos</SecaoLabel>
                 <input ref={anexoFileInputRef} type="file" onChange={onUploadAnexo}
                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,image/*"
                   style={{display:'none'}}/>
@@ -11622,9 +11648,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
 
               {/* COMENTÁRIOS */}
               <div style={{marginBottom:6}}>
-                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
-                  <Icon name="MessageCircle" size={11}/> Comentários {comments.length > 0 && `(${comments.length})`}
-                </div>
+                <SecaoLabel icon="MessageCircle" count={comments.length}>Comentários</SecaoLabel>
                 <div style={{display:'flex', gap:8, marginBottom:14}}>
                   <input value={novoComent} onChange={e=>setNovoComent(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addComment()}
@@ -11634,21 +11658,51 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
                 </div>
                 {comments.map(c => {
                   const user = membros.find(m => m.user_id === c.user_id);
+                  // Email do user logado pra liberar o delete do próprio comentário
+                  const myEmailLower = (SESSAO?.email || '').toLowerCase().trim();
+                  const myRole = membros.find(m => (m.email || '').toLowerCase() === myEmailLower)?.role;
+                  const isAuthor = (user?.email || '').toLowerCase() === myEmailLower;
+                  const podeApagar = isAuthor || ['owner','admin'].includes(myRole);
+                  const fotoUser = getUserFoto(user?.email) || user?.foto_url;
+                  const nomeUser = user?.nome || user?.email || 'Você';
                   return (
-                    <div key={c.id} style={{display:'flex', gap:10, marginBottom:12}}>
+                    <div key={c.id} style={{display:'flex', gap:10, marginBottom:14, position:'relative'}}
+                      onMouseEnter={e => { const btn = e.currentTarget.querySelector('[data-delete-comment]'); if (btn) btn.style.opacity = '1'; }}
+                      onMouseLeave={e => { const btn = e.currentTarget.querySelector('[data-delete-comment]'); if (btn) btn.style.opacity = '0'; }}>
                       <div style={{
-                        width:32, height:32, borderRadius:'50%', flexShrink:0,
-                        background: (getUserFoto(user?.email) || user?.foto_url) ? `url('${getUserFoto(user?.email) || user.foto_url}') center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))',
+                        width:34, height:34, borderRadius:'50%', flexShrink:0,
+                        background: fotoUser ? `url('${fotoUser}') center/cover, var(--bg-3)` : 'linear-gradient(135deg, var(--purple), var(--blue))',
                         display:'flex', alignItems:'center', justifyContent:'center',
-                        color:'#fff', fontWeight:700, fontSize:11,
-                      }}>{!user?.foto_url && ((user?.nome || user?.email || '?')[0].toUpperCase())}</div>
+                        color:'#fff', fontWeight:700, fontSize:12,
+                      }}>{!fotoUser && (nomeUser[0]||'?').toUpperCase()}</div>
                       <div style={{flex:1, minWidth:0}}>
-                        <div style={{fontSize:12, color:'var(--t2)', marginBottom:3}}>
-                          <b style={{color:'var(--t1)'}}>{user?.nome || user?.email || 'Você'}</b>
-                          <span style={{marginLeft:6, color:'var(--t3)'}}>{new Date(c.created_at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'})}</span>
+                        <div style={{fontSize:12, color:'var(--t3)', marginBottom:4, display:'flex', alignItems:'center', gap:6}}>
+                          <b style={{color:'var(--t1)', fontWeight:600}}>{nomeUser}</b>
+                          <span>·</span>
+                          <span>{new Date(c.created_at).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'})}</span>
                         </div>
-                        <div style={{fontSize:13, color:'var(--t1)', whiteSpace:'pre-wrap', padding:'8px 10px', background:'var(--bg-3)', borderRadius:7}}>{c.texto}</div>
+                        <div style={{
+                          fontSize:13, color:'var(--t1)', whiteSpace:'pre-wrap',
+                          padding:'10px 12px', background:'var(--bg-3)',
+                          borderRadius:'2px 10px 10px 10px',
+                          border:'1px solid var(--border)',
+                          lineHeight:1.45,
+                        }}>{c.texto}</div>
                       </div>
+                      {podeApagar && (
+                        <button onClick={() => removeComment(c)} data-delete-comment
+                          title="Apagar comentário" style={{
+                            position:'absolute', top:0, right:0,
+                            width:24, height:24, padding:0, borderRadius:6,
+                            background:'var(--bg-3)', border:'1px solid var(--border)',
+                            color:'#E5544D', cursor:'pointer', opacity:0,
+                            transition:'opacity .15s', display:'flex', alignItems:'center', justifyContent:'center',
+                          }}
+                          onMouseEnter={e=>{e.currentTarget.style.background='rgba(229,84,77,.15)';}}
+                          onMouseLeave={e=>{e.currentTarget.style.background='var(--bg-3)';}}>
+                          <Icon name="Trash2" size={11}/>
+                        </button>
+                      )}
                     </div>
                   );
                 })}
