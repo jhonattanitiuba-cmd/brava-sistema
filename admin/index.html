@@ -10530,22 +10530,22 @@ function ProjecaoMRR({ data }) {
     <div className="card" style={{marginBottom:14, padding:'22px 24px'}}>
       <div className="card__head" style={{marginBottom:18}}>
         <div>
-          <div className="card__title" style={{fontSize:15}}>Projeção de MRR · 12 meses</div>
-          <div style={{fontSize:12, color:'var(--t3)', marginTop:3}}>Empilhada por estágio do cliente · baseado em conversões esperadas</div>
+          <div className="card__title" style={{fontSize:15}}>Projeção de receita recorrente · {dados.length} meses</div>
+          <div style={{fontSize:12, color:'var(--t3)', marginTop:3}}>Considera entrada gradual dos contratos em implantação e conversão do funil comercial</div>
         </div>
         <div style={{display:'flex', gap:14, alignItems:'center'}}>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>MRR projetado · {dados[ultimoIdx].mes}</div>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Receita prevista · {dados[ultimoIdx].mes}</div>
             <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}>R$ {projUltimo.toLocaleString('pt-BR')}</div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Crescimento</div>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Crescimento esperado</div>
             <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>{crescimento >= 0 ? '+' : ''}{crescimento}%</div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Acumulado adiante</div>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Total previsto a entrar</div>
             <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}>R$ {totalAcumulado.toLocaleString('pt-BR')}</div>
           </div>
         </div>
@@ -10676,7 +10676,7 @@ function ModalRec({ rec, onClose }) {
             <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)', letterSpacing:'-.01em'}}>
               {novo ? 'Novo contrato' : 'Editar contrato'}
             </div>
-            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza MRR/Dashboard em tempo real</div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza Recorrência e Dashboard em tempo real</div>
           </div>
           <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
         </div>
@@ -11004,10 +11004,10 @@ function FinRecorrencia({ onNovoContrato }) {
       {/* KPIs · incluindo Atrasados em destaque */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(5,1fr)',marginBottom:24}}>
         {[
-          {label:'MRR Total',          val:`R$ ${totalMRR.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1E90FF'},
-          {label:'MRR Ativo (Prod+Ativo)', val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75'},
-          {label:'Implementação total',val:`R$ ${totalImpl.toLocaleString('pt-BR')}`,icon:'ScrollText',color:'#7B3FE4'},
-          {label:'Ticket médio mensal',val:`R$ ${Math.round(totalMRR/tickMensalPorContrato).toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#BA7517'},
+          {label:'Receita potencial mensal', val:`R$ ${totalMRR.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1E90FF'},
+          {label:'Receita ativa mensal',     val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75'},
+          {label:'Implantações (único)',     val:`R$ ${totalImpl.toLocaleString('pt-BR')}`,icon:'ScrollText', color:'#7B3FE4'},
+          {label:'Ticket médio por contrato',val:`R$ ${Math.round(totalMRR/tickMensalPorContrato).toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#BA7517'},
           {label:`Em atraso (${qtdAtrasados})`, val:`R$ ${totalAtrasado.toLocaleString('pt-BR')}`, icon:'AlertCircle', color:'#A32D2D', highlight:qtdAtrasados>0, onClick:()=>setFiltro('atrasados')},
         ].map((k,i) => (
           <div key={i} className="kpi" onClick={k.onClick} style={{
@@ -11283,10 +11283,10 @@ function Financeiro() {
   const caixa = useCaixaLancamentos();
 
   const tabs = [
-    { id:'dashboard',    label:'Visão geral',    icon:'BarChart3' },
-    { id:'recorrencia',  label:'Recorrência',    icon:'TrendingUp' },
-    { id:'despesas',     label:'Despesas',       icon:'CreditCard' },
-    { id:'caixa',        label:'Fluxo de caixa', icon:'Wallet' },
+    { id:'dashboard',    label:'Visão geral',           icon:'BarChart3'  },
+    { id:'recorrencia',  label:'Receita recorrente',    icon:'TrendingUp' },
+    { id:'despesas',     label:'Despesas',              icon:'CreditCard' },
+    { id:'caixa',        label:'Fluxo de caixa',        icon:'Wallet'     },
   ];
 
   return (
@@ -11295,7 +11295,7 @@ function Financeiro() {
         <div>
           <div className="page-head__title">Financeiro</div>
           <div className="page-head__sub">
-            Receitas · Despesas · Fluxo de caixa · {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos
+            {recorrencia.length} contratos de recorrência · {despesas.length} despesas cadastradas · {caixa.length} lançamentos manuais
           </div>
         </div>
       </div>
@@ -11367,29 +11367,87 @@ function calcSaidasMes(despesas, despesasPag, ym) {
   return { pago, pendente, total: pago + pendente };
 }
 
+// Saldo unificado do caixa: usado tanto no FinDashboard quanto no FinCaixa.
+// Garante que o número seja o mesmo nas duas telas (conciliado).
+// = soma de TODAS as entradas (lançamentos manuais + pagamentos MRR confirmados)
+//   menos TODAS as saídas (lançamentos manuais + despesas pagas)
+function calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, caixa) {
+  let entradasMrr = 0, saidasDespesas = 0;
+  Object.entries(pagamentos || {}).forEach(([clienteId, meses]) => {
+    Object.values(meses).forEach(info => {
+      if (info?.pago) {
+        const rec = (recorrencia || []).find(r => r.__id === clienteId);
+        if (rec) entradasMrr += Number(rec.mensal) || 0;
+      }
+    });
+  });
+  Object.entries(despesasPag || {}).forEach(([despId, meses]) => {
+    Object.values(meses).forEach(info => {
+      if (info?.pago) {
+        const desp = (despesas || []).find(d => d.id === despId);
+        if (desp) saidasDespesas += Number(info.valor_pago ?? desp.valor) || 0;
+      }
+    });
+  });
+  const lancManuais = (caixa || []).reduce(
+    (s, l) => s + (l.tipo === 'entrada' ? Number(l.valor) : -Number(l.valor)), 0
+  );
+  return entradasMrr - saidasDespesas + lancManuais;
+}
+
 // ─────────────────────────────────────────────────────────────────
 // TAB 1: VISÃO GERAL (Dashboard) — KPIs reais + projeção
 // ─────────────────────────────────────────────────────────────────
 function FinDashboard({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const hoje = new Date();
   const ymHoje = YM(hoje);
+  const mesAtualLabel = hoje.toLocaleDateString('pt-BR', { month:'long' });
   const entradas = calcEntradasMes(recorrencia, pagamentos, ymHoje);
   const saidas = calcSaidasMes(despesas, despesasPag, ymHoje);
-  const mrrTotal = recorrencia.reduce((s,r) => s + (r.mensal||0), 0);
-  const mrrAtivo = recorrencia.filter(r => ['Em Prod','Ativo'].includes(r.status)).reduce((s,r) => s + (r.mensal||0), 0);
+
+  // Receita recorrente — separa o "que está faturando hoje" do "potencial total"
+  const recAtivaMensal = recorrencia
+    .filter(r => ['Em Prod','Ativo'].includes(r.status))
+    .reduce((s,r) => s + (r.mensal||0), 0);
+  const recPotencialMensal = recorrencia.reduce((s,r) => s + (r.mensal||0), 0);
+
   const lucroMes = entradas.pago - saidas.pago;
   const lucroPrevisto = entradas.total - saidas.total;
 
-  // Saldo atual (acumulado): soma lançamentos caixa + (entradas pagas - saídas pagas até hoje)
-  const saldoCaixa = caixa.reduce((s,l) => s + (l.tipo === 'entrada' ? Number(l.valor) : -Number(l.valor)), 0);
+  // Saldo do caixa CONCILIADO — mesma fórmula usada no FinCaixa.
+  const saldoCaixa = calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, caixa);
 
   const KPIS = [
-    { label:'MRR Ativo', val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1D9E75', sub:`${recorrencia.filter(r=>['Em Prod','Ativo'].includes(r.status)).length} clientes pagando` },
-    { label:'MRR Total (potencial)', val:`R$ ${mrrTotal.toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#1E90FF', sub:`${recorrencia.length} contratos no funil` },
-    { label:`Receita do mês`, val:`R$ ${entradas.pago.toLocaleString('pt-BR')}`, icon:'ArrowDownCircle', color:'#1D9E75', sub:`+ R$ ${(entradas.pendente+entradas.atrasado).toLocaleString('pt-BR')} a receber` },
-    { label:'Despesas do mês', val:`R$ ${saidas.pago.toLocaleString('pt-BR')}`, icon:'ArrowUpCircle', color:'#A32D2D', sub:`+ R$ ${saidas.pendente.toLocaleString('pt-BR')} a pagar` },
-    { label:'Lucro realizado', val:`R$ ${lucroMes.toLocaleString('pt-BR')}`, icon:'DollarSign', color: lucroMes >= 0 ? '#1D9E75' : '#A32D2D', sub:`previsto: R$ ${lucroPrevisto.toLocaleString('pt-BR')}` },
-    { label:'Saldo do caixa', val:`R$ ${saldoCaixa.toLocaleString('pt-BR')}`, icon:'Wallet', color: saldoCaixa >= 0 ? '#1E90FF' : '#A32D2D', sub:`${caixa.length} lançamentos manuais` },
+    {
+      label:'Receita ativa mensal', val:`R$ ${recAtivaMensal.toLocaleString('pt-BR')}`,
+      icon:'TrendingUp', color:'#1D9E75',
+      sub:`${recorrencia.filter(r=>['Em Prod','Ativo'].includes(r.status)).length} clientes faturando todo mês`,
+    },
+    {
+      label:'Receita potencial mensal', val:`R$ ${recPotencialMensal.toLocaleString('pt-BR')}`,
+      icon:'BarChart3', color:'#1E90FF',
+      sub:`Se todos os ${recorrencia.length} contratos do funil virassem ativos`,
+    },
+    {
+      label:`Recebido em ${mesAtualLabel}`, val:`R$ ${entradas.pago.toLocaleString('pt-BR')}`,
+      icon:'ArrowDownCircle', color:'#1D9E75',
+      sub:`+ R$ ${(entradas.pendente+entradas.atrasado).toLocaleString('pt-BR')} ainda a receber este mês`,
+    },
+    {
+      label:`Despesas pagas em ${mesAtualLabel}`, val:`R$ ${saidas.pago.toLocaleString('pt-BR')}`,
+      icon:'ArrowUpCircle', color:'#A32D2D',
+      sub:`+ R$ ${saidas.pendente.toLocaleString('pt-BR')} ainda a pagar este mês`,
+    },
+    {
+      label:'Lucro líquido do mês', val:`R$ ${lucroMes.toLocaleString('pt-BR')}`,
+      icon:'DollarSign', color: lucroMes >= 0 ? '#1D9E75' : '#A32D2D',
+      sub:`Previsto fechar o mês em: R$ ${lucroPrevisto.toLocaleString('pt-BR')}`,
+    },
+    {
+      label:'Saldo em caixa', val:`R$ ${saldoCaixa.toLocaleString('pt-BR')}`,
+      icon:'Wallet', color: saldoCaixa >= 0 ? '#1E90FF' : '#A32D2D',
+      sub:`Recebidos − Pagos + ${caixa.length} lançamento${caixa.length===1?'':'s'} manua${caixa.length===1?'l':'is'}`,
+    },
   ];
 
   return (
@@ -11494,16 +11552,16 @@ function FinDespesas({ despesas, despesasPag }) {
     <div>
       {/* Header + ações */}
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18}}>
-        <div style={{fontSize:13, color:'var(--t3)'}}>{despesas.length} despesas cadastradas · R$ {totalMensal.toLocaleString('pt-BR')}/mês recorrente</div>
+        <div style={{fontSize:13, color:'var(--t3)'}}>{despesas.length} despesas cadastradas · R$ {totalMensal.toLocaleString('pt-BR')}/mês em despesas fixas</div>
         <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Nova despesa</button>
       </div>
 
       {/* KPIs */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)', marginBottom:18}}>
         {[
-          { label:'Despesa mensal fixa', val:`R$ ${totalMensal.toLocaleString('pt-BR')}`, icon:'Repeat', color:'#A32D2D' },
-          { label:`Pago no mês (${hoje.toLocaleDateString('pt-BR', {month:'short'}).replace('.','')})`, val:`R$ ${totalPagoMes.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75' },
-          { label:'Pendente do mês', val:`R$ ${totalPendenteMes.toLocaleString('pt-BR')}`, icon:'Clock', color:'#BA7517' },
+          { label:'Despesa fixa mensal', val:`R$ ${totalMensal.toLocaleString('pt-BR')}`, icon:'Repeat', color:'#A32D2D' },
+          { label:`Pago em ${hoje.toLocaleDateString('pt-BR', {month:'long'})}`, val:`R$ ${totalPagoMes.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75' },
+          { label:`A pagar em ${hoje.toLocaleDateString('pt-BR', {month:'long'})}`, val:`R$ ${totalPendenteMes.toLocaleString('pt-BR')}`, icon:'Clock', color:'#BA7517' },
         ].map((k,i)=>(
           <div key={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
@@ -11544,7 +11602,7 @@ function FinDespesas({ despesas, despesasPag }) {
           <table style={{width:'100%', borderCollapse:'collapse', fontSize:13.5}}>
             <thead>
               <tr style={{background:'#000'}}>
-                {['Descrição','Categoria','Valor','Recorrência','Status mês','Ações'].map(h => (
+                {['Descrição','Categoria','Valor','Tipo','Status do mês','Ações'].map(h => (
                   <th key={h} style={{padding:'10px 14px', textAlign:h==='Ações'?'right':'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>{h}</th>
                 ))}
               </tr>
@@ -11770,7 +11828,7 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const hoje = new Date();
   const ymHoje = YM(hoje);
 
-  // Constrói extrato consolidado (lançamentos manuais + pagamentos MRR + pagamentos despesas)
+  // Constrói extrato consolidado (lançamentos manuais + recebimentos da recorrência + despesas pagas)
   const extrato = React.useMemo(() => {
     const itens = [];
     // Lançamentos manuais
@@ -11781,26 +11839,26 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
         raw: l, editable: true,
       });
     });
-    // Pagamentos MRR confirmados → entradas
+    // Recebimentos da recorrência → entradas
     Object.entries(pagamentos).forEach(([clienteId, meses]) => {
       Object.entries(meses).forEach(([ym, info]) => {
         if (!info.pago || !info.data) return;
         const rec = recorrencia.find(r => r.__id === clienteId);
         if (!rec) return;
         itens.push({
-          id: `mrr:${clienteId}:${ym}`, tipo:'entrada', descricao: `${rec.cliente} · ${ym}`,
+          id: `mrr:${clienteId}:${ym}`, tipo:'entrada', descricao: `${rec.cliente} · referente a ${ym}`,
           categoria:'Recorrência', valor: Number(rec.mensal), data: info.data, origem:'mrr', editable: false,
         });
       });
     });
-    // Pagamentos de despesas → saídas
+    // Despesas pagas → saídas
     Object.entries(despesasPag).forEach(([despId, meses]) => {
       Object.entries(meses).forEach(([ym, info]) => {
         if (!info.pago || !info.data) return;
         const desp = despesas.find(d => d.id === despId);
         if (!desp) return;
         itens.push({
-          id: `desp:${despId}:${ym}`, tipo:'saida', descricao:`${desp.descricao} · ${ym}`,
+          id: `desp:${despId}:${ym}`, tipo:'saida', descricao:`${desp.descricao} · referente a ${ym}`,
           categoria: desp.categoria, valor: Number(info.valor_pago ?? desp.valor),
           data: info.data, origem:'despesa', editable: false,
         });
@@ -11813,34 +11871,34 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
 
   const filtrado = extrato.filter(i => filtroTipo === 'todos' || i.tipo === filtroTipo);
 
-  // Saldo acumulado dia a dia
-  const saldoAtual = extrato.reduce((s,l) => s + (l.tipo === 'entrada' ? l.valor : -l.valor), 0);
+  // Saldo CONCILIADO — mesma função usada no FinDashboard, garante que o número bate
+  const saldoAtual = calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, caixa);
   const totalEntradas = extrato.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
   const totalSaidas = extrato.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
 
-  // Projeção próximos 30/60/90 dias (entradas previstas - saídas previstas)
-  const proj30 = (() => {
-    // entradas: MRR pendentes do mês atual + próximos 30 dias
+  // Projeção fim do mês: saldo atual + a receber - a pagar (mês corrente)
+  const projFimMes = (() => {
     const eMes = calcEntradasMes(recorrencia, pagamentos, ymHoje);
     const sMes = calcSaidasMes(despesas, despesasPag, ymHoje);
     return saldoAtual + (eMes.pendente + eMes.atrasado) - sMes.pendente;
   })();
+  const nomeMesAtual = hoje.toLocaleDateString('pt-BR', { month:'long' });
 
   return (
     <div>
       {/* Header */}
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18}}>
-        <div style={{fontSize:13, color:'var(--t3)'}}>{extrato.length} lançamentos no extrato</div>
+        <div style={{fontSize:13, color:'var(--t3)'}}>{extrato.length} movimentações no extrato (recebimentos + despesas + manuais)</div>
         <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo lançamento</button>
       </div>
 
       {/* KPIs */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
-          { label:'Saldo atual', val:`R$ ${saldoAtual.toLocaleString('pt-BR')}`, icon:'Wallet', color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
-          { label:'Total entradas', val:`R$ ${totalEntradas.toLocaleString('pt-BR')}`, icon:'ArrowDownCircle', color:'#1D9E75' },
-          { label:'Total saídas', val:`R$ ${totalSaidas.toLocaleString('pt-BR')}`, icon:'ArrowUpCircle', color:'#A32D2D' },
-          { label:'Projeção fim do mês', val:`R$ ${proj30.toLocaleString('pt-BR')}`, icon:'TrendingUp', color: proj30 >= 0 ? '#1E90FF' : '#A32D2D' },
+          { label:'Saldo em caixa',          val:`R$ ${saldoAtual.toLocaleString('pt-BR')}`,    icon:'Wallet',           color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
+          { label:'Entradas (histórico)',    val:`R$ ${totalEntradas.toLocaleString('pt-BR')}`, icon:'ArrowDownCircle',  color:'#1D9E75' },
+          { label:'Saídas (histórico)',      val:`R$ ${totalSaidas.toLocaleString('pt-BR')}`,   icon:'ArrowUpCircle',    color:'#A32D2D' },
+          { label:`Projeção fim de ${nomeMesAtual}`, val:`R$ ${projFimMes.toLocaleString('pt-BR')}`, icon:'TrendingUp',  color: projFimMes >= 0 ? '#1E90FF' : '#A32D2D' },
         ].map((k,i)=>(
           <div key={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
@@ -11866,7 +11924,7 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
             border:`1px solid ${filtroTipo === o.id ? o.cor+'55' : 'transparent'}`,
           }}>{o.label}</button>
         ))}
-        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>* Pagamentos do MRR e Despesas aparecem auto (não editáveis aqui)</div>
+        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>* Recebimentos da Recorrência e Despesas pagas entram aqui automaticamente</div>
       </div>
 
       {/* Extrato */}
@@ -11904,7 +11962,7 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
                     {l.tipo === 'entrada' ? '+' : '−'} R$ {l.valor.toLocaleString('pt-BR')}
                   </td>
                   <td style={{padding:'10px 14px', color:'var(--t3)', fontSize:11.5}}>
-                    {l.origem === 'manual' ? '✋ manual' : l.origem === 'mrr' ? '🔁 recorrência' : '📋 despesa'}
+                    {l.origem === 'manual' ? '✋ lançamento manual' : l.origem === 'mrr' ? '🔁 recorrência' : '📋 despesa fixa'}
                   </td>
                   <td style={{padding:'10px 14px', textAlign:'right'}}>
                     {l.editable
