@@ -10297,8 +10297,10 @@ function _mrrToDB(patch) {
 async function editRecorrencia(id, patch) {
   const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return; }
   const { error } = await cli.from('projetos').update(_mrrToDB(patch)).eq('id', id);
-  if (error) { showToast?.('Erro: '+error.message,'error'); console.error('editRecorrencia:', error, patch); }
-  // Realtime vai re-renderizar o useRecorrencia
+  if (error) { showToast?.('Erro: '+error.message,'error'); console.error('editRecorrencia:', error, patch); return; }
+  // Fallback: dispara evento global pra forçar re-load nos hooks que dependem de view
+  // (porque views não têm realtime nativo no Supabase)
+  window.dispatchEvent(new CustomEvent('brava:projeto_changed', { detail: { id, patch } }));
 }
 
 async function addRecorrencia(item) {
@@ -10311,12 +10313,16 @@ async function addRecorrencia(item) {
   if (merged.status && !item.status_fase) merged.status_fase = merged.status;
   const { data, error } = await cli.from('projetos').insert(_mrrToDB(merged)).select().single();
   if (error) { showToast?.('Erro ao criar: '+error.message,'error'); console.error('addRecorrencia:', error); return null; }
+  // Fallback: dispara event pra forçar reload em views/hooks dependentes
+  window.dispatchEvent(new CustomEvent('brava:projeto_changed', { detail: { id: data?.id, novo: true } }));
   return data?.id || null;
 }
 
 async function deleteRecorrencia(id) {
   const cli = getSupa(); if (!cli) return;
-  await cli.from('projetos').delete().eq('id', id);
+  const { error } = await cli.from('projetos').delete().eq('id', id);
+  if (error) { showToast?.('Erro: '+error.message,'error'); return; }
+  window.dispatchEvent(new CustomEvent('brava:projeto_changed', { detail: { id, deletado: true } }));
 }
 
 function useRecorrencia() {
@@ -10332,7 +10338,14 @@ function useRecorrencia() {
     const ch = cli.channel('rt:projetos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projetos' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    // Fallback global (vale pra qualquer mutation em projetos via funções helpers)
+    const onProjetoChanged = () => load();
+    window.addEventListener('brava:projeto_changed', onProjetoChanged);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:projeto_changed', onProjetoChanged);
+    };
   }, []);
   return list;
 }
@@ -11010,7 +11023,15 @@ function useProjetosResumoCliente(clienteId) {
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_parcelas' }, load)
       .on('postgres_changes', { event:'*', schema:'public', table:'projetos', filter:`cliente_id=eq.${clienteId}` }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    // Fallback: escuta evento global disparado por add/edit/deleteRecorrencia
+    // (garante refresh mesmo se o realtime/filter tiver delay)
+    const onProjetoChanged = () => load();
+    window.addEventListener('brava:projeto_changed', onProjetoChanged);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:projeto_changed', onProjetoChanged);
+    };
   }, [clienteId]);
   return { list, loading };
 }
