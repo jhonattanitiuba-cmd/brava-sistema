@@ -10293,15 +10293,22 @@ function _mrrToDB(patch) {
 }
 
 async function editRecorrencia(id, patch) {
-  const cli = getSupa(); if (!cli) return;
-  await cli.from('mrr_clients').update(_mrrToDB(patch)).eq('id', id);
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return; }
+  const { error } = await cli.from('mrr_clients').update(_mrrToDB(patch)).eq('id', id);
+  if (error) { showToast?.('Erro: '+error.message,'error'); console.error('editRecorrencia:', error, patch); }
   // Realtime vai re-renderizar o useRecorrencia
 }
 
 async function addRecorrencia(item) {
   const cli = getSupa(); if (!cli) return null;
-  const base = { cliente:'', servico:'', nicho:'', impl:0, mensal:0, dia:'', status:'Comercial' };
-  const { data } = await cli.from('mrr_clients').insert(_mrrToDB({ ...base, ...item })).select().single();
+  // Defaults usam os novos 9 status (Sprint D/G). status_fase é o canônico.
+  const base = { cliente:'', servico:'', nicho:'', impl:0, mensal:0, dia:'', status_fase:'lead', status:'lead' };
+  const merged = { ...base, ...item };
+  // Garante que status_fase e status estão alinhados
+  if (merged.status_fase && !item.status) merged.status = merged.status_fase;
+  if (merged.status && !item.status_fase) merged.status_fase = merged.status;
+  const { data, error } = await cli.from('mrr_clients').insert(_mrrToDB(merged)).select().single();
+  if (error) { showToast?.('Erro ao criar: '+error.message,'error'); console.error('addRecorrencia:', error); return null; }
   return data?.id || null;
 }
 
@@ -11849,6 +11856,12 @@ function FinRecorrencia({ onNovoContrato }) {
     if (inlineEdit?.rowId === r.__id) return; // ja em edicao dessa linha
     let val = r[field];
     if (field === 'dia') val = val ? String(parseInt(val)) : '';
+    // Pra status, inicializa também status_fase (a UI usa o novo campo)
+    if (field === 'status') {
+      setInlineEdit({ rowId: r.__id, field });
+      setInlineVals({ status_fase: r.status_fase || r.status || 'lead' });
+      return;
+    }
     setInlineEdit({ rowId: r.__id, field });
     setInlineVals({ [field]: String(val ?? '') });
   };
@@ -12157,22 +12170,31 @@ function FinRecorrencia({ onNovoContrato }) {
                     {/* Status — usa fin_status_config (status_fase) */}
                     <td style={{padding:'11px 14px'}}>
                       {(() => {
-                        const sf = r.status_fase || 'lead';
+                        const sf = r.status_fase || r.status || 'lead';
                         const cfg = getStatusByKey(statusConfig, sf);
                         if (isCellEd('status')) {
+                          const currentValue = inlineVals.status_fase || sf;
                           return (
                             <select autoFocus
-                              value={inlineVals.status_fase ?? sf}
-                              onChange={e=>setInlineVals(v=>({...v,status_fase:e.target.value, status:e.target.value}))}
-                              onKeyDown={e=>{ if(e.key==='Escape') cancelInline(); if(e.key==='Enter'){e.preventDefault();isRowEd?saveInlineRow(r.__id):saveInlineCell(r.__id,'status_fase');} }}
-                              onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'status_fase')}
-                              style={{background:'var(--bg-3)',border:`1px solid ${cfg.cor}`,borderRadius:4,color:'var(--t1)',fontSize:11,outline:'none',padding:'3px 6px'}}>
+                              value={currentValue}
+                              onChange={async (e) => {
+                                const novo = e.target.value;
+                                // Atualiza estado local imediatamente
+                                setInlineVals(v=>({...v, status_fase: novo}));
+                                // Salva direto no banco (sem esperar blur — UX mais fluida)
+                                cancelInline();
+                                await editRecorrencia(r.__id, { status_fase: novo, status: novo });
+                                _flashAndClear(r.__id);
+                              }}
+                              onKeyDown={e=>{ if(e.key==='Escape') cancelInline(); }}
+                              onBlur={cancelInline}
+                              style={{background:'var(--bg-3)',border:`1px solid ${cfg.cor}`,borderRadius:4,color:'var(--t1)',fontSize:11,outline:'none',padding:'3px 6px',cursor:'pointer'}}>
                               {(statusConfig||[]).map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
                             </select>
                           );
                         }
                         return (
-                          <span onClick={()=>startInlineCell(r,'status')} title="Clique para mudar fase" style={{cursor:'pointer'}}>
+                          <span onClick={(e)=>{e.stopPropagation();startInlineCell(r,'status');}} title="Clique para mudar fase" style={{cursor:'pointer'}}>
                             <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:cfg.cor+'22',color:cfg.cor,border:`1px solid ${cfg.cor}44`,fontWeight:600,display:'inline-flex',alignItems:'center',gap:4}}>
                               <Icon name={cfg.icone} size={10}/>{cfg.label}
                             </span>
@@ -16060,14 +16082,20 @@ function PipelineProjetos() {
   }, [statusConfig, projetos]);
 
   const moverProjeto = async (projetoId, novoStatus) => {
-    const cli = getSupa(); if (!cli) return;
+    const cli = getSupa();
+    if (!cli) { showToast?.('Sem conexão com banco','error'); return; }
     const { error } = await cli.from('mrr_clients').update({
       status_fase: novoStatus,
+      status: novoStatus, // mantém legado em sync
       data_ultima_mudanca_fase: new Date().toISOString(),
     }).eq('id', projetoId);
-    if (error) { showToast?.('Erro: '+error.message,'error'); return; }
-    const cfg = statusConfig.find(s => s.key === novoStatus);
-    showToast?.(`Movido para "${cfg?.label || novoStatus}"`, 'success');
+    if (error) {
+      console.error('moverProjeto erro:', error);
+      showToast?.('Erro ao mover: '+error.message,'error');
+      return;
+    }
+    const cfg = (statusConfig || []).find(s => s.key === novoStatus);
+    showToast?.(`✓ Movido para "${cfg?.label || novoStatus}"`, 'success');
   };
 
   const onDragStart = (e, projeto, colKey) => {
