@@ -10343,17 +10343,20 @@ function useRecorrencia() {
 */
 
 async function setPagamento(recId, ym, info) {
-  const cli = getSupa(); if (!cli) return;
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return false; }
+  let err;
   if (info === null) {
-    await cli.from('projeto_pagamentos').delete().eq('projeto_id', recId).eq('competencia', ym);
+    ({ error: err } = await cli.from('projeto_pagamentos').delete().eq('projeto_id', recId).eq('competencia', ym));
   } else {
-    await cli.from('projeto_pagamentos').upsert({
+    ({ error: err } = await cli.from('projeto_pagamentos').upsert({
       projeto_id:     recId,
       competencia:    ym,
       pago:           !!info.pago,
       data_pagamento: info.data || null,
-    }, { onConflict: 'projeto_id,competencia' });
+    }, { onConflict: 'projeto_id,competencia' }));
   }
+  if (err) { showToast?.('Erro pagamento: '+err.message,'error'); console.error('setPagamento:', err); return false; }
+  return true;
 }
 
 // Shim pra manter compatibilidade com código legado que usa getPagamentos() sync
@@ -10407,13 +10410,18 @@ async function addDespesa(item) {
   return data?.id || null;
 }
 async function editDespesa(id, patch) {
-  const cli = getSupa(); if (!cli) return;
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return false; }
   const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
-  await cli.from('fin_despesas').update(clean).eq('id', id);
+  const { error } = await cli.from('fin_despesas').update(clean).eq('id', id);
+  if (error) { showToast?.('Erro ao salvar: '+error.message,'error'); console.error('editDespesa:', error, patch); return false; }
+  return true;
 }
 async function deleteDespesa(id) {
-  const cli = getSupa(); if (!cli) return;
-  await cli.from('fin_despesas').delete().eq('id', id);
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','error'); return false; }
+  const { error } = await cli.from('fin_despesas').delete().eq('id', id);
+  if (error) { showToast?.('Erro ao excluir: '+error.message,'error'); return false; }
+  showToast?.('Despesa removida','success');
+  return true;
 }
 
 function useDespesas() {
@@ -10480,13 +10488,17 @@ async function addCaixaLancamento(item) {
   return data?.id || null;
 }
 async function editCaixaLancamento(id, patch) {
-  const cli = getSupa(); if (!cli) return;
+  const cli = getSupa(); if (!cli) return false;
   const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
-  await cli.from('fin_caixa_lancamentos').update(clean).eq('id', id);
+  const { error } = await cli.from('fin_caixa_lancamentos').update(clean).eq('id', id);
+  if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  return true;
 }
 async function deleteCaixaLancamento(id) {
-  const cli = getSupa(); if (!cli) return;
-  await cli.from('fin_caixa_lancamentos').delete().eq('id', id);
+  const cli = getSupa(); if (!cli) return false;
+  const { error } = await cli.from('fin_caixa_lancamentos').delete().eq('id', id);
+  if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  return true;
 }
 
 function useCaixaLancamentos() {
@@ -10897,12 +10909,16 @@ async function adicionarParcela(projetoId, parcela) {
   return data;
 }
 async function editarParcela(id, patch) {
-  const cli = getSupa(); if (!cli) return;
-  await cli.from('projeto_parcelas').update(patch).eq('id', id);
+  const cli = getSupa(); if (!cli) return false;
+  const { error } = await cli.from('projeto_parcelas').update(patch).eq('id', id);
+  if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  return true;
 }
 async function deletarParcela(id) {
-  const cli = getSupa(); if (!cli) return;
-  await cli.from('projeto_parcelas').delete().eq('id', id);
+  const cli = getSupa(); if (!cli) return false;
+  const { error } = await cli.from('projeto_parcelas').delete().eq('id', id);
+  if (error) { showToast?.('Erro: '+error.message,'error'); return false; }
+  return true;
 }
 
 // Anexos de um projeto (reativo)
