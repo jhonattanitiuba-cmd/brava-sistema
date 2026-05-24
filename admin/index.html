@@ -10886,6 +10886,103 @@ async function deletarAnexoProjeto(anexo) {
   await cli.from('mrr_projeto_anexos').delete().eq('id', anexo.id);
 }
 
+/* ─── Sprint E: hooks de resumo financeiro por projeto/cliente ─── */
+// Resumo financeiro de TODOS os projetos de um cliente
+// (esperado x recebido x atraso, lê da view v_projeto_resumo_financeiro)
+function useProjetosResumoCliente(clienteId) {
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    if (!clienteId) { setList([]); setLoading(false); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('v_projeto_resumo_financeiro')
+        .select('*').eq('cliente_id', clienteId).order('projeto_nome');
+      if (alive) { setList(data || []); setLoading(false); }
+    };
+    load();
+    // Realtime nas tabelas-fonte (a view não tem realtime direto)
+    const ch = cli.channel(`rt:proj_resumo:${clienteId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_pagamentos' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_caixa_lancamentos' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_parcelas' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'mrr_clients', filter:`cliente_id=eq.${clienteId}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [clienteId]);
+  return { list, loading };
+}
+
+// Extrato bancário vinculado a um cliente (todos os projetos)
+function useExtratoPorCliente(clienteId) {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    if (!clienteId) { setList([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_extrato_bancario')
+        .select('*').eq('cliente_id', clienteId).order('data', { ascending:false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel(`rt:extrato:cli:${clienteId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_extrato_bancario', filter:`cliente_id=eq.${clienteId}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [clienteId]);
+  return list;
+}
+
+// Extrato bancário vinculado a um projeto específico
+function useExtratoPorProjeto(projetoId) {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    if (!projetoId) { setList([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_extrato_bancario')
+        .select('*').eq('projeto_id', projetoId).order('data', { ascending:false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel(`rt:extrato:proj:${projetoId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_extrato_bancario', filter:`projeto_id=eq.${projetoId}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [projetoId]);
+  return list;
+}
+
+// Vincular manualmente um lançamento do extrato a um projeto (escolha manual)
+async function vincularExtratoAoProjeto(extratoId, projetoId, opts = {}) {
+  const cli = getSupa(); if (!cli) return { ok:false, erro:'Sem conexão' };
+  // Busca projeto pra pegar cliente_id
+  const { data: proj } = await cli.from('mrr_clients').select('id, cliente_id, cliente, mensal').eq('id', projetoId).maybeSingle();
+  if (!proj) return { ok:false, erro:'Projeto não encontrado' };
+  // Cria lançamento de caixa categorizado (entrada vinculada)
+  const { data: lanc } = await cli.from('fin_extrato_bancario').select('descricao, valor, data').eq('id', extratoId).maybeSingle();
+  if (!lanc) return { ok:false, erro:'Extrato não encontrado' };
+  const valor = Math.abs(Number(lanc.valor || 0));
+  const categoria = opts.categoria || `Entrada · ${proj.cliente}`;
+  const { data: caixa, error: errCaixa } = await cli.from('fin_caixa_lancamentos').insert({
+    tipo: 'entrada', descricao: lanc.descricao, categoria,
+    valor, data: lanc.data, origem: 'banco',
+    observacao: opts.observacao || `Vinculado manualmente ao projeto ${proj.cliente}`,
+    ref_id: proj.id,
+  }).select().single();
+  if (errCaixa) return { ok:false, erro: errCaixa.message };
+  // Atualiza o extrato com a conciliação + FKs
+  await cli.from('fin_extrato_bancario').update({
+    conciliado_caixa_id: caixa.id,
+    projeto_id: proj.id,
+    cliente_id: proj.cliente_id,
+  }).eq('id', extratoId);
+  return { ok:true };
+}
+
 /* ─── Hooks Conciliação inteligente (Sprint A) ─── */
 // Lista de sugestões pendentes (score 50-84%) + lançamentos sem sugestão (< 50% / nenhum match)
 function useConciliacoesPendentes() {
@@ -13667,7 +13764,7 @@ function ClientesCRM() {
         </div>
       )}
 
-      {editando && <ClienteCadastroModal cliente={editando} onClose={()=>setEditando(null)}/>}
+      {editando && <Cliente360Modal cliente={editando} onClose={()=>setEditando(null)}/>}
     </div>
   );
 }
@@ -13676,7 +13773,7 @@ function ClientesCRM() {
 // CLIENTE CADASTRO MODAL — estilo black brava (Sprint C.1.4)
 // 4 seções: Identificação, Contato, Endereço, Comercial
 // ─────────────────────────────────────────────────────────────────
-function ClienteCadastroModal({ cliente, onClose }) {
+function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
   const novo = !cliente?.id;
   const { list: statusConfig } = useStatusConfig();
   const [form, setForm] = React.useState({
@@ -13774,7 +13871,7 @@ function ClienteCadastroModal({ cliente, onClose }) {
   return (
     <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
       position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
-      zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+      zIndex: embedded ? 10000 : 9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
     }}>
       <div style={{width:'min(720px, 95vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
         {/* Header */}
@@ -14043,6 +14140,413 @@ function ClienteCadastroModal({ cliente, onClose }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// CLIENTE 360 MODAL — Sprint E.5
+// Modal grande com tabs Resumo / Projetos / Pagamentos / Anexos / Editar
+// Quando cliente novo (sem id), vai direto pra Editar
+// ═════════════════════════════════════════════════════════════════
+function Cliente360Modal({ cliente, onClose }) {
+  const novo = !cliente?.id;
+  // Hooks SEMPRE antes de qualquer return condicional (regra do React)
+  const [tab, setTab] = React.useState('resumo');
+  const [editandoCad, setEditandoCad] = React.useState(false);
+  const { list: statusConfig } = useStatusConfig();
+  const { list: projetos, loading: loadingProj } = useProjetosResumoCliente(cliente?.id);
+  const extrato = useExtratoPorCliente(cliente?.id);
+  const stats = React.useMemo(() => {
+    const mrr = projetos.reduce((s,p) => s + Number(p.mensal_esperado||0), 0);
+    const recebidoTotal = projetos.reduce((s,p) => s + Number(p.total_recebido||0), 0);
+    const implEsperada = projetos.reduce((s,p) => s + Number(p.implantacao_esperada||0), 0);
+    const implRecebida = projetos.reduce((s,p) => s + Number(p.impl_parcela_recebido||0), 0);
+    const atrasos = projetos.reduce((s,p) => s + Number(p.meses_em_atraso||0), 0);
+    return { mrr, recebidoTotal, implEsperada, implRecebida, atrasos };
+  }, [projetos]);
+  // Se for novo (sem id), abre o modal tradicional de cadastro (hooks já chamados)
+  if (novo) {
+    return <ClienteCadastroModal cliente={cliente} onClose={onClose}/>;
+  }
+  const cfg = getStatusByKey(statusConfig, cliente?.status);
+
+  const tabs = [
+    { key:'resumo',     label:'Resumo',     icon:'LayoutDashboard' },
+    { key:'projetos',   label:'Projetos',   icon:'Layers', badge: projetos.length },
+    { key:'pagamentos', label:'Pagamentos', icon:'Wallet', badge: extrato.length },
+    { key:'anexos',     label:'Anexos',     icon:'Paperclip' },
+  ];
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{width:'min(960px, 96vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{
+            width:44, height:44, borderRadius:'50%', flexShrink:0,
+            background: cliente.foto_url ? `url(${cliente.foto_url}) center/cover` : (cliente.cor || cfg?.cor || 'var(--blue)'),
+            color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+            fontFamily:'var(--f-d)', fontWeight:700, fontSize:15,
+          }}>{!cliente.foto_url && (cliente.nome || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase()}</div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600, display:'flex', alignItems:'center', gap:6}}>
+              {cliente.nome}
+              {cliente.status_lock && <Icon name="Lock" size={12} style={{color:'#BA7517'}}/>}
+            </h3>
+            {cfg && (
+              <div style={{fontSize:12, color:'var(--t3)', marginTop:3, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap'}}>
+                <span style={{padding:'2px 7px', borderRadius:999, background:cfg.cor+'22', color:cfg.cor, fontWeight:600, fontSize:10.5, display:'inline-flex', alignItems:'center', gap:4}}>
+                  <Icon name={cfg.icone} size={9}/>{cfg.label}
+                </span>
+                {cliente.tipo_pessoa && <span>{cliente.tipo_pessoa}</span>}
+                {cliente.nicho && <><span>·</span><span>{cliente.nicho}</span></>}
+                <span>·</span><span>{projetos.length} projeto{projetos.length === 1 ? '' : 's'}</span>
+              </div>
+            )}
+          </div>
+          <button onClick={()=>setEditandoCad(true)} style={{padding:'7px 12px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t2)', fontSize:12.5, fontWeight:500, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}>
+            <Icon name="Pencil" size={12}/>Editar
+          </button>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:'flex', gap:0, padding:'0 22px', borderBottom:'1px solid var(--border)', background:'var(--bg-2)'}}>
+          {tabs.map(t => {
+            const ativo = tab === t.key;
+            return (
+              <button key={t.key} onClick={()=>setTab(t.key)} style={{
+                padding:'12px 16px', background:'transparent', border:'none', cursor:'pointer',
+                color: ativo ? 'var(--blue)' : 'var(--t3)',
+                fontSize:13, fontWeight: ativo ? 600 : 500,
+                borderBottom: `2px solid ${ativo ? 'var(--blue)' : 'transparent'}`,
+                marginBottom:-1,
+                display:'inline-flex', alignItems:'center', gap:6,
+              }}>
+                <Icon name={t.icon} size={13}/>
+                {t.label}
+                {t.badge !== undefined && (
+                  <span style={{padding:'1px 6px', borderRadius:999, background: ativo ? 'rgba(30,144,255,.18)' : 'var(--bg-3)', color: ativo ? 'var(--blue)' : 'var(--t3)', fontSize:10.5, fontWeight:600, lineHeight:1.4}}>{t.badge}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto'}}>
+          {tab === 'resumo'     && <Cliente360TabResumo cliente={cliente} projetos={projetos} stats={stats} extrato={extrato}/>}
+          {tab === 'projetos'   && <Cliente360TabProjetos cliente={cliente} projetos={projetos} loading={loadingProj}/>}
+          {tab === 'pagamentos' && <Cliente360TabPagamentos cliente={cliente} extrato={extrato} projetos={projetos}/>}
+          {tab === 'anexos'     && <Cliente360TabAnexos cliente={cliente} projetos={projetos}/>}
+        </div>
+      </div>
+
+      {editandoCad && <ClienteCadastroModal cliente={cliente} embedded onClose={()=>setEditandoCad(false)}/>}
+    </div>
+  );
+}
+
+// ─── TAB: Resumo ───
+function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
+  const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const kpis = [
+    { label:'MRR (mensalidade total)', val:'R$ '+fmt(stats.mrr), cor:'#1D9E75', icon:'Repeat' },
+    { label:'Total recebido', val:'R$ '+fmt(stats.recebidoTotal), cor:'var(--blue)', icon:'ArrowDownCircle' },
+    { label:'Implantação esperada', val:'R$ '+fmt(stats.implEsperada), cor:'#7B3FE4', icon:'Activity' },
+    { label: stats.atrasos > 0 ? 'Meses em atraso' : 'Sem atrasos',
+      val: stats.atrasos > 0 ? stats.atrasos : '✓',
+      cor: stats.atrasos > 0 ? '#A32D2D' : '#1D9E75',
+      icon: stats.atrasos > 0 ? 'AlertCircle' : 'CheckCircle2' },
+  ];
+  return (
+    <div style={{padding:'18px 22px'}}>
+      {/* KPIs */}
+      <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom:18}}>
+        {kpis.map((k,i) => (
+          <div key={i} style={{padding:'14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6}}>
+              <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>{k.label}</div>
+              <div style={{width:26, height:26, borderRadius:7, background:k.cor+'22', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <Icon name={k.icon} size={13} style={{color:k.cor}}/>
+              </div>
+            </div>
+            <div style={{fontFamily:'var(--f-m)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Identificação */}
+      <SecaoLabel icon="Building2">Identificação</SecaoLabel>
+      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
+        <InfoCard label={cliente.tipo_pessoa === 'PF' ? 'CPF' : 'CNPJ'} value={cliente.cnpj_cpf || '—'}/>
+        <InfoCard label="Nome fantasia" value={cliente.nome_fantasia || '—'}/>
+        <InfoCard label="Email" value={cliente.contato_email || '—'}/>
+        <InfoCard label="Telefone" value={cliente.contato_telefone || '—'}/>
+        <InfoCard label="Contato" value={cliente.contato_nome ? `${cliente.contato_nome}${cliente.contato_cargo ? ' · ' + cliente.contato_cargo : ''}` : '—'}/>
+        <InfoCard label="Origem" value={cliente.origem || '—'}/>
+      </div>
+
+      {/* Últimos lançamentos */}
+      <SecaoLabel icon="Wallet">Últimos pagamentos vinculados</SecaoLabel>
+      {extrato.length === 0 ? (
+        <div style={{padding:'18px 0', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
+          Nenhum pagamento vinculado ainda. Quando entrar dinheiro no banco com nome desse cliente, aparece aqui.
+        </div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
+          {extrato.slice(0,5).map(e => (
+            <div key={e.id} style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+              <div style={{minWidth:0, flex:1}}>
+                <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.descricao}</div>
+                <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>{new Date(e.data).toLocaleDateString('pt-BR')}</div>
+              </div>
+              <div style={{fontFamily:'var(--f-m)', fontWeight:600, color: e.valor > 0 ? '#1D9E75' : '#A32D2D', fontSize:13}}>
+                {e.valor > 0 ? '+' : ''}R$ {fmt(Math.abs(e.valor))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoCard({ label, value }) {
+  return (
+    <div style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8}}>
+      <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, marginBottom:2, fontWeight:600}}>{label}</div>
+      <div style={{fontSize:13, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{value}</div>
+    </div>
+  );
+}
+
+// ─── TAB: Projetos ───
+function Cliente360TabProjetos({ cliente, projetos, loading }) {
+  const { list: statusConfig } = useStatusConfig();
+  const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  if (loading) return <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Carregando projetos...</div>;
+  if (projetos.length === 0) {
+    return (
+      <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+        <Icon name="Layers" size={32} style={{opacity:.4, marginBottom:8}}/>
+        <div style={{fontSize:13, marginBottom:4}}>Este cliente ainda não tem projetos cadastrados.</div>
+        <div style={{fontSize:11.5}}>Crie no Financeiro › Recorrência.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:10}}>
+      {projetos.map(p => {
+        const cfg = getStatusByKey(statusConfig, p.status_fase);
+        const totalEsperado = Number(p.implantacao_esperada||0) + Number(p.mensal_esperado||0) * (p.qtd_meses_pagos||0 || 12);
+        const totalRecebido = Number(p.total_recebido||0);
+        const pct = totalEsperado > 0 ? Math.min(100, (totalRecebido / totalEsperado) * 100) : 0;
+        return (
+          <div key={p.projeto_id} style={{padding:'14px 16px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10, borderLeft:`3px solid ${cfg.cor}`}}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+              <div style={{minWidth:0, flex:1}}>
+                <div style={{fontSize:14, color:'var(--t1)', fontWeight:600, marginBottom:3}}>{p.projeto_nome}</div>
+                <div style={{display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+                  <span style={{padding:'2px 7px', borderRadius:999, background:cfg.cor+'22', color:cfg.cor, fontWeight:600, fontSize:10, display:'inline-flex', alignItems:'center', gap:3}}>
+                    <Icon name={cfg.icone} size={9}/>{cfg.label}
+                  </span>
+                  {p.tipo_projeto && <span style={{fontSize:11, color:'var(--t3)'}}>{p.tipo_projeto}</span>}
+                  {p.e_repasse_terceiros && (
+                    <span style={{fontSize:10, color:'#BA7517', padding:'1px 6px', borderRadius:6, background:'rgba(186,117,23,.15)', fontWeight:600}}>REPASSE</span>
+                  )}
+                  {p.meses_em_atraso > 0 && (
+                    <span style={{fontSize:10.5, color:'#ff8585', padding:'1px 6px', borderRadius:6, background:'rgba(163,45,45,.15)', fontWeight:600, display:'inline-flex', alignItems:'center', gap:3}}>
+                      <Icon name="AlertCircle" size={9}/>
+                      {p.meses_em_atraso} mês{p.meses_em_atraso === 1 ? '' : 'es'} atrasado
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10, marginBottom: pct > 0 ? 10 : 0}}>
+              <Mini label="Mensal" value={'R$ '+fmt(p.mensal_esperado)}/>
+              <Mini label="Implantação" value={'R$ '+fmt(p.implantacao_esperada)}/>
+              <Mini label="Recebido" value={'R$ '+fmt(p.total_recebido)} cor="#1D9E75"/>
+              <Mini label="Meses pagos" value={String(p.qtd_meses_pagos || 0)}/>
+            </div>
+            {p.proxima_parcela_data && (
+              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:6, paddingTop:8, borderTop:'1px solid var(--border-soft)'}}>
+                Próx. parcela: <span style={{color:'var(--t2)', fontWeight:600}}>R$ {fmt(p.proxima_parcela_valor)}</span> em {new Date(p.proxima_parcela_data).toLocaleDateString('pt-BR')}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Mini({ label, value, cor }) {
+  return (
+    <div>
+      <div style={{fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600, marginBottom:2}}>{label}</div>
+      <div style={{fontFamily:'var(--f-m)', fontSize:13, fontWeight:600, color: cor || 'var(--t1)'}}>{value}</div>
+    </div>
+  );
+}
+
+// ─── TAB: Pagamentos ───
+function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
+  const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '—';
+  const [editandoId, setEditandoId] = React.useState(null);
+
+  if (extrato.length === 0) {
+    return (
+      <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+        <Icon name="Wallet" size={32} style={{opacity:.4, marginBottom:8}}/>
+        <div style={{fontSize:13}}>Nenhum pagamento vinculado a este cliente ainda.</div>
+      </div>
+    );
+  }
+
+  // Agrupa por projeto
+  const porProjeto = {};
+  extrato.forEach(e => {
+    const k = e.projeto_id || 'sem_projeto';
+    if (!porProjeto[k]) porProjeto[k] = [];
+    porProjeto[k].push(e);
+  });
+
+  return (
+    <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:14}}>
+      {Object.entries(porProjeto).map(([projId, lancs]) => {
+        const total = lancs.reduce((s,l) => s + Number(l.valor||0), 0);
+        return (
+          <div key={projId}>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6}}>
+              <div style={{fontSize:12, color:'var(--t2)', fontWeight:600}}>
+                {projId === 'sem_projeto' ? '⚠ Sem projeto vinculado' : projetoNome(projId)}
+                <span style={{marginLeft:8, color:'var(--t3)', fontWeight:400}}>· {lancs.length} lançamento{lancs.length === 1 ? '' : 's'}</span>
+              </div>
+              <div style={{fontFamily:'var(--f-m)', fontSize:13, fontWeight:600, color: total > 0 ? '#1D9E75' : '#A32D2D'}}>
+                {total > 0 ? '+' : ''}R$ {fmt(Math.abs(total))}
+              </div>
+            </div>
+            <div style={{display:'flex', flexDirection:'column', gap:5}}>
+              {lancs.map(e => (
+                <div key={e.id} style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                  <div style={{minWidth:0, flex:1}}>
+                    <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.descricao}</div>
+                    <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
+                      {new Date(e.data).toLocaleDateString('pt-BR')} {e.fonte && <>· {e.fonte}</>}
+                    </div>
+                  </div>
+                  <div style={{display:'flex', gap:8, alignItems:'center'}}>
+                    {projId === 'sem_projeto' && (
+                      <button onClick={()=>setEditandoId(e.id)} style={{padding:'4px 8px', borderRadius:6, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)', color:'var(--blue)', fontSize:11, cursor:'pointer'}}>
+                        Vincular projeto
+                      </button>
+                    )}
+                    <div style={{fontFamily:'var(--f-m)', fontWeight:600, color: e.valor > 0 ? '#1D9E75' : '#A32D2D', fontSize:13}}>
+                      {e.valor > 0 ? '+' : ''}R$ {fmt(Math.abs(e.valor))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {editandoId && (
+        <VincularProjetoModal extratoId={editandoId} projetos={projetos} onClose={()=>setEditandoId(null)}/>
+      )}
+    </div>
+  );
+}
+
+// ─── Modal: vincular extrato manualmente a projeto ───
+function VincularProjetoModal({ extratoId, projetos, onClose }) {
+  const [projetoId, setProjetoId] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const salvar = async () => {
+    if (!projetoId) return;
+    setSalvando(true);
+    const r = await vincularExtratoAoProjeto(extratoId, projetoId);
+    setSalvando(false);
+    if (r.ok) { showToast?.('Vinculado!','success'); onClose(); }
+    else showToast?.('Erro: '+r.erro,'error');
+  };
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.8)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div style={{width:'min(440px, 95vw)', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:12, padding:18}}>
+        <h4 style={{margin:'0 0 12px', fontSize:15, color:'var(--t1)'}}>Vincular ao projeto</h4>
+        <select autoFocus value={projetoId} onChange={e=>setProjetoId(e.target.value)} style={{
+          width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13, marginBottom:14,
+        }}>
+          <option value="">— Escolha o projeto —</option>
+          {projetos.map(p => <option key={p.projeto_id} value={p.projeto_id}>{p.projeto_nome}</option>)}
+        </select>
+        <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
+          <button onClick={onClose} style={{padding:'8px 14px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, cursor:'pointer'}}>Cancelar</button>
+          <button onClick={salvar} disabled={!projetoId || salvando} style={{padding:'8px 16px', borderRadius:7, border:'none', background: projetoId ? 'var(--blue)' : 'var(--bg-3)', color:'#fff', fontSize:13, fontWeight:600, cursor: projetoId ? 'pointer' : 'not-allowed'}}>
+            {salvando ? 'Salvando...' : 'Vincular'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TAB: Anexos ───
+function Cliente360TabAnexos({ cliente, projetos }) {
+  // Carrega anexos de todos os projetos do cliente
+  const [anexos, setAnexos] = React.useState([]);
+  React.useEffect(() => {
+    if (!projetos.length) { setAnexos([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const ids = projetos.map(p => p.projeto_id);
+    const load = async () => {
+      const { data } = await cli.from('mrr_projeto_anexos').select('*').in('projeto_id', ids).order('uploaded_at', { ascending:false });
+      if (alive) setAnexos(data || []);
+    };
+    load();
+  }, [projetos.length]);
+
+  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '—';
+
+  if (anexos.length === 0) {
+    return (
+      <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+        <Icon name="Paperclip" size={32} style={{opacity:.4, marginBottom:8}}/>
+        <div style={{fontSize:13}}>Nenhum anexo nos projetos deste cliente.</div>
+        <div style={{fontSize:11.5, marginTop:4}}>Anexa propostas, contratos e documentos pelo Financeiro › Projetos.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:6}}>
+      {anexos.map(a => (
+        <a key={a.id} href={a.url} target="_blank" rel="noreferrer" style={{
+          padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8,
+          display:'flex', alignItems:'center', gap:10, textDecoration:'none', color:'var(--t1)',
+        }}>
+          <Icon name={a.tipo === 'link' ? 'Link' : 'FileText'} size={15} style={{color:'var(--blue)', flexShrink:0}}/>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{a.nome}</div>
+            <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
+              {a.categoria || 'Outro'} · {projetoNome(a.projeto_id)}
+              {a.tamanho_bytes && <> · {(a.tamanho_bytes / 1024).toFixed(0)} KB</>}
+            </div>
+          </div>
+          <Icon name="Download" size={13} style={{color:'var(--t3)'}}/>
+        </a>
+      ))}
     </div>
   );
 }
