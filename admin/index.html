@@ -2313,6 +2313,8 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
         {busca && <button onClick={()=>setBusca('')} style={{color:'#6E6E78', cursor:'pointer', padding:0, lineHeight:1, fontSize:14}}>×</button>}
       </div>
 
+      <RealtimeIndicator/>
+
       <div className="header__actions" style={{position:'relative'}}>
         <HeaderNotif notifAberta={notifAberta} setNotifAberta={setNotifAberta} setPage={setPage}/>
         <div className="header__icon" onClick={()=>setPage&&setPage('config')} title="Configurações">
@@ -10627,6 +10629,55 @@ function useStatusConfig() {
     return () => { alive = false; cli.removeChannel(ch); };
   }, []);
   return { list, loading };
+}
+
+// ─── Indicador visual de Realtime: pisca verde quando recebe mudança ───
+// Mostra "● live" no header. Confirma visualmente que o sistema está
+// sincronizando entre abas em tempo real (Sprint H).
+function RealtimeIndicator() {
+  const [piscando, setPiscando] = React.useState(false);
+  const [ultima, setUltima] = React.useState(null); // nome da tabela
+  const [conectado, setConectado] = React.useState(false);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    const tabelas = [
+      'mrr_clients','mrr_pagamentos','clientes','fin_extrato_bancario',
+      'fin_caixa_lancamentos','fin_despesas','fin_despesas_pagamentos',
+      'mrr_parcelas','fin_status_config','usuarios','etiquetas','chat_etiquetas',
+    ];
+    let ch = cli.channel('rt:global-pulse');
+    tabelas.forEach(t => {
+      ch = ch.on('postgres_changes', { event:'*', schema:'public', table:t }, (payload) => {
+        setUltima(t);
+        setPiscando(true);
+        setTimeout(() => setPiscando(false), 700);
+      });
+    });
+    ch.subscribe((status) => {
+      setConectado(status === 'SUBSCRIBED');
+    });
+    return () => { cli.removeChannel(ch); };
+  }, []);
+  const cor = !conectado ? '#6E6E78' : (piscando ? '#1D9E75' : '#1D9E75');
+  return (
+    <div title={conectado ? (ultima ? `Última mudança: ${ultima}` : 'Sincronizando em tempo real') : 'Desconectado do realtime'}
+      style={{
+        display:'flex', alignItems:'center', gap:6, padding:'4px 10px',
+        borderRadius:999, background:'rgba(29,158,117,.08)',
+        border:'1px solid rgba(29,158,117,.20)',
+        marginRight:8, marginLeft:6, transition:'all .3s',
+      }}>
+      <span style={{
+        width:7, height:7, borderRadius:'50%', background: cor,
+        boxShadow: piscando ? `0 0 8px ${cor}, 0 0 14px ${cor}` : 'none',
+        transition:'box-shadow .3s, transform .3s',
+        transform: piscando ? 'scale(1.3)' : 'scale(1)',
+      }}/>
+      <span style={{fontSize:10.5, color:'#F5F5F7', fontWeight:600, letterSpacing:.3, textTransform:'uppercase'}}>
+        {conectado ? 'Live' : 'Off'}
+      </span>
+    </div>
+  );
 }
 
 // Hook: equipe real (tabela usuarios) reativo
