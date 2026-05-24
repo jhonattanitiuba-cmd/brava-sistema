@@ -701,6 +701,7 @@ const NAV = [
   { key:'monitoramento', label:'Monitoramento', icon:'Activity',   badge:null },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
   { key:'clientes_crm', label:'Clientes',  icon:'UsersRound',      badge:null },
+  { key:'projetos',   label:'Projetos',    icon:'Layers',          badge:null },
   { key:'agenda',     label:'Agenda',      icon:'CalendarCheck',   badge:null },
   { key:'mrr',        label:'Financeiro',  icon:'DollarSign',      badge:null },
   { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
@@ -2274,7 +2275,7 @@ function HeaderNotif({ notifAberta, setNotifAberta, setPage }) {
 }
 
 function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notifAberta, setNotifAberta }) {
-  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', clientes_crm:'Clientes', pipeline:'Pipeline', agenda:'Agenda', mrr:'Financeiro', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
+  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', clientes_crm:'Clientes', projetos:'Projetos', pipeline:'Pipeline', agenda:'Agenda', mrr:'Financeiro', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
   return (
     <header className="header" style={{borderBottom:'1px solid var(--border-soft)'}}>
       {collapsed && (
@@ -2327,19 +2328,27 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
 function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExportar, busca }) {
   // RECORRENCIA reativa: re-renderiza quando user edita/cria/exclui na aba MRR
   const recorrencia = useRecorrencia();
+  const { list: clientesMestre } = useClientes();
+  const { list: statusConfig } = useStatusConfig();
+  const equipeReal = useEquipeReal();
 
-  // MRR total ativo (puxa do banco financeiro RECORRENCIA reativo)
+  // MRR total ativo (status_fase = ativo, fonte unificada)
   const mrrTotalAtivo = React.useMemo(() => {
     return recorrencia
-      .filter(r => ['Em Prod', 'Ativo'].includes(r.status))
+      .filter(r => r.status_fase === 'ativo')
       .reduce((s, r) => s + (r.mensal || 0), 0);
   }, [recorrencia]);
+
+  // Clientes mestre ativos (não projetos — contagem de clientes únicos com status ativo)
+  const totalClientesAtivos = React.useMemo(() => {
+    return clientesMestre.filter(c => c.status === 'ativo').length;
+  }, [clientesMestre]);
 
   // Stats globais REAIS do Supabase (atualizam via Realtime conforme msgs chegam)
   const supaStats = useSupaGlobalStats();
 
   // Contadores em cascata escalonada (animacao suave de 0 -> valor)
-  const clientes   = useCount(21,                     8000,  80);
+  const clientes   = useCount(totalClientesAtivos,    8000,  80);
   const mrr        = useCount(mrrTotalAtivo,          8000, 220);
   const conversas  = useCount(supaStats.msgsHoje,     2500, 360); // valor real do banco
   const chamados   = useCount(3,                      8000, 500);
@@ -2647,18 +2656,19 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 
         <div className="card">
           <div className="card__head">
-            <div className="card__title">Distribuição de planos</div>
+            <div className="card__title">Distribuição por fase</div>
           </div>
-          {(pipelineCols||[]).map((col,i) => {
-            const total = (pipelineCols||[]).reduce((s,c)=>s+c.cards.length,0)||1;
-            const pct = Math.round((col.cards.length/total)*100);
-            return { plano:col.nome, qtd:col.cards.length, pct, cor:col.cor };
-          }).map((p,i) => (
-            <div key={i}>
+          {(statusConfig||[]).map((s) => {
+            const qtd = recorrencia.filter(r => (r.status_fase || 'lead') === s.key).length;
+            const total = recorrencia.length || 1;
+            const pct = Math.round((qtd/total)*100);
+            return { ...s, qtd, pct };
+          }).filter(p => p.qtd > 0).map((p) => (
+            <div key={p.key}>
               <div className="stat-row">
                 <div style={{display:'flex',alignItems:'center',gap:6}}>
                   <div style={{width:8,height:8,borderRadius:'50%',background:p.cor,flexShrink:0}}/>
-                  <div className="stat-label">{p.plano}</div>
+                  <div className="stat-label">{p.label}</div>
                 </div>
                 <div style={{display:'flex',gap:8,alignItems:'center'}}>
                   <div className="stat-label">{p.qtd}</div>
@@ -2675,31 +2685,29 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
         <div className="card">
           <div className="card__head">
             <div className="card__title">Equipe Brava</div>
+            <span style={{fontSize:11, color:'var(--t3)'}}>{equipeReal.length} {equipeReal.length === 1 ? 'membro' : 'membros'}</span>
           </div>
-          {[
-            {name:'Jhonattan Itiuba', role:'Diretoria',    status:'online', foto:'app/jhonattan.jpg'},
-            {name:'Maria Eduarda',   role:'CS / Suporte', status:'online', foto:null},
-            {name:'João Silva',      role:'Dev',          status:'online', foto:null},
-            {name:'Ana Lima',        role:'Comercial',    status:'away',   foto:null},
-          ].map((a,i) => (
-            <div key={i} className="stat-row">
+          {equipeReal.length === 0 ? (
+            <div style={{padding:'14px 0', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>Nenhum membro cadastrado ainda.</div>
+          ) : equipeReal.map((u) => (
+            <div key={u.id} className="stat-row">
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <div style={{position:'relative'}}>
                   <div style={{
                     width:30, height:30, borderRadius:'50%',
-                    background: a.foto ? `var(--bg-3) url('${ASSET(a.foto)}') center 25%/cover no-repeat` : 'var(--bg-3)',
+                    background: u.foto_url ? `var(--bg-3) url('${u.foto_url}') center/cover no-repeat` : 'var(--bg-3)',
                     display:'flex', alignItems:'center', justifyContent:'center',
                     fontSize:10, fontWeight:700,
-                    color: a.foto ? 'transparent' : 'var(--t2)',
-                    overflow:'hidden'
+                    color: u.foto_url ? 'transparent' : 'var(--t2)',
+                    overflow:'hidden',
                   }}>
-                    {a.name.split(' ').map(n=>n[0]).join('')}
+                    {(u.nome || u.email || '?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
                   </div>
-                  <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:a.status==='online'?'var(--success)':'var(--t3)',border:'2px solid var(--bg-2)'}}/>
+                  <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:'var(--success)',border:'2px solid var(--bg-2)'}}/>
                 </div>
                 <div>
-                  <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>{a.name}</div>
-                  <div style={{fontSize:11,color:'var(--t3)'}}>{a.role}</div>
+                  <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>{u.nome || u.email}</div>
+                  <div style={{fontSize:11,color:'var(--t3)', textTransform:'capitalize'}}>{u.role || 'Membro'}</div>
                 </div>
               </div>
             </div>
@@ -10614,6 +10622,25 @@ function useStatusConfig() {
   return { list, loading };
 }
 
+// Hook: equipe real (tabela usuarios) reativo
+function useEquipeReal() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('usuarios').select('id, nome, email, role, foto_url').order('nome');
+      if (alive) setList(data || []);
+    };
+    load();
+    const ch = cli.channel('rt:usuarios:dash')
+      .on('postgres_changes', { event:'*', schema:'public', table:'usuarios' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
 // Helper: pega config de status pelo key (com fallback pra legado)
 function getStatusByKey(list, key) {
   if (!key) return { key:'lead', label:'Lead', cor:'#1E90FF', icone:'UserCircle', ordem:10 };
@@ -11779,6 +11806,7 @@ function ModalPagamentos({ rec, pagamentos, onClose }) {
 function FinRecorrencia({ onNovoContrato }) {
   const recorrencia = useRecorrencia();
   const pagamentos = usePagamentos();
+  const { list: statusConfig } = useStatusConfig();
 
   const [filtro, setFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
@@ -11839,7 +11867,7 @@ function FinRecorrencia({ onNovoContrato }) {
     const vals = inlineVals; // snapshot
     cancelInline();
     const patch = {};
-    ['cliente','servico','nicho','impl','mensal','dia','status'].forEach(f => {
+    ['cliente','servico','nicho','impl','mensal','dia','status','status_fase'].forEach(f => {
       if (vals[f] !== undefined) patch[f] = _parseInlineField(f, vals[f]);
     });
     if (!patch.cliente) return; // campo obrigatorio
@@ -12126,22 +12154,31 @@ function FinRecorrencia({ onNovoContrato }) {
                       <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:stPag.color+'22',color:stPag.color,border:`1px solid ${stPag.color}44`,fontWeight:500,whiteSpace:'nowrap'}}>{stPag.label}</span>
                     </td>
 
-                    {/* Status — select inline */}
+                    {/* Status — usa fin_status_config (status_fase) */}
                     <td style={{padding:'11px 14px'}}>
-                      {isCellEd('status') ? (
-                        <select autoFocus={inlineEdit?.field==='status'}
-                          value={inlineVals.status ?? r.status}
-                          onChange={e=>setInlineVals(v=>({...v,status:e.target.value}))}
-                          onKeyDown={e=>{ if(e.key==='Escape') cancelInline(); if(e.key==='Enter'){e.preventDefault();isRowEd?saveInlineRow(r.__id):saveInlineCell(r.__id,'status');} }}
-                          onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'status')}
-                          style={{background:'var(--bg-3)',border:'1px solid rgba(123,63,228,.6)',borderRadius:4,color:'var(--t1)',fontSize:11,outline:'none',padding:'3px 6px'}}>
-                          {STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}
-                        </select>
-                      ) : (
-                        <span onClick={()=>startInlineCell(r,'status')} title="Clique para editar" style={{cursor:'pointer'}}>
-                          {r.status && <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:(SC[r.status]||'#6E6E78')+'18',color:SC[r.status]||'#6E6E78',border:`1px solid ${(SC[r.status]||'#6E6E78')}33`,fontWeight:500}}>{r.status}</span>}
-                        </span>
-                      )}
+                      {(() => {
+                        const sf = r.status_fase || 'lead';
+                        const cfg = getStatusByKey(statusConfig, sf);
+                        if (isCellEd('status')) {
+                          return (
+                            <select autoFocus
+                              value={inlineVals.status_fase ?? sf}
+                              onChange={e=>setInlineVals(v=>({...v,status_fase:e.target.value, status:e.target.value}))}
+                              onKeyDown={e=>{ if(e.key==='Escape') cancelInline(); if(e.key==='Enter'){e.preventDefault();isRowEd?saveInlineRow(r.__id):saveInlineCell(r.__id,'status_fase');} }}
+                              onBlur={()=>!isRowEd&&saveInlineCell(r.__id,'status_fase')}
+                              style={{background:'var(--bg-3)',border:`1px solid ${cfg.cor}`,borderRadius:4,color:'var(--t1)',fontSize:11,outline:'none',padding:'3px 6px'}}>
+                              {(statusConfig||[]).map(s=><option key={s.key} value={s.key}>{s.label}</option>)}
+                            </select>
+                          );
+                        }
+                        return (
+                          <span onClick={()=>startInlineCell(r,'status')} title="Clique para mudar fase" style={{cursor:'pointer'}}>
+                            <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:cfg.cor+'22',color:cfg.cor,border:`1px solid ${cfg.cor}44`,fontWeight:600,display:'inline-flex',alignItems:'center',gap:4}}>
+                              <Icon name={cfg.icone} size={10}/>{cfg.label}
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Ações */}
@@ -14145,6 +14182,456 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
 }
 
 // ═════════════════════════════════════════════════════════════════
+// PROJETOS CRM — Sprint G.1 + G.2
+// Aba dedicada pra projetos (mrr_clients): lista cards agrupados,
+// filtros por status_fase, modal de criar/editar com parcelas
+// ═════════════════════════════════════════════════════════════════
+function ProjetosCRM() {
+  const projetos = useRecorrencia();
+  const { list: clientes } = useClientes();
+  const { list: statusConfig } = useStatusConfig();
+  const [editando, setEditando] = React.useState(null); // {} novo, projeto obj edit
+  const [busca, setBusca] = React.useState('');
+  const [filtroStatus, setFiltroStatus] = React.useState('todos');
+  const [filtroCliente, setFiltroCliente] = React.useState('todos');
+
+  const clientesById = React.useMemo(() => {
+    const m = new Map();
+    (clientes || []).forEach(c => m.set(c.id, c));
+    return m;
+  }, [clientes]);
+
+  const filtrados = React.useMemo(() => {
+    let arr = [...projetos];
+    if (filtroStatus !== 'todos') arr = arr.filter(p => (p.status_fase || 'lead') === filtroStatus);
+    if (filtroCliente !== 'todos') arr = arr.filter(p => p.cliente_id === filtroCliente);
+    if (busca.trim()) {
+      const q = busca.toLowerCase();
+      arr = arr.filter(p =>
+        (p.cliente || '').toLowerCase().includes(q) ||
+        (p.servico || '').toLowerCase().includes(q) ||
+        (p.nicho || '').toLowerCase().includes(q) ||
+        (clientesById.get(p.cliente_id)?.nome || '').toLowerCase().includes(q)
+      );
+    }
+    // Agrupa: status_fase asc + valor desc
+    const cfgByKey = new Map((statusConfig || []).map(s => [s.key, s]));
+    arr.sort((a, b) => {
+      const oa = cfgByKey.get(a.status_fase)?.ordem ?? 99;
+      const ob = cfgByKey.get(b.status_fase)?.ordem ?? 99;
+      if (oa !== ob) return oa - ob;
+      return Number(b.mensal||0) - Number(a.mensal||0);
+    });
+    return arr;
+  }, [projetos, busca, filtroStatus, filtroCliente, clientesById, statusConfig]);
+
+  const stats = React.useMemo(() => ({
+    total: projetos.length,
+    ativos: projetos.filter(p => p.status_fase === 'ativo').length,
+    em_implantacao: projetos.filter(p => p.status_fase === 'em_implantacao').length,
+    mrr_total: projetos.filter(p => p.status_fase === 'ativo').reduce((s,p) => s+Number(p.mensal||0), 0),
+    impl_total: projetos.reduce((s,p) => s+Number(p.implementacao||0), 0),
+    sem_cliente: projetos.filter(p => !p.cliente_id).length,
+  }), [projetos]);
+
+  const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:0, maximumFractionDigits:0});
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Projetos</div>
+          <div className="page-head__sub">
+            {stats.total} contratos · {stats.ativos} ativos · {stats.em_implantacao} em implantação · R$ {fmt(stats.mrr_total)}/mês recorrente
+            {stats.sem_cliente > 0 && <> · <span style={{color:'#ff8585'}}>{stats.sem_cliente} sem cliente</span></>}
+          </div>
+        </div>
+        <div className="page-head__actions">
+          <button onClick={()=>setEditando({})} className="btn btn-primary">
+            <Icon name="Plus" size={14}/>Novo projeto
+          </button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
+        {[
+          { label:'Total projetos', val: stats.total, icon:'Layers', cor:'var(--blue)' },
+          { label:'Ativos faturando', val: stats.ativos, icon:'CheckCircle2', cor:'#1D9E75' },
+          { label:'MRR ativo', val: 'R$ '+fmt(stats.mrr_total), icon:'Repeat', cor:'#1D9E75' },
+          { label:'Implantação total', val: 'R$ '+fmt(stats.impl_total), icon:'Activity', cor:'#7B3FE4' },
+        ].map((k,i) => (
+          <div key={i} className="kpi">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__icon" style={{background:k.cor+'22'}}><Icon name={k.icon} size={17} style={{color:k.cor}}/></div>
+            </div>
+            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{padding:'14px 16px', marginBottom:14}}>
+        <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'7px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flex:1, minWidth:200}}>
+            <Icon name="Search" size={13} style={{color:'var(--t3)'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por projeto, cliente, serviço, nicho..." style={{flex:1, background:'none', border:'none', outline:'none', fontSize:13, color:'var(--t1)'}}/>
+          </div>
+          <select value={filtroCliente} onChange={e=>setFiltroCliente(e.target.value)} style={{padding:'7px 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t1)', fontSize:12.5, minWidth:180}}>
+            <option value="todos">Todos clientes</option>
+            {(clientes||[]).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+          {['todos', ...(statusConfig||[]).map(s=>s.key)].map(key => {
+            const cfg = key === 'todos' ? null : (statusConfig||[]).find(s => s.key === key);
+            const ativo = filtroStatus === key;
+            const cor = ativo ? (cfg?.cor || 'var(--blue)') : 'var(--t3)';
+            return (
+              <button key={key} onClick={()=>setFiltroStatus(key)} style={{
+                padding:'6px 10px', borderRadius:7, fontSize:11.5, fontWeight:500, cursor:'pointer',
+                background: ativo ? cor+'22' : 'transparent', color: cor,
+                border:`1px solid ${ativo ? cor : 'transparent'}`,
+              }}>{key === 'todos' ? 'Todos' : (cfg?.label || key)}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Lista cards */}
+      {filtrados.length === 0 ? (
+        <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="Layers" size={32} style={{opacity:.4, marginBottom:8}}/>
+          <div style={{fontSize:13, marginBottom:8}}>Nenhum projeto nesses filtros.</div>
+          <button onClick={()=>setEditando({})} className="btn btn-primary">
+            <Icon name="Plus" size={13}/>Criar primeiro projeto
+          </button>
+        </div>
+      ) : (
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(330px, 1fr))', gap:12}}>
+          {filtrados.map(p => {
+            const cfg = getStatusByKey(statusConfig, p.status_fase || 'lead');
+            const cliente = clientesById.get(p.cliente_id);
+            return (
+              <div key={p.id} onClick={()=>setEditando(p)} style={{
+                padding:'14px 16px', background:'var(--bg-2)', border:'1px solid var(--border)',
+                borderLeft:`3px solid ${cfg.cor}`, borderRadius:10, cursor:'pointer', transition:'all .15s',
+              }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateY(-2px)';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)';}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
+                  <div style={{minWidth:0, flex:1}}>
+                    <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.cliente}</div>
+                    {cliente && <div style={{fontSize:11, color:'var(--blue)', marginBottom:5}}>👤 {cliente.nome}</div>}
+                    {!cliente && <div style={{fontSize:11, color:'#ff8585', marginBottom:5}}>⚠ Sem cliente mestre</div>}
+                    <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
+                      <span style={{padding:'2px 7px', borderRadius:999, background:cfg.cor+'22', color:cfg.cor, fontWeight:600, fontSize:10, display:'inline-flex', alignItems:'center', gap:3}}>
+                        <Icon name={cfg.icone} size={9}/>{cfg.label}
+                      </span>
+                      {p.tipo_projeto && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.tipo_projeto}</span>}
+                      {p.e_repasse_terceiros && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'rgba(186,117,23,.15)', color:'#BA7517', fontWeight:600}}>REPASSE</span>}
+                    </div>
+                  </div>
+                </div>
+                {/* mini stats */}
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, paddingTop:10, borderTop:'1px solid var(--border-soft)', fontSize:11}}>
+                  <div>
+                    <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Mensal</div>
+                    <div style={{color: Number(p.mensal||0) > 0 ? '#1D9E75' : 'var(--t3)', fontFamily:'var(--f-m)', fontWeight:600, marginTop:2}}>R$ {fmt(p.mensal)}</div>
+                  </div>
+                  <div>
+                    <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Implantação</div>
+                    <div style={{color:'var(--t2)', fontFamily:'var(--f-m)', fontWeight:600, marginTop:2}}>R$ {fmt(p.implementacao)}</div>
+                  </div>
+                  <div>
+                    <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Nicho</div>
+                    <div style={{color:'var(--t2)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.nicho || '—'}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {editando && <ProjetoCadastroModal projeto={editando} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditando(null)}/>}
+    </div>
+  );
+}
+
+// ─── Modal de criar/editar projeto ───
+function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
+  const novo = !projeto?.id;
+  const [form, setForm] = React.useState({
+    cliente_id: projeto?.cliente_id || '',
+    cliente: projeto?.cliente || '',
+    servico: projeto?.servico || '',
+    nicho: projeto?.nicho || '',
+    tipo_projeto: projeto?.tipo_projeto || 'mensalidade',
+    mensal: projeto?.mensal || 0,
+    impl: projeto?.implementacao || projeto?.impl || 0,
+    valor_total_acordado: projeto?.valor_total_acordado || 0,
+    parcelas_planejadas: projeto?.parcelas_planejadas || null,
+    e_repasse_terceiros: projeto?.e_repasse_terceiros || false,
+    status_fase: projeto?.status_fase || 'lead',
+    status: projeto?.status_fase || 'lead',
+    nome_pagador_esperado: projeto?.nome_pagador_esperado || '',
+    data_inicio: projeto?.data_inicio || '',
+    data_fim_previsto: projeto?.data_fim_previsto || '',
+    escopo: projeto?.escopo || '',
+    centro_de_custo: projeto?.centro_de_custo || '',
+    dia: projeto?.dia || '',
+  });
+  const [erro, setErro] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Auto-preenche cliente_grupo baseado no cliente mestre escolhido
+  const clienteMestre = (clientes || []).find(c => c.id === form.cliente_id);
+
+  const salvar = async () => {
+    setErro(''); setSalvando(true);
+    try {
+      if (!form.cliente?.trim()) { setErro('Nome do projeto é obrigatório'); setSalvando(false); return; }
+      const payload = {
+        cliente: form.cliente.trim(),
+        servico: form.servico || null,
+        nicho: form.nicho || null,
+        tipo_projeto: form.tipo_projeto,
+        mensal: Number(form.mensal) || 0,
+        impl: Number(form.impl) || 0,
+        valor_total_acordado: Number(form.valor_total_acordado) || 0,
+        parcelas_planejadas: form.parcelas_planejadas ? Number(form.parcelas_planejadas) : null,
+        e_repasse_terceiros: !!form.e_repasse_terceiros,
+        status_fase: form.status_fase,
+        status: form.status_fase, // mantém legado em sync
+        cliente_id: form.cliente_id || null,
+        cliente_grupo: clienteMestre?.nome || null,
+        nome_pagador_esperado: form.nome_pagador_esperado || null,
+        data_inicio: form.data_inicio || null,
+        data_fim_previsto: form.data_fim_previsto || null,
+        escopo: form.escopo || null,
+        centro_de_custo: form.centro_de_custo || null,
+        dia: form.dia || '',
+      };
+      let projetoId;
+      if (novo) {
+        projetoId = await addRecorrencia(payload);
+        if (!projetoId) throw new Error('Não foi possível criar projeto');
+      } else {
+        await editRecorrencia(projeto.id, payload);
+        projetoId = projeto.id;
+      }
+      // Se for projeto parcelado e tiver parcelas_planejadas, gera mrr_parcelas (se ainda não tem)
+      if (novo && form.tipo_projeto === 'parcelado' && form.parcelas_planejadas > 0 && form.valor_total_acordado > 0) {
+        const cli = getSupa();
+        if (cli) {
+          const valorParcela = Number(form.valor_total_acordado) / Number(form.parcelas_planejadas);
+          const parcelas = [];
+          for (let i = 1; i <= form.parcelas_planejadas; i++) {
+            const venc = form.data_inicio ? new Date(form.data_inicio) : new Date();
+            venc.setMonth(venc.getMonth() + (i-1));
+            parcelas.push({
+              projeto_id: projetoId,
+              numero: i,
+              valor_esperado: valorParcela.toFixed(2),
+              data_vencimento_esperada: venc.toISOString().slice(0,10),
+              pago: false,
+            });
+          }
+          await cli.from('mrr_parcelas').insert(parcelas);
+        }
+      }
+      showToast?.(novo ? 'Projeto criado' : 'Projeto atualizado', 'success');
+      onClose();
+    } catch (e) {
+      setErro(e.message || String(e));
+    } finally { setSalvando(false); }
+  };
+
+  const remover = async () => {
+    if (!confirm(`Remover projeto "${projeto.cliente}"?\n\nIsto NÃO remove o cliente mestre, só este contrato.`)) return;
+    const cli = getSupa(); if (!cli) return;
+    await cli.from('mrr_clients').delete().eq('id', projeto.id);
+    showToast?.('Projeto removido', 'success');
+    onClose();
+  };
+
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{width:'min(720px, 95vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Layers" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{novo ? 'Novo projeto' : 'Editar projeto'}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{novo ? 'Vincule a um cliente e configure o contrato' : projeto?.cliente}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          {/* SEÇÃO 1: Cliente + Identificação */}
+          <SecaoLabel icon="UserCircle">Cliente vinculado</SecaoLabel>
+          <div style={{display:'grid', gridTemplateColumns:'1fr', gap:12, marginBottom:18}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Cliente mestre *</label>
+              <select style={inp} value={form.cliente_id} onChange={e=>set('cliente_id', e.target.value)}>
+                <option value="">— Selecione um cliente —</option>
+                {(clientes||[]).map(c => <option key={c.id} value={c.id}>{c.nome} {c.cnpj_cpf ? `· ${c.cnpj_cpf}` : ''}</option>)}
+              </select>
+              {!form.cliente_id && <div style={{fontSize:10.5, color:'#ff8585', marginTop:4}}>⚠ Sem cliente, o projeto fica órfão e não aparece no Cliente 360</div>}
+            </div>
+          </div>
+
+          <SecaoLabel icon="Layers">Identificação do projeto</SecaoLabel>
+          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do projeto *</label>
+              <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Ex: EstacionePark - Campanha" autoFocus/>
+              <div style={{fontSize:10, color:'var(--t3)', marginTop:3}}>Use formato "Cliente - SubProjeto" pra conciliação automática identificar o projeto certo</div>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Status / Fase</label>
+              <select style={{...inp, borderLeft:`3px solid ${getStatusByKey(statusConfig, form.status_fase).cor}`}} value={form.status_fase} onChange={e=>{ set('status_fase', e.target.value); set('status', e.target.value); }}>
+                {(statusConfig||[]).map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Serviço (descrição curta)</label>
+              <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + Sistema + GMB"/>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nicho</label>
+              <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Estacionamento, Saúde..."/>
+            </div>
+          </div>
+
+          {/* SEÇÃO 2: Valores */}
+          <SecaoLabel icon="DollarSign">Valores e tipo</SecaoLabel>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Tipo de projeto</label>
+              <select style={inp} value={form.tipo_projeto} onChange={e=>set('tipo_projeto', e.target.value)}>
+                <option value="mensalidade">Mensalidade recorrente</option>
+                <option value="implantacao_unica">Implantação única (sem mensal)</option>
+                <option value="misto">Misto (implantação + mensal)</option>
+                <option value="parcelado">Parcelado (ex: 50/50, 3x)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Dia do vencimento</label>
+              <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: Dia 10"/>
+            </div>
+          </div>
+
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Mensal (R$)</label>
+              <input style={inp} type="number" step="0.01" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="0,00"/>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Implantação (R$)</label>
+              <input style={inp} type="number" step="0.01" value={form.impl} onChange={e=>set('impl', e.target.value)} placeholder="0,00"/>
+            </div>
+          </div>
+
+          {form.tipo_projeto === 'parcelado' && (
+            <div style={{padding:'12px 14px', background:'rgba(123,63,228,.08)', border:'1px solid rgba(123,63,228,.25)', borderRadius:9, marginBottom:12}}>
+              <div style={{fontSize:11, color:'#a78bfa', fontWeight:600, marginBottom:8, textTransform:'uppercase', letterSpacing:.4}}>Projeto parcelado</div>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+                <div>
+                  <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Valor total acordado (R$)</label>
+                  <input style={inp} type="number" step="0.01" value={form.valor_total_acordado} onChange={e=>set('valor_total_acordado', e.target.value)} placeholder="Ex: 5000"/>
+                </div>
+                <div>
+                  <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Qtd parcelas</label>
+                  <input style={inp} type="number" value={form.parcelas_planejadas || ''} onChange={e=>set('parcelas_planejadas', e.target.value)} placeholder="Ex: 2, 3, 4..."/>
+                </div>
+              </div>
+              {novo && form.parcelas_planejadas > 0 && form.valor_total_acordado > 0 && (
+                <div style={{fontSize:11.5, color:'var(--t2)', marginTop:8}}>
+                  Vai gerar <strong>{form.parcelas_planejadas} parcelas de R$ {(Number(form.valor_total_acordado)/Number(form.parcelas_planejadas)).toFixed(2)}</strong> a partir da data início.
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:18, padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8}}>
+            <input type="checkbox" id="e_repasse" checked={!!form.e_repasse_terceiros} onChange={e=>set('e_repasse_terceiros', e.target.checked)} style={{cursor:'pointer', accentColor:'#BA7517'}}/>
+            <label htmlFor="e_repasse" style={{flex:1, fontSize:12.5, color:'var(--t2)', cursor:'pointer', userSelect:'none'}}>
+              <strong style={{color:'var(--t1)'}}>Repasse a terceiros</strong>
+              <div style={{fontSize:11, color:'var(--t3)', marginTop:2}}>Verba de mídia/tráfego que passa pela conta mas não é receita. Vira lançamento "Repasse mídia" no caixa.</div>
+            </label>
+          </div>
+
+          {/* SEÇÃO 3: Conciliação */}
+          <SecaoLabel icon="Wallet">Conciliação automática</SecaoLabel>
+          <div style={{marginBottom:18}}>
+            <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do pagador no extrato</label>
+            <input style={inp} value={form.nome_pagador_esperado} onChange={e=>set('nome_pagador_esperado', e.target.value.toUpperCase())} placeholder="Ex: ESTACIONEPARKAEROPORTO LTDA"/>
+            <div style={{fontSize:10.5, color:'var(--t3)', marginTop:4}}>Como aparece no extrato bancário. Sistema usa pra reconhecer pagamentos automaticamente.</div>
+          </div>
+
+          {/* SEÇÃO 4: Datas e escopo */}
+          <SecaoLabel icon="CalendarCheck">Datas e contexto</SecaoLabel>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data início</label>
+              <input style={inp} type="date" value={form.data_inicio || ''} onChange={e=>set('data_inicio', e.target.value)}/>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data fim prevista</label>
+              <input style={inp} type="date" value={form.data_fim_previsto || ''} onChange={e=>set('data_fim_previsto', e.target.value)}/>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Centro de custo</label>
+              <input style={inp} value={form.centro_de_custo} onChange={e=>set('centro_de_custo', e.target.value)} placeholder="Opcional"/>
+            </div>
+          </div>
+
+          <div>
+            <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Escopo (opcional)</label>
+            <textarea style={{...inp, resize:'vertical', minHeight:70, fontFamily:'inherit'}} value={form.escopo} onChange={e=>set('escopo', e.target.value)} placeholder="O que está incluso, observações..."/>
+          </div>
+
+          {erro && (
+            <div style={{marginTop:14, padding:'10px 14px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:7, fontSize:12.5, color:'#ff8585'}}>
+              ⚠ {erro}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
+          {!novo
+            ? <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}><Icon name="Trash2" size={12}/>Remover</button>
+            : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{padding:'8px 18px', borderRadius:7, border:'none', background: salvando ? 'var(--bg-3)' : 'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor: salvando ? 'wait' : 'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name={salvando ? 'RefreshCw' : 'Check'} size={13}/>
+              {salvando ? 'Salvando...' : (novo ? 'Criar projeto' : 'Salvar')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
 // CLIENTE 360 MODAL — Sprint E.5
 // Modal grande com tabs Resumo / Projetos / Pagamentos / Anexos / Editar
 // Quando cliente novo (sem id), vai direto pra Editar
@@ -15547,6 +16034,186 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
           <button onClick={onClose} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>Fechar</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════
+// PIPELINE PROJETOS — Sprint F.2
+// Lê projetos (mrr_clients) agrupados por status_fase (fin_status_config)
+// Drag-and-drop atualiza status_fase no banco, click abre Cliente 360
+// ═════════════════════════════════════════════════════════════════
+function PipelineProjetos() {
+  const { list: statusConfig } = useStatusConfig();
+  const projetos = useRecorrencia();
+  const { list: clientes } = useClientes();
+  const [drag, setDrag] = React.useState(null);
+  const [colHover, setColHover] = React.useState(null);
+  const [clienteDetalhe, setClienteDetalhe] = React.useState(null);
+
+  // Agrupa projetos por status_fase
+  const colunas = React.useMemo(() => {
+    return (statusConfig || []).map(s => ({
+      ...s,
+      projetos: (projetos || []).filter(p => (p.status_fase || 'lead') === s.key),
+    }));
+  }, [statusConfig, projetos]);
+
+  const moverProjeto = async (projetoId, novoStatus) => {
+    const cli = getSupa(); if (!cli) return;
+    const { error } = await cli.from('mrr_clients').update({
+      status_fase: novoStatus,
+      data_ultima_mudanca_fase: new Date().toISOString(),
+    }).eq('id', projetoId);
+    if (error) { showToast?.('Erro: '+error.message,'error'); return; }
+    const cfg = statusConfig.find(s => s.key === novoStatus);
+    showToast?.(`Movido para "${cfg?.label || novoStatus}"`, 'success');
+  };
+
+  const onDragStart = (e, projeto, colKey) => {
+    setDrag({ projeto, fromCol: colKey });
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onColDragOver = (e, colKey) => {
+    e.preventDefault();
+    setColHover(colKey);
+  };
+
+  const onDrop = (e, colKey) => {
+    e.preventDefault();
+    if (drag && drag.fromCol !== colKey) {
+      moverProjeto(drag.projeto.id, colKey);
+    }
+    setDrag(null); setColHover(null);
+  };
+
+  const onDragEnd = () => { setDrag(null); setColHover(null); };
+
+  // Abre Cliente 360 do cliente vinculado ao projeto
+  const abrirClienteDoProjeto = (proj) => {
+    if (!proj.cliente_id) {
+      showToast?.('Projeto sem cliente mestre vinculado. Edite o projeto pra vincular.','info');
+      return;
+    }
+    const cli = clientes.find(c => c.id === proj.cliente_id);
+    if (cli) setClienteDetalhe(cli);
+  };
+
+  const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:0});
+  const totalProjetos = projetos?.length || 0;
+  const mrrTotal = (projetos||[]).reduce((s,p) => s + Number(p.mensal||0), 0);
+
+  return (
+    <div style={{padding:'28px 32px', overflowX:'auto', height:'calc(100vh - 60px)', display:'flex', flexDirection:'column'}}>
+      <div className="page-head" style={{flexShrink:0, marginBottom:14}}>
+        <div>
+          <div className="page-head__title">Projetos / Pipeline</div>
+          <div className="page-head__sub">
+            {totalProjetos} projetos · R$ {fmt(mrrTotal)}/mês recorrente · arraste entre fases pra atualizar status
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:'flex', gap:12, flex:1, overflowX:'auto', overflowY:'hidden', paddingBottom:16}}
+        onDragEnd={onDragEnd}>
+        {colunas.map(col => {
+          const isHover = colHover === col.key && drag;
+          const colMrr = col.projetos.reduce((s,p) => s + Number(p.mensal||0), 0);
+          return (
+            <div key={col.key} style={{
+                width:280, flexShrink:0, display:'flex', flexDirection:'column', gap:0,
+                transition:'transform .15s',
+                transform: isHover ? 'translateY(-2px)' : 'none',
+              }}
+              onDragOver={e => onColDragOver(e, col.key)}
+              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setColHover(null); }}
+              onDrop={e => onDrop(e, col.key)}>
+
+              {/* Header coluna */}
+              <div style={{
+                display:'flex', alignItems:'center', gap:8,
+                padding:'10px 14px', marginBottom:10,
+                background:'var(--bg-2)',
+                border:`1px solid ${isHover ? col.cor : col.cor+'44'}`,
+                borderTop:`3px solid ${col.cor}`,
+                borderRadius:'10px 10px 0 0',
+                boxShadow: isHover ? `0 0 0 2px ${col.cor}33` : 'none',
+                transition:'all .2s',
+              }}>
+                <Icon name={col.icone} size={14} style={{color:col.cor, flexShrink:0}}/>
+                <span style={{flex:1, fontFamily:'var(--f-d)', fontWeight:600, fontSize:13, color:'var(--t1)'}}>{col.label}</span>
+                <span style={{fontFamily:'var(--f-m)', fontSize:11, color:'var(--t3)', background:'var(--bg-3)', padding:'2px 7px', borderRadius:999}}>{col.projetos.length}</span>
+              </div>
+
+              {/* Sub-header com MRR */}
+              {colMrr > 0 && (
+                <div style={{padding:'4px 8px 8px', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)'}}>
+                  R$ {fmt(colMrr)}/mês
+                </div>
+              )}
+
+              {/* Cards (projetos) */}
+              <div style={{
+                flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:8, paddingRight:2,
+                padding:'2px 4px 2px 0',
+                borderRadius:8,
+                background: isHover ? `${col.cor}08` : 'transparent',
+                transition:'background .2s',
+              }}>
+                {col.projetos.length === 0 && !isHover && (
+                  <div style={{padding:'26px 14px', textAlign:'center', border:'1.5px dashed var(--border)', borderRadius:10, color:'var(--t3)', fontSize:11.5}}>
+                    <Icon name="Inbox" size={24} style={{color:'var(--t3)', opacity:.4, margin:'0 auto 6px'}}/>
+                    <div>Sem projetos</div>
+                  </div>
+                )}
+                {col.projetos.map(p => {
+                  const clienteObj = clientes.find(c => c.id === p.cliente_id);
+                  const grupo = p.cliente_grupo || clienteObj?.nome || p.cliente;
+                  return (
+                    <div key={p.id}
+                      draggable
+                      onDragStart={e => onDragStart(e, p, col.key)}
+                      onClick={() => abrirClienteDoProjeto(p)}
+                      style={{
+                        padding:'12px 14px',
+                        background:'var(--bg-2)',
+                        border:`1px solid var(--border)`,
+                        borderLeft: `3px solid ${col.cor}`,
+                        borderRadius:9,
+                        cursor:'grab',
+                        transition:'all .15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateX(2px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)'; }}>
+                      <div style={{fontSize:13, color:'var(--t1)', fontWeight:600, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.cliente}</div>
+                      {grupo && grupo !== p.cliente && (
+                        <div style={{fontSize:10.5, color:'var(--t3)', marginBottom:6}}>{grupo}</div>
+                      )}
+                      <div style={{display:'flex', gap:8, fontSize:11, color:'var(--t3)', marginTop:6, alignItems:'center'}}>
+                        {Number(p.mensal||0) > 0 && (
+                          <span style={{color:'#1D9E75', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {fmt(p.mensal)}/mês</span>
+                        )}
+                        {Number(p.implementacao||0) > 0 && (
+                          <span style={{color:'var(--t3)'}}>· R$ {fmt(p.implementacao)} impl</span>
+                        )}
+                      </div>
+                      {(p.nicho || p.tipo_projeto) && (
+                        <div style={{display:'flex', gap:6, marginTop:6, flexWrap:'wrap'}}>
+                          {p.nicho && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.nicho}</span>}
+                          {p.e_repasse_terceiros && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'rgba(186,117,23,.15)', color:'#BA7517', fontWeight:600}}>REPASSE</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {clienteDetalhe && <Cliente360Modal cliente={clienteDetalhe} onClose={()=>setClienteDetalhe(null)}/>}
     </div>
   );
 }
@@ -16982,8 +17649,9 @@ function App() {
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
           : page === 'monitoramento' ? <Monitoramento pipelineCols={pipelineCols} onImpersonate={setImpersonate}/>
           : page === 'mrr'      ? <Financeiro/>
-          : page === 'pipeline' ? <Pipeline cols={pipelineCols} setCols={setPipelineCols}/>
+          : page === 'pipeline' ? <PipelineProjetos/>
           : page === 'clientes_crm' ? <ClientesCRM/>
+          : page === 'projetos' ? <ProjetosCRM/>
           : page === 'agenda'   ? <Agenda/>
           : page === 'analytics'? <Analytics/>
           : page === 'chamados' ? <Chamados/>
