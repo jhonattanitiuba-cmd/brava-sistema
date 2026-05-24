@@ -5599,7 +5599,9 @@ function Equipe() {
             <div style={{display:'flex', alignItems:'center', gap:12, marginBottom:14}}>
               <div style={{position:'relative'}}>
                 {(() => {
-                  const fotoReal = getUserFoto(m.email) || m.foto_url;
+                  const raw = getUserFoto(m.email) || m.foto_url;
+                  // Resolve URL (relativo vira absoluto via ASSET, http/https mantém)
+                  const fotoReal = raw ? (/^(https?:|\/)/.test(raw) ? raw : ASSET(raw)) : null;
                   return (
                     <div style={{
                       width:46, height:46, borderRadius:'50%',
@@ -12281,21 +12283,31 @@ function FinRecorrencia({ onNovoContrato }) {
         </div>
       </div>
 
-      {/* Tabela */}
+      {/* Tabela compacta — cabe sem scroll horizontal */}
+      <style>{`
+        .mrr-table th, .mrr-table td { padding: 8px 8px !important; font-size: 12.5px !important; }
+        .mrr-table .col-servico, .mrr-table .col-nicho { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        @media (max-width: 1200px) {
+          .mrr-table .col-servico { display: none; }
+        }
+        @media (max-width: 980px) {
+          .mrr-table .col-nicho { display: none; }
+        }
+      `}</style>
       <div className="card" style={{padding:0,overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
-          <table className="mrr-table" style={{width:'100%',borderCollapse:'collapse',fontSize:13.5}}>
+          <table className="mrr-table" style={{width:'100%',borderCollapse:'collapse',fontSize:12.5}}>
             <thead>
               <tr style={{background:'#000000'}}>
                 {col('Cliente','cliente')}
-                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Serviço</th>
-                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Nicho</th>
-                {col('Implementação','impl')}
+                <th className="col-servico" style={{padding:'8px 8px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:12.5,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Serviço</th>
+                <th className="col-nicho" style={{padding:'8px 8px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:12.5,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Nicho</th>
+                {col('Impl.','impl')}
                 {col('Mensal','mensal')}
-                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Venc.</th>
-                {col('Pagamento (mês atual)','atraso')}
-                <th style={{padding:'10px 14px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Status</th>
-                <th style={{padding:'10px 14px',textAlign:'right',fontFamily:'var(--f-b)',fontSize:13,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Ações</th>
+                <th style={{padding:'8px 8px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:12.5,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Venc.</th>
+                {col('Pago mês','atraso')}
+                <th style={{padding:'8px 8px',textAlign:'left',fontFamily:'var(--f-b)',fontSize:12.5,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Status</th>
+                <th style={{padding:'8px 8px',textAlign:'right',fontFamily:'var(--f-b)',fontSize:12.5,color:'#F5F5F7',fontWeight:700,borderBottom:'1px solid #2A2A3A'}}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -12345,12 +12357,12 @@ function FinRecorrencia({ onNovoContrato }) {
                     </td>
 
                     {/* Serviço */}
-                    <td style={{padding:'11px 14px',color:'var(--t2)',whiteSpace:'nowrap'}}>
+                    <td className="col-servico" style={{padding:'8px 8px',color:'var(--t2)',whiteSpace:'nowrap'}}>
                       <EditCell field="servico" value={r.servico}/>
                     </td>
 
                     {/* Nicho */}
-                    <td style={{padding:'11px 14px',color:'var(--t2)'}}>
+                    <td className="col-nicho" style={{padding:'8px 8px',color:'var(--t2)'}}>
                       <EditCell field="nicho" value={r.nicho}/>
                     </td>
 
@@ -12634,26 +12646,31 @@ function FinDashboard({ recorrencia, pagamentos, despesas, despesasPag, caixa })
   const hoje = new Date();
   const ymHoje = YM(hoje);
   const mesAtualLabel = hoje.toLocaleDateString('pt-BR', { month:'long' });
-  const entradas = calcEntradasMes(recorrencia, pagamentos, ymHoje);
-  const saidas = calcSaidasMes(despesas, despesasPag, ymHoje);
+  const extratoReal = useExtratoBancario();
 
-  // Receita recorrente — separa o "que está faturando hoje" do "potencial total"
+  // Cálculo REAL baseado no extrato bancário (dados importados do BTG)
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10);
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10);
+  const movimentoMes = (extratoReal || []).filter(e => !e.ignorado && e.data >= inicioMes && e.data <= fimMes);
+  const entradasReais = movimentoMes.filter(e => e.valor > 0).reduce((s,e) => s + Number(e.valor), 0);
+  const saidasReais = Math.abs(movimentoMes.filter(e => e.valor < 0).reduce((s,e) => s + Number(e.valor), 0));
+  const lucroReal = entradasReais - saidasReais;
+
+  // Receita recorrente — usa status_fase (Sprint D)
   const recAtivaMensal = recorrencia
-    .filter(r => ['Em Prod','Ativo'].includes(r.status))
+    .filter(r => r.status_fase === 'ativo')
     .reduce((s,r) => s + (r.mensal||0), 0);
   const recPotencialMensal = recorrencia.reduce((s,r) => s + (r.mensal||0), 0);
 
-  const lucroMes = entradas.pago - saidas.pago;
-  const lucroPrevisto = entradas.total - saidas.total;
-
-  // Saldo do caixa CONCILIADO — mesma fórmula usada no FinCaixa.
-  const saldoCaixa = calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, caixa);
+  // Saldo banco real = saldo da última entrada do extrato (se tiver saldo_apos)
+  const ultimaTransacao = [...(extratoReal||[])].sort((a,b) => b.data.localeCompare(a.data))[0];
+  const saldoBancoReal = Number(ultimaTransacao?.saldo_apos || 0);
 
   const KPIS = [
     {
       label:'Receita ativa mensal', val:`R$ ${recAtivaMensal.toLocaleString('pt-BR')}`,
       icon:'TrendingUp', color:'#1D9E75',
-      sub:`${recorrencia.filter(r=>['Em Prod','Ativo'].includes(r.status)).length} clientes faturando todo mês`,
+      sub:`${recorrencia.filter(r=>r.status_fase==='ativo').length} clientes faturando todo mês`,
     },
     {
       label:'Receita potencial mensal', val:`R$ ${recPotencialMensal.toLocaleString('pt-BR')}`,
@@ -12661,24 +12678,24 @@ function FinDashboard({ recorrencia, pagamentos, despesas, despesasPag, caixa })
       sub:`Se todos os ${recorrencia.length} contratos do funil virassem ativos`,
     },
     {
-      label:`Recebido em ${mesAtualLabel}`, val:`R$ ${entradas.pago.toLocaleString('pt-BR')}`,
+      label:`Entradas em ${mesAtualLabel} (real)`, val:`R$ ${entradasReais.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
       icon:'ArrowDownCircle', color:'#1D9E75',
-      sub:`+ R$ ${(entradas.pendente+entradas.atrasado).toLocaleString('pt-BR')} ainda a receber este mês`,
+      sub:`${movimentoMes.filter(e=>e.valor>0).length} entradas no extrato BTG`,
     },
     {
-      label:`Despesas pagas em ${mesAtualLabel}`, val:`R$ ${saidas.pago.toLocaleString('pt-BR')}`,
+      label:`Saídas em ${mesAtualLabel} (real)`, val:`R$ ${saidasReais.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
       icon:'ArrowUpCircle', color:'#A32D2D',
-      sub:`+ R$ ${saidas.pendente.toLocaleString('pt-BR')} ainda a pagar este mês`,
+      sub:`${movimentoMes.filter(e=>e.valor<0).length} saídas no extrato BTG`,
     },
     {
-      label:'Lucro líquido do mês', val:`R$ ${lucroMes.toLocaleString('pt-BR')}`,
-      icon:'DollarSign', color: lucroMes >= 0 ? '#1D9E75' : '#A32D2D',
-      sub:`Previsto fechar o mês em: R$ ${lucroPrevisto.toLocaleString('pt-BR')}`,
+      label:`Lucro real do mês`, val:`R$ ${lucroReal.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
+      icon:'DollarSign', color: lucroReal >= 0 ? '#1D9E75' : '#A32D2D',
+      sub:`Entradas − Saídas (extrato bancário real)`,
     },
     {
-      label:'Saldo em caixa', val:`R$ ${saldoCaixa.toLocaleString('pt-BR')}`,
-      icon:'Wallet', color: saldoCaixa >= 0 ? '#1E90FF' : '#A32D2D',
-      sub:`Recebidos − Pagos + ${caixa.length} lançamento${caixa.length===1?'':'s'} manua${caixa.length===1?'l':'is'}`,
+      label:'Saldo banco (BTG)', val:`R$ ${saldoBancoReal.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
+      icon:'Wallet', color: saldoBancoReal >= 0 ? '#1E90FF' : '#A32D2D',
+      sub: ultimaTransacao ? `Após movimento de ${new Date(ultimaTransacao.data).toLocaleDateString('pt-BR')}` : 'Sem dados',
     },
   ];
 
@@ -12699,23 +12716,25 @@ function FinDashboard({ recorrencia, pagamentos, despesas, despesasPag, caixa })
 
       <ProjecaoMRR data={recorrencia}/>
 
-      {/* Comparativo Entradas x Saídas (4 meses) */}
-      <CompararEntradasSaidas recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag}/>
+      {/* Comparativo REAL — extrato bancário dos últimos 6 meses */}
+      <CompararEntradasSaidas extrato={extratoReal}/>
     </div>
   );
 }
 
-function CompararEntradasSaidas({ recorrencia, pagamentos, despesas, despesasPag }) {
+function CompararEntradasSaidas({ extrato }) {
   const hoje = new Date();
   const meses = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
-    const ym = YM(d);
-    const e = calcEntradasMes(recorrencia, pagamentos, ym);
-    const s = calcSaidasMes(despesas, despesasPag, ym);
+    const inicio = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10);
+    const fim = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
+    const movs = (extrato || []).filter(e => !e.ignorado && e.data >= inicio && e.data <= fim);
+    const entradas = movs.filter(e => e.valor > 0).reduce((s,e) => s + Number(e.valor), 0);
+    const saidas = Math.abs(movs.filter(e => e.valor < 0).reduce((s,e) => s + Number(e.valor), 0));
     meses.push({
       label: d.toLocaleDateString('pt-BR', { month:'short' }).replace('.',''),
-      entradas: e.pago, saidas: s.pago, lucro: e.pago - s.pago, eAtual: i === 0,
+      entradas, saidas, lucro: entradas - saidas, eAtual: i === 0,
     });
   }
   const maxBar = Math.max(1, ...meses.flatMap(m => [m.entradas, m.saidas]));
@@ -12769,8 +12788,18 @@ function FinDespesas({ despesas, despesasPag }) {
   const [gerindoPag, setGerindoPag] = useState(null);
   const [filtroCat, setFiltroCat] = useState('todas');
   const [busca, setBusca] = useState('');
+  const [categorizandoExtrato, setCategorizandoExtrato] = useState(null); // lançamento do extrato pra virar despesa
+  const extrato = useExtratoBancario();
   const hoje = new Date();
   const ymHoje = YM(hoje);
+
+  // Saídas reais do mês ainda não conciliadas (não vinculadas a despesa ou caixa)
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0,10);
+  const fimMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0).toISOString().slice(0,10);
+  const saidasNaoConciliadas = (extrato || []).filter(e =>
+    !e.ignorado && e.valor < 0 && e.data >= inicioMes && e.data <= fimMes &&
+    !e.conciliado_despesa_pagamento_id && !e.conciliado_caixa_id
+  ).sort((a,b) => b.data.localeCompare(a.data));
 
   const filtrados = despesas
     .filter(d => filtroCat === 'todas' || d.categoria === filtroCat)
@@ -12804,6 +12833,42 @@ function FinDespesas({ despesas, despesasPag }) {
           </div>
         ))}
       </div>
+
+      {/* SAÍDAS REAIS DO EXTRATO BANCÁRIO — não conciliadas neste mês */}
+      {saidasNaoConciliadas.length > 0 && (
+        <div className="card" style={{padding:'14px 16px', marginBottom:14, border:'1px solid rgba(186,117,23,.35)', background:'rgba(186,117,23,.06)'}}>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+            <div>
+              <div style={{fontSize:13.5, color:'#F5A623', fontWeight:700, display:'flex', alignItems:'center', gap:6}}>
+                <Icon name="AlertCircle" size={14}/>
+                {saidasNaoConciliadas.length} saída{saidasNaoConciliadas.length === 1 ? '' : 's'} do banco sem categoria em {hoje.toLocaleDateString('pt-BR', {month:'long'})}
+              </div>
+              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:3}}>
+                Total: R$ {saidasNaoConciliadas.reduce((s,e)=>s+Math.abs(Number(e.valor||0)), 0).toLocaleString('pt-BR', {minimumFractionDigits:2})} · clique pra categorizar e identificar
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex', flexDirection:'column', gap:5, maxHeight:300, overflowY:'auto'}}>
+            {saidasNaoConciliadas.map(e => (
+              <div key={e.id} style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:7, display:'flex', justifyContent:'space-between', alignItems:'center', gap:10}}>
+                <div style={{minWidth:0, flex:1}}>
+                  <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.descricao}</div>
+                  <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1}}>{new Date(e.data).toLocaleDateString('pt-BR')}{e.fonte && ` · ${e.fonte}`}</div>
+                </div>
+                <div style={{fontFamily:'var(--f-m)', fontWeight:600, color:'#A32D2D', fontSize:13, whiteSpace:'nowrap'}}>
+                  − R$ {Math.abs(Number(e.valor)).toLocaleString('pt-BR', {minimumFractionDigits:2})}
+                </div>
+                <button onClick={()=>setCategorizandoExtrato(e)} style={{
+                  padding:'5px 10px', borderRadius:6, border:'1px solid #F5A623', background:'rgba(245,166,35,.10)',
+                  color:'#F5A623', fontSize:11, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:4,
+                }}>
+                  <Icon name="Plus" size={11}/>Categorizar
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="card" style={{padding:'14px 16px', marginBottom:14}}>
@@ -12882,11 +12947,97 @@ function FinDespesas({ despesas, despesasPag }) {
 
       {editando && <DespesaModal despesa={editando} onClose={()=>setEditando(null)}/>}
       {gerindoPag && <DespesaHistoricoModal despesa={gerindoPag} despesasPag={despesasPag} onClose={()=>setGerindoPag(null)}/>}
+      {categorizandoExtrato && <CategorizarExtratoModal lanc={categorizandoExtrato} onClose={()=>setCategorizandoExtrato(null)}/>}
     </div>
   );
 }
 
 // Modal CRUD de despesa
+// Categoriza uma SAÍDA do extrato bancário em uma despesa real categorizada
+// Cria fin_caixa_lancamentos + vincula no extrato (conciliado_caixa_id)
+function CategorizarExtratoModal({ lanc, onClose }) {
+  const [descricao, setDescricao] = React.useState(lanc.descricao || '');
+  const [categoria, setCategoria] = React.useState('Outro');
+  const [criarDespesaRecorrente, setCriarDespesaRecorrente] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const valor = Math.abs(Number(lanc.valor || 0));
+
+  const salvar = async () => {
+    setSalvando(true);
+    const cli = getSupa();
+    if (!cli) { setSalvando(false); return; }
+    // 1) Cria lançamento de caixa categorizado (saída)
+    const { data: caixa, error: errCaixa } = await cli.from('fin_caixa_lancamentos').insert({
+      tipo: 'saida', descricao, categoria, valor, data: lanc.data,
+      origem: 'banco', observacao: `Categorizado do extrato (${lanc.fonte || 'manual'})`,
+    }).select().single();
+    if (errCaixa) { setSalvando(false); showToast?.('Erro: '+errCaixa.message,'error'); return; }
+    // 2) Vincula no extrato
+    await cli.from('fin_extrato_bancario').update({ conciliado_caixa_id: caixa.id }).eq('id', lanc.id);
+    _bravaEmit('caixa', { op:'insert', id: caixa.id });
+    _bravaEmit('extrato', { op:'vincular', id: lanc.id });
+    // 3) Se marcado, cria também despesa recorrente
+    if (criarDespesaRecorrente) {
+      await addDespesa({
+        descricao, categoria, valor, recorrente:true,
+        dia_vencimento: new Date(lanc.data).getDate(),
+      });
+    }
+    showToast?.(`✓ ${descricao} categorizada como ${categoria}`,'success');
+    setSalvando(false); onClose();
+  };
+
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13, outline:'none' };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget)onClose();}} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div style={{width:'min(520px, 95vw)', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:12, padding:22}}>
+        <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(245,166,35,.15)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+            <Icon name="Plus" size={17} style={{color:'#F5A623'}}/>
+          </div>
+          <div>
+            <h3 style={{margin:0, fontSize:16, color:'var(--t1)'}}>Categorizar saída do banco</h3>
+            <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{new Date(lanc.data).toLocaleDateString('pt-BR')} · R$ {valor.toLocaleString('pt-BR', {minimumFractionDigits:2})}</div>
+          </div>
+        </div>
+
+        <div style={{padding:'10px 14px', background:'var(--bg-2)', borderRadius:8, marginBottom:14, fontSize:12, color:'var(--t2)'}}>
+          <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:3}}>Descrição original do extrato</div>
+          {lanc.descricao}
+        </div>
+
+        <div style={{marginBottom:12}}>
+          <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Descrição amigável</label>
+          <input style={inp} value={descricao} onChange={e=>setDescricao(e.target.value)} placeholder="Ex: Aluguel sala, Internet Vivo..."/>
+        </div>
+
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Categoria</label>
+          <select style={inp} value={categoria} onChange={e=>setCategoria(e.target.value)}>
+            {CATEGORIAS_DESPESA.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div style={{padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, marginBottom:14, display:'flex', alignItems:'center', gap:10}}>
+          <input type="checkbox" id="recDesp" checked={criarDespesaRecorrente} onChange={e=>setCriarDespesaRecorrente(e.target.checked)} style={{cursor:'pointer'}}/>
+          <label htmlFor="recDesp" style={{flex:1, fontSize:12.5, color:'var(--t2)', cursor:'pointer'}}>
+            <strong style={{color:'var(--t1)'}}>Também criar despesa recorrente</strong>
+            <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>Útil se isto se repete todo mês (ex: aluguel, internet)</div>
+          </label>
+        </div>
+
+        <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
+          <button onClick={onClose} style={{padding:'8px 14px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, cursor:'pointer'}}>Cancelar</button>
+          <button onClick={salvar} disabled={salvando || !descricao.trim()} style={{padding:'8px 16px', borderRadius:7, border:'none', background: salvando ? 'var(--bg-3)' : 'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor: salvando ? 'wait' : 'pointer'}}>
+            {salvando ? 'Salvando...' : 'Categorizar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DespesaModal({ despesa, onClose }) {
   const novo = !despesa.id;
   const [form, setForm] = useState({
@@ -13128,64 +13279,42 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
     }
   };
 
-  // Constrói extrato consolidado (lançamentos manuais + recebimentos + despesas + extrato bancário)
+  // FLUXO DE CAIXA REAL — apenas extrato bancário + lançamentos manuais
+  // Removida a simulação por recorrência/despesa (que duplicava com o real do BTG)
   const extrato = React.useMemo(() => {
     const itens = [];
-    // Lançamentos manuais
-    caixa.forEach(l => {
-      itens.push({
-        id: 'c:'+l.id, tipo: l.tipo, descricao: l.descricao, categoria: l.categoria,
-        valor: Number(l.valor), data: l.data, origem: l.origem || 'manual',
-        raw: l, editable: true,
-      });
-    });
-    // Recebimentos da recorrência → entradas
-    Object.entries(pagamentos).forEach(([clienteId, meses]) => {
-      Object.entries(meses).forEach(([ym, info]) => {
-        if (!info.pago || !info.data) return;
-        const rec = recorrencia.find(r => r.__id === clienteId);
-        if (!rec) return;
-        itens.push({
-          id: `mrr:${clienteId}:${ym}`, tipo:'entrada', descricao: `${rec.cliente} · referente a ${ym}`,
-          categoria:'Recorrência', valor: Number(rec.mensal), data: info.data, origem:'mrr', editable: false,
-        });
-      });
-    });
-    // Despesas pagas → saídas
-    Object.entries(despesasPag).forEach(([despId, meses]) => {
-      Object.entries(meses).forEach(([ym, info]) => {
-        if (!info.pago || !info.data) return;
-        const desp = despesas.find(d => d.id === despId);
-        if (!desp) return;
-        itens.push({
-          id: `desp:${despId}:${ym}`, tipo:'saida', descricao:`${desp.descricao} · referente a ${ym}`,
-          categoria: desp.categoria, valor: Number(info.valor_pago ?? desp.valor),
-          data: info.data, origem:'despesa', editable: false,
-        });
-      });
-    });
-    // ✨ Lançamentos importados do extrato bancário (que ainda não foram vinculados a nada)
-    // Quando vinculados, eles "somem" daqui pra evitar duplicação visual com o pagamento/despesa.
+    // 1) Lançamentos REAIS do extrato bancário (BTG/XLSX/manual importado)
     extratoBancario.forEach(l => {
       if (l.ignorado) return;
-      const jaVinculado = l.conciliado_pagamento_id || l.conciliado_despesa_pagamento_id || l.conciliado_caixa_id;
-      if (jaVinculado) return; // já aparece via origem 'mrr' ou 'despesa' ou 'manual'
       itens.push({
         id: `bank:${l.id}`,
         tipo: l.valor > 0 ? 'entrada' : 'saida',
         descricao: l.descricao,
-        categoria: l.banco ? `Banco ${l.banco}` : 'Extrato bancário',
+        categoria: l.banco ? `Banco ${l.banco}` : (l.fonte === 'btg_sync' || l.fonte === 'btg_webhook' ? 'BTG' : 'Extrato'),
         valor: Math.abs(Number(l.valor)),
         data: l.data,
         origem: 'banco',
         raw: l, editable: false,
-        naoConciliado: true,
+        naoConciliado: !(l.conciliado_pagamento_id || l.conciliado_despesa_pagamento_id || l.conciliado_caixa_id),
+        projeto_id: l.projeto_id,
+        cliente_id: l.cliente_id,
+      });
+    });
+    // 2) Lançamentos manuais avulsos (caixa_lancamentos sem vínculo com extrato)
+    caixa.forEach(l => {
+      // Pula se já foi gerado por conciliação de extrato (origem='banco') — evita duplicar
+      const jaNoExtrato = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
+      if (jaNoExtrato) return;
+      itens.push({
+        id: 'c:'+l.id, tipo: l.tipo, descricao: l.descricao, categoria: l.categoria || 'Manual',
+        valor: Number(l.valor), data: l.data, origem: l.origem || 'manual',
+        raw: l, editable: true,
       });
     });
     // Ordena decrescente por data
     itens.sort((a,b) => (b.data || '').localeCompare(a.data || ''));
     return itens;
-  }, [caixa, pagamentos, recorrencia, despesas, despesasPag, extratoBancario]);
+  }, [caixa, extratoBancario]);
 
   const filtrado = extrato.filter(i => {
     if (filtroTipo === 'todos') return true;
@@ -13193,18 +13322,12 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
     return i.tipo === filtroTipo;
   });
 
-  // Saldo CONCILIADO — mesma função usada no FinDashboard, garante que o número bate
-  const saldoAtual = calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, caixa);
+  // Saldo REAL = saldo_apos da última transação do extrato (vem do banco)
+  const ultimaTransacao = [...extratoBancario].sort((a,b) => b.data.localeCompare(a.data))[0];
+  const saldoAtual = Number(ultimaTransacao?.saldo_apos || saldoBtgTotal || 0);
   const totalEntradas = extrato.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
   const totalSaidas = extrato.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
   const totalNaoConciliado = extrato.filter(l => l.naoConciliado).length;
-
-  // Projeção fim do mês: saldo atual + a receber - a pagar (mês corrente)
-  const projFimMes = (() => {
-    const eMes = calcEntradasMes(recorrencia, pagamentos, ymHoje);
-    const sMes = calcSaidasMes(despesas, despesasPag, ymHoje);
-    return saldoAtual + (eMes.pendente + eMes.atrasado) - sMes.pendente;
-  })();
   const nomeMesAtual = hoje.toLocaleDateString('pt-BR', { month:'long' });
 
   return (
@@ -13263,13 +13386,13 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
         </div>
       )}
 
-      {/* KPIs */}
+      {/* KPIs — TUDO REAL do extrato (sem projeções/simulações) */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
-          { label:'Saldo em caixa',          val:`R$ ${saldoAtual.toLocaleString('pt-BR')}`,    icon:'Wallet',           color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
-          { label:'Entradas (histórico)',    val:`R$ ${totalEntradas.toLocaleString('pt-BR')}`, icon:'ArrowDownCircle',  color:'#1D9E75' },
-          { label:'Saídas (histórico)',      val:`R$ ${totalSaidas.toLocaleString('pt-BR')}`,   icon:'ArrowUpCircle',    color:'#A32D2D' },
-          { label:`Projeção fim de ${nomeMesAtual}`, val:`R$ ${projFimMes.toLocaleString('pt-BR')}`, icon:'TrendingUp',  color: projFimMes >= 0 ? '#1E90FF' : '#A32D2D' },
+          { label:'Saldo no banco (BTG)',    val:`R$ ${saldoAtual.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,    icon:'Wallet',          color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
+          { label:'Entradas no extrato',     val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`, icon:'ArrowDownCircle', color:'#1D9E75' },
+          { label:'Saídas no extrato',       val:`R$ ${totalSaidas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,   icon:'ArrowUpCircle',   color:'#A32D2D' },
+          { label:'Aguardando conciliar',    val: String(totalNaoConciliado),                                              icon:'AlertCircle',     color: totalNaoConciliado > 0 ? '#BA7517' : '#1D9E75' },
         ].map((k,i)=>(
           <div key={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
