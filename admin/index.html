@@ -10539,6 +10539,68 @@ async function marcarExtratoIgnorado(extratoId, ignorado = true) {
   await cli.from('fin_extrato_bancario').update({ ignorado }).eq('id', extratoId);
 }
 
+/* ─── Hooks BTG (contas conectadas + última sincronização) ─── */
+function useBtgAccounts() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('btg_accounts').select('*').eq('ativa', true).order('account_number');
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:btg_accounts')
+      .on('postgres_changes', { event:'*', schema:'public', table:'btg_accounts' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
+function useBtgUltimaSync() {
+  const [ultima, setUltima] = React.useState(null);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('btg_sync_log').select('*').order('iniciado_em', { ascending:false }).limit(1).maybeSingle();
+      if (alive) setUltima(data || null);
+    };
+    load();
+    const ch = cli.channel('rt:btg_sync_log')
+      .on('postgres_changes', { event:'*', schema:'public', table:'btg_sync_log' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return ultima;
+}
+
+// Dispara a edge function btg-sync. Retorna { ok, contas, novos, duplicados, erro }
+async function sincronizarBtg(dias = 30) {
+  const cli = getSupa();
+  if (!cli) return { ok:false, erro:'Sem conexão' };
+  const { data: sess } = await cli.auth.getSession();
+  const token = sess?.session?.access_token;
+  if (!token) return { ok:false, erro:'Sessão expirada — faça login novamente' };
+  try {
+    const res = await fetch(`${SUPA_CFG.url}/functions/v1/btg-sync`, {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPA_CFG.publishableKey,
+        'authorization': `Bearer ${token}`,
+        'content-type':  'application/json',
+      },
+      body: JSON.stringify({ dias, tipo: 'manual' }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok:false, erro: data.error || `HTTP ${res.status}` };
+    return { ok:true, ...data };
+  } catch (e) {
+    return { ok:false, erro: e.message || String(e) };
+  }
+}
+
 function useExtratoBancario() {
   const [list, setList] = React.useState([]);
   React.useEffect(() => {
@@ -12186,9 +12248,43 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const [editando, setEditando] = useState(null);
   const [importando, setImportando] = useState(false); // modal importar XLSX
   const [filtroTipo, setFiltroTipo] = useState('todos'); // todos / entrada / saida / nao-conciliado
+  const [sincronizandoBtg, setSincronizandoBtg] = useState(false);
   const extratoBancario = useExtratoBancario();
+  const btgAccounts = useBtgAccounts();
+  const ultimaSyncBtg = useBtgUltimaSync();
   const hoje = new Date();
   const ymHoje = YM(hoje);
+
+  // Saldo total das contas BTG conectadas (somatório do saldo_atual mais recente)
+  const saldoBtgTotal = btgAccounts.reduce((s, a) => s + (Number(a.saldo_atual) || 0), 0);
+
+  // Texto amigável do "Última sync"
+  const ultimaSyncTxt = (() => {
+    if (!ultimaSyncBtg) return null;
+    const dt = new Date(ultimaSyncBtg.concluido_em || ultimaSyncBtg.iniciado_em);
+    const diffMin = Math.floor((Date.now() - dt.getTime()) / 60000);
+    if (ultimaSyncBtg.status === 'rodando') return 'sincronizando...';
+    if (ultimaSyncBtg.status === 'erro') return `erro há ${diffMin}min`;
+    if (diffMin < 1) return 'agora mesmo';
+    if (diffMin < 60) return `há ${diffMin}min`;
+    const h = Math.floor(diffMin / 60);
+    if (h < 24) return `há ${h}h`;
+    return `há ${Math.floor(h/24)}d`;
+  })();
+
+  const onSincronizarBtg = async () => {
+    if (sincronizandoBtg) return;
+    setSincronizandoBtg(true);
+    const res = await sincronizarBtg(30);
+    setSincronizandoBtg(false);
+    if (!res.ok) {
+      showToast?.(`Erro na sincronização BTG: ${res.erro}`, 'error');
+    } else {
+      const partes = [`${res.novos} novo${res.novos===1?'':'s'}`];
+      if (res.duplicados > 0) partes.push(`${res.duplicados} duplicado${res.duplicados===1?'':'s'} ignorado${res.duplicados===1?'':'s'}`);
+      showToast?.(`BTG sincronizado: ${partes.join(', ')} em ${res.contas} conta${res.contas===1?'':'s'}`, 'success');
+    }
+  };
 
   // Constrói extrato consolidado (lançamentos manuais + recebimentos + despesas + extrato bancário)
   const extrato = React.useMemo(() => {
@@ -12272,16 +12368,46 @@ function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   return (
     <div>
       {/* Header */}
-      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18, gap:14, flexWrap:'wrap'}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:14, gap:14, flexWrap:'wrap'}}>
         <div style={{fontSize:13, color:'var(--t3)'}}>
           {extrato.length} movimentações no extrato
           {totalNaoConciliado > 0 && <span style={{color:'#BA7517', marginLeft:8, fontWeight:500}}>· {totalNaoConciliado} do banco aguardando conciliação</span>}
         </div>
-        <div style={{display:'flex', gap:8}}>
-          <button onClick={()=>setImportando(true)} className="btn btn-outline"><Icon name="Upload" size={14}/>Importar extrato</button>
+        <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+          <button onClick={onSincronizarBtg} disabled={sincronizandoBtg} className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6}}>
+            <Icon name={sincronizandoBtg ? 'RefreshCw' : 'Zap'} size={14} style={{color: sincronizandoBtg ? 'var(--t3)' : 'var(--blue)'}}/>
+            {sincronizandoBtg ? 'Sincronizando BTG...' : 'Sincronizar BTG'}
+          </button>
+          <button onClick={()=>setImportando(true)} className="btn btn-outline"><Icon name="Upload" size={14}/>Importar XLSX</button>
           <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo lançamento</button>
         </div>
       </div>
+
+      {/* Card de status BTG (só aparece se tem conta conectada) */}
+      {(btgAccounts.length > 0 || ultimaSyncBtg) && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:14, marginBottom:18,
+          padding:'12px 16px', background:'linear-gradient(135deg, rgba(30,144,255,.08), transparent)',
+          border:'1px solid rgba(30,144,255,.25)', borderRadius:10, flexWrap:'wrap',
+        }}>
+          <div style={{width:36, height:36, borderRadius:9, background:'rgba(30,144,255,.18)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="Zap" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:180}}>
+            <div style={{fontSize:13, color:'var(--t1)', fontWeight:600}}>BTG Pactual conectado</div>
+            <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>
+              {btgAccounts.length} conta{btgAccounts.length===1?'':'s'} ·
+              Saldo atual: <strong style={{color:'var(--t2)'}}>R$ {saldoBtgTotal.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
+              {ultimaSyncTxt && <> · Última sync <strong style={{color:'var(--t2)'}}>{ultimaSyncTxt}</strong></>}
+            </div>
+          </div>
+          {ultimaSyncBtg?.status === 'erro' && (
+            <div style={{fontSize:11.5, color:'#ff8585', padding:'4px 10px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:6, maxWidth:280, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={ultimaSyncBtg.erro}>
+              {ultimaSyncBtg.erro}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
