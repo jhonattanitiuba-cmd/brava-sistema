@@ -11007,18 +11007,21 @@ function usePipelineDbIndex() {
           .select('id, titulo, descricao, agente_id, contact_jid, data_vencimento, instancia_id, foto_url')
           .is('archived_at', null);
         if (!alive || !cards) return;
-        // Carrega checklist e comments em batch
+        // Carrega checklist + comments + etiquetas + anexos em batch
         const cardIds = cards.map(c => c.id);
-        const [check, comm, etiq] = await Promise.all([
-          cli.from('pipeline_card_checklist').select('card_id, done').in('card_id', cardIds.length ? cardIds : ['00000000-0000-0000-0000-000000000000']),
-          cli.from('pipeline_card_comments').select('card_id').in('card_id', cardIds.length ? cardIds : ['00000000-0000-0000-0000-000000000000']),
-          cli.from('pipeline_card_etiquetas').select('card_id, etiqueta_id').in('card_id', cardIds.length ? cardIds : ['00000000-0000-0000-0000-000000000000']),
+        const fallback = ['00000000-0000-0000-0000-000000000000'];
+        const [check, comm, etiq, anex] = await Promise.all([
+          cli.from('pipeline_card_checklist').select('card_id, done').in('card_id', cardIds.length ? cardIds : fallback),
+          cli.from('pipeline_card_comments').select('card_id').in('card_id', cardIds.length ? cardIds : fallback),
+          cli.from('pipeline_card_etiquetas').select('card_id, etiqueta_id').in('card_id', cardIds.length ? cardIds : fallback),
+          cli.from('pipeline_card_anexos').select('card_id').in('card_id', cardIds.length ? cardIds : fallback),
         ]);
         _pipeCardDbCache.clear();
         cards.forEach(c => {
           const cks = (check.data || []).filter(x => x.card_id === c.id);
           const cms = (comm.data || []).filter(x => x.card_id === c.id);
           const ets = (etiq.data || []).filter(x => x.card_id === c.id).map(x => x.etiqueta_id);
+          const ans = (anex.data || []).filter(x => x.card_id === c.id);
           _pipeCardDbCache.set(c.titulo, {
             dbId: c.id,
             descricao: c.descricao,
@@ -11031,6 +11034,7 @@ function usePipelineDbIndex() {
             checklistTotal: cks.length,
             commentsCount: cms.length,
             etiquetaIds: ets,
+            anexosCount: ans.length,
           });
         });
         _notifyPipeCard(null);
@@ -11042,6 +11046,7 @@ function usePipelineDbIndex() {
       .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_checklist' }, carregar)
       .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_comments' }, carregar)
       .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_etiquetas' }, carregar)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_anexos' }, carregar)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
   }, []);
@@ -11111,6 +11116,11 @@ function PipelineCardBadges({ cardKey, cardNome }) {
           </span>
         );
       })()}
+      {(dbData.anexosCount || 0) > 0 && (
+        <span style={{display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)'}}>
+          <Icon name="Paperclip" size={11}/>{dbData.anexosCount}
+        </span>
+      )}
       {etiquetaIds.length > 0 && (
         <span style={{display:'inline-flex', alignItems:'center', gap:3, fontSize:10.5, color:'var(--blue)', fontFamily:'var(--f-m)'}}>
           <Icon name="Tag" size={11}/>{etiquetaIds.length}
@@ -11133,6 +11143,12 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
   const [agenteId, setAgenteId] = React.useState(null);
   const [dataVenc, setDataVenc] = React.useState('');
   const [fotoUrl, setFotoUrl] = React.useState(null);
+  const [anexos, setAnexos] = React.useState([]);
+  const [novoLinkUrl, setNovoLinkUrl] = React.useState('');
+  const [novoLinkNome, setNovoLinkNome] = React.useState('');
+  const [mostrarFormLink, setMostrarFormLink] = React.useState(false);
+  const [uploadingAnexo, setUploadingAnexo] = React.useState(false);
+  const anexoFileInputRef = React.useRef(null);
   const [uploadingFoto, setUploadingFoto] = React.useState(false);
   const fileInputRef = React.useRef(null);
   const { membros } = useTeamMembers();
@@ -11153,14 +11169,16 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
       setAgenteId(db.agente_id || null);
       setDataVenc(db.data_vencimento || '');
       setFotoUrl(db.foto_url || null);
-      // Carrega checklist + comments
-      const [chk, com] = await Promise.all([
+      // Carrega checklist + comments + anexos
+      const [chk, com, anx] = await Promise.all([
         cli.from('pipeline_card_checklist').select('*').eq('card_id', db.id).order('ordem'),
         cli.from('pipeline_card_comments').select('*').eq('card_id', db.id).order('created_at', { ascending: false }),
+        cli.from('pipeline_card_anexos').select('*').eq('card_id', db.id).order('uploaded_at', { ascending: false }),
       ]);
       if (alive) {
         setChecklist(chk.data || []);
         setComments(com.data || []);
+        setAnexos(anx.data || []);
         setLoading(false);
       }
     })();
@@ -11241,6 +11259,85 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+  // ✨ Anexos: upload PDF/arquivo
+  const onUploadAnexo = async (e) => {
+    const file = e.target?.files?.[0];
+    if (!file || !dbCard) return;
+    if (file.size > 20 * 1024 * 1024) { showToast?.('Arquivo > 20MB. Reduza ou comprima.', 'error'); return; }
+    setUploadingAnexo(true);
+    try {
+      const cli = getSupa();
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const path = `${dbCard.id}/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+      const { error: upErr } = await cli.storage.from('pipeline-anexos').upload(path, file, {
+        cacheControl: '3600', upsert: false, contentType: file.type || 'application/octet-stream',
+      });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = cli.storage.from('pipeline-anexos').getPublicUrl(path);
+      const { data: sess } = await cli.auth.getSession();
+      const { data: novo } = await cli.from('pipeline_card_anexos').insert({
+        card_id: dbCard.id,
+        tipo: 'file',
+        nome: file.name,
+        url: publicUrl,
+        mime: file.type || 'application/octet-stream',
+        tamanho_bytes: file.size,
+        storage_path: path,
+        uploaded_by: sess?.session?.user?.id,
+      }).select().single();
+      if (novo) setAnexos(arr => [novo, ...arr]);
+      showToast?.('Arquivo anexado', 'success');
+    } catch (err) {
+      showToast?.('Erro: ' + (err.message || err), 'error');
+    } finally {
+      setUploadingAnexo(false);
+      if (anexoFileInputRef.current) anexoFileInputRef.current.value = '';
+    }
+  };
+
+  const adicionarLink = async () => {
+    if (!novoLinkUrl.trim() || !dbCard) return;
+    let url = novoLinkUrl.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+    try {
+      const cli = getSupa();
+      const { data: sess } = await cli.auth.getSession();
+      const nome = novoLinkNome.trim() || url.replace(/^https?:\/\//, '').slice(0, 50);
+      const { data: novo } = await cli.from('pipeline_card_anexos').insert({
+        card_id: dbCard.id,
+        tipo: 'link',
+        nome,
+        url,
+        uploaded_by: sess?.session?.user?.id,
+      }).select().single();
+      if (novo) {
+        setAnexos(arr => [novo, ...arr]);
+        setNovoLinkUrl('');
+        setNovoLinkNome('');
+        setMostrarFormLink(false);
+        showToast?.('Link adicionado', 'success');
+      }
+    } catch (err) {
+      showToast?.('Erro: ' + (err.message || err), 'error');
+    }
+  };
+
+  const removerAnexo = async (anx) => {
+    if (!confirm(`Remover "${anx.nome}"?`)) return;
+    try {
+      const cli = getSupa();
+      // Se for arquivo, remove do storage também
+      if (anx.tipo === 'file' && anx.storage_path) {
+        await cli.storage.from('pipeline-anexos').remove([anx.storage_path]).catch(() => {});
+      }
+      await cli.from('pipeline_card_anexos').delete().eq('id', anx.id);
+      setAnexos(arr => arr.filter(a => a.id !== anx.id));
+      showToast?.('Removido', 'success');
+    } catch (err) {
+      showToast?.('Erro: ' + (err.message || err), 'error');
+    }
+  };
+
   const removerFoto = async () => {
     if (!fotoUrl || !confirm('Remover a foto deste card?')) return;
     try {
@@ -11424,6 +11521,104 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
                   <div style={{fontSize:13, color:'var(--t1)'}}>{dbCard.contact_jid.replace('@s.whatsapp.net','')}</div>
                 </div>
               )}
+
+              {/* ✨ ANEXOS */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
+                  <Icon name="Paperclip" size={11}/> Anexos {anexos.length > 0 && `(${anexos.length})`}
+                </div>
+                <input ref={anexoFileInputRef} type="file" onChange={onUploadAnexo}
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip,.rar,image/*"
+                  style={{display:'none'}}/>
+                {/* Lista de anexos */}
+                {anexos.map(anx => {
+                  const isLink = anx.tipo === 'link';
+                  const ext = !isLink ? (anx.nome.split('.').pop()?.toUpperCase().slice(0,4) || '?') : null;
+                  const tamanho = anx.tamanho_bytes
+                    ? (anx.tamanho_bytes < 1024 * 1024
+                        ? `${(anx.tamanho_bytes/1024).toFixed(0)} KB`
+                        : `${(anx.tamanho_bytes/1024/1024).toFixed(1)} MB`)
+                    : null;
+                  return (
+                    <a key={anx.id} href={anx.url} target="_blank" rel="noopener noreferrer" style={{
+                      display:'flex', alignItems:'center', gap:10, padding:'9px 11px',
+                      background:'var(--bg-3)', borderRadius:7, marginBottom:6,
+                      textDecoration:'none', color:'var(--t1)',
+                      border:'1px solid var(--border)', transition:'all .15s',
+                    }}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateX(2px)';}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)';}}>
+                      <div style={{
+                        width:32, height:32, borderRadius:6, flexShrink:0,
+                        background: isLink ? 'rgba(30,144,255,.15)' : 'rgba(229,84,77,.15)',
+                        display:'flex', alignItems:'center', justifyContent:'center',
+                        color: isLink ? 'var(--blue)' : '#E5544D',
+                        fontSize:8.5, fontWeight:700,
+                      }}>
+                        {isLink ? <Icon name="Link" size={14}/> : ext}
+                      </div>
+                      <div style={{flex:1, minWidth:0}}>
+                        <div style={{fontSize:13, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontWeight:500}}>
+                          {anx.nome}
+                        </div>
+                        <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
+                          {isLink ? new URL(anx.url).hostname : tamanho}
+                        </div>
+                      </div>
+                      <button onClick={(e)=>{e.preventDefault(); e.stopPropagation(); removerAnexo(anx);}}
+                        title="Remover" style={{
+                          width:24, height:24, padding:0, border:'none', background:'transparent',
+                          color:'var(--t3)', cursor:'pointer', opacity:.4, flexShrink:0,
+                        }}
+                        onMouseEnter={e=>e.currentTarget.style.opacity='1'}
+                        onMouseLeave={e=>e.currentTarget.style.opacity='.4'}>
+                        <Icon name="X" size={12}/>
+                      </button>
+                    </a>
+                  );
+                })}
+                {/* Form pra adicionar link */}
+                {mostrarFormLink && (
+                  <div style={{padding:'10px', background:'rgba(30,144,255,.08)', borderRadius:7, border:'1px solid rgba(30,144,255,.25)', marginTop:6, marginBottom:6}}>
+                    <input value={novoLinkUrl} onChange={e=>setNovoLinkUrl(e.target.value)}
+                      placeholder="https://..." autoFocus
+                      style={{width:'100%', padding:'7px 10px', borderRadius:6, background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:12.5, outline:'none', marginBottom:6}}/>
+                    <input value={novoLinkNome} onChange={e=>setNovoLinkNome(e.target.value)}
+                      placeholder="Nome amigável (opcional)"
+                      style={{width:'100%', padding:'7px 10px', borderRadius:6, background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:12.5, outline:'none', marginBottom:6}}/>
+                    <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+                      <button onClick={()=>{setMostrarFormLink(false); setNovoLinkUrl(''); setNovoLinkNome('');}} style={{padding:'5px 12px', borderRadius:6, border:'none', background:'transparent', color:'var(--t3)', fontSize:12, cursor:'pointer'}}>Cancelar</button>
+                      <button onClick={adicionarLink} disabled={!novoLinkUrl.trim()} style={{padding:'5px 14px', borderRadius:6, border:'none', background:novoLinkUrl.trim() ? 'var(--blue)' : 'var(--bg-3)', color:'#fff', fontSize:12, fontWeight:600, cursor:novoLinkUrl.trim()?'pointer':'not-allowed'}}>Adicionar</button>
+                    </div>
+                  </div>
+                )}
+                {/* Botões de adicionar */}
+                {!mostrarFormLink && (
+                  <div style={{display:'flex', gap:6, marginTop:8}}>
+                    <button onClick={()=>!uploadingAnexo && anexoFileInputRef.current?.click()}
+                      disabled={uploadingAnexo} style={{
+                        flex:1, padding:'8px', borderRadius:7, border:'1px dashed var(--border)',
+                        background:'transparent', color:'var(--t2)', fontSize:12, cursor: uploadingAnexo ? 'wait' : 'pointer',
+                        display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .15s',
+                      }}
+                      onMouseEnter={e=>{if(!uploadingAnexo){e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.color='var(--blue)';}}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)';}}>
+                      <Icon name={uploadingAnexo ? 'RefreshCw' : 'Paperclip'} size={12}/>
+                      {uploadingAnexo ? 'Enviando...' : 'Anexar arquivo'}
+                    </button>
+                    <button onClick={()=>setMostrarFormLink(true)} style={{
+                      flex:1, padding:'8px', borderRadius:7, border:'1px dashed var(--border)',
+                      background:'transparent', color:'var(--t2)', fontSize:12, cursor:'pointer',
+                      display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .15s',
+                    }}
+                      onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.color='var(--blue)';}}
+                      onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)';}}>
+                      <Icon name="Link" size={12}/>
+                      Adicionar link
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* COMENTÁRIOS */}
               <div style={{marginBottom:6}}>
