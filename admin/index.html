@@ -14725,11 +14725,14 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
 // Modal grande com tabs Resumo / Projetos / Pagamentos / Anexos / Editar
 // Quando cliente novo (sem id), vai direto pra Editar
 // ═════════════════════════════════════════════════════════════════
-function Cliente360Modal({ cliente, onClose }) {
-  const novo = !cliente?.id;
+function Cliente360Modal({ cliente: clienteProp, onClose }) {
+  const novo = !clienteProp?.id;
   // Hooks SEMPRE antes de qualquer return condicional (regra do React)
   const [tab, setTab] = React.useState('resumo');
   const [editandoCad, setEditandoCad] = React.useState(false);
+  // ✨ Reativo: cliente sempre sincronizado com o banco (atualiza após edit inline)
+  const clienteAtualizado = useCliente(clienteProp?.id);
+  const cliente = clienteAtualizado || clienteProp; // fallback durante load inicial
   const { list: statusConfig } = useStatusConfig();
   const { list: projetos, loading: loadingProj } = useProjetosResumoCliente(cliente?.id);
   const extrato = useExtratoPorCliente(cliente?.id);
@@ -14743,7 +14746,7 @@ function Cliente360Modal({ cliente, onClose }) {
   }, [projetos]);
   // Se for novo (sem id), abre o modal tradicional de cadastro (hooks já chamados)
   if (novo) {
-    return <ClienteCadastroModal cliente={cliente} onClose={onClose}/>;
+    return <ClienteCadastroModal cliente={clienteProp} onClose={onClose}/>;
   }
   const cfg = getStatusByKey(statusConfig, cliente?.status);
 
@@ -14914,8 +14917,13 @@ function InfoCardEdit({ label, value, field, clienteId, type = 'text', placehold
 
   const salvar = async () => {
     if (val === (value || '')) { setEditando(false); return; }
+    // Sanitiza por campo
+    let cleanVal = val.trim();
+    if (field === 'cnpj_cpf') cleanVal = cleanVal.replace(/\D/g, ''); // só números
+    if (field === 'endereco_estado') cleanVal = cleanVal.toUpperCase().slice(0,2);
+    if (field === 'contato_email') cleanVal = cleanVal.toLowerCase();
     setSaving(true);
-    const r = await editCliente(clienteId, { [field]: val || null });
+    const r = await editCliente(clienteId, { [field]: cleanVal || null });
     setSaving(false);
     setEditando(false);
     if (r.ok) {
