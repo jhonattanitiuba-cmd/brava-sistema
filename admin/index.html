@@ -699,7 +699,7 @@ const NAV = [
   { key:'monitoramento', label:'Monitoramento', icon:'Activity',   badge:null },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
   { key:'agenda',     label:'Agenda',      icon:'CalendarCheck',   badge:null },
-  { key:'mrr',        label:'MRR',         icon:'TrendingUp',      badge:null },
+  { key:'mrr',        label:'Financeiro',  icon:'DollarSign',      badge:null },
   { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
   { key:'chamados',   label:'Chamados',    icon:'LifeBuoy',        badge:3 },
   { key:'equipe',     label:'Equipe',      icon:'UsersRound',      badge:null },
@@ -817,31 +817,58 @@ function SidebarUserCard({ setPage }) {
   const { nome, cargo } = useUserPerfil();
   const iniciais = (nome || 'JI').split(' ').slice(0,2).map(n=>n[0]||'').join('').toUpperCase();
   const primeiroNome = (nome || '').split(' ').slice(0,2).join(' ');
+  // ✨ Tema sincronizado com o data-theme do <html>
+  const [dark, setDark] = React.useState(() =>
+    typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+  );
+  const toggleTema = (e) => {
+    e.stopPropagation();
+    const next = !dark;
+    setDark(next);
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+    const wrap = document.getElementById('sidebar-logo-wrap');
+    if (wrap) wrap.style.background = 'transparent';
+  };
   return (
-    <div onClick={() => setPage && setPage('config')} title="Editar perfil" style={{
-      flexShrink:0, padding:'12px 14px', borderTop:'1px solid #1F1F2A',
-      display:'flex', alignItems:'center', gap:10, cursor:'pointer',
+    <div style={{
+      flexShrink:0, padding:'12px 14px', borderTop:'1px solid var(--border)',
+      display:'flex', alignItems:'center', gap:10,
+      background:'linear-gradient(180deg, transparent, rgba(30,144,255,0.04))',
       transition:'background .15s',
-      background:'linear-gradient(180deg, transparent, rgba(123,63,228,0.04))',
-    }}
-      onMouseEnter={e=>e.currentTarget.style.background='rgba(123,63,228,0.10)'}
-      onMouseLeave={e=>e.currentTarget.style.background='linear-gradient(180deg, transparent, rgba(123,63,228,0.04))'}
-    >
-      <div style={{
-        width:32, height:32, borderRadius:'50%', flexShrink:0,
-        background: foto
-          ? `url('${foto}') center 25%/cover no-repeat`
-          : 'linear-gradient(135deg, var(--purple), var(--blue))',
-        color: foto ? 'transparent' : '#fff',
-        display:'flex', alignItems:'center', justifyContent:'center',
-        fontSize:11, fontWeight:700,
-        border:'1px solid rgba(255,255,255,.08)',
-      }}>{iniciais}</div>
-      <div style={{flex:1, minWidth:0}}>
-        <div style={{fontSize:12.5, fontWeight:600, color:'#F5F5F7', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
-        <div style={{fontSize:10.5, color:'#A0A0AA', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
+    }}>
+      <div onClick={() => setPage && setPage('config')} title="Editar perfil"
+        style={{display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0, cursor:'pointer'}}>
+        <div style={{
+          width:32, height:32, borderRadius:'50%', flexShrink:0,
+          background: foto
+            ? `url('${foto}') center 25%/cover no-repeat`
+            : 'linear-gradient(135deg, var(--purple), var(--blue))',
+          color: foto ? 'transparent' : '#fff',
+          display:'flex', alignItems:'center', justifyContent:'center',
+          fontSize:11, fontWeight:700,
+          border:'1px solid rgba(255,255,255,.08)',
+        }}>{iniciais}</div>
+        <div style={{flex:1, minWidth:0}}>
+          <div style={{fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
+          <div style={{fontSize:10.5, color:'var(--t2)', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
+        </div>
       </div>
-      <Icon name="Settings" size={13} style={{color:'#6E6E78', flexShrink:0}}/>
+      {/* ✨ Toggle tema (sol/lua) — substitui o antigo ícone de config */}
+      <button onClick={toggleTema} title={dark ? 'Modo claro' : 'Modo escuro'} style={{
+        width:30, height:30, padding:0, borderRadius:'50%', flexShrink:0,
+        background:'transparent', border:'1px solid var(--border)',
+        color:'var(--t2)', cursor:'pointer',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        transition:'all .15s',
+      }}
+        onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.color='var(--blue)';}}
+        onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)';}}
+      >
+        {dark
+          ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        }
+      </button>
     </div>
   );
 }
@@ -2244,7 +2271,7 @@ function HeaderNotif({ notifAberta, setNotifAberta, setPage }) {
 }
 
 function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notifAberta, setNotifAberta }) {
-  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', pipeline:'Pipeline', agenda:'Agenda', mrr:'MRR', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
+  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', pipeline:'Pipeline', agenda:'Agenda', mrr:'Financeiro', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
   return (
     <header className="header" style={{borderBottom:'1px solid var(--border-soft)'}}>
       {collapsed && (
@@ -2434,7 +2461,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
         <div className="card">
           <div className="card__head">
             <div className="card__title">Evolução do MRR · últimos 7 dias</div>
-            <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Ver MRR completo →</div>
+            <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Ver Financeiro completo →</div>
           </div>
           <div className="chart">
             {chartData.map((d,i) => (
@@ -6740,6 +6767,76 @@ function useTransferenciaWatcher(meuUserId) {
   }, [meuUserId, activeInstanceId]);
 }
 
+/* Hook: notifica + toca som quando um card do Pipeline e atribuido ao user atual.
+   Roda no nivel do <App/>, escuta TODOS os UPDATEs em pipeline_cards. */
+function usePipelineAssignWatcher(meuUserId) {
+  React.useEffect(() => {
+    if (!meuUserId) return;
+    const cli = getSupa();
+    if (!cli) return;
+
+    // Cache pra dedup: cardId -> ultimoAgenteId conhecido
+    // Pre-popula com estado atual pro UPDATE inicial nao disparar falsamente
+    const cache = new Map();
+    let bootstrapped = false;
+    (async () => {
+      try {
+        const { data } = await cli.from('pipeline_cards').select('id, agente_id').is('archived_at', null);
+        (data || []).forEach(c => cache.set(c.id, c.agente_id || null));
+      } catch {}
+      bootstrapped = true;
+    })();
+
+    // Quem atribuiu — busca nome real do autor (created_by/updated_by não existem aqui;
+    // usamos titulo do card + nome do agente novo)
+    const ch = cli.channel(`rt:pipe-assign-watch:${meuUserId}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pipeline_cards' }, async (p) => {
+        const cardId = p.new?.id; if (!cardId) return;
+        const novoAgente = p.new?.agente_id || null;
+        // Antes do bootstrap, só popula cache (evita falso positivo no replay inicial)
+        if (!bootstrapped) { cache.set(cardId, novoAgente); return; }
+        const antigoAgente = cache.has(cardId) ? cache.get(cardId) : (p.old?.agente_id || null);
+        cache.set(cardId, novoAgente);
+
+        // Card foi arquivado nesse update? Ignora.
+        if (p.new?.archived_at) return;
+
+        // Disparou quando: antes era outro/null E agora é o user atual
+        if (novoAgente === meuUserId && antigoAgente !== meuUserId) {
+          const titulo = p.new?.titulo || 'um card';
+          // Tenta resolver coluna + serviço pra um sub mais informativo
+          let sub = 'Você foi atribuído a este card no Pipeline';
+          try {
+            const { data: col } = await cli.from('pipeline_colunas')
+              .select('nome').eq('id', p.new.coluna_id).maybeSingle();
+            if (col?.nome) sub = `Card "${titulo}" · coluna ${col.nome}`;
+            else sub = `Card "${titulo}"`;
+          } catch {}
+
+          playTransferSound();
+          if (typeof adicionarNotificacao === 'function') {
+            adicionarNotificacao({
+              tipo: 'pipeline_atribuicao',
+              titulo: 'Card atribuído a você',
+              sub,
+              icon: 'KanbanSquare',
+              cor: '#7B3FE4',
+              link: 'pipeline',
+            });
+          }
+          // Tenta notif do navegador também (mesmo padrão de evoBrowserNotify)
+          try {
+            if (typeof evoBrowserNotify === 'function') {
+              evoBrowserNotify('Card atribuído a você', sub, `pipe:${cardId}`);
+            }
+          } catch {}
+        }
+      })
+      .subscribe();
+    return () => cli.removeChannel(ch);
+  }, [meuUserId]);
+}
+
 /* Hook: agente atribuido + status do chat (wa_chats.agente_id, status).
    Le do banco + Realtime + retorna funcoes pra atribuir/desatribuir. */
 function useSupaChatAgente(chatJid) {
@@ -6934,7 +7031,105 @@ function EtiquetaChip({ etiqueta, size='sm', onRemove }) {
 }
 
 /* Popover: lista de etiquetas pra aplicar/remover num chat */
-function EtiquetasPopover({ chatJid, onClose, anchor='right' }) {
+// ✨ Hook + funções pra etiquetas em CARDS do Pipeline (paralelo ao chatEtiquetas)
+function usePipelineCardEtiquetas(cardId) {
+  const [ids, setIds] = React.useState([]);
+  React.useEffect(() => {
+    if (!cardId) { setIds([]); return; }
+    const cli = getSupa();
+    if (!cli) return;
+    let alive = true;
+    const carregar = async () => {
+      const { data } = await cli.from('pipeline_card_etiquetas')
+        .select('etiqueta_id').eq('card_id', cardId);
+      if (alive) setIds((data || []).map(r => r.etiqueta_id));
+    };
+    carregar();
+    const ch = cli.channel(`rt:pipe_card_etiq:${cardId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_etiquetas', filter:`card_id=eq.${cardId}` }, carregar)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [cardId]);
+  return ids;
+}
+
+async function applyEtiquetaCard(cardId, etiquetaId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('pipeline_card_etiquetas').insert({ card_id: cardId, etiqueta_id: etiquetaId });
+}
+async function removeEtiquetaCard(cardId, etiquetaId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('pipeline_card_etiquetas').delete()
+    .eq('card_id', cardId).eq('etiqueta_id', etiquetaId);
+}
+
+// ✨ Popover unificado pra Card OU Chat (passa um OU outro)
+function EtiquetasPopover({ chatJid, cardId, onClose, anchor='right' }) {
+  // Pra mantermos a versão chat existente intacta, se vier cardId usamos rotina nova
+  if (cardId) return <EtiquetasPopoverCard cardId={cardId} onClose={onClose} anchor={anchor}/>;
+  return <EtiquetasPopoverChat chatJid={chatJid} onClose={onClose} anchor={anchor}/>;
+}
+
+function EtiquetasPopoverCard({ cardId, onClose, anchor='right' }) {
+  const { list: etiquetas } = useEtiquetas();
+  const aplicadasIds = usePipelineCardEtiquetas(cardId);
+  const [busca, setBusca] = React.useState('');
+  const [gerenciarAberto, setGerenciarAberto] = React.useState(false);
+  const filtradas = etiquetas.filter(e => e.nome.toLowerCase().includes(busca.toLowerCase()));
+  const toggle = async (e) => {
+    if (aplicadasIds.includes(e.id)) await removeEtiquetaCard(cardId, e.id);
+    else await applyEtiquetaCard(cardId, e.id);
+  };
+  return (
+    <>
+      <div onClick={onClose} style={{position:'fixed', inset:0, zIndex:9998}}/>
+      <div style={{
+        position:'absolute', top:'calc(100% + 6px)', [anchor]:0, zIndex:9999,
+        width:260, background:'var(--bg-2)', border:'1px solid var(--border)',
+        borderRadius:10, boxShadow:'0 12px 32px rgba(0,0,0,.25)', overflow:'hidden',
+      }}>
+        <div style={{padding:'10px 12px', borderBottom:'1px solid var(--border-soft)'}}>
+          <input value={busca} onChange={e=>setBusca(e.target.value)} autoFocus
+            placeholder="Buscar etiqueta..."
+            style={{width:'100%', padding:'7px 10px', borderRadius:6, background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13, outline:'none'}}/>
+        </div>
+        <div style={{maxHeight:260, overflowY:'auto', padding:'4px 0'}}>
+          {filtradas.length === 0 && (
+            <div style={{padding:'16px', textAlign:'center', color:'var(--t3)', fontSize:12}}>
+              {busca ? 'Nenhuma encontrada' : 'Sem etiquetas'}
+            </div>
+          )}
+          {filtradas.map(e => {
+            const aplicada = aplicadasIds.includes(e.id);
+            return (
+              <div key={e.id} onClick={() => toggle(e)} style={{
+                display:'flex', alignItems:'center', gap:9, padding:'7px 12px',
+                cursor:'pointer', transition:'background .1s',
+              }}
+                onMouseEnter={ev => ev.currentTarget.style.background='var(--bg-3)'}
+                onMouseLeave={ev => ev.currentTarget.style.background='transparent'}>
+                <span style={{width:12, height:12, borderRadius:3, background:e.cor, flexShrink:0}}/>
+                <span style={{flex:1, fontSize:13, color:'var(--t1)'}}>{e.nome}</span>
+                {aplicada && <Icon name="Check" size={14} style={{color:e.cor}}/>}
+              </div>
+            );
+          })}
+        </div>
+        <div onClick={() => setGerenciarAberto(true)} style={{
+          padding:'9px 12px', borderTop:'1px solid var(--border-soft)',
+          display:'flex', alignItems:'center', gap:7, cursor:'pointer',
+          fontSize:12.5, color:'var(--t2)',
+        }}>
+          <Icon name="Settings" size={13}/>
+          Gerenciar etiquetas
+        </div>
+      </div>
+      {gerenciarAberto && <GerenciarEtiquetasModal onClose={() => setGerenciarAberto(false)}/>}
+    </>
+  );
+}
+
+function EtiquetasPopoverChat({ chatJid, onClose, anchor='right' }) {
   const { list: etiquetas } = useEtiquetas();
   const aplicadasIds = useChatEtiquetas(chatJid);
   const activeInstanceId = useActiveInstanceId();
@@ -9830,7 +10025,7 @@ function Placeholder({ page }) {
   const map = {
     clientes:  { icon:'Building2',    label:'Clientes',    desc:'Lista de todos os tenants, status, plano e acesso via Impersonate. Fase 5 do roadmap.' },
     pipeline:  { icon:'KanbanSquare', label:'Pipeline',    desc:'Funil de novos clientes · leads, propostas, fechamentos. Em construção.' },
-    mrr:       { icon:'TrendingUp',   label:'MRR',         desc:'Receita recorrente, churn, LTV e projeções. Fase 6 do roadmap.' },
+    mrr:       { icon:'DollarSign',   label:'Financeiro',  desc:'Receita recorrente, despesas, fluxo de caixa e projeções.' },
     chamados:  { icon:'LifeBuoy',     label:'Chamados',    desc:'Inbox de suporte recebido de todos os clientes. Fase 4 do roadmap.' },
     equipe:    { icon:'UsersRound',   label:'Equipe',      desc:'Gestão da equipe interna Brava e permissões de acesso. Em construção.' },
     logs:      { icon:'ScrollText',   label:'Logs',        desc:'Auditoria de ações, erros e eventos da plataforma. Fase 6 do roadmap.' },
@@ -9961,38 +10156,7 @@ function ThemeToggle() {
   );
 }
 
-/* ─── MRR / Recorrência ─── */
-const RECORRENCIA = [
-  { cliente:'Clínica Reunidas',          servico:'IA + API',                   nicho:'Saúde',               impl:10000, mensal:1400, dia:'',       status:'Em Prod' },
-  { cliente:'Master Aviação - Sistema',  servico:'IA',                         nicho:'Aviação Civil',        impl:3800,  mensal:620,  dia:'Dia 30', status:'Ativo' },
-  { cliente:'Master Aviação - GMB',      servico:'Google Meu Negócio',         nicho:'Aviação Civil',        impl:820,   mensal:0,    dia:'',       status:'Ativo' },
-  { cliente:'EstacionePark - Site',      servico:'Site',                       nicho:'Estacionamento',       impl:2000,  mensal:0,    dia:'',       status:'Ativo' },
-  { cliente:'EstacionePark - IA',        servico:'IA + CRM',                   nicho:'Estacionamento',       impl:0,     mensal:820,  dia:'Dia 30', status:'Ativo' },
-  { cliente:'EstacionePark - Campanha',  servico:'Gestão de Tráfego',          nicho:'Estacionamento',       impl:2000,  mensal:820,  dia:'Dia 15', status:'Ativo' },
-  { cliente:'EstacionePark - Micro SaaS',servico:'Sistema',                    nicho:'Estacionamento',       impl:2500,  mensal:320,  dia:'',       status:'Ativo' },
-  { cliente:'Dra. Thalita Morete',       servico:'IA + CRM',                   nicho:'Estética',             impl:0,     mensal:1000, dia:'Dia 10', status:'Em Prod' },
-  { cliente:'Garcia Sadler - IA',        servico:'IA + API',                   nicho:'Construção',           impl:2500,  mensal:1200, dia:'',       status:'Em Prod' },
-  { cliente:'Garcia Sadler - SISTEMA',   servico:'Sistema',                    nicho:'Construção',           impl:2000,  mensal:200,  dia:'',       status:'Em Prod' },
-  { cliente:'Ldccell Sorocaba',          servico:'IA + API',                   nicho:'Loja de Eletrônicos',  impl:0,     mensal:620,  dia:'',       status:'Em Prod' },
-  { cliente:'VapoCamping Hotel - IA',    servico:'Sistema de IA + CRM',        nicho:'Turismo',              impl:2400,  mensal:800,  dia:'',       status:'Proposta Apresentada' },
-  { cliente:'VapoCamping Hotel - Site',  servico:'Site c/ motor de reservas',  nicho:'Turismo',              impl:1800,  mensal:0,    dia:'',       status:'Proposta Apresentada' },
-  { cliente:'Grupo Marinho',             servico:'IA + API + CRM',             nicho:'Automobilístico',      impl:10000, mensal:1400, dia:'',       status:'Implementação' },
-  { cliente:'Bionicão',                  servico:'IA + CRM',                   nicho:'Veterinário',          impl:2500,  mensal:1200, dia:'',       status:'Implementação' },
-  { cliente:'Soldatopo',                 servico:'IA + CRM',                   nicho:'Indústria',            impl:5000,  mensal:1200, dia:'',       status:'Implementação' },
-  { cliente:'Monteiro Multimarcas',      servico:'IA + CRM',                   nicho:'Automobilístico',      impl:0,     mensal:820,  dia:'',       status:'Comercial' },
-  { cliente:'Imobzi',                    servico:'IA + API',                   nicho:'Imobiliário',          impl:2500,  mensal:620,  dia:'',       status:'Comercial' },
-  { cliente:'Hyperplay',                 servico:'IA + CRM',                   nicho:'Indústria',            impl:0,     mensal:250,  dia:'',       status:'Comercial' },
-  { cliente:'EAG Agro',                  servico:'IA + CRM',                   nicho:'Agro',                 impl:2500,  mensal:1000, dia:'',       status:'Comercial' },
-  { cliente:'CasaUrba',                  servico:'IA + CRM',                   nicho:'Estética',             impl:2500,  mensal:1000, dia:'',       status:'Comercial' },
-  { cliente:'PHS Incorporadora',         servico:'IA + CRM',                   nicho:'Imobiliário',          impl:0,     mensal:1000, dia:'',       status:'Comercial' },
-  { cliente:'Maressa Ribeiro',           servico:'IA + CRM',                   nicho:'Arquitetura',          impl:1800,  mensal:620,  dia:'',       status:'Comercial' },
-  { cliente:'Marcenaria Sorocaba',       servico:'IA + CRM',                   nicho:'Arquitetura',          impl:2000,  mensal:1000, dia:'',       status:'Comercial' },
-  { cliente:'EAG Agro - 2/2',           servico:'',                           nicho:'Agro',                 impl:2950,  mensal:0,    dia:'',       status:'Comercial' },
-  { cliente:'Pousada Garcia',            servico:'IA + API',                   nicho:'Turismo',              impl:4200,  mensal:800,  dia:'',       status:'Em breve' },
-  { cliente:'Cobertura Vitor Lippi',     servico:'Produção Audiovisual',       nicho:'Político',             impl:1500,  mensal:0,    dia:'',       status:'Comercial' },
-  { cliente:'PHS Incorporadora (Filme)', servico:'Filme Ritmo',                nicho:'Imobiliário',          impl:4200,  mensal:0,    dia:'',       status:'Comercial' },
-];
-
+/* ─── Financeiro — paleta de status (usada em badges, gráficos, filtros) ─── */
 const SC = { 'Em Prod':'#1D9E75','Ativo':'#1E90FF','Implementação':'#7B3FE4','Comercial':'#BA7517','Proposta Apresentada':'#BA7517','Em breve':'#6E6E78','':'' };
 
 /* ─── Store MRR — Supabase (tabela mrr_clients) ────────────────────────
@@ -10121,6 +10285,121 @@ function usePagamentos() {
   return all;
 }
 
+/* ─── Store DESPESAS — Supabase (tabela fin_despesas) ──────────────────── */
+const CATEGORIAS_DESPESA = ['Infra','Marketing','Salário','Imposto','Software','Serviços','Pró-labore','Outro'];
+const CATEGORIAS_COR = {
+  'Infra':'#1E90FF', 'Marketing':'#FF6B9D', 'Salário':'#1D9E75', 'Imposto':'#A32D2D',
+  'Software':'#7B3FE4', 'Serviços':'#BA7517', 'Pró-labore':'#00C8B0', 'Outro':'#6E6E78',
+};
+
+async function addDespesa(item) {
+  const cli = getSupa(); if (!cli) return null;
+  const base = { descricao:'', categoria:'Outro', valor:0, recorrente:true, dia_vencimento:null, data_unica:null, ativo:true };
+  const { data, error } = await cli.from('fin_despesas').insert({ ...base, ...item }).select().single();
+  if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  return data?.id || null;
+}
+async function editDespesa(id, patch) {
+  const cli = getSupa(); if (!cli) return;
+  const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
+  await cli.from('fin_despesas').update(clean).eq('id', id);
+}
+async function deleteDespesa(id) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_despesas').delete().eq('id', id);
+}
+
+function useDespesas() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_despesas').select('*').order('created_at', { ascending: true });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:fin_despesas')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_despesas' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
+/* Pagamentos efetivos das despesas (espelha mrr_pagamentos) */
+async function setDespesaPagamento(despesaId, ym, info) {
+  const cli = getSupa(); if (!cli) return;
+  if (info === null) {
+    await cli.from('fin_despesas_pagamentos').delete().eq('despesa_id', despesaId).eq('competencia', ym);
+  } else {
+    await cli.from('fin_despesas_pagamentos').upsert({
+      despesa_id: despesaId, competencia: ym,
+      pago: !!info.pago, data_pagamento: info.data || null, valor_pago: info.valor_pago ?? null,
+    }, { onConflict: 'despesa_id,competencia' });
+  }
+}
+
+function useDespesasPagamentos() {
+  const [all, setAll] = React.useState({});
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_despesas_pagamentos').select('*');
+      if (!alive || !data) return;
+      const out = {};
+      data.forEach(p => {
+        if (!out[p.despesa_id]) out[p.despesa_id] = {};
+        out[p.despesa_id][p.competencia] = { pago: p.pago, data: p.data_pagamento, valor_pago: p.valor_pago };
+      });
+      setAll(out);
+    };
+    load();
+    const ch = cli.channel('rt:fin_despesas_pagamentos')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_despesas_pagamentos' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return all;
+}
+
+/* ─── Store CAIXA — Supabase (tabela fin_caixa_lancamentos) ───────────── */
+async function addCaixaLancamento(item) {
+  const cli = getSupa(); if (!cli) return null;
+  const base = { tipo:'entrada', descricao:'', categoria:'Outro', valor:0, data: new Date().toISOString().slice(0,10), origem:'manual' };
+  const { data, error } = await cli.from('fin_caixa_lancamentos').insert({ ...base, ...item }).select().single();
+  if (error) { showToast?.('Erro: '+error.message,'error'); return null; }
+  return data?.id || null;
+}
+async function editCaixaLancamento(id, patch) {
+  const cli = getSupa(); if (!cli) return;
+  const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
+  await cli.from('fin_caixa_lancamentos').update(clean).eq('id', id);
+}
+async function deleteCaixaLancamento(id) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('fin_caixa_lancamentos').delete().eq('id', id);
+}
+
+function useCaixaLancamentos() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_caixa_lancamentos').select('*').order('data', { ascending: false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:fin_caixa_lancamentos')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_caixa_lancamentos' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
 /* Helpers de competencia/atraso */
 const YM = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 const ymToDate = (ym) => { const [y,m] = ym.split('-').map(Number); return new Date(y, m-1, 1); };
@@ -10164,14 +10443,29 @@ function statusPagamentoMes(rec, pagamentos, hoje = new Date()) {
 const formatBR = (iso) => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y.slice(2)}`; };
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
-/* ─── Projeção MRR 12 meses (empilhada por status) ─── */
+/* ─── Projeção MRR 12 meses (empilhada por status) — agora data-driven ─── */
 function ProjecaoMRR({ data }) {
-  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez','Jan/27'];
-  const mesAtual = 4; // maio
   const corStatus = { 'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
 
-  // Agrupar MRR por status atual · recebe lista reativa via prop
+  // Gera 13 meses começando 5 meses atrás → fim 8 meses no futuro (mês atual fica no meio)
+  const hoje = new Date();
+  const mesesArr = React.useMemo(() => {
+    const arr = [];
+    const monthsBack = 4; // 4 meses pra trás + atual + 8 meses adiante
+    for (let i = -monthsBack; i <= 8; i++) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+      arr.push({
+        date: d,
+        offset: i,
+        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.','') +
+               (d.getFullYear() !== hoje.getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''),
+      });
+    }
+    return arr;
+  }, [hoje.getMonth(), hoje.getFullYear()]);
+  const mesAtualIdx = mesesArr.findIndex(m => m.offset === 0);
+
   const lista = data || [];
   const mrrPorStatus = {};
   lista.forEach(r => {
@@ -10179,42 +10473,58 @@ function ProjecaoMRR({ data }) {
     mrrPorStatus[r.status] = (mrrPorStatus[r.status] || 0) + r.mensal;
   });
 
-  // Curva histórica: clientes Em Prod e Ativo entram gradualmente do início do ano até maio
-  // Curva futura: Implementação ativa em jun-jul, Comercial converte ao longo do ano, Proposta/Em breve fecham no fim
-  // Cada mês: % de cada bucket que está faturando
-  // Formato: [Em Prod %, Ativo %, Implementação %, Comercial %, Proposta %, Em breve %]
-  const cronograma = [
-    /* Jan */ [0.55, 0.40, 0,    0,    0,    0   ],
-    /* Fev */ [0.70, 0.55, 0,    0,    0,    0   ],
-    /* Mar */ [0.85, 0.75, 0,    0,    0,    0   ],
-    /* Abr */ [0.95, 0.90, 0,    0,    0,    0   ],
-    /* Mai */ [1.00, 1.00, 0,    0,    0,    0   ], // ATUAL
-    /* Jun */ [1.00, 1.00, 0.30, 0.10, 0,    0   ],
-    /* Jul */ [1.00, 1.00, 0.65, 0.20, 0,    0   ],
-    /* Ago */ [1.00, 1.00, 1.00, 0.40, 0.20, 0   ],
-    /* Set */ [1.00, 1.00, 1.00, 0.60, 0.45, 0.15],
-    /* Out */ [1.00, 1.00, 1.00, 0.85, 0.75, 0.40],
-    /* Nov */ [1.00, 1.00, 1.00, 1.00, 1.00, 0.75],
-    /* Dez */ [1.00, 1.00, 1.00, 1.00, 1.00, 1.00],
-    /* Jan/27 */ [1.10, 1.10, 1.20, 1.30, 1.40, 1.20], // crescimento orgânico + novos
-  ];
+  // Cronograma calculado pelo offset (não hardcoded por mês do ano).
+  // Hipóteses:
+  // - Em Prod / Ativo: 100% faturam todos os meses (faturamento atual). No passado escalonam (curva de crescimento).
+  // - Implementação: começam a faturar 2 meses adiante (entrega ~60d), 30% / 65% / 100%.
+  // - Comercial: pipeline com conversão de ~50% em 4 meses (10/25/40/50/50/50/50/50/50).
+  // - Proposta Apresentada: conversão ~40% em 4 meses.
+  // - Em breve: conversão ~30% em 6 meses.
+  const fatorPara = (statusIdx, offset) => {
+    if (statusIdx === 0 || statusIdx === 1) { // Em Prod / Ativo
+      if (offset < 0) return Math.max(0.55, 1 + offset * 0.10); // curva ascendente passada
+      return 1.0;
+    }
+    if (statusIdx === 2) { // Implementação — começa 2 meses adiante
+      if (offset < 2) return 0;
+      if (offset === 2) return 0.30;
+      if (offset === 3) return 0.65;
+      return 1.0;
+    }
+    if (statusIdx === 3) { // Comercial — conversão lenta
+      if (offset <= 0) return 0;
+      const tabela = [0, 0.10, 0.25, 0.40, 0.50, 0.50, 0.55, 0.55, 0.60];
+      return tabela[Math.min(offset, tabela.length - 1)];
+    }
+    if (statusIdx === 4) { // Proposta Apresentada — conversão média
+      if (offset <= 0) return 0;
+      const tabela = [0, 0.05, 0.15, 0.30, 0.40, 0.40, 0.40, 0.45, 0.45];
+      return tabela[Math.min(offset, tabela.length - 1)];
+    }
+    if (statusIdx === 5) { // Em breve — conversão lenta
+      if (offset <= 0) return 0;
+      const tabela = [0, 0, 0, 0.10, 0.20, 0.30, 0.30, 0.35, 0.40];
+      return tabela[Math.min(offset, tabela.length - 1)];
+    }
+    return 0;
+  };
 
-  const dados = meses.map((mes, idx) => {
-    const fatores = cronograma[idx];
+  const dados = mesesArr.map((m, idx) => {
     const stack = {};
     let total = 0;
     statusOrdem.forEach((st, i) => {
-      const valor = Math.round((mrrPorStatus[st] || 0) * fatores[i]);
+      const valor = Math.round((mrrPorStatus[st] || 0) * fatorPara(i, m.offset));
       if (valor > 0) { stack[st] = valor; total += valor; }
     });
-    return { mes, total, stack, eAtual: idx === mesAtual, ePassado: idx < mesAtual, eFuturo: idx > mesAtual };
+    return { mes: m.label, total, stack, eAtual: idx === mesAtualIdx, ePassado: idx < mesAtualIdx, eFuturo: idx > mesAtualIdx };
   });
 
-  const maxTotal = Math.max(...dados.map(d => d.total));
-  const totalAcumulado = dados.slice(mesAtual, 12).reduce((s,d) => s + d.total, 0);
-  const projDezembro = dados[11].total;
-  const mrrHoje = dados[mesAtual].total;
-  const crescimento = Math.round(((projDezembro - mrrHoje) / mrrHoje) * 100);
+  const maxTotal = Math.max(1, ...dados.map(d => d.total));
+  const totalAcumulado = dados.slice(mesAtualIdx).reduce((s,d) => s + d.total, 0);
+  const ultimoIdx = dados.length - 1;
+  const projUltimo = dados[ultimoIdx].total;
+  const mrrHoje = dados[mesAtualIdx].total || 1;
+  const crescimento = Math.round(((projUltimo - mrrHoje) / mrrHoje) * 100);
 
   return (
     <div className="card" style={{marginBottom:14, padding:'22px 24px'}}>
@@ -10225,17 +10535,17 @@ function ProjecaoMRR({ data }) {
         </div>
         <div style={{display:'flex', gap:14, alignItems:'center'}}>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>MRR projetado dez/26</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}>R$ {projDezembro.toLocaleString('pt-BR')}</div>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>MRR projetado · {dados[ultimoIdx].mes}</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}>R$ {projUltimo.toLocaleString('pt-BR')}</div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Crescimento</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>+{crescimento}%</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>{crescimento >= 0 ? '+' : ''}{crescimento}%</div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
-            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Acumulado 8 meses</div>
+            <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Acumulado adiante</div>
             <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}>R$ {totalAcumulado.toLocaleString('pt-BR')}</div>
           </div>
         </div>
@@ -10245,8 +10555,8 @@ function ProjecaoMRR({ data }) {
       <div style={{display:'flex', alignItems:'flex-end', gap:8, height:220, padding:'0 4px', position:'relative'}}>
         {/* Linha pontilhada do mês atual */}
         <div style={{
-          position:'absolute', left:`${(mesAtual+0.5)/13*100}%`, top:0, bottom:24,
-          borderLeft:'2px dashed var(--purple)', opacity:.5, pointerEvents:'none'
+          position:'absolute', left:`${(mesAtualIdx+0.5)/dados.length*100}%`, top:0, bottom:24,
+          borderLeft:'2px dashed var(--blue)', opacity:.5, pointerEvents:'none'
         }}/>
 
         {dados.map((d, i) => {
@@ -10256,7 +10566,7 @@ function ProjecaoMRR({ data }) {
               {/* Valor topo */}
               <div style={{
                 fontFamily:'var(--f-m)', fontSize:9.5,
-                color: d.eAtual ? 'var(--purple)' : d.eFuturo ? 'var(--t3)' : 'var(--t2)',
+                color: d.eAtual ? 'var(--blue)' : d.eFuturo ? 'var(--t3)' : 'var(--t2)',
                 fontWeight: d.eAtual ? 700 : 500,
                 opacity: d.total > 0 ? 1 : 0,
               }}>
@@ -10269,13 +10579,13 @@ function ProjecaoMRR({ data }) {
                   width:'100%', height:`${altura}%`, minHeight:4,
                   display:'flex', flexDirection:'column-reverse',
                   borderRadius:'5px 5px 0 0', overflow:'hidden',
-                  border: d.eAtual ? '2px solid var(--purple)' : 'none',
-                  boxShadow: d.eAtual ? '0 0 12px rgba(123,63,228,.4)' : 'none',
+                  border: d.eAtual ? '2px solid var(--blue)' : 'none',
+                  boxShadow: d.eAtual ? '0 0 12px rgba(30,144,255,.4)' : 'none',
                   transition:'opacity .2s',
                   opacity: d.eFuturo ? 0.85 : 1,
                   cursor:'default',
                 }}
-                  title={`${d.mes}/26 · R$ ${d.total.toLocaleString('pt-BR')}\n${Object.entries(d.stack).map(([k,v]) => `${k}: R$ ${v.toLocaleString('pt-BR')}`).join('\n')}`}
+                  title={`${d.mes} · R$ ${d.total.toLocaleString('pt-BR')}\n${Object.entries(d.stack).map(([k,v]) => `${k}: R$ ${v.toLocaleString('pt-BR')}`).join('\n')}`}
                 >
                   {statusOrdem.map(st => d.stack[st] ? (
                     <div key={st} style={{
@@ -10290,7 +10600,7 @@ function ProjecaoMRR({ data }) {
               {/* Mês */}
               <div style={{
                 fontFamily:'var(--f-m)', fontSize:10,
-                color: d.eAtual ? 'var(--purple)' : 'var(--t3)',
+                color: d.eAtual ? 'var(--blue)' : 'var(--t3)',
                 fontWeight: d.eAtual ? 700 : 500,
               }}>{d.mes}</div>
             </div>
@@ -10312,8 +10622,8 @@ function ProjecaoMRR({ data }) {
           );
         })}
         <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--t3)'}}>
-          <div style={{width:14, height:0, borderTop:'2px dashed var(--purple)'}}/>
-          <span>Mês atual (Maio/26)</span>
+          <div style={{width:14, height:0, borderTop:'2px dashed var(--blue)'}}/>
+          <span>Mês atual ({dados[mesAtualIdx]?.mes || '—'})</span>
         </div>
       </div>
     </div>
@@ -10527,7 +10837,8 @@ function ModalPagamentos({ rec, pagamentos, onClose }) {
   );
 }
 
-function MRR() {
+// Sub-tab: Recorrência (era MRR completo, agora componente da aba Recorrência do Financeiro)
+function FinRecorrencia({ onNovoContrato }) {
   const recorrencia = useRecorrencia();
   const pagamentos = usePagamentos();
 
@@ -10680,13 +10991,11 @@ function MRR() {
   const tickMensalPorContrato = recorrencia.filter(r=>r.mensal>0).length || 1;
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <div>
-          <div className="page-head__title">MRR · Controle de Recorrência</div>
-          <div className="page-head__sub">Base: CRM TECNOLOGIA · {recorrencia.length} contratos</div>
-        </div>
-        <div className="page-head__actions" style={{display:'flex',gap:10}}>
+    <div>
+      {/* Cabeçalho compacto da tab + ações */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18}}>
+        <div style={{fontSize:13, color:'var(--t3)'}}>{recorrencia.length} contratos cadastrados</div>
+        <div style={{display:'flex', gap:10}}>
           <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo contrato</button>
           <button onClick={exportarCSV} className="btn btn-outline"><Icon name="Download" size={14}/>Exportar</button>
         </div>
@@ -10962,6 +11271,755 @@ function MRR() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// FINANCEIRO — wrapper com tabs (Dashboard · Recorrência · Despesas · Fluxo)
+// ═══════════════════════════════════════════════════════════════
+function Financeiro() {
+  const [tab, setTab] = useState('dashboard');
+  const recorrencia = useRecorrencia();
+  const pagamentos = usePagamentos();
+  const despesas = useDespesas();
+  const despesasPag = useDespesasPagamentos();
+  const caixa = useCaixaLancamentos();
+
+  const tabs = [
+    { id:'dashboard',    label:'Visão geral',    icon:'BarChart3' },
+    { id:'recorrencia',  label:'Recorrência',    icon:'TrendingUp' },
+    { id:'despesas',     label:'Despesas',       icon:'CreditCard' },
+    { id:'caixa',        label:'Fluxo de caixa', icon:'Wallet' },
+  ];
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Financeiro</div>
+          <div className="page-head__sub">
+            Receitas · Despesas · Fluxo de caixa · {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{
+        display:'flex', gap:4, marginBottom:22, borderBottom:'1px solid var(--border-soft)',
+        paddingBottom:0, overflowX:'auto',
+      }}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            padding:'10px 18px', borderRadius:'8px 8px 0 0', border:'none',
+            background: tab === t.id ? 'var(--bg-2)' : 'transparent',
+            color: tab === t.id ? 'var(--blue)' : 'var(--t2)',
+            fontSize:13.5, fontWeight: tab === t.id ? 600 : 500,
+            cursor:'pointer', display:'flex', alignItems:'center', gap:7,
+            borderBottom: tab === t.id ? '2px solid var(--blue)' : '2px solid transparent',
+            marginBottom:-1, transition:'all .12s',
+          }}>
+            <Icon name={t.icon} size={14}/>{t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Render condicional da tab */}
+      {tab === 'dashboard'   && <FinDashboard recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
+      {tab === 'recorrencia' && <FinRecorrencia/>}
+      {tab === 'despesas'    && <FinDespesas despesas={despesas} despesasPag={despesasPag}/>}
+      {tab === 'caixa'       && <FinCaixa recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Helpers de cálculo financeiro (entradas, saídas, saldo, projeção)
+// ─────────────────────────────────────────────────────────────────
+function calcEntradasMes(recorrencia, pagamentos, ym) {
+  let pago = 0, pendente = 0, atrasado = 0;
+  recorrencia.forEach(r => {
+    if (!r.mensal || r.mensal <= 0) return;
+    const reg = pagamentos[r.__id]?.[ym];
+    if (reg?.pago) pago += r.mensal;
+    else {
+      const st = statusPagamentoMes(r, pagamentos);
+      if (st.kind === 'atrasado') atrasado += r.mensal;
+      else if (st.kind === 'pendente') pendente += r.mensal;
+    }
+  });
+  return { pago, pendente, atrasado, total: pago + pendente + atrasado };
+}
+
+function calcSaidasMes(despesas, despesasPag, ym) {
+  let pago = 0, pendente = 0;
+  despesas.forEach(d => {
+    if (!d.ativo) return;
+    const valor = parseFloat(d.valor) || 0;
+    if (!valor) return;
+    // Só conta despesas que se aplicam a esse mês
+    if (d.recorrente && d.dia_vencimento) {
+      const reg = despesasPag[d.id]?.[ym];
+      if (reg?.pago) pago += (reg.valor_pago ?? valor);
+      else pendente += valor;
+    } else if (!d.recorrente && d.data_unica && d.data_unica.slice(0,7) === ym) {
+      const reg = despesasPag[d.id]?.[ym];
+      if (reg?.pago) pago += (reg.valor_pago ?? valor);
+      else pendente += valor;
+    }
+  });
+  return { pago, pendente, total: pago + pendente };
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 1: VISÃO GERAL (Dashboard) — KPIs reais + projeção
+// ─────────────────────────────────────────────────────────────────
+function FinDashboard({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
+  const hoje = new Date();
+  const ymHoje = YM(hoje);
+  const entradas = calcEntradasMes(recorrencia, pagamentos, ymHoje);
+  const saidas = calcSaidasMes(despesas, despesasPag, ymHoje);
+  const mrrTotal = recorrencia.reduce((s,r) => s + (r.mensal||0), 0);
+  const mrrAtivo = recorrencia.filter(r => ['Em Prod','Ativo'].includes(r.status)).reduce((s,r) => s + (r.mensal||0), 0);
+  const lucroMes = entradas.pago - saidas.pago;
+  const lucroPrevisto = entradas.total - saidas.total;
+
+  // Saldo atual (acumulado): soma lançamentos caixa + (entradas pagas - saídas pagas até hoje)
+  const saldoCaixa = caixa.reduce((s,l) => s + (l.tipo === 'entrada' ? Number(l.valor) : -Number(l.valor)), 0);
+
+  const KPIS = [
+    { label:'MRR Ativo', val:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, icon:'TrendingUp', color:'#1D9E75', sub:`${recorrencia.filter(r=>['Em Prod','Ativo'].includes(r.status)).length} clientes pagando` },
+    { label:'MRR Total (potencial)', val:`R$ ${mrrTotal.toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#1E90FF', sub:`${recorrencia.length} contratos no funil` },
+    { label:`Receita do mês`, val:`R$ ${entradas.pago.toLocaleString('pt-BR')}`, icon:'ArrowDownCircle', color:'#1D9E75', sub:`+ R$ ${(entradas.pendente+entradas.atrasado).toLocaleString('pt-BR')} a receber` },
+    { label:'Despesas do mês', val:`R$ ${saidas.pago.toLocaleString('pt-BR')}`, icon:'ArrowUpCircle', color:'#A32D2D', sub:`+ R$ ${saidas.pendente.toLocaleString('pt-BR')} a pagar` },
+    { label:'Lucro realizado', val:`R$ ${lucroMes.toLocaleString('pt-BR')}`, icon:'DollarSign', color: lucroMes >= 0 ? '#1D9E75' : '#A32D2D', sub:`previsto: R$ ${lucroPrevisto.toLocaleString('pt-BR')}` },
+    { label:'Saldo do caixa', val:`R$ ${saldoCaixa.toLocaleString('pt-BR')}`, icon:'Wallet', color: saldoCaixa >= 0 ? '#1E90FF' : '#A32D2D', sub:`${caixa.length} lançamentos manuais` },
+  ];
+
+  return (
+    <div>
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)', marginBottom:22}}>
+        {KPIS.map((k,i) => (
+          <div key={i} className="kpi">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
+            </div>
+            <div className="kpi__value" style={{fontSize:24, color:'var(--t1)'}}>{k.val}</div>
+            <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{k.sub}</div>
+          </div>
+        ))}
+      </div>
+
+      <ProjecaoMRR data={recorrencia}/>
+
+      {/* Comparativo Entradas x Saídas (4 meses) */}
+      <CompararEntradasSaidas recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag}/>
+    </div>
+  );
+}
+
+function CompararEntradasSaidas({ recorrencia, pagamentos, despesas, despesasPag }) {
+  const hoje = new Date();
+  const meses = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+    const ym = YM(d);
+    const e = calcEntradasMes(recorrencia, pagamentos, ym);
+    const s = calcSaidasMes(despesas, despesasPag, ym);
+    meses.push({
+      label: d.toLocaleDateString('pt-BR', { month:'short' }).replace('.',''),
+      entradas: e.pago, saidas: s.pago, lucro: e.pago - s.pago, eAtual: i === 0,
+    });
+  }
+  const maxBar = Math.max(1, ...meses.flatMap(m => [m.entradas, m.saidas]));
+
+  return (
+    <div className="card" style={{padding:'22px 24px', marginBottom:14}}>
+      <div className="card__head" style={{marginBottom:16}}>
+        <div className="card__title" style={{fontSize:15}}>Entradas vs Saídas · últimos 6 meses</div>
+      </div>
+      <div style={{display:'flex', alignItems:'flex-end', gap:18, height:180, padding:'0 4px'}}>
+        {meses.map((m, i) => (
+          <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6, height:'100%'}}>
+            <div style={{flex:1, width:'100%', display:'flex', alignItems:'flex-end', justifyContent:'center', gap:5}}>
+              <div title={`Entrada: R$ ${m.entradas.toLocaleString('pt-BR')}`}
+                style={{
+                  flex:1, maxWidth:18,
+                  height:`${(m.entradas / maxBar) * 100}%`, minHeight:m.entradas > 0 ? 3 : 0,
+                  background:'#1D9E75', borderRadius:'4px 4px 0 0', opacity: m.eAtual ? 1 : 0.7,
+                }}/>
+              <div title={`Saída: R$ ${m.saidas.toLocaleString('pt-BR')}`}
+                style={{
+                  flex:1, maxWidth:18,
+                  height:`${(m.saidas / maxBar) * 100}%`, minHeight:m.saidas > 0 ? 3 : 0,
+                  background:'#A32D2D', borderRadius:'4px 4px 0 0', opacity: m.eAtual ? 1 : 0.7,
+                }}/>
+            </div>
+            <div style={{fontFamily:'var(--f-m)', fontSize:10, color: m.eAtual ? 'var(--blue)' : 'var(--t3)', fontWeight: m.eAtual ? 700 : 500}}>{m.label}</div>
+            <div style={{fontSize:10.5, color: m.lucro >= 0 ? '#1D9E75' : '#ff8585', fontFamily:'var(--f-m)', fontWeight:600}}>
+              {m.lucro >= 0 ? '+' : ''}{m.lucro >= 1000 || m.lucro <= -1000 ? `${(m.lucro/1000).toFixed(1)}k` : m.lucro}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex', gap:18, marginTop:14, paddingTop:12, borderTop:'1px solid var(--border-soft)'}}>
+        <div style={{display:'flex', alignItems:'center', gap:6}}>
+          <div style={{width:12, height:12, borderRadius:3, background:'#1D9E75'}}/><span style={{fontSize:12, color:'var(--t2)'}}>Entradas pagas</span>
+        </div>
+        <div style={{display:'flex', alignItems:'center', gap:6}}>
+          <div style={{width:12, height:12, borderRadius:3, background:'#A32D2D'}}/><span style={{fontSize:12, color:'var(--t2)'}}>Despesas pagas</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 3: DESPESAS — CRUD com edição inline + toggle pago/mês
+// ─────────────────────────────────────────────────────────────────
+function FinDespesas({ despesas, despesasPag }) {
+  const [editando, setEditando] = useState(null);
+  const [gerindoPag, setGerindoPag] = useState(null);
+  const [filtroCat, setFiltroCat] = useState('todas');
+  const [busca, setBusca] = useState('');
+  const hoje = new Date();
+  const ymHoje = YM(hoje);
+
+  const filtrados = despesas
+    .filter(d => filtroCat === 'todas' || d.categoria === filtroCat)
+    .filter(d => !busca || d.descricao.toLowerCase().includes(busca.toLowerCase()));
+
+  const totalMensal = despesas.filter(d => d.ativo && d.recorrente).reduce((s,d) => s + (parseFloat(d.valor)||0), 0);
+  const totalPagoMes = despesas.reduce((s,d) => s + (despesasPag[d.id]?.[ymHoje]?.pago ? (despesasPag[d.id][ymHoje].valor_pago ?? d.valor) : 0), 0);
+  const totalPendenteMes = (calcSaidasMes(despesas, despesasPag, ymHoje)).pendente;
+
+  return (
+    <div>
+      {/* Header + ações */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18}}>
+        <div style={{fontSize:13, color:'var(--t3)'}}>{despesas.length} despesas cadastradas · R$ {totalMensal.toLocaleString('pt-BR')}/mês recorrente</div>
+        <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Nova despesa</button>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)', marginBottom:18}}>
+        {[
+          { label:'Despesa mensal fixa', val:`R$ ${totalMensal.toLocaleString('pt-BR')}`, icon:'Repeat', color:'#A32D2D' },
+          { label:`Pago no mês (${hoje.toLocaleDateString('pt-BR', {month:'short'}).replace('.','')})`, val:`R$ ${totalPagoMes.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75' },
+          { label:'Pendente do mês', val:`R$ ${totalPendenteMes.toLocaleString('pt-BR')}`, icon:'Clock', color:'#BA7517' },
+        ].map((k,i)=>(
+          <div key={i} className="kpi">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
+            </div>
+            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{padding:'14px 16px', marginBottom:14}}>
+        <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'7px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flex:'1', minWidth:200}}>
+            <Icon name="Search" size={13} style={{color:'var(--t3)'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar despesa…"
+              style={{background:'none', border:'none', outline:'none', fontSize:13, color:'var(--t1)', width:'100%'}}/>
+          </div>
+          {['todas', ...CATEGORIAS_DESPESA].map(c => {
+            const cor = c === 'todas' ? 'var(--blue)' : (CATEGORIAS_COR[c] || 'var(--t3)');
+            const ativo = filtroCat === c;
+            return (
+              <button key={c} onClick={()=>setFiltroCat(c)} style={{
+                padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
+                background: ativo ? cor + '22' : 'transparent',
+                color: ativo ? cor : 'var(--t3)',
+                border:`1px solid ${ativo ? cor + '55' : 'transparent'}`,
+              }}>{c === 'todas' ? 'Todas' : c}</button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Tabela */}
+      <div className="card" style={{padding:0, overflow:'hidden'}}>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:13.5}}>
+            <thead>
+              <tr style={{background:'#000'}}>
+                {['Descrição','Categoria','Valor','Recorrência','Status mês','Ações'].map(h => (
+                  <th key={h} style={{padding:'10px 14px', textAlign:h==='Ações'?'right':'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtrados.length === 0 && (
+                <tr><td colSpan={6} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Nenhuma despesa cadastrada</td></tr>
+              )}
+              {filtrados.map(d => {
+                const reg = despesasPag[d.id]?.[ymHoje];
+                const pago = !!reg?.pago;
+                const cor = CATEGORIAS_COR[d.categoria] || '#6E6E78';
+                return (
+                  <tr key={d.id} style={{borderBottom:'1px solid var(--border-soft)', opacity: d.ativo ? 1 : 0.5}}>
+                    <td style={{padding:'10px 14px', color:'var(--t1)'}}>{d.descricao}</td>
+                    <td style={{padding:'10px 14px'}}>
+                      <span style={{padding:'3px 9px', borderRadius:999, background:cor+'22', color:cor, fontSize:11.5, fontWeight:500, border:`1px solid ${cor}44`}}>{d.categoria}</span>
+                    </td>
+                    <td style={{padding:'10px 14px', color:'var(--t1)', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {Number(d.valor).toLocaleString('pt-BR')}</td>
+                    <td style={{padding:'10px 14px', color:'var(--t2)', fontSize:12.5}}>
+                      {d.recorrente ? `Mensal · dia ${d.dia_vencimento || '?'}` : `Avulso · ${d.data_unica ? formatBR(d.data_unica) : '—'}`}
+                    </td>
+                    <td style={{padding:'10px 14px'}}>
+                      <button onClick={()=>setDespesaPagamento(d.id, ymHoje, pago ? null : { pago:true, data: hojeISO(), valor_pago: d.valor })}
+                        style={{
+                          padding:'4px 10px', borderRadius:999, fontSize:11.5, fontWeight:500, cursor:'pointer',
+                          background: pago ? 'rgba(29,158,117,.15)' : 'transparent',
+                          color: pago ? '#1D9E75' : 'var(--t3)',
+                          border: pago ? '1px solid #1D9E7544' : '1px solid var(--border)',
+                        }}>
+                        {pago ? `✓ Pago em ${formatBR(reg.data)}` : 'Marcar pago'}
+                      </button>
+                    </td>
+                    <td style={{padding:'10px 14px', textAlign:'right'}}>
+                      <button onClick={()=>setGerindoPag(d)} title="Histórico" style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', padding:4, marginRight:4 }}><Icon name="Clock" size={14}/></button>
+                      <button onClick={()=>setEditando(d)} title="Editar" style={{ background:'transparent', border:'none', cursor:'pointer', color:'var(--blue)', padding:4 }}><Icon name="Pencil" size={14}/></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {editando && <DespesaModal despesa={editando} onClose={()=>setEditando(null)}/>}
+      {gerindoPag && <DespesaHistoricoModal despesa={gerindoPag} despesasPag={despesasPag} onClose={()=>setGerindoPag(null)}/>}
+    </div>
+  );
+}
+
+// Modal CRUD de despesa
+function DespesaModal({ despesa, onClose }) {
+  const novo = !despesa.id;
+  const [form, setForm] = useState({
+    descricao: despesa.descricao || '',
+    categoria: despesa.categoria || 'Outro',
+    valor: despesa.valor ?? 0,
+    recorrente: despesa.recorrente ?? true,
+    dia_vencimento: despesa.dia_vencimento ?? 10,
+    data_unica: despesa.data_unica || hojeISO(),
+    ativo: despesa.ativo ?? true,
+    observacao: despesa.observacao || '',
+  });
+  const set = (k,v) => setForm(f => ({...f, [k]:v}));
+
+  const salvar = async () => {
+    if (!form.descricao.trim()) { showToast?.('Informe a descrição','warn'); return; }
+    const patch = {
+      ...form,
+      valor: Number(form.valor)||0,
+      dia_vencimento: form.recorrente ? (parseInt(form.dia_vencimento)||null) : null,
+      data_unica: form.recorrente ? null : form.data_unica,
+    };
+    if (novo) await addDespesa(patch); else await editDespesa(despesa.id, patch);
+    showToast?.(novo ? 'Despesa adicionada' : 'Despesa atualizada', 'success');
+    onClose();
+  };
+  const remover = async () => {
+    if (!confirm(`Remover "${despesa.descricao}"?`)) return;
+    await deleteDespesa(despesa.id);
+    showToast?.('Despesa removida', 'success');
+    onClose();
+  };
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{novo ? 'Nova despesa' : 'Editar despesa'}</div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Atualiza fluxo de caixa em tempo real</div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{display:'grid', gap:14}}>
+          <div>
+            <label style={lbl}>Descrição</label>
+            <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Aluguel escritório"/>
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+            <div>
+              <label style={lbl}>Categoria</label>
+              <select style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)}>
+                {CATEGORIAS_DESPESA.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Valor (R$)</label>
+              <input style={inp} type="number" min="0" step="0.01" value={form.valor} onChange={e=>set('valor', e.target.value)}/>
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Tipo</label>
+            <div style={{display:'flex', gap:8}}>
+              {[
+                { v:true, label:'Mensal recorrente' },
+                { v:false, label:'Avulso (uma vez)' },
+              ].map(o => (
+                <button key={String(o.v)} onClick={()=>set('recorrente', o.v)} style={{
+                  flex:1, padding:'9px', borderRadius:7,
+                  background: form.recorrente === o.v ? 'rgba(30,144,255,.12)' : 'var(--bg-3)',
+                  color: form.recorrente === o.v ? 'var(--blue)' : 'var(--t2)',
+                  border: form.recorrente === o.v ? '1px solid var(--blue)' : '1px solid var(--border)',
+                  fontSize:12.5, cursor:'pointer',
+                }}>{o.label}</button>
+              ))}
+            </div>
+          </div>
+          {form.recorrente ? (
+            <div>
+              <label style={lbl}>Dia do vencimento</label>
+              <input style={inp} type="number" min="1" max="31" value={form.dia_vencimento || ''} onChange={e=>set('dia_vencimento', e.target.value)} placeholder="1 a 31"/>
+            </div>
+          ) : (
+            <div>
+              <label style={lbl}>Data</label>
+              <input style={inp} type="date" value={form.data_unica} onChange={e=>set('data_unica', e.target.value)}/>
+            </div>
+          )}
+          <div>
+            <label style={lbl}>Observação (opcional)</label>
+            <textarea style={{...inp, resize:'vertical', fontFamily:'inherit', minHeight:60}} value={form.observacao} onChange={e=>set('observacao', e.target.value)} rows={2}/>
+          </div>
+          <div>
+            <label style={{...lbl, marginBottom:0, display:'flex', alignItems:'center', gap:8, textTransform:'none', letterSpacing:0, fontSize:13}}>
+              <input type="checkbox" checked={form.ativo} onChange={e=>set('ativo', e.target.checked)} style={{accentColor:'var(--blue)', width:16, height:16}}/>
+              Ativa (entra no cálculo do fluxo de caixa)
+            </label>
+          </div>
+        </div>
+
+        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+          {!novo ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button> : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
+            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Adicionar' : 'Salvar'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Modal histórico de pagamentos da despesa
+function DespesaHistoricoModal({ despesa, despesasPag, onClose }) {
+  const hoje = new Date();
+  const meses = React.useMemo(() => {
+    const arr = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      arr.push({ ym: YM(d), label: d.toLocaleDateString('pt-BR', {month:'short', year:'numeric'}).replace('.','').replace(' de ','/'), date: d, isAtual: i === 0 });
+    }
+    return arr;
+  }, []);
+  const valor = parseFloat(despesa.valor) || 0;
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 94vw)', maxHeight:'88vh', overflow:'auto', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{despesa.descricao}</div>
+            <div style={{fontSize:13, color:'var(--t3)', marginTop:3}}>R$ {valor.toLocaleString('pt-BR')} · {despesa.categoria}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+        <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:10}}>Histórico (12 meses)</div>
+        <div style={{display:'grid', gap:6}}>
+          {meses.map(m => {
+            const reg = despesasPag[despesa.id]?.[m.ym];
+            return (
+              <div key={m.ym} style={{display:'grid', gridTemplateColumns:'90px 1fr auto', gap:12, alignItems:'center', padding:'10px 12px', background: m.isAtual ? 'rgba(30,144,255,.08)' : 'var(--bg-3)', border: m.isAtual ? '1px solid rgba(30,144,255,.35)' : '1px solid var(--border-soft)', borderRadius:8}}>
+                <div style={{fontFamily:'var(--f-m)', fontSize:12, color:'var(--t2)', textTransform:'capitalize'}}>{m.label}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{reg?.pago ? `Pago em ${formatBR(reg.data)} · R$ ${(reg.valor_pago ?? valor).toLocaleString('pt-BR')}` : 'Não pago'}</div>
+                <button onClick={()=>setDespesaPagamento(despesa.id, m.ym, reg?.pago ? null : { pago:true, data: hojeISO(), valor_pago: valor })}
+                  className="btn btn-sm" style={{
+                    background: reg?.pago ? 'transparent' : '#1D9E75',
+                    color: reg?.pago ? 'var(--t3)' : '#fff',
+                    border: reg?.pago ? '1px solid var(--border)' : 'none',
+                    padding:'5px 11px', fontSize:12,
+                  }}>{reg?.pago ? 'Desmarcar' : 'Marcar pago'}</button>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={onClose} className="btn btn-outline" style={{marginTop:18, width:'100%'}}>Fechar</button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// TAB 4: FLUXO DE CAIXA — extrato + lançamento avulso + projeção
+// ─────────────────────────────────────────────────────────────────
+function FinCaixa({ recorrencia, pagamentos, despesas, despesasPag, caixa }) {
+  const [editando, setEditando] = useState(null);
+  const [filtroTipo, setFiltroTipo] = useState('todos'); // todos / entrada / saida
+  const hoje = new Date();
+  const ymHoje = YM(hoje);
+
+  // Constrói extrato consolidado (lançamentos manuais + pagamentos MRR + pagamentos despesas)
+  const extrato = React.useMemo(() => {
+    const itens = [];
+    // Lançamentos manuais
+    caixa.forEach(l => {
+      itens.push({
+        id: 'c:'+l.id, tipo: l.tipo, descricao: l.descricao, categoria: l.categoria,
+        valor: Number(l.valor), data: l.data, origem: l.origem || 'manual',
+        raw: l, editable: true,
+      });
+    });
+    // Pagamentos MRR confirmados → entradas
+    Object.entries(pagamentos).forEach(([clienteId, meses]) => {
+      Object.entries(meses).forEach(([ym, info]) => {
+        if (!info.pago || !info.data) return;
+        const rec = recorrencia.find(r => r.__id === clienteId);
+        if (!rec) return;
+        itens.push({
+          id: `mrr:${clienteId}:${ym}`, tipo:'entrada', descricao: `${rec.cliente} · ${ym}`,
+          categoria:'Recorrência', valor: Number(rec.mensal), data: info.data, origem:'mrr', editable: false,
+        });
+      });
+    });
+    // Pagamentos de despesas → saídas
+    Object.entries(despesasPag).forEach(([despId, meses]) => {
+      Object.entries(meses).forEach(([ym, info]) => {
+        if (!info.pago || !info.data) return;
+        const desp = despesas.find(d => d.id === despId);
+        if (!desp) return;
+        itens.push({
+          id: `desp:${despId}:${ym}`, tipo:'saida', descricao:`${desp.descricao} · ${ym}`,
+          categoria: desp.categoria, valor: Number(info.valor_pago ?? desp.valor),
+          data: info.data, origem:'despesa', editable: false,
+        });
+      });
+    });
+    // Ordena decrescente por data
+    itens.sort((a,b) => (b.data || '').localeCompare(a.data || ''));
+    return itens;
+  }, [caixa, pagamentos, recorrencia, despesas, despesasPag]);
+
+  const filtrado = extrato.filter(i => filtroTipo === 'todos' || i.tipo === filtroTipo);
+
+  // Saldo acumulado dia a dia
+  const saldoAtual = extrato.reduce((s,l) => s + (l.tipo === 'entrada' ? l.valor : -l.valor), 0);
+  const totalEntradas = extrato.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
+  const totalSaidas = extrato.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
+
+  // Projeção próximos 30/60/90 dias (entradas previstas - saídas previstas)
+  const proj30 = (() => {
+    // entradas: MRR pendentes do mês atual + próximos 30 dias
+    const eMes = calcEntradasMes(recorrencia, pagamentos, ymHoje);
+    const sMes = calcSaidasMes(despesas, despesasPag, ymHoje);
+    return saldoAtual + (eMes.pendente + eMes.atrasado) - sMes.pendente;
+  })();
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:18}}>
+        <div style={{fontSize:13, color:'var(--t3)'}}>{extrato.length} lançamentos no extrato</div>
+        <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo lançamento</button>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
+        {[
+          { label:'Saldo atual', val:`R$ ${saldoAtual.toLocaleString('pt-BR')}`, icon:'Wallet', color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
+          { label:'Total entradas', val:`R$ ${totalEntradas.toLocaleString('pt-BR')}`, icon:'ArrowDownCircle', color:'#1D9E75' },
+          { label:'Total saídas', val:`R$ ${totalSaidas.toLocaleString('pt-BR')}`, icon:'ArrowUpCircle', color:'#A32D2D' },
+          { label:'Projeção fim do mês', val:`R$ ${proj30.toLocaleString('pt-BR')}`, icon:'TrendingUp', color: proj30 >= 0 ? '#1E90FF' : '#A32D2D' },
+        ].map((k,i)=>(
+          <div key={i} className="kpi">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
+            </div>
+            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{padding:'14px 16px', marginBottom:14, display:'flex', gap:10, alignItems:'center'}}>
+        {[
+          { id:'todos', label:'Tudo', cor:'var(--blue)' },
+          { id:'entrada', label:'Entradas', cor:'#1D9E75' },
+          { id:'saida', label:'Saídas', cor:'#A32D2D' },
+        ].map(o => (
+          <button key={o.id} onClick={()=>setFiltroTipo(o.id)} style={{
+            padding:'6px 14px', borderRadius:7, fontSize:12.5, fontWeight:500, cursor:'pointer',
+            background: filtroTipo === o.id ? o.cor+'22' : 'transparent',
+            color: filtroTipo === o.id ? o.cor : 'var(--t3)',
+            border:`1px solid ${filtroTipo === o.id ? o.cor+'55' : 'transparent'}`,
+          }}>{o.label}</button>
+        ))}
+        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>* Pagamentos do MRR e Despesas aparecem auto (não editáveis aqui)</div>
+      </div>
+
+      {/* Extrato */}
+      <div className="card" style={{padding:0, overflow:'hidden'}}>
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%', borderCollapse:'collapse', fontSize:13.5}}>
+            <thead>
+              <tr style={{background:'#000'}}>
+                {['Data','Tipo','Descrição','Categoria','Valor','Origem','Ações'].map(h => (
+                  <th key={h} style={{padding:'10px 14px', textAlign: h === 'Valor' || h === 'Ações' ? 'right' : 'left', fontFamily:'var(--f-b)', fontSize:13, color:'#F5F5F7', fontWeight:700, borderBottom:'1px solid #2A2A3A'}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtrado.length === 0 && (
+                <tr><td colSpan={7} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos</td></tr>
+              )}
+              {filtrado.map(l => (
+                <tr key={l.id} style={{borderBottom:'1px solid var(--border-soft)'}}>
+                  <td style={{padding:'10px 14px', color:'var(--t2)', fontFamily:'var(--f-m)', fontSize:12.5}}>{formatBR(l.data)}</td>
+                  <td style={{padding:'10px 14px'}}>
+                    <span style={{
+                      display:'inline-flex', alignItems:'center', gap:4,
+                      padding:'2px 9px', borderRadius:999, fontSize:11.5, fontWeight:600,
+                      background: l.tipo === 'entrada' ? 'rgba(29,158,117,.15)' : 'rgba(163,45,45,.15)',
+                      color: l.tipo === 'entrada' ? '#1D9E75' : '#ff8585',
+                    }}>
+                      <Icon name={l.tipo === 'entrada' ? 'ArrowDownCircle' : 'ArrowUpCircle'} size={11}/>
+                      {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                    </span>
+                  </td>
+                  <td style={{padding:'10px 14px', color:'var(--t1)'}}>{l.descricao}</td>
+                  <td style={{padding:'10px 14px', color:'var(--t3)', fontSize:12.5}}>{l.categoria}</td>
+                  <td style={{padding:'10px 14px', textAlign:'right', color: l.tipo === 'entrada' ? '#1D9E75' : '#ff8585', fontFamily:'var(--f-m)', fontWeight:600}}>
+                    {l.tipo === 'entrada' ? '+' : '−'} R$ {l.valor.toLocaleString('pt-BR')}
+                  </td>
+                  <td style={{padding:'10px 14px', color:'var(--t3)', fontSize:11.5}}>
+                    {l.origem === 'manual' ? '✋ manual' : l.origem === 'mrr' ? '🔁 recorrência' : '📋 despesa'}
+                  </td>
+                  <td style={{padding:'10px 14px', textAlign:'right'}}>
+                    {l.editable
+                      ? <button onClick={()=>setEditando(l.raw)} title="Editar" style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--blue)', padding:4}}><Icon name="Pencil" size={14}/></button>
+                      : <span style={{fontSize:11, color:'var(--t3)'}}>auto</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {editando && <CaixaLancamentoModal lancamento={editando} onClose={()=>setEditando(null)}/>}
+    </div>
+  );
+}
+
+function CaixaLancamentoModal({ lancamento, onClose }) {
+  const novo = !lancamento.id;
+  const [form, setForm] = useState({
+    tipo: lancamento.tipo || 'entrada',
+    descricao: lancamento.descricao || '',
+    categoria: lancamento.categoria || 'Outro',
+    valor: lancamento.valor ?? 0,
+    data: lancamento.data || hojeISO(),
+    observacao: lancamento.observacao || '',
+  });
+  const set = (k,v) => setForm(f => ({...f, [k]:v}));
+
+  const salvar = async () => {
+    if (!form.descricao.trim()) { showToast?.('Informe a descrição','warn'); return; }
+    if (Number(form.valor) <= 0) { showToast?.('Valor precisa ser maior que zero','warn'); return; }
+    const patch = { ...form, valor: Number(form.valor) };
+    if (novo) await addCaixaLancamento(patch); else await editCaixaLancamento(lancamento.id, patch);
+    showToast?.(novo ? 'Lançamento adicionado' : 'Lançamento atualizado', 'success');
+    onClose();
+  };
+  const remover = async () => {
+    if (!confirm('Remover este lançamento?')) return;
+    await deleteCaixaLancamento(lancamento.id);
+    showToast?.('Lançamento removido', 'success');
+    onClose();
+  };
+
+  const lbl = { display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6 };
+  const inp = { width:'100%', padding:'9px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:14, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.65)', display:'grid', placeItems:'center', zIndex:9998}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(540px, 92vw)', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px'}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18}}>
+          <div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:18, fontWeight:600, color:'var(--t1)'}}>{novo ? 'Novo lançamento' : 'Editar lançamento'}</div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>Entrada ou saída avulsa do caixa</div>
+          </div>
+          <button onClick={onClose} style={{background:'none', border:'none', cursor:'pointer', color:'var(--t3)', padding:6}}><Icon name="XCircle" size={18}/></button>
+        </div>
+
+        <div style={{display:'grid', gap:14}}>
+          <div>
+            <label style={lbl}>Tipo</label>
+            <div style={{display:'flex', gap:8}}>
+              {[
+                { v:'entrada', label:'Entrada', cor:'#1D9E75', icon:'ArrowDownCircle' },
+                { v:'saida', label:'Saída', cor:'#A32D2D', icon:'ArrowUpCircle' },
+              ].map(o => (
+                <button key={o.v} onClick={()=>set('tipo', o.v)} style={{
+                  flex:1, padding:'10px', borderRadius:7,
+                  background: form.tipo === o.v ? o.cor+'22' : 'var(--bg-3)',
+                  color: form.tipo === o.v ? o.cor : 'var(--t2)',
+                  border: form.tipo === o.v ? `1px solid ${o.cor}55` : '1px solid var(--border)',
+                  fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+                }}>
+                  <Icon name={o.icon} size={13}/>{o.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Descrição</label>
+            <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Venda avulsa, Reembolso, ..."/>
+          </div>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14}}>
+            <div>
+              <label style={lbl}>Categoria</label>
+              <input style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)} placeholder="Ex: Venda extra"/>
+            </div>
+            <div>
+              <label style={lbl}>Valor (R$)</label>
+              <input style={inp} type="number" min="0.01" step="0.01" value={form.valor} onChange={e=>set('valor', e.target.value)}/>
+            </div>
+            <div>
+              <label style={lbl}>Data</label>
+              <input style={inp} type="date" value={form.data} onChange={e=>set('data', e.target.value)}/>
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Observação</label>
+            <textarea style={{...inp, resize:'vertical', fontFamily:'inherit', minHeight:60}} value={form.observacao} onChange={e=>set('observacao', e.target.value)} rows={2}/>
+          </div>
+        </div>
+
+        <div style={{display:'flex', gap:10, justifyContent:'space-between', marginTop:22, paddingTop:16, borderTop:'1px solid var(--border-soft)'}}>
+          {!novo ? <button onClick={remover} className="btn" style={{background:'#A32D2D22', color:'#ff8585', border:'1px solid #A32D2D55'}}><Icon name="Trash2" size={14}/>Remover</button> : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} className="btn btn-outline">Cancelar</button>
+            <button onClick={salvar} className="btn btn-primary"><Icon name="Check" size={14}/>{novo ? 'Adicionar' : 'Salvar'}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Pipeline Kanban ─── */
 const PIPELINE_INIT = [
   { id:'lead',       nome:'Lead',        cor:'#6E6E78', cards: CLIENTES_CRM.filter(c=>c.status==='Comercial').map(c=>({id:c.nome,nome:c.nome,sub:c.servico,nicho:c.nicho,color:c.color,init:c.init,logoUrl:c.logoUrl})) },
@@ -11152,7 +12210,7 @@ function SecaoLabel({ icon, children, count }) {
 }
 
 // Modal completo de detalhe do card (estilo Trello)
-function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
+function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive }) {
   const [dbCard, setDbCard] = React.useState(null);
   const [loading, setLoading] = React.useState(true);
   const [checklist, setChecklist] = React.useState([]);
@@ -11173,6 +12231,11 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
   const [uploadingFoto, setUploadingFoto] = React.useState(false);
   const fileInputRef = React.useRef(null);
   const { membros } = useTeamMembers();
+  // ✨ Etiquetas do card (popover + chips aplicadas)
+  const [etiquetasAberto, setEtiquetasAberto] = React.useState(false);
+  const { list: todasEtiquetasModal } = useEtiquetas();
+  const etiquetasAplicadasIds = usePipelineCardEtiquetas(dbCard?.id);
+  const etiquetasAplicadas = todasEtiquetasModal.filter(e => etiquetasAplicadasIds.includes(e.id));
 
   // Carrega dados do banco (cria card se necessário)
   React.useEffect(() => {
@@ -11384,11 +12447,21 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
   };
 
   const arquivar = async () => {
-    if (!dbCard || !confirm('Arquivar este card? Pode ser recuperado depois.')) return;
-    const cli = getSupa();
-    await cli.from('pipeline_cards').update({ archived_at: new Date().toISOString() }).eq('id', dbCard.id);
-    showToast?.('Card arquivado', 'success');
-    onClose();
+    if (!confirm('Arquivar este card? Pode ser recuperado depois.')) return;
+    try {
+      if (dbCard) {
+        const cli = getSupa();
+        await cli.from('pipeline_cards').update({ archived_at: new Date().toISOString() }).eq('id', dbCard.id);
+        // Limpa cache do índice pra sumir badges/estado em tempo real
+        try { _pipeCardDbCache.delete(card.nome); _notifyPipeCard(card.nome); } catch {}
+      }
+      // Remove o card do estado local do Pipeline (localStorage)
+      try { onArchive?.(card); } catch {}
+      showToast?.('Card arquivado', 'success');
+      onClose();
+    } catch (e) {
+      showToast?.('Erro: ' + (e.message || e), 'error');
+    }
   };
 
   const doneCount = checklist.filter(c => c.done).length;
@@ -11506,6 +12579,33 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose }) {
                       width:'100%', padding:'8px 10px', borderRadius:7,
                       background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13,
                     }}/>
+                </div>
+              </div>
+
+              {/* ETIQUETAS */}
+              <div style={{marginBottom:20, position:'relative'}}>
+                <SecaoLabel icon="Tag" count={etiquetasAplicadas.length}>Etiquetas</SecaoLabel>
+                <div style={{display:'flex', flexWrap:'wrap', alignItems:'center', gap:6}}>
+                  {etiquetasAplicadas.map(e => (
+                    <EtiquetaChip key={e.id} etiqueta={e} size="md"
+                      onRemove={() => dbCard && removeEtiquetaCard(dbCard.id, e.id)}/>
+                  ))}
+                  <button onClick={()=>setEtiquetasAberto(v=>!v)} disabled={!dbCard} style={{
+                    padding:'4px 10px', borderRadius:999, border:'1px dashed var(--border)',
+                    background: etiquetasAberto ? 'rgba(30,144,255,.10)' : 'transparent',
+                    color: etiquetasAberto ? 'var(--blue)' : 'var(--t2)',
+                    fontSize:12, cursor: dbCard ? 'pointer' : 'not-allowed',
+                    display:'inline-flex', alignItems:'center', gap:5, transition:'all .15s',
+                  }}
+                    onMouseEnter={e=>{if(dbCard && !etiquetasAberto){e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.color='var(--blue)';}}}
+                    onMouseLeave={e=>{if(!etiquetasAberto){e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)';}}}>
+                    <Icon name="Plus" size={11}/>
+                    {etiquetasAplicadas.length === 0 ? 'Etiqueta' : 'Adicionar'}
+                  </button>
+                  {etiquetasAberto && dbCard && (
+                    <EtiquetasPopover cardId={dbCard.id} anchor="left"
+                      onClose={()=>setEtiquetasAberto(false)}/>
+                  )}
                 </div>
               </div>
 
@@ -11978,6 +13078,13 @@ function Pipeline({ cols, setCols }) {
           colNome={detalheCard.colNome}
           colCor={detalheCard.colCor}
           onClose={() => setDetalheCard(null)}
+          onArchive={(cardArquivado) => {
+            // Remove o card de todas as colunas (atualiza pipelineCols + localStorage)
+            setCols(cs => cs.map(c => ({
+              ...c,
+              cards: c.cards.filter(k => k.id !== cardArquivado.id && k.nome !== cardArquivado.nome),
+            })));
+          }}
         />
       )}
     </div>
@@ -13049,6 +14156,9 @@ function App() {
   useUserFotoSync();
   // Mantem credenciais Evolution sincronizadas com instancia ativa
   useSyncEvoConfig();
+  // ✨ Toca som + notif quando alguem atribui um card do Pipeline pra mim
+  const _meuUserIdApp = useUsuarioLogadoId();
+  usePipelineAssignWatcher(_meuUserIdApp);
 
   // Persistência via localStorage
   // Sempre comeca em Dashboard ao logar (ignora ultima pagina salva)
@@ -13163,14 +14273,14 @@ function App() {
 
   return (
     <div className="app">
-      <ThemeToggle/>
+      {/* Toggle de tema agora vive no SidebarUserCard */}
       <Sidebar page={page} setPage={setPage} collapsed={collapsed} setCollapsed={setCollapsed}/>
       <Header page={page} collapsed={collapsed} setCollapsed={setCollapsed} setPage={setPage} busca={busca} setBusca={setBusca} notifAberta={notifAberta} setNotifAberta={setNotifAberta}/>
       <main className="main">
         {page === 'dashboard' ? <Dashboard onImpersonate={setImpersonate} pipelineCols={pipelineCols} setPage={setPage} onNovoCliente={()=>setNovoClienteAberto(true)} onExportar={exportarCSV} busca={busca}/>
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
           : page === 'monitoramento' ? <Monitoramento pipelineCols={pipelineCols} onImpersonate={setImpersonate}/>
-          : page === 'mrr'      ? <MRR/>
+          : page === 'mrr'      ? <Financeiro/>
           : page === 'pipeline' ? <Pipeline cols={pipelineCols} setCols={setPipelineCols}/>
           : page === 'agenda'   ? <Agenda/>
           : page === 'analytics'? <Analytics/>

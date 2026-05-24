@@ -81,6 +81,12 @@ const ICON_PATHS = {
   History: 'M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8M12 7v5l4 2',
   Link: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
   Square: 'M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5z',
+  // Financeiro
+  Wallet: 'M21 12V8a2 2 0 0 0-2-2H5a2 2 0 0 1 0-4h13M22 12h-3a2 2 0 0 0 0 4h3M3 18V6a2 2 0 0 0 2 2h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+  CreditCard: 'M2 8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zM2 10h20',
+  ArrowDownCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM8 12l4 4 4-4M12 8v8',
+  ArrowUpCircle: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM16 12l-4-4-4 4M12 16V8',
+  Repeat: 'm17 1 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
 };
 
 function Icon({ name, size = 18, stroke = 1.5, className = '', style = {} }) {
