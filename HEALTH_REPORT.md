@@ -1,4 +1,4 @@
-# 🏥 Health Report — Sistema Brava
+# 🏥 Health Report - Sistema Brava
 > Verificação completa do sistema em 23/05/2026 · 18:30 BRT
 
 ## 📊 Sumário Executivo
@@ -26,12 +26,12 @@
 |---|---|---|---|---|---|---|---|---|---|
 | **Jhonattan** | 🟢 open | ❌ OFF | 480 | 36 | **197** | há 5min | 3066 | 2399 (78%) | 390 |
 | **Brava Principal** | 🟢 open | ✅ ON (c/ prompt) | 31 | 4 | 8 | há 43min | 140 | 24 (17%) | 64 |
-| **Financeiro** | 🔴 refused | ❌ OFF | 0 | 0 | 0 | — | 0 | 0 | 0 |
+| **Financeiro** | 🔴 refused | ❌ OFF | 0 | 0 | 0 | - | 0 | 0 | 0 |
 
 **Insights:**
-- Jhonattan: instância mais ativa (197 msgs/24h), nomes 78% populados — bom
+- Jhonattan: instância mais ativa (197 msgs/24h), nomes 78% populados - bom
 - Brava Principal: pouco tráfego (esperado, é o número da empresa) mas IA ativa com prompt configurado
-- Financeiro: **CONEXÃO RECUSADA** — precisa reconectar via QR (não é bug, sessão WhatsApp caiu)
+- Financeiro: **CONEXÃO RECUSADA** - precisa reconectar via QR (não é bug, sessão WhatsApp caiu)
 
 ### Mídia
 - **494 mídias** capturadas só na Jhonattan (fotos/áudios/documentos)
@@ -61,7 +61,7 @@ subscriptions         40 KB
 checkpoint_templates  32 KB
 ```
 
-**Total: ~10 MB.** Plano free do Supabase tem **500 MB** — estamos em **2%** do limite.
+**Total: ~10 MB.** Plano free do Supabase tem **500 MB** - estamos em **2%** do limite.
 
 ### Logs do webhook
 
@@ -93,7 +93,7 @@ IA erros 24h:         0  ✅
 
 ## 4. 🔒 Segurança (Advisors do Supabase)
 
-### 🚨 ERROS CRÍTICOS — JÁ CORRIGIDOS NESTA ANÁLISE
+### 🚨 ERROS CRÍTICOS - JÁ CORRIGIDOS NESTA ANÁLISE
 
 Antes desta verificação, **3 tabelas estavam com policies criadas mas RLS desabilitado**:
 
@@ -124,7 +124,7 @@ Antes desta verificação, **3 tabelas estavam com policies criadas mas RLS desa
 
 **1. RLS initplan (auth.uid() re-avaliado por linha)**
 - Afeta: `workspaces`, `workspace_members` (3 policies)
-- Fix: trocar `auth.uid()` por `(SELECT auth.uid())` — ganho real em escala
+- Fix: trocar `auth.uid()` por `(SELECT auth.uid())` - ganho real em escala
 - **Impacto atual: BAIXO** (poucos rows). Crítico só com milhares de workspaces
 
 **2. Multiple permissive policies em `wa_instancias` e `workspace_members`**
@@ -201,8 +201,8 @@ Total: **7 tabelas** com push automático pro front. Tudo o que admin precisa ve
 
 ### 🟡 Pra resolver quando der tempo
 
-1. **Reconectar instância Financeiro** — está com `status=refused`, basta abrir WhatsApp e escanear QR de novo
-2. **Otimizar RLS initplan** — quando passar de 100 workspaces
+1. **Reconectar instância Financeiro** - está com `status=refused`, basta abrir WhatsApp e escanear QR de novo
+2. **Otimizar RLS initplan** - quando passar de 100 workspaces
 3. **Consolidar multiple permissive policies** em `wa_instancias` e `workspace_members`
 4. **Trocar `usuarios_stats` view pra SECURITY INVOKER**
 5. **Ativar proteção contra senhas vazadas** no Supabase Auth settings (URL: dashboard → Authentication → Policies)

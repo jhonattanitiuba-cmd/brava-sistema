@@ -3,7 +3,7 @@
   ╔═══════════════════════════════════════════════════════════════════════╗
   ║  REGRAS DE ESTILO DESTE ARQUIVO (NUNCA QUEBRAR)                       ║
   ║                                                                       ║
-  ║  1. NUNCA usar travessão longo (—) em texto, UI ou comentários.       ║
+  ║  1. NUNCA usar travessão longo (-) em texto, UI ou comentários.       ║
   ║     Usar separador centro-ponto (·), dois-pontos (:), parênteses,     ║
   ║     ponto-final ou hífen normal (-).                                  ║
   ║     Motivo: travessão dá cara de texto gerado por IA.                 ║
@@ -513,9 +513,9 @@ function _notifyUserFoto() { _userFotoSubs.forEach(fn => { try { fn(); } catch {
 
 /* Helper central pra resolver foto de qualquer usuário pelo email.
    Ordem de prioridade:
-   1. Banco (usuarios.foto_url) — fonte da verdade
-   2. localStorage upload local (brava_user_photo:<email>) — legacy
-   3. BRAVA_USERS map hardcoded — fallback final
+   1. Banco (usuarios.foto_url) - fonte da verdade
+   2. localStorage upload local (brava_user_photo:<email>) - legacy
+   3. BRAVA_USERS map hardcoded - fallback final
    Retorna null se não tiver nenhuma. */
 function getUserFoto(email) {
   if (!email) return null;
@@ -856,7 +856,7 @@ function SidebarUserCard({ setPage }) {
           <div style={{fontSize:10.5, color:'var(--t2)', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
         </div>
       </div>
-      {/* ✨ Toggle tema (sol/lua) — substitui o antigo ícone de config */}
+      {/* ✨ Toggle tema (sol/lua) - substitui o antigo ícone de config */}
       <button onClick={toggleTema} title={dark ? 'Modo claro' : 'Modo escuro'} style={{
         width:30, height:30, padding:0, borderRadius:'50%', flexShrink:0,
         background:'transparent', border:'1px solid var(--border)',
@@ -1002,7 +1002,7 @@ function WhatsAppLogo({ size = 16, color = 'currentColor', filled = false }) {
       </svg>
     );
   }
-  // Versao linha (stroke) — combina melhor com o resto dos icones do header
+  // Versao linha (stroke) - combina melhor com o resto dos icones do header
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" xmlns="http://www.w3.org/2000/svg">
       <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
@@ -1182,7 +1182,7 @@ function WhatsAppPairingModal({ instance, onClose }) {
             console.log('[Brava] Perfil sincronizado:', activeName);
           } catch (e) { console.warn('[Brava] Falha ao sincronizar perfil:', e.message); }
           showToast?.(`${instance.nome} conectado com sucesso!`, 'success');
-          // Nao auto-fecha mais — usuario clica no botao "Abrir conversas" pra fechar
+          // Nao auto-fecha mais - usuario clica no botao "Abrir conversas" pra fechar
         } else if (real === 'connecting') {
           setState('connecting');
         }
@@ -1667,7 +1667,7 @@ function NewWhatsAppModal({ onClose, onCreated }) {
             </div>
           </div>
 
-          {/* Quem pode ver — seletor segmentado (2 opcoes claras) */}
+          {/* Quem pode ver - seletor segmentado (2 opcoes claras) */}
           <div>
             <label style={{display:'block', fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em', marginBottom:6}}>
               Quem pode ver este WhatsApp
@@ -2350,7 +2350,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       .reduce((s, r) => s + (r.mensal || 0), 0);
   }, [recorrencia]);
 
-  // Clientes mestre ativos (não projetos — contagem de clientes únicos com status ativo)
+  // Clientes mestre ativos (não projetos - contagem de clientes únicos com status ativo)
   const totalClientesAtivos = React.useMemo(() => {
     return clientesMestre.filter(c => c.status === 'ativo').length;
   }, [clientesMestre]);
@@ -3506,7 +3506,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           done: isDone,
         });
 
-        if (nextOffset === offset && !isDone) break; // não avançou — break
+        if (nextOffset === offset && !isDone) break; // não avançou - break
         offset = nextOffset;
       } catch (e) {
         errorsAcc.push(String(e));
@@ -3908,7 +3908,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               >
                 <Icon name="RefreshCw" size={16}/>
               </button>
-              {/* Sincronizar histórico — puxa conversas/mensagens dos últimos N dias do Evolution */}
+              {/* Sincronizar histórico - puxa conversas/mensagens dos últimos N dias do Evolution */}
               <button onClick={()=>setSyncOpen(true)} title="Sincronizar histórico do WhatsApp" style={{
                 width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
                 color: S.textSec, background:'none', border:'none', cursor:'pointer', transition:'background .15s',
@@ -4588,7 +4588,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
             </div>
             <p style={{ fontSize:13, color:S.textSec, margin:'0 0 18px', lineHeight:1.55 }}>
               Puxa as conversas e mensagens dos últimos dias direto do Evolution.<br/>
-              Instância: <b style={{color:S.textPrimary}}>{activeInstance?.nome || activeInstance?.evolution_instance_name || '—'}</b>
+              Instância: <b style={{color:S.textPrimary}}>{activeInstance?.nome || activeInstance?.evolution_instance_name || '-'}</b>
             </p>
 
             {!syncState.running && !syncState.done && (
@@ -4763,10 +4763,10 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
   const primMsgDate = primMsg?.timestamp ? new Date(primMsg.timestamp) : null;
   const primMsgFmt = primMsgDate
     ? `${primMsgDate.toLocaleDateString('pt-BR')} ${primMsgDate.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`
-    : '–';
+    : '-';
 
   const telefone = usandoReal
-    ? (contato.isGroup ? '–' : (evoFormatPhone(evoResolveJid(contato.id)) || evoFormatPhone(contato.id) || '–'))
+    ? (contato.isGroup ? '-' : (evoFormatPhone(evoResolveJid(contato.id)) || evoFormatPhone(contato.id) || '-'))
     : '+55 11 99999-9999';
   const origem = contato.isGroup ? 'Grupo WhatsApp' : (contato.ehLid ? 'Linked Device' : 'WhatsApp');
 
@@ -4793,7 +4793,7 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
           {contato?.name}
           {contato?.isGroup && <span style={{fontSize:9.5, padding:'1px 6px', borderRadius:4, background:'rgba(123,63,228,.18)', color:'var(--purple)', fontFamily:'var(--f-m)', fontWeight:600, letterSpacing:'.04em'}}>GRUPO</span>}
         </div>
-        {usandoReal && !contato.isGroup && telefone && telefone !== '–' && telefone !== contato?.name && (
+        {usandoReal && !contato.isGroup && telefone && telefone !== '-' && telefone !== contato?.name && (
           <div style={{ fontSize:12, color:S.textSec, marginTop:4, fontFamily:'var(--f-m)' }}>{telefone}</div>
         )}
         {usandoReal && contato.isGroup && grupo?.participants && (
@@ -4878,10 +4878,10 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
           salvo?.empresa ? ['Empresa', salvo.empresa] : null,
           salvo?.tag ? ['Etiqueta', salvo.tag] : null,
           ['Origem',   origem],
-          ['Não lidas',contato.unread > 0 ? String(contato.unread) : '–'],
+          ['Não lidas',contato.unread > 0 ? String(contato.unread) : '-'],
           ['1ª msg',   primMsgFmt],
-          ['Última',   ultMsg?.time || '–'],
-          ['Total',    totalMsgs > 0 ? `${totalMsgs} mensagem${totalMsgs===1?'':'s'}` : '–'],
+          ['Última',   ultMsg?.time || '-'],
+          ['Total',    totalMsgs > 0 ? `${totalMsgs} mensagem${totalMsgs===1?'':'s'}` : '-'],
         ].filter(Boolean).map(([k,v]) => (
           <div key={k} style={{ display:'flex', justifyContent:'space-between', marginBottom:8, gap:8 }}>
             <span style={{ fontSize:12.5, color:S.textSec, flexShrink:0 }}>{k}</span>
@@ -5040,7 +5040,7 @@ function Monitoramento({ pipelineCols, onImpersonate }) {
       // Fase atual: usa do cliente OU primeira fase com checkpoint pendente
       const faseAtual = proxAcao?.fase || 'prod';
       const faseObj = (pipelineCols || []).find(f => f.id === faseAtual);
-      // Métricas WhatsApp (busca pela instância vinculada — TODO: melhor join)
+      // Métricas WhatsApp (busca pela instância vinculada - TODO: melhor join)
       const wa = waMetrics[c.instancia_id] || { total:0, in:0, out:0, ia:0, ultima:0 };
       const horasUltimaMsg = wa.ultima ? Math.round((Date.now() - wa.ultima) / 3600000) : 999;
       const mrrAtivo = c.status === 'Ativo' || c.status === 'Em Prod';
@@ -5201,7 +5201,7 @@ function ProjetoCard({ projeto: p, onClick, onImpersonate }) {
         <div style={{textAlign:'center', padding:6, background:'var(--bg-3)', borderRadius:6}}>
           <div style={{color:'var(--t3)', fontSize:10}}>Última</div>
           <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)'}}>
-            {p.horasUltimaMsg < 24 ? `${p.horasUltimaMsg}h` : p.horasUltimaMsg < 999 ? `${Math.round(p.horasUltimaMsg/24)}d` : '—'}
+            {p.horasUltimaMsg < 24 ? `${p.horasUltimaMsg}h` : p.horasUltimaMsg < 999 ? `${Math.round(p.horasUltimaMsg/24)}d` : '-'}
           </div>
         </div>
       </div>
@@ -5499,7 +5499,7 @@ const EQUIPE_INIT = [
 const ROLE_COR = { 'Diretoria':'#7B3FE4', 'CS / Suporte':'#1D9E75', 'Dev':'#1E90FF', 'Comercial':'#BA7517' };
 
 // ═══════════════════════════════════════════════════════════════
-// EQUIPE — dados reais de workspace_team + convites pendentes
+// EQUIPE - dados reais de workspace_team + convites pendentes
 // ═══════════════════════════════════════════════════════════════
 const ROLE_LABEL = {
   owner: 'Owner', admin: 'Admin', manager: 'Manager',
@@ -5896,7 +5896,7 @@ function EditarMembroModal({ membro, onClose }) {
               <input type="checkbox" checked={ativo} onChange={e=>setAtivo(e.target.checked)} style={{width:16, height:16, accentColor:'var(--blue)', cursor:'pointer'}}/>
               <div style={{flex:1}}>
                 <div style={{fontSize:13, color:'var(--t1)', fontWeight:500}}>Membro ativo</div>
-                <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>{ativo ? 'Pode acessar o sistema normalmente' : 'Bloqueado — não consegue fazer login'}</div>
+                <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>{ativo ? 'Pode acessar o sistema normalmente' : 'Bloqueado - não consegue fazer login'}</div>
               </div>
             </label>
           </div>
@@ -6203,7 +6203,7 @@ function getUserPhoto() {
     // ✨ Centralizado: usa helper que consulta banco > localStorage > BRAVA_USERS
     const foto = (typeof getUserFoto === 'function') ? getUserFoto(email) : null;
     if (foto) return foto;
-    // Legacy fallback (chave antiga sem email) — só pra diretoria
+    // Legacy fallback (chave antiga sem email) - só pra diretoria
     if (email === 'diretoria@brava.company') {
       const legacy = localStorage.getItem('brava_user_photo');
       if (legacy) return legacy;
@@ -6987,7 +6987,7 @@ function usePipelineAssignWatcher(meuUserId) {
       bootstrapped = true;
     })();
 
-    // Quem atribuiu — busca nome real do autor (created_by/updated_by não existem aqui;
+    // Quem atribuiu - busca nome real do autor (created_by/updated_by não existem aqui;
     // usamos titulo do card + nome do agente novo)
     const ch = cli.channel(`rt:pipe-assign-watch:${meuUserId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pipeline_cards' }, async (p) => {
@@ -7200,7 +7200,7 @@ async function removeEtiqueta(instanciaId, chatJid, etiquetaId) {
     .eq('instancia_id', instanciaId).eq('chat_jid', chatJid).eq('etiqueta_id', etiquetaId);
 }
 
-/* Chip visual de etiqueta — usado na lista e no header */
+/* Chip visual de etiqueta - usado na lista e no header */
 function EtiquetaChip({ etiqueta, size='sm', onRemove }) {
   if (!etiqueta) return null;
   const padding = size === 'sm' ? '2px 8px' : '4px 10px';
@@ -8065,7 +8065,7 @@ const BRAVA_INSTANCE_TEMPLATE = {
       'TYPEBOT_START', 'TYPEBOT_CHANGE_STATUS',
     ],
   },
-  // Comportamento Baileys — IDENTICO a Brava Principal em producao
+  // Comportamento Baileys - IDENTICO a Brava Principal em producao
   settings: {
     reject_call: false,         // permite chamadas (nao rejeita auto)
     msg_call: '',               // sem msg auto pra chamadas
@@ -8084,7 +8084,7 @@ function evoNotifyPic() { _evoPicSubs.forEach(fn => { try { fn(); } catch {} });
 
 // Tempo minimo antes de tentar de novo apos falha (5 minutos)
 const _PIC_RETRY_AFTER = 5 * 60 * 1000;
-// Tempo minimo antes de tentar de novo se ainda esta pendente (10s — significa que travou)
+// Tempo minimo antes de tentar de novo se ainda esta pendente (10s - significa que travou)
 const _PIC_PENDING_TIMEOUT = 10 * 1000;
 
 async function evoEnsurePic(remoteJid) {
@@ -8102,7 +8102,7 @@ async function evoEnsurePic(remoteJid) {
   // Snapshot do cfg pra detectar se trocou de instancia durante o fetch
   const cfgAtCall = getEvoConfig();
   if (!cfgAtCall) {
-    _evoPicCache.delete(remoteJid); // sem cfg, nao cacheia — tenta de novo no proximo render
+    _evoPicCache.delete(remoteJid); // sem cfg, nao cacheia - tenta de novo no proximo render
     return null;
   }
   try {
@@ -8119,7 +8119,7 @@ async function evoEnsurePic(remoteJid) {
     evoNotifyPic();
     return url;
   } catch (e) {
-    // Erros 404 (contato sem foto OU nao registrado na sessao Baileys) — cacheia null
+    // Erros 404 (contato sem foto OU nao registrado na sessao Baileys) - cacheia null
     // mas com timestamp pra re-tentar depois (sync da Baileys pode trazer depois)
     _evoPicCache.set(remoteJid, { url:null, ts:Date.now(), failed:true, error: e.message });
     evoNotifyPic();
@@ -8267,7 +8267,7 @@ function useEvoContacts() {
   return _evoContacts;
 }
 
-/* ✨ Hook reativo SEMPRE ativo — re-renderiza quando _evoContacts.byJid muda.
+/* ✨ Hook reativo SEMPRE ativo - re-renderiza quando _evoContacts.byJid muda.
    Necessário no modo Supabase porque _evoContacts é Map fora do React. */
 function useContatosTick() {
   const [tick, setTick] = React.useState(0);
@@ -8279,7 +8279,7 @@ function useContatosTick() {
   return tick;
 }
 
-/* ✨ Hook reativo pra fotos de perfil — re-render quando _evoPicCache muda */
+/* ✨ Hook reativo pra fotos de perfil - re-render quando _evoPicCache muda */
 function usePicsTick() {
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => {
@@ -8959,7 +8959,7 @@ function useEvoChats(intervalMs = 15000) {
   React.useEffect(() => {
     if (!cfg) { setRaw({loading:false, arr:[], error:null}); return; }
     let alive = true;
-    // Snapshot do instance no inicio do effect — usado pra descartar
+    // Snapshot do instance no inicio do effect - usado pra descartar
     // responses tardios se o usuario trocou de WhatsApp no meio do fetch.
     const cfgSnapshot = cfg;
     const tick = async () => {
@@ -9341,9 +9341,9 @@ function EvoStatusPanel() {
 
       <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
         {[
-          {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '–'},
-          {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '–'},
-          {l:'Mensagens', v: instanceInfo?._count?.Message ?? instanceInfo?.messageCount ?? '–'},
+          {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '-'},
+          {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '-'},
+          {l:'Mensagens', v: instanceInfo?._count?.Message ?? instanceInfo?.messageCount ?? '-'},
         ].map((s,i) => (
           <div key={i} style={{padding:'10px 12px', background:'var(--bg-2)', borderRadius:8, border:'1px solid var(--border-soft)'}}>
             <div style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em'}}>{s.l}</div>
@@ -9631,7 +9631,7 @@ function ConfigIATab() {
         {[
           {l:'Respostas enviadas', v: stats.replied.toLocaleString('pt-BR'), c:'#1D9E75'},
           {l:'Erros', v: stats.errors.toLocaleString('pt-BR'), c: stats.errors > 0 ? '#A32D2D' : 'var(--t3)'},
-          {l:'Última resposta', v: stats.lastReply ? new Date(stats.lastReply.received_at).toLocaleString('pt-BR') : '–', c:'var(--t2)'},
+          {l:'Última resposta', v: stats.lastReply ? new Date(stats.lastReply.received_at).toLocaleString('pt-BR') : '-', c:'var(--t2)'},
         ].map((s,i) => (
           <div key={i} style={{padding:'14px 16px', background:'var(--bg-3)', borderRadius:10, border:'1px solid var(--border-soft)'}}>
             <div style={{fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.06em'}}>{s.l}</div>
@@ -10136,7 +10136,7 @@ function Config() {
   );
 }
 
-/* ─── Analytics — limpo, sem simulações. Pronto pra receber dados reais. ─── */
+/* ─── Analytics - limpo, sem simulações. Pronto pra receber dados reais. ─── */
 function Analytics() {
   const { list: clientesMestre } = useClientes();
   const recorrencia = useRecorrencia();
@@ -10221,7 +10221,7 @@ function Analytics() {
           <div>
             <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, marginBottom:4}}>Métricas avançadas em construção</div>
             <div style={{fontSize:12, color:'var(--t3)', lineHeight:1.5}}>
-              Em breve: evolução de MRR mês a mês, taxa de churn real, LTV médio, conversão por etapa, performance de IA. Todas serão calculadas a partir dos dados reais do banco — sem mocks.
+              Em breve: evolução de MRR mês a mês, taxa de churn real, LTV médio, conversão por etapa, performance de IA. Todas serão calculadas a partir dos dados reais do banco - sem mocks.
             </div>
           </div>
         </div>
@@ -10370,10 +10370,10 @@ function ThemeToggle() {
   );
 }
 
-/* ─── Financeiro — paleta de status (usada em badges, gráficos, filtros) ─── */
+/* ─── Financeiro - paleta de status (usada em badges, gráficos, filtros) ─── */
 const SC = { 'Em Prod':'#1D9E75','Ativo':'#1E90FF','Implementação':'#7B3FE4','Comercial':'#BA7517','Proposta Apresentada':'#BA7517','Em breve':'#6E6E78','':'' };
 
-/* ─── Store MRR — Supabase (tabela projetos) ────────────────────────
+/* ─── Store MRR - Supabase (tabela projetos) ────────────────────────
    Substituiu o store localStorage anterior.
    __id = campo id do Supabase (UUID) para compatibilidade com o componente MRR.
 
@@ -10461,7 +10461,7 @@ function useRecorrencia() {
   return list;
 }
 
-/* ─── Store de PAGAMENTOS mensais — Supabase (tabela projeto_pagamentos) ──────
+/* ─── Store de PAGAMENTOS mensais - Supabase (tabela projeto_pagamentos) ──────
    Schema resultante (mesmo que antes pra manter compatibilidade):
    { [cliente_id (=recId=__id)]: { [YYYY-MM]: { pago: bool, data: 'YYYY-MM-DD' } } }
 */
@@ -10549,7 +10549,7 @@ function usePagamentos() {
   return all;
 }
 
-/* ─── Store DESPESAS — Supabase (tabela fin_despesas) ──────────────────── */
+/* ─── Store DESPESAS - Supabase (tabela fin_despesas) ──────────────────── */
 const CATEGORIAS_DESPESA = ['Infra','Marketing','Salário','Imposto','Software','Serviços','Pró-labore','Outro'];
 const CATEGORIAS_COR = {
   'Infra':'#1E90FF', 'Marketing':'#FF6B9D', 'Salário':'#1D9E75', 'Imposto':'#A32D2D',
@@ -10652,7 +10652,7 @@ function useDespesasPagamentos() {
   return all;
 }
 
-/* ─── Store CAIXA — Supabase (tabela fin_caixa_lancamentos) ───────────── */
+/* ─── Store CAIXA - Supabase (tabela fin_caixa_lancamentos) ───────────── */
 async function addCaixaLancamento(item) {
   const cli = getSupa(); if (!cli) return null;
   const base = { tipo:'entrada', descricao:'', categoria:'Outro', valor:0, data: new Date().toISOString().slice(0,10), origem:'manual' };
@@ -10701,7 +10701,7 @@ function useCaixaLancamentos() {
   return list;
 }
 
-/* ─── Store EXTRATO BANCÁRIO — Supabase (tabela fin_extrato_bancario) ─── */
+/* ─── Store EXTRATO BANCÁRIO - Supabase (tabela fin_extrato_bancario) ─── */
 
 // Normaliza descrição pra calcular hash de dedup determinístico (espaços, case, acentos)
 function _normalizeDesc(s) {
@@ -10801,7 +10801,7 @@ async function marcarExtratoIgnorado(extratoId, ignorado = true) {
   await cli.from('fin_extrato_bancario').update({ ignorado }).eq('id', extratoId);
 }
 
-/* ─── Hooks Clientes (Sprint C) — entidade mestre do CRM ─── */
+/* ─── Hooks Clientes (Sprint C) - entidade mestre do CRM ─── */
 // ─── Hook unificado de status (fin_status_config) ───
 // 9 status canônicos: lead, em_negociacao, proposta_enviada, em_implantacao,
 // onboarding, ativo, inadimplente, pausado, encerrado
@@ -11471,7 +11471,7 @@ async function sincronizarBtg(dias = 30) {
   if (!cli) return { ok:false, erro:'Sem conexão' };
   const { data: sess } = await cli.auth.getSession();
   const token = sess?.session?.access_token;
-  if (!token) return { ok:false, erro:'Sessão expirada — faça login novamente' };
+  if (!token) return { ok:false, erro:'Sessão expirada - faça login novamente' };
   try {
     const res = await fetch(`${SUPA_CFG.url}/functions/v1/btg-sync`, {
       method: 'POST',
@@ -11531,7 +11531,7 @@ function _toIsoDate(v) {
 
 /* Parser de extrato XLSX (client-side via SheetJS).
    Detecta automaticamente o layout do BS2 (Banco 208) e bancos similares.
-   File NUNCA sai do browser — tudo processado localmente.
+   File NUNCA sai do browser - tudo processado localmente.
    Retorna: { meta: {banco, agencia, conta, periodo}, rows: [{data, descricao, valor, saldo_apos, hash_dedup}] } */
 async function parseExtratoXlsx(file) {
   if (!window.XLSX) throw new Error('Biblioteca XLSX não carregou. Recarregue a página.');
@@ -11705,7 +11705,7 @@ function statusPagamentoMes(rec, pagamentos, hoje = new Date()) {
 const formatBR = (iso) => { if (!iso) return ''; const [y,m,d] = iso.split('-'); return `${d}/${m}/${y.slice(2)}`; };
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
-/* ─── Projeção MRR 12 meses (empilhada por status) — agora data-driven ─── */
+/* ─── Projeção MRR 12 meses (empilhada por status) - agora data-driven ─── */
 function ProjecaoMRR({ data }) {
   const corStatus = { 'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
@@ -11747,23 +11747,23 @@ function ProjecaoMRR({ data }) {
       if (offset < 0) return Math.max(0.55, 1 + offset * 0.10); // curva ascendente passada
       return 1.0;
     }
-    if (statusIdx === 2) { // Implementação — começa 2 meses adiante
+    if (statusIdx === 2) { // Implementação - começa 2 meses adiante
       if (offset < 2) return 0;
       if (offset === 2) return 0.30;
       if (offset === 3) return 0.65;
       return 1.0;
     }
-    if (statusIdx === 3) { // Comercial — conversão lenta
+    if (statusIdx === 3) { // Comercial - conversão lenta
       if (offset <= 0) return 0;
       const tabela = [0, 0.10, 0.25, 0.40, 0.50, 0.50, 0.55, 0.55, 0.60];
       return tabela[Math.min(offset, tabela.length - 1)];
     }
-    if (statusIdx === 4) { // Proposta Apresentada — conversão média
+    if (statusIdx === 4) { // Proposta Apresentada - conversão média
       if (offset <= 0) return 0;
       const tabela = [0, 0.05, 0.15, 0.30, 0.40, 0.40, 0.40, 0.45, 0.45];
       return tabela[Math.min(offset, tabela.length - 1)];
     }
-    if (statusIdx === 5) { // Em breve — conversão lenta
+    if (statusIdx === 5) { // Em breve - conversão lenta
       if (offset <= 0) return 0;
       const tabela = [0, 0, 0, 0.10, 0.20, 0.30, 0.30, 0.35, 0.40];
       return tabela[Math.min(offset, tabela.length - 1)];
@@ -11885,7 +11885,7 @@ function ProjecaoMRR({ data }) {
         })}
         <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--t3)'}}>
           <div style={{width:14, height:0, borderTop:'2px dashed var(--blue)'}}/>
-          <span>Mês atual ({dados[mesAtualIdx]?.mes || '—'})</span>
+          <span>Mês atual ({dados[mesAtualIdx]?.mes || '-'})</span>
         </div>
       </div>
     </div>
@@ -12069,7 +12069,7 @@ function ModalPagamentos({ rec, pagamentos, onClose }) {
           <div style={{flex:1, minWidth:0}}>
             <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{rec.cliente}</h3>
             <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>
-              R$ {rec.mensal.toLocaleString('pt-BR')}/mês · vence dia {diaVenc || '–'}
+              R$ {rec.mensal.toLocaleString('pt-BR')}/mês · vence dia {diaVenc || '-'}
             </div>
           </div>
           <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
@@ -12282,7 +12282,7 @@ function FinRecorrencia({ onNovoContrato }) {
     </th>
   );
 
-  const fmt = v => v > 0 ? `R$ ${v.toLocaleString('pt-BR')}` : '–';
+  const fmt = v => v > 0 ? `R$ ${v.toLocaleString('pt-BR')}` : '-';
 
   const tickMensalPorContrato = recorrencia.filter(r=>r.mensal>0).length || 1;
 
@@ -12363,7 +12363,7 @@ function FinRecorrencia({ onNovoContrato }) {
         </div>
       </div>
 
-      {/* Tabela compacta — cabe sem scroll horizontal */}
+      {/* Tabela compacta - cabe sem scroll horizontal */}
       <style>{`
         .mrr-table th, .mrr-table td { padding: 8px 8px !important; font-size: 12.5px !important; }
         .mrr-table .col-servico, .mrr-table .col-nicho { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -12417,7 +12417,7 @@ function FinRecorrencia({ onNovoContrato }) {
                       onClick={() => startInlineCell(r, field)}
                       title="Clique para editar"
                       style={{display:'block', cursor:'text', minWidth:40, ...style}}
-                    >{children ?? (value || '–')}</span>
+                    >{children ?? (value || '-')}</span>
                   )
                 );
 
@@ -12485,7 +12485,7 @@ function FinRecorrencia({ onNovoContrato }) {
                           placeholder="1-31"
                           style={{...inpStyle('dia'),width:50}}/>
                       ) : (
-                        <span onClick={()=>startInlineCell(r,'dia')} title="Clique para editar" style={{cursor:'text',display:'block'}}>{r.dia||'–'}</span>
+                        <span onClick={()=>startInlineCell(r,'dia')} title="Clique para editar" style={{cursor:'text',display:'block'}}>{r.dia||'-'}</span>
                       )}
                     </td>
 
@@ -12494,7 +12494,7 @@ function FinRecorrencia({ onNovoContrato }) {
                       <span style={{fontSize:11,padding:'3px 9px',borderRadius:999,background:stPag.color+'22',color:stPag.color,border:`1px solid ${stPag.color}44`,fontWeight:500,whiteSpace:'nowrap'}}>{stPag.label}</span>
                     </td>
 
-                    {/* Status — usa fin_status_config (status_fase) */}
+                    {/* Status - usa fin_status_config (status_fase) */}
                     <td style={{padding:'11px 14px'}}>
                       {(() => {
                         const sf = r.status_fase || r.status || 'lead';
@@ -12508,7 +12508,7 @@ function FinRecorrencia({ onNovoContrato }) {
                                 const novo = e.target.value;
                                 // Atualiza estado local imediatamente
                                 setInlineVals(v=>({...v, status_fase: novo}));
-                                // Salva direto no banco (sem esperar blur — UX mais fluida)
+                                // Salva direto no banco (sem esperar blur - UX mais fluida)
                                 cancelInline();
                                 await editRecorrencia(r.__id, { status_fase: novo, status: novo });
                                 _flashAndClear(r.__id);
@@ -12550,7 +12550,7 @@ function FinRecorrencia({ onNovoContrato }) {
                         style={{background:'transparent',border:'1px solid var(--border)',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'var(--t2)',marginRight:6}}>
                         <Icon name="CalendarCheck" size={13}/>
                       </button>
-                      {/* Lápis: modo linha inteira — sem modal */}
+                      {/* Lápis: modo linha inteira - sem modal */}
                       {isRowEd ? (
                         <button onClick={()=>saveInlineRow(r.__id)} title="Salvar edições"
                           style={{background:'rgba(29,158,117,.15)',border:'1px solid #1D9E7555',borderRadius:6,padding:'5px 8px',cursor:'pointer',color:'#1D9E75'}}>
@@ -12596,7 +12596,7 @@ function FinRecorrencia({ onNovoContrato }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FINANCEIRO — wrapper com tabs (Dashboard · Recorrência · Despesas · Fluxo)
+// FINANCEIRO - wrapper com tabs (Dashboard · Recorrência · Despesas · Fluxo)
 // ═══════════════════════════════════════════════════════════════
 function Financeiro() {
   const [tab, setTab] = useState('dashboard');
@@ -12695,7 +12695,7 @@ function Financeiro() {
         ))}
       </div>
 
-      {/* Render condicional da tab — todas recebem mesFiltro */}
+      {/* Render condicional da tab - todas recebem mesFiltro */}
       {tab === 'dashboard'   && <FinDashboard mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
       {tab === 'recorrencia' && <FinRecorrencia mesFiltro={mesFiltro}/>}
       {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag}/>}
@@ -12771,7 +12771,7 @@ function calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, cai
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TAB 1: VISÃO GERAL (Dashboard) — KPIs reais + projeção
+// TAB 1: VISÃO GERAL (Dashboard) - KPIs reais + projeção
 // ─────────────────────────────────────────────────────────────────
 function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   // mesFiltro = "YYYY-MM" (vem do Financeiro pai), default = mês atual
@@ -12781,7 +12781,7 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
   const mesAtualLabel = refDate.toLocaleDateString('pt-BR', { month:'long' });
   const extratoReal = useExtratoBancario();
 
-  // Cálculo REAL baseado no extrato bancário (dados importados do BTG) — usa mesFiltro
+  // Cálculo REAL baseado no extrato bancário (dados importados do BTG) - usa mesFiltro
   const inicioMes = new Date(ano, mes - 1, 1).toISOString().slice(0,10);
   const fimMes = new Date(ano, mes, 0).toISOString().slice(0,10);
   const movimentoMes = (extratoReal || []).filter(e => !e.ignorado && e.data >= inicioMes && e.data <= fimMes);
@@ -12789,7 +12789,7 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
   const saidasReais = Math.abs(movimentoMes.filter(e => e.valor < 0).reduce((s,e) => s + Number(e.valor), 0));
   const lucroReal = entradasReais - saidasReais;
 
-  // Receita recorrente — usa status_fase (Sprint D)
+  // Receita recorrente - usa status_fase (Sprint D)
   const recAtivaMensal = recorrencia
     .filter(r => r.status_fase === 'ativo')
     .reduce((s,r) => s + (r.mensal||0), 0);
@@ -12849,7 +12849,7 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
 
       <ProjecaoMRR data={recorrencia}/>
 
-      {/* Comparativo REAL — extrato bancário dos últimos 6 meses */}
+      {/* Comparativo REAL - extrato bancário dos últimos 6 meses */}
       <CompararEntradasSaidas extrato={extratoReal}/>
     </div>
   );
@@ -12914,7 +12914,7 @@ function CompararEntradasSaidas({ extrato }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TAB 3: DESPESAS — CRUD com edição inline + toggle pago/mês
+// TAB 3: DESPESAS - CRUD com edição inline + toggle pago/mês
 // ─────────────────────────────────────────────────────────────────
 function FinDespesas({ mesFiltro, despesas, despesasPag }) {
   const [editando, setEditando] = useState(null);
@@ -12969,7 +12969,7 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
         ))}
       </div>
 
-      {/* SAÍDAS REAIS DO EXTRATO BANCÁRIO — não conciliadas neste mês */}
+      {/* SAÍDAS REAIS DO EXTRATO BANCÁRIO - não conciliadas neste mês */}
       {saidasNaoConciliadas.length > 0 && (
         <div className="card" style={{padding:'14px 16px', marginBottom:14, border:'1px solid rgba(186,117,23,.35)', background:'rgba(186,117,23,.06)'}}>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
@@ -13055,7 +13055,7 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
                     </td>
                     <td style={{padding:'10px 14px', color:'var(--t1)', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {Number(d.valor).toLocaleString('pt-BR')}</td>
                     <td style={{padding:'10px 14px', color:'var(--t2)', fontSize:12.5}}>
-                      {d.recorrente ? `Mensal · dia ${d.dia_vencimento || '?'}` : `Avulso · ${d.data_unica ? formatBR(d.data_unica) : '—'}`}
+                      {d.recorrente ? `Mensal · dia ${d.dia_vencimento || '?'}` : `Avulso · ${d.data_unica ? formatBR(d.data_unica) : '-'}`}
                     </td>
                     <td style={{padding:'10px 14px'}}>
                       <button onClick={()=>setDespesaPagamento(d.id, ymHoje, pago ? null : { pago:true, data: hojeISO(), valor_pago: d.valor })}
@@ -13368,7 +13368,7 @@ function DespesaHistoricoModal({ despesa, despesasPag, onClose }) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// TAB 4: FLUXO DE CAIXA — extrato + lançamento avulso + projeção
+// TAB 4: FLUXO DE CAIXA - extrato + lançamento avulso + projeção
 // ─────────────────────────────────────────────────────────────────
 function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const [editando, setEditando] = useState(null);
@@ -13417,7 +13417,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     }
   };
 
-  // FLUXO DE CAIXA REAL — apenas extrato bancário + lançamentos manuais
+  // FLUXO DE CAIXA REAL - apenas extrato bancário + lançamentos manuais
   // Removida a simulação por recorrência/despesa (que duplicava com o real do BTG)
   const extrato = React.useMemo(() => {
     const itens = [];
@@ -13440,7 +13440,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     });
     // 2) Lançamentos manuais avulsos (caixa_lancamentos sem vínculo com extrato)
     caixa.forEach(l => {
-      // Pula se já foi gerado por conciliação de extrato (origem='banco') — evita duplicar
+      // Pula se já foi gerado por conciliação de extrato (origem='banco') - evita duplicar
       const jaNoExtrato = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
       if (jaNoExtrato) return;
       itens.push({
@@ -13527,7 +13527,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         </div>
       )}
 
-      {/* KPIs — TUDO REAL do extrato (sem projeções/simulações) */}
+      {/* KPIs - TUDO REAL do extrato (sem projeções/simulações) */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
           { label:'Saldo no banco (BTG)',    val:`R$ ${saldoAtual.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,    icon:'Wallet',          color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
@@ -13742,7 +13742,7 @@ function CaixaLancamentoModal({ lancamento, onClose }) {
 
 // ─────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────
-// CONCILIAÇÃO INTELIGENTE — modal estilo black brava
+// CONCILIAÇÃO INTELIGENTE - modal estilo black brava
 // Lista lançamentos não conciliados com sugestões + ações manuais
 // ─────────────────────────────────────────────────────────────────
 function ConciliacaoModal({ onClose }) {
@@ -14085,7 +14085,7 @@ function EscolherCliente({ isEntrada, recorrencia, despesas, onCancelar, onEscol
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CLIENTES CRM — página principal de cadastro/gestão de clientes
+// CLIENTES CRM - página principal de cadastro/gestão de clientes
 // ═══════════════════════════════════════════════════════════════
 function ClientesCRM() {
   const { list: clientes, loading } = useClientes();
@@ -14096,7 +14096,7 @@ function ClientesCRM() {
   const [filtroCompleto, setFiltroCompleto] = React.useState('todos'); // todos | completo | incompleto
   const [view, setView] = React.useState('cards'); // cards | tabela
 
-  // Estatísticas dos clientes (projetos + MRR) — buscamos uma vez via SQL
+  // Estatísticas dos clientes (projetos + MRR) - buscamos uma vez via SQL
   const recorrencia = useRecorrencia();
   const statsPorCliente = React.useMemo(() => {
     const m = new Map();
@@ -14328,7 +14328,7 @@ function ClientesCRM() {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// CLIENTE CADASTRO MODAL — estilo black brava (Sprint C.1.4)
+// CLIENTE CADASTRO MODAL - estilo black brava (Sprint C.1.4)
 // 4 seções: Identificação, Contato, Endereço, Comercial
 // ─────────────────────────────────────────────────────────────────
 function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
@@ -14588,7 +14588,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Porte</label>
                 <select style={inp} value={form.porte} onChange={e=>set('porte', e.target.value)}>
-                  <option value="">—</option>
+                  <option value="">-</option>
                   <option value="micro">Micro</option>
                   <option value="pequena">Pequena</option>
                   <option value="media">Média</option>
@@ -14613,7 +14613,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
                 </label>
                 <select style={{...inp, borderLeft: `3px solid ${getStatusByKey(statusConfig, form.status).cor}`}} value={form.status} onChange={e=>set('status', e.target.value)}>
                   {(statusConfig || []).map(s => (
-                    <option key={s.key} value={s.key}>{s.label}{s.descricao ? ` — ${s.descricao}` : ''}</option>
+                    <option key={s.key} value={s.key}>{s.label}{s.descricao ? ` - ${s.descricao}` : ''}</option>
                   ))}
                 </select>
               </div>
@@ -14703,7 +14703,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// PROJETOS CRM — Sprint G.1 + G.2
+// PROJETOS CRM - Sprint G.1 + G.2
 // Aba dedicada pra projetos (projetos): lista cards agrupados,
 // filtros por status_fase, modal de criar/editar com parcelas
 // ═════════════════════════════════════════════════════════════════
@@ -14865,7 +14865,7 @@ function ProjetosCRM() {
                   </div>
                   <div>
                     <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Nicho</div>
-                    <div style={{color:'var(--t2)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.nicho || '—'}</div>
+                    <div style={{color:'var(--t2)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.nicho || '-'}</div>
                   </div>
                 </div>
               </div>
@@ -15006,7 +15006,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Cliente mestre *</label>
               <select style={inp} value={form.cliente_id} onChange={e=>set('cliente_id', e.target.value)}>
-                <option value="">— Selecione um cliente —</option>
+                <option value="">- Selecione um cliente -</option>
                 {(clientes||[]).map(c => <option key={c.id} value={c.id}>{c.nome} {c.cnpj_cpf ? `· ${c.cnpj_cpf}` : ''}</option>)}
               </select>
               {!form.cliente_id && <div style={{fontSize:10.5, color:'#ff8585', marginTop:4}}>⚠ Sem cliente, o projeto fica órfão e não aparece no Cliente 360</div>}
@@ -15153,7 +15153,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
 }
 
 // ═════════════════════════════════════════════════════════════════
-// CLIENTE 360 MODAL — Sprint E.5
+// CLIENTE 360 MODAL - Sprint E.5
 // Modal grande com tabs Resumo / Projetos / Pagamentos / Anexos / Editar
 // Quando cliente novo (sem id), vai direto pra Editar
 // ═════════════════════════════════════════════════════════════════
@@ -15291,7 +15291,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
         ))}
       </div>
 
-      {/* Identificação — TUDO editável inline */}
+      {/* Identificação - TUDO editável inline */}
       <SecaoLabel icon="Building2">Identificação <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
         <InfoCardEdit label={cliente.tipo_pessoa === 'PF' ? 'CPF' : 'CNPJ'} value={cliente.cnpj_cpf} field="cnpj_cpf" clienteId={cliente.id} placeholder={cliente.tipo_pessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}/>
@@ -15340,7 +15340,7 @@ function InfoCard({ label, value }) {
   );
 }
 
-// Card editável inline — click pra editar, blur ou Enter pra salvar, Escape pra cancelar
+// Card editável inline - click pra editar, blur ou Enter pra salvar, Escape pra cancelar
 function InfoCardEdit({ label, value, field, clienteId, type = 'text', placeholder, onAfter }) {
   const [editando, setEditando] = React.useState(false);
   const [val, setVal] = React.useState(value || '');
@@ -15394,7 +15394,7 @@ function InfoCardEdit({ label, value, field, clienteId, type = 'text', placehold
         />
       ) : (
         <div style={{fontSize:13, color: value ? 'var(--t1)' : 'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-          {value || <span style={{fontStyle:'italic'}}>— clique pra preencher —</span>}
+          {value || <span style={{fontStyle:'italic'}}>- clique pra preencher -</span>}
         </div>
       )}
     </div>
@@ -15513,7 +15513,7 @@ function Mini({ label, value, cor }) {
 // ─── TAB: Pagamentos ───
 function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
   const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '—';
+  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '-';
   const [editandoId, setEditandoId] = React.useState(null);
 
   if (extrato.length === 0) {
@@ -15600,7 +15600,7 @@ function VincularProjetoModal({ extratoId, projetos, onClose }) {
         <select autoFocus value={projetoId} onChange={e=>setProjetoId(e.target.value)} style={{
           width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13, marginBottom:14,
         }}>
-          <option value="">— Escolha o projeto —</option>
+          <option value="">- Escolha o projeto -</option>
           {projetos.map(p => <option key={p.projeto_id} value={p.projeto_id}>{p.projeto_nome}</option>)}
         </select>
         <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
@@ -15614,7 +15614,7 @@ function VincularProjetoModal({ extratoId, projetos, onClose }) {
   );
 }
 
-// ─── TAB: Anexos — upload, link, delete, tudo dinâmico ───
+// ─── TAB: Anexos - upload, link, delete, tudo dinâmico ───
 function Cliente360TabAnexos({ cliente, projetos }) {
   const [anexos, setAnexos] = React.useState([]);
   const [projetoId, setProjetoId] = React.useState('');
@@ -15647,7 +15647,7 @@ function Cliente360TabAnexos({ cliente, projetos }) {
     if (!projetoId && projetos.length > 0) setProjetoId(projetos[0].projeto_id);
   }, [projetos.length, projetoId]);
 
-  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '—';
+  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '-';
   const CATEGORIAS = ['Proposta','Contrato','Diagrama','Briefing','Apresentação','Outro'];
 
   const onUploadFile = async (e) => {
@@ -15781,7 +15781,7 @@ function Cliente360TabAnexos({ cliente, projetos }) {
   );
 }
 
-// IMPORTAR EXTRATO BANCÁRIO — modal estilo black brava
+// IMPORTAR EXTRATO BANCÁRIO - modal estilo black brava
 // Parse 100% client-side via SheetJS. Arquivo NUNCA sai do browser.
 // ─────────────────────────────────────────────────────────────────
 function ImportarExtratoModal({ onClose }) {
@@ -16003,7 +16003,7 @@ function DragPlaceholder({ cor, h }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// PIPELINE — modal estilo Trello + hooks de banco
+// PIPELINE - modal estilo Trello + hooks de banco
 // ═══════════════════════════════════════════════════════════════
 
 // Mapa LocalStorage card.id → uuid no banco (preenchido on-demand)
@@ -16436,7 +16436,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
       }}>
         {/* Header */}
         <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
-          {/* ✨ Avatar editável — click upload */}
+          {/* ✨ Avatar editável - click upload */}
           <div style={{position:'relative', flexShrink:0}}>
             <input ref={fileInputRef} type="file" accept="image/*" onChange={onUploadFoto} style={{display:'none'}}/>
             <div onClick={()=>!uploadingFoto && fileInputRef.current?.click()}
@@ -16526,7 +16526,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
                       width:'100%', padding:'8px 10px', borderRadius:7,
                       background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13,
                     }}>
-                    <option value="">— Ninguém</option>
+                    <option value="">- Ninguém</option>
                     {membros.map(m => <option key={m.user_id} value={m.user_id}>{m.nome || m.email}</option>)}
                   </select>
                 </div>
@@ -16782,7 +16782,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
 }
 
 // ═════════════════════════════════════════════════════════════════
-// PIPELINE PROJETOS — Sprint F.2
+// PIPELINE PROJETOS - Sprint F.2
 // Lê projetos (projetos) agrupados por status_fase (fin_status_config)
 // Drag-and-drop atualiza status_fase no banco, click abre Cliente 360
 // ═════════════════════════════════════════════════════════════════
@@ -17496,7 +17496,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             <div>
               <SecaoLabel icon="Calendar">Vencimento</SecaoLabel>
               <select value={form.dia} onChange={upd('dia')} style={inp}>
-                <option value="">—</option>
+                <option value="">-</option>
                 <option>Dia 5</option><option>Dia 10</option><option>Dia 15</option><option>Dia 20</option><option>Dia 30</option>
               </select>
             </div>
@@ -18058,7 +18058,7 @@ function Agenda() {
     if (ini.getMonth() === fim.getMonth()) {
       return `${ini.getDate()} a ${fim.getDate()} de ${AG_MESES[ini.getMonth()]} de ${ini.getFullYear()}`;
     }
-    return `${ini.getDate()} ${AG_MESES_CURTO[ini.getMonth()]} – ${fim.getDate()} ${AG_MESES_CURTO[fim.getMonth()]} de ${fim.getFullYear()}`;
+    return `${ini.getDate()} ${AG_MESES_CURTO[ini.getMonth()]} - ${fim.getDate()} ${AG_MESES_CURTO[fim.getMonth()]} de ${fim.getFullYear()}`;
   }, [refDate, vista]);
 
   const navPeriodo = (d) => {
@@ -18220,7 +18220,7 @@ function useSyncEvoConfig() {
     if (!instances || instances.length === 0) return;
     let inst = instances.find(i => i.id === activeId);
     if (inst) {
-      // Instancia encontrada — sincroniza EVO_KEY_CFG se mudou
+      // Instancia encontrada - sincroniza EVO_KEY_CFG se mudou
       const cur = getEvoConfig();
       if (!cur || cur.url !== inst.evolution_url || cur.instance !== inst.evolution_instance_name || cur.apikey !== inst.evolution_apikey) {
         setEvoConfigStore({
@@ -18245,7 +18245,7 @@ function useSyncEvoConfig() {
       }
       return;
     }
-    // Instancia nao encontrada — espera grace period pra ver se aparece via Realtime
+    // Instancia nao encontrada - espera grace period pra ver se aparece via Realtime
     // (cobre o caso de INSERT recente que ainda nao propagou)
     const graceTimer = setTimeout(() => {
       // Re-checa: alguma instancia com esse id apareceu?

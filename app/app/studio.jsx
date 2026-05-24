@@ -1,4 +1,4 @@
-/* Brava Studio de Implementação — 7 telas
+/* Brava Studio de Implementação - 7 telas
    Welcome → Identity → WhatsApp → Team → AI → Preparing → Ready
 */
 
@@ -15,7 +15,7 @@ const STEPS = [
 
 
 /* ──────────────────────────────────────────────────────────
-   Top bar — progress + autosave + workspace pill
+   Top bar - progress + autosave + workspace pill
    ────────────────────────────────────────────────────────── */
 function StudioTop({ stepIdx, totalSteps, autosaved, hideProgress }) {
   return (
@@ -41,7 +41,7 @@ function StudioTop({ stepIdx, totalSteps, autosaved, hideProgress }) {
 }
 
 /* ──────────────────────────────────────────────────────────
-   1 — Welcome
+   1 - Welcome
    ────────────────────────────────────────────────────────── */
 function WelcomeScreen({ onStart, customerName }) {
   return (
@@ -89,7 +89,7 @@ Leva de 15 a 30 minutos</strong>.
 }
 
 /* ──────────────────────────────────────────────────────────
-   Step shell — title + body + footer (continue / back)
+   Step shell - title + body + footer (continue / back)
    ────────────────────────────────────────────────────────── */
 function StepShell({ eyebrow, title, lead, children, onBack, onNext, nextLabel = 'Continuar', nextDisabled, secondary }) {
   return (
@@ -120,7 +120,7 @@ function StepShell({ eyebrow, title, lead, children, onBack, onNext, nextLabel =
 }
 
 /* ──────────────────────────────────────────────────────────
-   2 — Identity (logo, slug, color) with live preview
+   2 - Identity (logo, slug, color) with live preview
    ────────────────────────────────────────────────────────── */
 const COLOR_PRESETS = [
 { name: 'Roxo Brava', hex: '#7B3FE4' },
@@ -377,7 +377,7 @@ function IdentityStep({ data, setData, onBack, onNext }) {
 }
 
 /* ──────────────────────────────────────────────────────────
-   3 — WhatsApp connect (mode picker + QR)
+   3 - WhatsApp connect (mode picker + QR)
    ────────────────────────────────────────────────────────── */
 function WhatsappStep({ data, setData, onBack, onNext }) {
   const [mode, setMode] = useState(data.waMode || null);
@@ -506,7 +506,7 @@ function QrSvg({ size = 200, seed = 'brava' }) {
 }
 
 /* ──────────────────────────────────────────────────────────
-   4 — Team (admin, members, plan limit bar)
+   4 - Team (admin, members, plan limit bar)
    ────────────────────────────────────────────────────────── */
 function TeamStep({ data, setData, onBack, onNext, customer }) {
   const members = data.members || [{ name: customer?.name || 'Você', email: customer?.email || 'voce@empresa.com', role: 'admin', isOwner: true }];
@@ -585,14 +585,14 @@ function TeamStep({ data, setData, onBack, onNext, customer }) {
 
       <div className="st-help">
         <Icon name="Info" size={16} />
-        <p>Os convites <strong>só serão enviados quando você concluir as 4 etapas</strong> e a Brava aprovar — assim ninguém cai num sistema vazio.</p>
+        <p>Os convites <strong>só serão enviados quando você concluir as 4 etapas</strong> e a Brava aprovar - assim ninguém cai num sistema vazio.</p>
       </div>
     </StepShell>);
 
 }
 
 /* ──────────────────────────────────────────────────────────
-   5 — AI training
+   5 - AI training
    ────────────────────────────────────────────────────────── */
 const TONES = [
 { key: 'formal', label: 'Formal e profissional', sample: '"Prezado cliente, agradecemos seu contato."' },
@@ -644,7 +644,7 @@ function AIStep({ data, setData, onBack, onFinish }) {
     <StepShell
       eyebrow="Etapa 4/4"
       title="Vamos ensinar a IA a falar como sua empresa"
-      lead="Quanto mais detalhes você der, melhor o agente vai responder seus clientes. Não se preocupe em dar todas as respostas perfeitas agora — nossa equipe revisa antes de ativar."
+      lead="Quanto mais detalhes você der, melhor o agente vai responder seus clientes. Não se preocupe em dar todas as respostas perfeitas agora - nossa equipe revisa antes de ativar."
       onBack={onBack}
       onNext={onFinish}
       nextLabel="Concluir">
@@ -731,7 +731,7 @@ function AIStep({ data, setData, onBack, onFinish }) {
               <div className="onb-ai__msg onb-ai__msg--out">
                 <span className="onb-ai__avatar onb-ai__avatar--brand">AI</span>
                 <div className="onb-ai__bubble onb-ai__bubble--brand">
-                  {ai.greeting?.split('!')[0]?.trim() || 'Olá'}! Atendemos sim — sábado, das 8h às 12h. Quer que eu te reserve um horário?
+                  {ai.greeting?.split('!')[0]?.trim() || 'Olá'}! Atendemos sim - sábado, das 8h às 12h. Quer que eu te reserve um horário?
                 </div>
               </div>
             </div>
@@ -761,7 +761,7 @@ function AIStep({ data, setData, onBack, onFinish }) {
 }
 
 /* ──────────────────────────────────────────────────────────
-   6 — Preparing system
+   6 - Preparing system
    ────────────────────────────────────────────────────────── */
 const PREP_TASKS = [
 { label: 'Aplicando sua identidade visual', ms: 1400 },
@@ -819,7 +819,7 @@ function PreparingScreen({ onForceReady }) {
 }
 
 /* ──────────────────────────────────────────────────────────
-   7 — System ready
+   7 - System ready
    ────────────────────────────────────────────────────────── */
 function ReadyScreen({ data, onRestart }) {
   const slug = data?.slug || 'clinicabemestar';
@@ -882,7 +882,7 @@ function ReadyScreen({ data, onRestart }) {
       </div>
     </main>);}
 /* ──────────────────────────────────────────────────────────
-   App container — manages screen state + autosave indicator
+   App container - manages screen state + autosave indicator
    ────────────────────────────────────────────────────────── */
 const ALL_SCREENS = ['welcome', 'identity', 'whatsapp', 'team', 'ai', 'preparing', 'ready'];
 

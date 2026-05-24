@@ -1,4 +1,4 @@
-// Brand Proof — establishes the Brava visual language before product screens.
+// Brand Proof - establishes the Brava visual language before product screens.
 // Sections: Logo lockup, Color palette, Typography, Component primitives.
 
 const BrandProof = ({ onContinue }) => {
@@ -18,8 +18,8 @@ const BrandProof = ({ onContinue }) => {
             <span className="bp-hero__t2">Brava</span>
           </h1>
           <p className="bp-hero__sub">
-            Fundação visual do CRM multi-tenant. Tudo que você ver daqui em diante — login, onboarding,
-            workspace, painel admin — sai destes tokens. Premium B2B. Zero emoji. Gradiente roxo→azul como
+            Fundação visual do CRM multi-tenant. Tudo que você ver daqui em diante - login, onboarding,
+            workspace, painel admin - sai destes tokens. Premium B2B. Zero emoji. Gradiente roxo→azul como
             assinatura, nunca como ruído.
           </p>
 
@@ -54,7 +54,7 @@ const BrandProof = ({ onContinue }) => {
           <span className="bp-section__num">01</span>
           <div>
             <h2 className="bp-section__title">Paleta</h2>
-            <p className="bp-section__sub">Roxo→azul é assinatura. Off-white #F0F0F0 é o claro oficial — nunca branco puro.</p>
+            <p className="bp-section__sub">Roxo→azul é assinatura. Off-white #F0F0F0 é o claro oficial - nunca branco puro.</p>
           </div>
         </header>
 
@@ -120,7 +120,7 @@ const BrandProof = ({ onContinue }) => {
             <div className="bp-type__sample">
               <p className="bp-type__body">
                 Corpo de texto a 17px com altura confortável e contraste alto. O Brava CRM roda em dark
-                por padrão e usa light off-white quando o atendente prefere — mas o conteúdo, a hierarquia
+                por padrão e usa light off-white quando o atendente prefere - mas o conteúdo, a hierarquia
                 e o ritmo continuam idênticos.
               </p>
               <p className="bp-type__caption">Caption · 14px · usado em metadados, timestamps e legendas.</p>
@@ -232,8 +232,8 @@ const BrandProof = ({ onContinue }) => {
           {[
             ['Gradiente é assinatura, não fundo', 'Aplicado em CTAs, headlines com palavra-chave, bordas de destaque, ícones-chave. Nunca em corpo de texto longo nem em fundo de seção inteira.'],
             ['Zero emoji, sempre', 'Toda iconografia é Lucide (line, 1.5px). Status visuais usam cor, não pictograma. Empty states usam ícone monocromático grande a 30-40% de opacidade.'],
-            ['Off-white > branco puro', 'Modo claro vive em #F0F0F0. Branco puro fica reservado para cards e superfícies elevadas — cria respiração sem aspecto clínico.'],
-            ['Hierarquia carrega o sistema', 'Display em Space Grotesk dá identidade. Inter no corpo dá leitura. Três pesos — não cinco.'],
+            ['Off-white > branco puro', 'Modo claro vive em #F0F0F0. Branco puro fica reservado para cards e superfícies elevadas - cria respiração sem aspecto clínico.'],
+            ['Hierarquia carrega o sistema', 'Display em Space Grotesk dá identidade. Inter no corpo dá leitura. Três pesos - não cinco.'],
           ].map(([t, d], i) => (
             <div key={i} className="bp-princ__item">
               <span className="bp-princ__num">{String(i + 1).padStart(2, '0')}</span>

@@ -1,4 +1,4 @@
-// Auth screens — Login, Signup (vindo do Stripe), Esqueci senha.
+// Auth screens - Login, Signup (vindo do Stripe), Esqueci senha.
 // Conectado ao Supabase Auth (window.supabase).
 
 // Helper: traduz erros comuns do Supabase pra mensagens amigáveis em PT
@@ -318,7 +318,7 @@ const ForgotScreen = ({ onNav }) => {
             <p className="auth-card__sub">Se houver uma conta para <b>{email}</b>, você receberá em instantes um link para criar uma nova senha.</p>
             <div className="auth-card__hints">
               <div><Icon name="Clock" size={14} /> O link expira em 1 hora</div>
-              <div><Icon name="Lock" size={14} /> Uso único — depois é invalidado</div>
+              <div><Icon name="Lock" size={14} /> Uso único - depois é invalidado</div>
               <div><Icon name="Info" size={14} /> Não recebeu? Confira o spam ou tente novamente</div>
             </div>
             <Button variant="ghost" size="md" fullWidth onClick={() => setSent(false)}>Reenviar para outro e-mail</Button>

@@ -45,7 +45,7 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
     bizModel: 'gpt-4o-mini',
     // Contexto adicional pro agente
     bizPublico: 'b2c',
-    bizLocalizacao: 'Av. Washington Luís, 7059 — Congonhas, São Paulo/SP',
+    bizLocalizacao: 'Av. Washington Luís, 7059 - Congonhas, São Paulo/SP',
     bizTicketMedio: 'R$ 200',
     bizProdutos: 'Diárias de R$ 49 (sem teto) e R$ 65 (cobertas). Lavagem completa R$ 35. Lavagem premium R$ 75. Pacotes semanais com 10% de desconto.',
     bizDiferenciais: 'Único da região com transfer gratuito 24h, câmeras IP em todas as vagas, seguro contra furto incluso, app de acompanhamento.',
@@ -191,9 +191,9 @@ const ColorPickerCustom = ({ value, onChange, ativo, corAtiva }) => {
   );
 };
 
-// ───────── Step 1 — Workspace ─────────
+// ───────── Step 1 - Workspace ─────────
 
-// Helpers de cor — contraste automático
+// Helpers de cor - contraste automático
 const hexToRgb = (h) => {
   const c = (h || '#000000').replace('#','');
   return [parseInt(c.substr(0,2),16), parseInt(c.substr(2,2),16), parseInt(c.substr(4,2),16)];
@@ -219,7 +219,7 @@ const StepWorkspace = ({ data, update }) => {
   const navBg     = primary;
   const navText   = textOn(primary);
   const navTextMuted = textOn(primary) === '#FFFFFF' ? 'rgba(255,255,255,.65)' : 'rgba(10,10,15,.6)';
-  // Conteúdo principal — segue o tema escolhido (light/dark)
+  // Conteúdo principal - segue o tema escolhido (light/dark)
   const bg       = dark ? '#0E0E14' : '#F5F5F5';
   const bgSub    = dark ? '#15151E' : '#FFFFFF';
   const border   = dark ? '#2A2A3A' : '#E6E6E6';
@@ -536,7 +536,7 @@ const StepWorkspace = ({ data, update }) => {
   );
 };
 
-// ───────── Step 2 — Channel ─────────
+// ───────── Step 2 - Channel ─────────
 
 // Sanitiza um slug pra virar instance_name valido na Evolution
 // (alfanumerico, _, -, sem espacos, 3-32 chars).
@@ -547,7 +547,7 @@ function _instanceNameFromSlug(slug) {
   let out = '';
   for (let i = 0; i < normalized.length && out.length < 32; i++) {
     const code = normalized.charCodeAt(i);
-    // Combining diacritical marks: U+0300 (768) a U+036F (879) — pula
+    // Combining diacritical marks: U+0300 (768) a U+036F (879) - pula
     if (code >= 0x0300 && code <= 0x036f) continue;
     const ch = normalized[i];
     // Mantém A-Z, a-z, 0-9, _, -
@@ -761,7 +761,7 @@ const StepChannel = ({ data, update }) => {
   );
 };
 
-// ───────── Step 3 — Team ─────────
+// ───────── Step 3 - Team ─────────
 
 const StepTeam = ({ data, update }) => {
   const setInvite = (i, patch) => {
@@ -841,7 +841,7 @@ const StepTeam = ({ data, update }) => {
   );
 };
 
-// ───────── Step 4 — AI Agent ─────────
+// ───────── Step 4 - AI Agent ─────────
 
 const StepAI = ({ data, update }) => {
   const tones = [
@@ -865,7 +865,7 @@ const StepAI = ({ data, update }) => {
       <div className="onb-card__head">
         <span className="onb-card__step">Passo 04 · Agente IA</span>
         <h1>Treine o agente com o contexto do negócio</h1>
-        <p>Quanto mais específico, melhor a resposta. Tudo isso vira o prompt do agente — você pode revisar depois em Configurações → Agente IA.</p>
+        <p>Quanto mais específico, melhor a resposta. Tudo isso vira o prompt do agente - você pode revisar depois em Configurações → Agente IA.</p>
       </div>
 
       <div className="onb-card__body onb-ai">
@@ -900,8 +900,8 @@ const StepAI = ({ data, update }) => {
               <div className="bv-field">
                 <label className="bv-label">Tipo de cliente</label>
                 <select className="onb-select" value={data.bizPublico} onChange={e => update({ bizPublico: e.target.value })}>
-                  <option value="b2c">B2C — vende para pessoa física</option>
-                  <option value="b2b">B2B — vende para empresas</option>
+                  <option value="b2c">B2C - vende para pessoa física</option>
+                  <option value="b2b">B2B - vende para empresas</option>
                   <option value="ambos">Ambos B2B e B2C</option>
                 </select>
               </div>
@@ -932,7 +932,7 @@ const StepAI = ({ data, update }) => {
 
             <div className="bv-field">
               <label className="bv-label">Produtos / serviços principais (com preços)</label>
-              <textarea className="onb-textarea" rows={3} value={data.bizProdutos} onChange={e => update({ bizProdutos: e.target.value })} placeholder="Ex: Plano Básico R$ 99/mês — inclui X, Y, Z. Plano Pro R$ 299/mês..." />
+              <textarea className="onb-textarea" rows={3} value={data.bizProdutos} onChange={e => update({ bizProdutos: e.target.value })} placeholder="Ex: Plano Básico R$ 99/mês - inclui X, Y, Z. Plano Pro R$ 299/mês..." />
               <div className="bv-hint">A IA usa isso pra cotar valores na hora.</div>
             </div>
 
@@ -1011,7 +1011,7 @@ const StepAI = ({ data, update }) => {
             <div className="bv-field" style={{marginTop:14}}>
               <label className="bv-label">Limitações (o que a IA NÃO pode fazer/prometer)</label>
               <textarea className="onb-textarea" rows={2} value={data.bizLimitacoes} onChange={e => update({ bizLimitacoes: e.target.value })} placeholder="Coisas que devem ser evitadas pela IA" />
-              <div className="bv-hint" style={{color:'#A32D2D'}}>Crítico — protege a empresa de promessas indevidas.</div>
+              <div className="bv-hint" style={{color:'#A32D2D'}}>Crítico - protege a empresa de promessas indevidas.</div>
             </div>
 
             <div className="bv-field" style={{marginTop:14}}>
@@ -1097,7 +1097,7 @@ const StepAI = ({ data, update }) => {
               </div>
               <div className="onb-ai__meter-bar"><div style={{ width: `${completeness}%` }} /></div>
               <div className="onb-ai__meter-hint">
-                {completeness >= 75 ? 'Excelente — agente vai responder com confiança.' : completeness >= 40 ? 'Bom — adicione mais detalhes para reduzir respostas vagas.' : 'Mínimo. Adicione FAQ e horário antes de ativar.'}
+                {completeness >= 75 ? 'Excelente - agente vai responder com confiança.' : completeness >= 40 ? 'Bom - adicione mais detalhes para reduzir respostas vagas.' : 'Mínimo. Adicione FAQ e horário antes de ativar.'}
               </div>
             </div>
           </div>

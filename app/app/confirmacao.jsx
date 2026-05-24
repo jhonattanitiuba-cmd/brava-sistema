@@ -47,7 +47,7 @@ const ConfirmacaoScreen = ({ onContinue }) => {
             Conta criada!
           </h2>
           <p style={{ color: 'var(--text-2)', margin: '0 0 28px', lineHeight: 1.55 }}>
-            Seu workspace está sendo preparado. Agora vamos configurar tudo juntos — leva menos de 5 minutos.
+            Seu workspace está sendo preparado. Agora vamos configurar tudo juntos - leva menos de 5 minutos.
           </p>
           <button
             className="bv-btn bv-btn--primary bv-btn--lg bv-btn--full"

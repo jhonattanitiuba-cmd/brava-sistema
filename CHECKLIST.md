@@ -82,7 +82,7 @@ Esperado: `wa_chats`, `wa_contatos`, `wa_instancias`, `wa_mensagens`.
 - [ ] Após pagamento de teste, usuário aparece em `mrr_clients` com status correto
 - [ ] Webhook do Stripe ativo no dashboard.stripe.com
 
-## 7. Banco — Saúde Geral
+## 7. Banco - Saúde Geral
 
 ```sql
 -- Tamanho das tabelas principais
@@ -119,7 +119,7 @@ ORDER BY pg_total_relation_size(C.oid) DESC;
 |---|---|---|
 | Lista de chats vazia no admin | Sync histórico não rodou | `wa-sync-history` + `wa_reconcile_chats` |
 | Mensagens novas não aparecem | WS caído / token expirado | F5 no admin; ver realtime logs |
-| 500 no `wa-webhook` em mensagens de mídia | Long.js do Baileys (`{low,high}` em bigint) | **CORRIGIDO em v6** com `toNumber()` — não deve mais ocorrer |
+| 500 no `wa-webhook` em mensagens de mídia | Long.js do Baileys (`{low,high}` em bigint) | **CORRIGIDO em v6** com `toNumber()` - não deve mais ocorrer |
 | 500 no `wa-webhook` em outros payloads | Evolution mandando payload novo | Ver `wa_eventos_log` onde `event_type LIKE '%error%'` |
 | Intro toca duas vezes | bfcache do browser | Já mitigado, mas verificar se persiste |
 | IA não responde | Edge `wa-ia-responder` 500 ou OpenAI quota | Logs + Supabase secrets |
@@ -139,7 +139,7 @@ Endpoint `/chat/getBase64FromMediaMessage` é assim que mídia é descriptografa
 
 Baileys serializa números grandes (`fileLength`, `seconds`, `messageTimestamp`)
 como objetos Long.js: `{"low": 32645, "high": 0, "unsigned": true}`. Postgres
-não converte isso pra bigint — gera 500 em **toda mensagem de mídia**.
+não converte isso pra bigint - gera 500 em **toda mensagem de mídia**.
 
 **Padrão de defesa** (já aplicado em `wa-webhook` v6 e `wa-sync-history` v4):
 ```ts
@@ -169,21 +169,21 @@ do payload do Evolution/Baileys (qualquer campo da árvore `message.*`).
 
 ## Mapa lógico do banco (ordem de dependência)
 
-Cada tabela tem `COMMENT ON TABLE` no Supabase com o número da camada — clique
+Cada tabela tem `COMMENT ON TABLE` no Supabase com o número da camada - clique
 na tabela no Studio pra ver a descrição.
 
 ```
-Camada 0 — Identidade & Multi-tenant
+Camada 0 - Identidade & Multi-tenant
 ├── [00] workspaces            ← raiz: todo recurso pertence a 1 workspace
 ├── [01] workspace_members     ← quem tem acesso (role: owner/admin/member)
 └── [02] usuarios              ← perfis (espelha auth.users + metadata)
 
-Camada 1 — Billing
+Camada 1 - Billing
 ├── [10] subscriptions         ← Stripe customer_id + price_id ativo
 ├── [11] mrr_clients           ← clientes ativos (snapshot dashboard)
 └── [12] mrr_pagamentos        ← histórico recebimentos confirmados
 
-Camada 2 — WhatsApp / Evolution
+Camada 2 - WhatsApp / Evolution
 ├── [20] wa_instancias         ← 1 por número WhatsApp conectado
 ├── [21] wa_contatos           ← contatos & grupos (1 por jid)
 ├── [22] wa_chats              ← conversas (com last_message_* preview)
@@ -199,5 +199,5 @@ Ex: `wa_mensagens` (23) referencia `wa_chats` (22) que referencia
 Renomear quebraria edge functions, RLS policies, foreign keys, realtime
 publication, função `user_can_access_instancia`, todo o admin JSX. Ganho
 visual no Studio não vale o risco. A solução é o `COMMENT ON TABLE`
-que aparece como descrição ao clicar — ordem lógica preservada sem
+que aparece como descrição ao clicar - ordem lógica preservada sem
 nenhuma quebra.

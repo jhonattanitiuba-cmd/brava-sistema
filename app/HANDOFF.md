@@ -1,4 +1,4 @@
-# Brava CRM — Handoff Visual & Tokens (v1.2)
+# Brava CRM - Handoff Visual & Tokens (v1.2)
 
 > **Para:** Claude Code / Cursor / dev humano
 > **Conteúdo:** decisões visuais já tomadas + tokens prontos para colar em `tailwind.config.js` ou `globals.css`. Use junto com o BRIEF.md original (escopo funcional, multi-tenant, planos, Brava Admin).
@@ -98,13 +98,13 @@ theme: {
 
 ---
 
-## 3. Tipografia — escala adotada
+## 3. Tipografia - escala adotada
 
 | Token | Tamanho | Peso | Família |
 |---|---|---|---|
-| H1 | 56–72px | 700 | Space Grotesk |
-| H2 | 36–44px | 500 | Space Grotesk |
-| H3 | 24–28px | 500 | Space Grotesk |
+| H1 | 56-72px | 700 | Space Grotesk |
+| H2 | 36-44px | 500 | Space Grotesk |
+| H3 | 24-28px | 500 | Space Grotesk |
 | Body | 17px | 400 | Inter |
 | Small | 14px | 500 | Inter |
 | Micro/mono | 12px | 400 | JetBrains Mono |
@@ -133,10 +133,10 @@ Já desenhados no protótipo HTML (referência visual em `Brava CRM.html`). Repl
 
 ## 5. Telas implementadas (referência)
 
-1. **Brand Proof** (`/brand`) — fundação visual, 4 seções: Lockup, Paleta, Tipografia, Primitivos, Princípios.
-2. **Login** (`/login`) — split (painel de marca preto + form claro/escuro). Indicador de workspace (`<slug>.brava.app`). Toggle de senha. Link "Esqueci senha". SSO Enterprise desabilitado.
-3. **Forgot password** (`/forgot-password`) — card centralizado com estados pré e pós-envio (hints de TTL 30min, uso único).
-4. **Onboarding** (`/onboarding`) — wizard de 4 passos com sidebar de progresso:
+1. **Brand Proof** (`/brand`) - fundação visual, 4 seções: Lockup, Paleta, Tipografia, Primitivos, Princípios.
+2. **Login** (`/login`) - split (painel de marca preto + form claro/escuro). Indicador de workspace (`<slug>.brava.app`). Toggle de senha. Link "Esqueci senha". SSO Enterprise desabilitado.
+3. **Forgot password** (`/forgot-password`) - card centralizado com estados pré e pós-envio (hints de TTL 30min, uso único).
+4. **Onboarding** (`/onboarding`) - wizard de 4 passos com sidebar de progresso:
    - **01 Workspace**: nome, slug, upload de logo, color picker (6 presets com Brava destacada), preview ao vivo da sidebar do tenant.
    - **02 Canal**: dois modos (Evolution API com QR code + Cloud API). QR code gerado proceduralmente, com simulação de scan.
    - **03 Equipe**: 3 cards de role, tabela de convites com role select, barra de limite do plano (`X de 10`).
@@ -165,19 +165,19 @@ Já desenhados no protótipo HTML (referência visual em `Brava CRM.html`). Repl
 - Item ativo: fundo `color-mix(in oklab, var(--brava-purple) 12%, transparent)` + borda esquerda 2px gradient.
 - Aba "Suporte" no rodapé, separada por divisor.
 
-### Brava Admin — sinalização visual
+### Brava Admin - sinalização visual
 
 - Topo da sidebar ganha **faixa gradient roxo→azul de 4px** + label `BRAVA ADMIN` em mono.
 - Header ganha banner discreto: "Você está no painel interno Brava".
 
-### Impersonate — banner obrigatório
+### Impersonate - banner obrigatório
 
 - Faixa fixa no topo, fundo `var(--danger)`, altura 40px, texto branco: "Você está vendo como **[Cliente]** · [Sair do modo impersonate]".
 - Body recebe `padding-top: 40px` adicional.
 
 ---
 
-## 7. Iconografia — mapeamento Lucide
+## 7. Iconografia - mapeamento Lucide
 
 | Conceito | Lucide |
 |---|---|
@@ -200,7 +200,7 @@ Já desenhados no protótipo HTML (referência visual em `Brava CRM.html`). Repl
 | Impersonate | `EyeOff` |
 | IA | `Sparkles` |
 
-Tamanhos: 14px inline, 16–18px em botões, 20–24px em headers, 48–64px em empty states (opacidade 30–40%).
+Tamanhos: 14px inline, 16-18px em botões, 20-24px em headers, 48-64px em empty states (opacidade 30-40%).
 
 ---
 
@@ -208,12 +208,12 @@ Tamanhos: 14px inline, 16–18px em botões, 20–24px em headers, 48–64px em 
 
 Em ordem de impacto (cada um é uma tela ou um set):
 
-1. **Dashboard** + **Conversas** (inbox 3 colunas) — coração operacional.
-2. **Pipeline** + **Analytics** — diferencial vs. concorrência básica.
-3. **Configurações** (9 abas + Billing) — fechamento do produto do cliente.
-4. **Aba Suporte do cliente** + **Brava Admin Home** + **Inbox de chamados** — o loop de feedback.
-5. **Tenants & Impersonate** + **Equipe Brava** — operação interna.
-6. **MRR / Planos / Saúde / Logs** — financeiro & técnico.
+1. **Dashboard** + **Conversas** (inbox 3 colunas) - coração operacional.
+2. **Pipeline** + **Analytics** - diferencial vs. concorrência básica.
+3. **Configurações** (9 abas + Billing) - fechamento do produto do cliente.
+4. **Aba Suporte do cliente** + **Brava Admin Home** + **Inbox de chamados** - o loop de feedback.
+5. **Tenants & Impersonate** + **Equipe Brava** - operação interna.
+6. **MRR / Planos / Saúde / Logs** - financeiro & técnico.
 
 ---
 
@@ -224,7 +224,7 @@ Em ordem de impacto (cada um é uma tela ou um set):
 3. **Off-white > branco puro.** Light vive em `#F0F0F0`.
 4. **Três pesos de fonte.** Não cinco.
 5. **Hierarquia carrega o sistema.** Display Space Grotesk faz o trabalho pesado.
-6. **Empresário paga R$ 1.297/mês — o produto tem que parecer R$ 1.297/mês.**
+6. **Empresário paga R$ 1.297/mês - o produto tem que parecer R$ 1.297/mês.**
 
 ---
 

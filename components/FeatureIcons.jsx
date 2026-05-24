@@ -1,6 +1,6 @@
 /* global React */
 // ═══════════════════════════════════════════════════════════════════
-// FEATURE ICONS — ícones contextuais pra features de LP
+// FEATURE ICONS - ícones contextuais pra features de LP
 // ═══════════════════════════════════════════════════════════════════
 // Em vez do mesmo check ✓ repetido em todas as features, esta lib
 // detecta keywords no texto e retorna um SVG específico (Lucide-style).
@@ -14,7 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 // Mapping: cada keyword vira um SVG path
-// Ordem importa — primeira match ganha.
+// Ordem importa - primeira match ganha.
 const _ICON_MAP = [
   // PESSOAS / TIME
   { kw: ['atendent','atendentes','agentes humanos','operador'], svg: 'users' },

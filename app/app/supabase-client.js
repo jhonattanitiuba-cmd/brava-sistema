@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// SUPABASE CLIENT — Brava Sistema
+// SUPABASE CLIENT - Brava Sistema
 // ═══════════════════════════════════════════════════════════
 // Este arquivo cria uma instância única do cliente Supabase
 // e disponibiliza globalmente via window.supabase.

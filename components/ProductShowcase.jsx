@@ -1,6 +1,6 @@
 /* global React */
 // ══════════════════════════════════════════════════════════════════
-// PRODUCT SHOWCASE — galeria 3D perspectiva do admin Brava
+// PRODUCT SHOWCASE - galeria 3D perspectiva do admin Brava
 // Estilo: Apple/Linear/Vercel product page
 // ══════════════════════════════════════════════════════════════════
 // Screenshots esperados em /screenshots/:
@@ -19,8 +19,8 @@ const SCREENS = [
 ];
 
 /* Swoosh muito suave ao trocar de tela
-   — usa contexto compartilhado do brown noise (evita bloqueio de autoplay)
-   — mais lento, mais baixo, mais suave */
+   - usa contexto compartilhado do brown noise (evita bloqueio de autoplay)
+   - mais lento, mais baixo, mais suave */
 function playSwoosh() {
   try {
     // Reutiliza contexto do brown noise (ja autorizado pelo usuario)
@@ -109,7 +109,7 @@ function ProductShowcase() {
           })}
         </div>
 
-        {/* Galeria 3D perspectiva — com animação de entrada por scroll */}
+        {/* Galeria 3D perspectiva - com animação de entrada por scroll */}
         <div className="reveal" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 0, position: 'relative', perspective: '1200px',
@@ -148,10 +148,10 @@ function ProductShowcase() {
                   opacity,
                   zIndex: zIdx,
                   cursor: isActive ? 'default' : 'pointer',
-                  /* Wrapper de wiggle — separado do transform 3D */
+                  /* Wrapper de wiggle - separado do transform 3D */
                 }}
               >
-                {/* Float wrapper — não interfere com transforms 3D do pai */}
+                {/* Float wrapper - não interfere com transforms 3D do pai */}
                 <div style={{
                   animation: `${floatName} ${floatDur}s ease-in-out ${floatDel}s infinite`,
                 }}>
@@ -177,7 +177,7 @@ function ProductShowcase() {
                         '  rgba(30,144,255,.0)  335deg,',   /* escuro */
                         '  rgba(30,144,255,.35) 345deg,',   /* rampa entrada */
                         '  rgba(80,170,255,.80) 352deg,',   /* cauda */
-                        '  rgba(180,225,255,1.0) 357deg,',  /* pico — branco azulado */
+                        '  rgba(180,225,255,1.0) 357deg,',  /* pico - branco azulado */
                         '  rgba(80,170,255,.80) 359deg,',   /* saída rápida */
                         '  rgba(30,144,255,.0)  360deg',    /* = 0deg seamless */
                         ')',
@@ -186,13 +186,13 @@ function ProductShowcase() {
                       pointerEvents: 'none',
                     }}/>
                   )}
-                  {/* Fundo cobre — 2px de borda saber visível */}
+                  {/* Fundo cobre - 2px de borda saber visível */}
                   <span style={{
                     position: 'absolute', inset: 2, zIndex: 1,
                     background: '#04070E',
                     pointerEvents: 'none',
                   }}/>
-                  {/* Screenshot — tamanho natural, sem distorção */}
+                  {/* Screenshot - tamanho natural, sem distorção */}
                   <div style={{
                     borderRadius: 0,          /* cantos quadrados internos */
                     overflow: 'hidden',
@@ -225,7 +225,7 @@ function ProductShowcase() {
 
       </div>
 
-      {/* Descrição abaixo do mockup — só a frase, sem repetir o label */}
+      {/* Descrição abaixo do mockup - só a frase, sem repetir o label */}
       <div style={{
         textAlign: 'center', marginTop: 4, padding: '0 24px',
         position: 'relative',
@@ -247,7 +247,7 @@ function ProductShowcase() {
           from { opacity:0; transform:translateY(14px); }
           to   { opacity:1; transform:translateY(0); }
         }
-        /* 3 variações de wiggle — cada card flutua de forma diferente */
+        /* 3 variações de wiggle - cada card flutua de forma diferente */
         @keyframes sc-float-0 {
           0%,100% { transform:translateY(0px) rotate(.2deg); }
           50%     { transform:translateY(-9px) rotate(-.2deg); }

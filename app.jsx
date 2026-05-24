@@ -106,7 +106,7 @@ function App() {
           animation:'bg-blob-b 22s ease-in-out infinite',
           pointerEvents:'none',
         }}/>
-        {/* Blob roxo secundario — centro baixo */}
+        {/* Blob roxo secundario - centro baixo */}
         <div className="app-glow-blob" style={{
           position:'absolute', bottom:'20%', left:'30%',
           width:'40%', height:'40%',

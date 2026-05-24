@@ -64,7 +64,7 @@ function CRMMockup() {
           </div>
 
           <div className="crm-app">
-          {/* Sidebar — espelho exato do admin real */}
+          {/* Sidebar - espelho exato do admin real */}
           <div className="crm-rail" style={{ background:'#0E0E14', borderRight:'1px solid #1F1F2A' }}>
             {/* Logo Brava real */}
             <div className="logo-dot" style={{
@@ -95,7 +95,7 @@ function CRMMockup() {
             ))}
           </div>
 
-          {/* Lista de conversas — paleta WhatsApp Web do admin */}
+          {/* Lista de conversas - paleta WhatsApp Web do admin */}
           <div className="crm-list" style={{ background:'#111B21', borderRight:'1px solid rgba(255,255,255,.05)' }}>
             <div className="crm-list-head" style={{ borderBottom:'1px solid rgba(255,255,255,.05)' }}>
               <h4 style={{ color:'#E8E8E8' }}>WhatsApp</h4>
@@ -134,9 +134,9 @@ function CRMMockup() {
             ))}
           </div>
 
-          {/* Conversa — espelho do admin real */}
+          {/* Conversa - espelho do admin real */}
           <div className="crm-conv" style={{ background:'#0B141A' }}>
-            {/* Header da conversa — igual ao admin */}
+            {/* Header da conversa - igual ao admin */}
             <div className="crm-conv-head" style={{
               background:'#202C33', borderBottom:'1px solid rgba(255,255,255,.06)',
               padding:'10px 14px',
@@ -147,7 +147,7 @@ function CRMMockup() {
                 <div className="s" style={{ color:'#25D366', fontSize:10 }}>● online</div>
               </div>
               <div className="actions" style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
-                {/* Pill IA ATIVA — igual ao admin */}
+                {/* Pill IA ATIVA - igual ao admin */}
                 <span style={{
                   display:'flex', alignItems:'center', gap:5,
                   padding:'4px 10px', borderRadius:999,
@@ -190,7 +190,7 @@ function CRMMockup() {
               </div>
               <div className="crm-typing"><span></span><span></span><span></span></div>
             </div>
-            {/* Compose — banner exato do admin */}
+            {/* Compose - banner exato do admin */}
             <div className="crm-compose" style={{ background:'rgba(32,44,51,.95)', borderTop:'1px solid rgba(255,255,255,.06)' }}>
               <span style={{ color:'#A0A0AA', fontSize:12 }}>IA ativa · Para assumir, digite <b style={{ color:'#7B3FE4' }}>"Vamos lá"</b></span>
               <div className="ai-toggle" style={{

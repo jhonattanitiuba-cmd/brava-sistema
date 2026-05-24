@@ -1,4 +1,4 @@
-/* Brava CRM — LP styles */
+/* Brava CRM - LP styles */
 :root {
   --brava-purple: #7B3FE4;
   --brava-blue: #1E90FF;
@@ -830,7 +830,7 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
 .float-tl { animation: floater-float 4s ease-in-out infinite; }
 .float-br { animation: floater-float 5s 1s ease-in-out infinite; }
 
-/* Scroll reveal — elementos com .reveal ficam invisíveis até JS adicionar .visible */
+/* Scroll reveal - elementos com .reveal ficam invisíveis até JS adicionar .visible */
 .reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -838,7 +838,7 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
 }
 .reveal.visible { opacity: 1; transform: translateY(0); }
 
-/* Nav links — sublinhado animado apenas em links de texto, NUNCA em botoes */
+/* Nav links - sublinhado animado apenas em links de texto, NUNCA em botoes */
 .nav-links a:not(.btn) {
   position: relative;
   transition: color .2s;

@@ -55,7 +55,7 @@ function ProposalBlock() {
           </div>
         </div>
 
-        {/* Metricas — linhas verticais separando, sem caixa pesada */}
+        {/* Metricas - linhas verticais separando, sem caixa pesada */}
         <div className="proposal-metrics">
           {metrics.map((m, i) => (
             <div key={i} className="proposal-metric">

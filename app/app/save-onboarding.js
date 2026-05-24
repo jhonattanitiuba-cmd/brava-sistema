@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// SAVE ONBOARDING — Persiste dados do wizard no Supabase
+// SAVE ONBOARDING - Persiste dados do wizard no Supabase
 // ═══════════════════════════════════════════════════════════
 // Uso:
 //   const ws = await window.saveOnboarding(data);
@@ -175,7 +175,7 @@
       }
     }
 
-    // 7) Convida membros adicionais (workspace_members) — best-effort
+    // 7) Convida membros adicionais (workspace_members) - best-effort
     if (Array.isArray(data.invites)) {
       for (const inv of data.invites) {
         if (!inv?.email || !inv.email.includes('@')) continue;

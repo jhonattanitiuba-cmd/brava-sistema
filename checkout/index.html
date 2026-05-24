@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
-/* ── Tokens — modo claro fixo ── */
+/* ── Tokens - modo claro fixo ── */
 :root {
   --purple: #7B3FE4;
   --blue:   #1E90FF;
@@ -407,7 +407,7 @@ const Confirmacao = ({ plano }) => {
 
       {/* Footer */}
       <footer className="footer">
-        <span>Brava Company © Todos os direitos reservados — CNPJ 34.454.770/0001-26</span>
+        <span>Brava Company © Todos os direitos reservados - CNPJ 34.454.770/0001-26</span>
         <div className="footer__links">
           <a href="#">Política de Privacidade</a>
           <span className="footer__dot">·</span>
@@ -460,7 +460,7 @@ const Checkout = () => {
   const handlePay = () => {
     setLoading(true);
     /*
-     * 🔌 INTEGRAÇÃO STRIPE — Cartão
+     * 🔌 INTEGRAÇÃO STRIPE - Cartão
      * 1. Backend cria PaymentIntent: POST /api/checkout/create-intent { plano }
      * 2. Frontend recebe { clientSecret }
      * 3. stripe.confirmCardPayment(clientSecret, { payment_method: { card: elements.getElement('card'), ... } })
@@ -475,7 +475,7 @@ const Checkout = () => {
 
   const handlePix = () => {
     /*
-     * 🔌 INTEGRAÇÃO STRIPE — Pix
+     * 🔌 INTEGRAÇÃO STRIPE - Pix
      * 1. Backend cria PaymentIntent com method: 'pix': POST /api/checkout/create-pix { plano }
      * 2. Retorna { qr_code_url, qr_code_text, expires_at }
      * 3. Frontend exibe QR e polling a cada 3s: GET /api/checkout/status?intent_id=...
@@ -485,7 +485,7 @@ const Checkout = () => {
 
   const handleBoleto = () => {
     /*
-     * 🔌 INTEGRAÇÃO STRIPE — Boleto
+     * 🔌 INTEGRAÇÃO STRIPE - Boleto
      * 1. POST /api/checkout/create-boleto { plano, cpf, nome }
      * 2. Retorna { pdf_url, barcode, expires_at }
      * 3. Abre PDF num nova aba
@@ -535,7 +535,7 @@ const Checkout = () => {
           </div>
 
           <div className="summary__guarantees">
-            <div className="guarantee-item"><Icon name="Shield" size={15} /><span>Garantia de <b>7 dias</b> — devolução 100%</span></div>
+            <div className="guarantee-item"><Icon name="Shield" size={15} /><span>Garantia de <b>7 dias</b> - devolução 100%</span></div>
             <div className="guarantee-item"><Icon name="Calendar" size={15} /><span>Primeiro ciclo começa após ativação</span></div>
             <div className="guarantee-item"><Icon name="Lock" size={15} /><span>Cancele quando quiser, sem multa</span></div>
           </div>
@@ -666,7 +666,7 @@ const Checkout = () => {
       </div>
 
       <footer className="footer">
-        <span className="footer__legal">Brava Company © Todos os direitos reservados — CNPJ 34.454.770/0001-26</span>
+        <span className="footer__legal">Brava Company © Todos os direitos reservados - CNPJ 34.454.770/0001-26</span>
         <div className="footer__emails">
           <a href="mailto:comercial@brava.company" className="footer__email">comercial@brava.company</a>
           <span className="footer__dot">·</span>

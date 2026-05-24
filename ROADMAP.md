@@ -1,4 +1,4 @@
-# 🗺️ Roadmap Brava — Próximas Evoluções
+# 🗺️ Roadmap Brava - Próximas Evoluções
 
 > Planejamento detalhado das 3 grandes melhorias pré-produção.
 > Cada feature: visão · backend · UI · esforço · dependências.
@@ -94,7 +94,7 @@ ALTER TABLE usuarios ADD COLUMN foto_url text;
 
 | Role | Pode | Não pode |
 |---|---|---|
-| **owner** | Tudo + faturamento + deletar workspace | — |
+| **owner** | Tudo + faturamento + deletar workspace | - |
 | **admin** | Tudo + convidar membros + editar config | Mexer faturamento/deletar workspace |
 | **manager** | Ver tudo + atribuir conversas + ver financeiro | Convidar membros |
 | **agent** | Atender conversas atribuídas a ele | Ver outras conversas, financeiro |
@@ -370,16 +370,16 @@ CREATE TABLE pipeline_card_etiquetas (
 
 ### Funcionalidades-chave
 
-1. **Editar título inline** — click no título do card vira input
-2. **Adicionar card rapidinho** — botão "+ Adicionar card" no fim de cada coluna, input simples
-3. **Drag & drop** — entre colunas (já tem)
-4. **Atribuição** — escolhe agente da equipe
-5. **Vinculação WhatsApp** — autocomplete de contato; mostra última msg no modal
-6. **Checklist** — toggle, conta concluídos
-7. **Comentários** — timeline estilo Trello
-8. **Etiquetas** — reusa sistema de etiquetas existente
-9. **Data de vencimento** — calendário; cards vencendo ficam destaque
-10. **Arquivar** — soft delete (mantém histórico)
+1. **Editar título inline** - click no título do card vira input
+2. **Adicionar card rapidinho** - botão "+ Adicionar card" no fim de cada coluna, input simples
+3. **Drag & drop** - entre colunas (já tem)
+4. **Atribuição** - escolhe agente da equipe
+5. **Vinculação WhatsApp** - autocomplete de contato; mostra última msg no modal
+6. **Checklist** - toggle, conta concluídos
+7. **Comentários** - timeline estilo Trello
+8. **Etiquetas** - reusa sistema de etiquetas existente
+9. **Data de vencimento** - calendário; cards vencendo ficam destaque
+10. **Arquivar** - soft delete (mantém histórico)
 
 ### Filtros (topo da página)
 

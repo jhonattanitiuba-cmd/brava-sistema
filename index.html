@@ -16,7 +16,7 @@
 
 <style id="__om-edit-overrides"></style>
 <style>
-/* Cursor personalizado — colinha preta slow motion */
+/* Cursor personalizado - colinha preta slow motion */
 * { cursor: none !important; }
 #brava-cursor       { position:fixed; width:8px; height:8px; border-radius:50%; background:#000; pointer-events:none; z-index:99999; transform:translate(-50%,-50%); transition:none; }
 #brava-cursor-tail  { position:fixed; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,.35); pointer-events:none; z-index:99998; transform:translate(-50%,-50%); transition:left .18s ease, top .18s ease; }
@@ -25,7 +25,7 @@
    body.brava-intro-active é adicionado pelo script inline ANTES de tudo.
    Cada elemento é escondido via CSS, revelado pelo RAF loop com JS inline.
 */
-/* Barra inteira escondida acima — desce primeiro */
+/* Barra inteira escondida acima - desce primeiro */
 body.brava-intro-active .nav {
   opacity:0;
   transform:translateY(-100%);
@@ -35,7 +35,7 @@ body.brava-intro-active #nav-logo {
   opacity:0;
   transform:translateY(-14px);
 }
-/* Demais itens do menu — mesma posição que já estavam */
+/* Demais itens do menu - mesma posição que já estavam */
 body.brava-intro-active #nav-plataforma,
 body.brava-intro-active #nav-planos,
 body.brava-intro-active #nav-clientes,
@@ -45,7 +45,7 @@ body.brava-intro-active #nav-entrar {
   opacity:0;
   transform:translateY(-10px);
 }
-/* Hero — cada LINHA escondida individualmente p/ cascata */
+/* Hero - cada LINHA escondida individualmente p/ cascata */
 body.brava-intro-active .h1-line,
 body.brava-intro-active .lead-line {
   opacity:0;
@@ -60,11 +60,11 @@ body.brava-intro-active .cta-item {
 body.brava-intro-active #root > div > *:not(:first-child) {
   opacity:0;
 }
-/* Tela 100% preta durante toda a fase intro — só revela quando Hero começa */
+/* Tela 100% preta durante toda a fase intro - só revela quando Hero começa */
 body.brava-intro-active {
   background: #000 !important;
 }
-/* Bolas de luz e malha começam invisíveis — só aparecem em HERO_START */
+/* Bolas de luz e malha começam invisíveis - só aparecem em HERO_START */
 body.brava-intro-active .brava-intro-blob,
 body.brava-intro-active .app-glow-blob,
 body.brava-intro-active .grid-bg {
@@ -73,7 +73,7 @@ body.brava-intro-active .grid-bg {
 </style>
 </head>
 <body>
-<!-- ▼ PRIMEIRO script da página — aplica a classe ANTES de qualquer renderização ▼
+<!-- ▼ PRIMEIRO script da página - aplica a classe ANTES de qualquer renderização ▼
      Pula a intro completamente em back_forward (botão voltar do browser). -->
 <script>
 (function(){
@@ -87,7 +87,7 @@ body.brava-intro-active .grid-bg {
 <div id="brava-cursor"></div>
 <div id="brava-cursor-tail"></div>
 
-<!-- Áudio intro — toca ao carregar a página (autoplay+playsinline aumenta sucesso) -->
+<!-- Áudio intro - toca ao carregar a página (autoplay+playsinline aumenta sucesso) -->
 <audio id="brava-intro-audio" src="/introbravasof.mp3" preload="auto" autoplay playsinline></audio>
 
 <!-- Blobs visíveis antes do React montar (fase 1) -->
@@ -102,7 +102,7 @@ body.brava-intro-active .grid-bg {
   pointer-events:none; z-index:-1; opacity:.3; animation-delay:.2s !important;
 "></div>
 
-<!-- Toggle de som — iPhone style, canto inferior esquerdo -->
+<!-- Toggle de som - iPhone style, canto inferior esquerdo -->
 <div id="brava-sound-tag" onclick="bravoToggleSound()" title="Som ambiente" style="
   position:fixed; bottom:20px; left:20px; z-index:9990;
   display:flex; align-items:center; gap:9px;
@@ -112,18 +112,18 @@ body.brava-intro-active .grid-bg {
   box-shadow:0 2px 14px rgba(0,0,0,.35);
   cursor:pointer; user-select:none;
 ">
-  <!-- Ícone speaker SVG — azul ON, apagado OFF -->
+  <!-- Ícone speaker SVG - azul ON, apagado OFF -->
   <svg id="brava-sound-icon" width="13" height="13" viewBox="0 0 24 24" fill="none"
        stroke="#1E90FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
        style="flex-shrink:0;transition:stroke .25s;">
     <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
     <path id="brava-sound-wave1" d="M15.54 8.46a5 5 0 0 1 0 7.07" style="transition:opacity .25s;"/>
     <path id="brava-sound-wave2" d="M19.07 4.93a10 10 0 0 1 0 14.14" style="transition:opacity .25s;"/>
-    <!-- Linha de mudo — só aparece quando OFF -->
+    <!-- Linha de mudo - só aparece quando OFF -->
     <line id="brava-sound-mute" x1="3" y1="3" x2="21" y2="21"
           stroke-width="2" style="opacity:0;transition:opacity .25s;"/>
   </svg>
-  <!-- Pill toggle — estilo iPhone -->
+  <!-- Pill toggle - estilo iPhone -->
   <div id="brava-toggle-track" style="
     width:40px; height:22px; border-radius:11px;
     background:#1E90FF; position:relative;
@@ -169,9 +169,9 @@ body.brava-intro-active .grid-bg {
 
 <script>
 /* ══════════════════════════════════════════════════════════════════
-   INTRO FRAME-ACCURATE — introbravasof.mp3 @ 25fps   (zero-delay)
+   INTRO FRAME-ACCURATE - introbravasof.mp3 @ 25fps   (zero-delay)
 
-   RELÓGIO DUPLO — animação NUNCA depende do autoplay de áudio:
+   RELÓGIO DUPLO - animação NUNCA depende do autoplay de áudio:
    • performance.now() → relógio primário, começa imediatamente
    • audio.currentTime → sincroniza quando browser permite autoplay
    Se o áudio for bloqueado, a animação roda igual; o som entra
@@ -184,7 +184,7 @@ body.brava-intro-active .grid-bg {
    00:00:01:24 → 1.96s  Clientes
                  2.04s  Perguntas
    00:00:02:02 → 2.08s  WhatsApp
-                 2.00s  Hero começa (cascata linha por linha) — paralelo aos últimos itens da nav
+                 2.00s  Hero começa (cascata linha por linha) - paralelo aos últimos itens da nav
    00:00:02:04 → 2.16s  Entrar
    00:00:05:03 → 5.12s  Fim
    ══════════════════════════════════════════════════════════════════ */
@@ -206,7 +206,7 @@ body.brava-intro-active .grid-bg {
     { t:2.08,  id:'nav-whatsapp'   },
     { t:2.16,  id:'nav-entrar'     },
   ];
-  var HERO_START = 2.00;  /* antecipado — Hero começa enquanto últimos itens da nav ainda entram */
+  var HERO_START = 2.00;  /* antecipado - Hero começa enquanto últimos itens da nav ainda entram */
   var FINISH_T   = 5.12;
 
   /* ── Relógio duplo ─────────────────────────────────────────────
@@ -279,7 +279,7 @@ body.brava-intro-active .grid-bg {
       el.style.setProperty('opacity', '1', 'important'); /* override do CSS !important */
     });
 
-    /* Cascata linha por linha — do topo até os botões.
+    /* Cascata linha por linha - do topo até os botões.
        Cada linha tem seu próprio delay; duração ~.55s, gap .14s entre linhas. */
     var lines = [];
     document.querySelectorAll('.h1-line').forEach(function (el) { lines.push(el); });
@@ -311,7 +311,7 @@ body.brava-intro-active .grid-bg {
       el.style.removeProperty('opacity');
       el.style.transform = '';
     });
-    /* Blobs intro do body — somem suave (eles eram só pra primeira fase) */
+    /* Blobs intro do body - somem suave (eles eram só pra primeira fase) */
     ['brava-blob-1', 'brava-blob-2'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) { el.style.transition = 'opacity .8s'; el.style.setProperty('opacity', '0', 'important'); }
@@ -411,7 +411,7 @@ body.brava-intro-active .grid-bg {
   var isBackForward = nav && nav.type === 'back_forward';
 
   if (isBackForward) {
-    /* Pula a intro completamente — usuário voltou via cache */
+    /* Pula a intro completamente - usuário voltou via cache */
     lockIntro();
     finishIntro();
   } else {
@@ -423,10 +423,10 @@ body.brava-intro-active .grid-bg {
 </script>
 
 <script>
-/* ── Ruído marrom (brown noise) contínuo — ambiente tech electronico ──
+/* ── Ruído marrom (brown noise) contínuo - ambiente tech electronico ──
    Brown noise = integração do white noise → som grave, quente, relaxante.
    Gerado por Web Audio API: sem arquivo externo, loop infinito.
-   Volume baixo (.045) — presença sutil, não intrusiva.
+   Volume baixo (.045) - presença sutil, não intrusiva.
    Tag de controle no canto inf esq com toggle ON/OFF.
 */
 var _bravaAudioCtx = null;
@@ -487,7 +487,7 @@ function _startBrownNoise() {
     _bravaNoiseNode.buffer = buffer;
     _bravaNoiseNode.loop   = true;
 
-    // Filtro passa-baixa — corta agudos, deixa só o grave warm
+    // Filtro passa-baixa - corta agudos, deixa só o grave warm
     var lpf = ctx.createBiquadFilter();
     lpf.type            = 'lowpass';
     lpf.frequency.value = 180;  // apenas abaixo de 180Hz

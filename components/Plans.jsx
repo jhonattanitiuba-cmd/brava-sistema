@@ -1,7 +1,7 @@
 /* global React, WA_LINK, FeatureIcon */
 
-// Links de pagamento do Stripe — trocar pelos links de PRODUCAO quando migrar.
-// Hoje sao links de TESTE (test_*) — funcionam normal mas nao cobram dinheiro real.
+// Links de pagamento do Stripe - trocar pelos links de PRODUCAO quando migrar.
+// Hoje sao links de TESTE (test_*) - funcionam normal mas nao cobram dinheiro real.
 const STRIPE_LINKS = {
   essencial:   'https://buy.stripe.com/test_3cI00i0Sd3G1eLZ9CS9fW00',
   performance: 'https://buy.stripe.com/test_9B6eVc58tgsN33h3eu9fW01',

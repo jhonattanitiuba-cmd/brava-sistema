@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// EVO ADMIN CLIENT — chama Edge Function wa-instance-admin
+// EVO ADMIN CLIENT - chama Edge Function wa-instance-admin
 // ═══════════════════════════════════════════════════════════
 // Wrapper pro front cliente (app/onboarding) usar a master key
 // da Evolution server-side via Edge Function.
@@ -34,7 +34,7 @@
     return data;
   }
 
-  // Template padrão Brava — webhook (com token de validação) + settings idênticos
+  // Template padrão Brava - webhook (com token de validação) + settings idênticos
   // a Brava Principal em produção. Aplicar em toda nova instância pra garantir
   // espelhamento completo via wa-webhook Edge Function.
   window.BRAVA_INSTANCE_TEMPLATE = {

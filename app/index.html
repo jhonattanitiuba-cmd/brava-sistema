@@ -652,7 +652,7 @@ a { color: inherit; text-decoration: none; }
   50%      { box-shadow: 0 0 40px 5px rgba(123,63,228,.15); }
 }
 
-/* Brand side (esquerda) — entra da esquerda, escalonado */
+/* Brand side (esquerda) - entra da esquerda, escalonado */
 .auth-brand-stack__logo {
   animation: auth-slide-in-left .8s cubic-bezier(.22,1,.36,1) both;
   animation-delay: .05s;
@@ -666,7 +666,7 @@ a { color: inherit; text-decoration: none; }
   animation-delay: .4s;
 }
 
-/* Form side (direita) — entra da direita */
+/* Form side (direita) - entra da direita */
 .auth-form-wrap {
   animation: auth-slide-in-right .7s cubic-bezier(.22,1,.36,1) both;
   animation-delay: .15s;
@@ -679,7 +679,7 @@ a { color: inherit; text-decoration: none; }
 .auth-form-wrap > *:nth-child(3) { animation-delay: .45s; }
 .auth-form-wrap > *:nth-child(4) { animation-delay: .55s; }
 
-/* Banner de pagamento confirmado — entrada destacada */
+/* Banner de pagamento confirmado - entrada destacada */
 .auth-form-wrap > div:first-child[style*="rgba(29,158,117"] {
   animation: auth-scale-in .6s cubic-bezier(.34,1.56,.64,1) both,
              auth-glow-pulse 2.5s ease-in-out 1s infinite;
@@ -945,7 +945,7 @@ a { color: inherit; text-decoration: none; }
 /* ═══════════════════════════════════════════════════════════════════════════
    ONBOARDING
    ═══════════════════════════════════════════════════════════════════════════ */
-/* ═══════════════ ONBOARDING — Estilo LP (dark + glow blobs) ═══════════════ */
+/* ═══════════════ ONBOARDING - Estilo LP (dark + glow blobs) ═══════════════ */
 .onb-page {
   min-height: 100vh;
   /* Força dark theme no onboarding (visual premium tipo LP) */
@@ -1086,7 +1086,7 @@ a { color: inherit; text-decoration: none; }
 .onb-step__label { font-weight: 500; font-size: 14.5px; color: var(--text-2); letter-spacing: -0.005em; }
 .onb-step__sub { font-size: 12px; color: var(--text-3); line-height: 1.4; }
 
-/* Step concluído — verde */
+/* Step concluído - verde */
 .onb-step--done .onb-step__bullet {
   background: linear-gradient(135deg, rgba(29,158,117,.25), rgba(29,158,117,.12));
   border-color: rgba(29,158,117,.4);
@@ -1094,7 +1094,7 @@ a { color: inherit; text-decoration: none; }
 }
 .onb-step--done .onb-step__label { color: var(--text-1); }
 
-/* Step ativo — gradiente Brava com glow */
+/* Step ativo - gradiente Brava com glow */
 .onb-step--active {
   background: linear-gradient(135deg, rgba(123,63,228,.12), rgba(30,144,255,.08));
   border-color: rgba(123,63,228,.25);
@@ -1657,13 +1657,13 @@ a { color: inherit; text-decoration: none; }
 .done-card__actions { display: flex; gap: 10px; justify-content: center; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   ONBOARDING — REFINAMENTOS LP-STYLE (dark + glow)
+   ONBOARDING - REFINAMENTOS LP-STYLE (dark + glow)
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* Logo no top: branco */
 .onb-top__brand img { filter: brightness(0) invert(1); height: 17px; }
 
-/* Stage / conteúdo principal — fundo escuro semitransparente sobre os blobs */
+/* Stage / conteúdo principal - fundo escuro semitransparente sobre os blobs */
 .onb-stage { background: transparent; color: var(--text-1); }
 
 /* Inputs com estilo dark elegante */
@@ -1692,7 +1692,7 @@ a { color: inherit; text-decoration: none; }
   border-left: 1px solid rgba(255,255,255,.08);
 }
 
-/* Cards (upload, color picker, modes, role, etc.) — glass cards */
+/* Cards (upload, color picker, modes, role, etc.) - glass cards */
 .onb-page .onb-upload,
 .onb-page .onb-color,
 .onb-page .onb-mode,
@@ -1774,7 +1774,7 @@ a { color: inherit; text-decoration: none; }
 .onb-page .onb-team__rm { border-color: rgba(255,255,255,.12); color: var(--text-3); }
 .onb-page .onb-team__bar { background: rgba(255,255,255,.08); }
 
-/* Footer com botões — sticky com glass */
+/* Footer com botões - sticky com glass */
 .onb-page .onb-footer {
   background: rgba(0,0,0,.6);
   border-top: 1px solid rgba(255,255,255,.08);
@@ -1877,7 +1877,7 @@ a { color: inherit; text-decoration: none; }
 <script type="text/babel">
 const { useState, useEffect } = React;
 
-// Detecta se veio do checkout — tenta query, hash e cookie
+// Detecta se veio do checkout - tenta query, hash e cookie
 const urlParams = new URLSearchParams(window.location.search);
 const hashParams = new URLSearchParams(window.location.hash.replace('#','').replace('onboarding','skip_login=1'));
 const getCookie = n => (document.cookie.match(new RegExp('(^|; )'+n+'=([^;]+)')) || [])[2];
@@ -1938,7 +1938,7 @@ function App() {
         const { data: { session } } = await window.supabase.auth.getSession();
         if (!session?.user || cancelled) { setBootChecking(false); return; }
 
-        // Tem sessão — verifica se já tem workspace
+        // Tem sessão - verifica se já tem workspace
         const { data: members } = await window.supabase
           .from('workspace_members')
           .select('role, workspaces(id, slug, name, plan)')
@@ -1950,7 +1950,7 @@ function App() {
         if (members && members.length > 0 && members[0].workspaces) {
           // Tem workspace → vai direto pro admin
           window.irParaAdmin?.(session.user, members[0].workspaces, members[0]);
-          return; // não desativa o loading — a página vai ser substituída
+          return; // não desativa o loading - a página vai ser substituída
         } else {
           // Logado mas sem workspace → onboarding
           setTweak('screen', 'onboarding');
@@ -2062,7 +2062,7 @@ function App() {
     default:           body = <LoginScreen onContinue={onContinue} onNav={onNav} />;
   }
 
-  // Barra de navegação superior removida — não faz sentido no fluxo do cliente
+  // Barra de navegação superior removida - não faz sentido no fluxo do cliente
   const showNav = false;
 
   return (
@@ -2090,7 +2090,7 @@ function App() {
       {t.screen === 'onboarding' && (
         <footer className="brava-footer">
           <span style={{color:'#F5F5F7', fontWeight:500, fontSize:13}}>
-            Brava Company © Todos os direitos reservados — CNPJ 34.454.770/0001-26
+            Brava Company © Todos os direitos reservados - CNPJ 34.454.770/0001-26
           </span>
           <div className="brava-footer__links" style={{gap:14}}>
             <a href="mailto:comercial@brava.company" style={{fontFamily:'JetBrains Mono, monospace', fontSize:11.5, color:'#A0A0AA'}}>comercial@brava.company</a>
