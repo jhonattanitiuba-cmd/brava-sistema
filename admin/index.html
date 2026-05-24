@@ -700,6 +700,7 @@ const NAV = [
   { key:'clientes',   label:'WhatsApp',    icon:'MessageCircle',   badge:23 },
   { key:'monitoramento', label:'Monitoramento', icon:'Activity',   badge:null },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
+  { key:'clientes_crm', label:'Clientes',  icon:'UsersRound',      badge:null },
   { key:'agenda',     label:'Agenda',      icon:'CalendarCheck',   badge:null },
   { key:'mrr',        label:'Financeiro',  icon:'DollarSign',      badge:null },
   { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
@@ -2273,7 +2274,7 @@ function HeaderNotif({ notifAberta, setNotifAberta, setPage }) {
 }
 
 function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notifAberta, setNotifAberta }) {
-  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', pipeline:'Pipeline', agenda:'Agenda', mrr:'Financeiro', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
+  const labels = { dashboard:'Dashboard', clientes:'WhatsApp', clientes_crm:'Clientes', pipeline:'Pipeline', agenda:'Agenda', mrr:'Financeiro', analytics:'Analytics', chamados:'Chamados', equipe:'Equipe', logs:'Logs', config:'Configurações' };
   return (
     <header className="header" style={{borderBottom:'1px solid var(--border-soft)'}}>
       {collapsed && (
@@ -10589,6 +10590,142 @@ async function marcarExtratoIgnorado(extratoId, ignorado = true) {
   await cli.from('fin_extrato_bancario').update({ ignorado }).eq('id', extratoId);
 }
 
+/* ─── Hooks Clientes (Sprint C) — entidade mestre do CRM ─── */
+function useClientes() {
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('clientes').select('*').order('nome');
+      if (alive) { setList(data || []); setLoading(false); }
+    };
+    load();
+    const ch = cli.channel('rt:clientes')
+      .on('postgres_changes', { event:'*', schema:'public', table:'clientes' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return { list, loading };
+}
+
+function useCliente(id) {
+  const [cliente, setCliente] = React.useState(null);
+  React.useEffect(() => {
+    if (!id) { setCliente(null); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('clientes').select('*').eq('id', id).maybeSingle();
+      if (alive) setCliente(data);
+    };
+    load();
+    const ch = cli.channel(`rt:cliente:${id}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'clientes', filter:`id=eq.${id}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [id]);
+  return cliente;
+}
+
+// Valida obrigatórios e formata payload pro insert/update
+function _clienteValidar(form) {
+  const erros = [];
+  if (!form.nome?.trim()) erros.push('Nome é obrigatório');
+  if (!form.tipo_pessoa) erros.push('Tipo (PJ ou PF) é obrigatório');
+  const doc = (form.cnpj_cpf || '').replace(/\D/g, '');
+  if (!doc) erros.push(form.tipo_pessoa === 'PF' ? 'CPF é obrigatório' : 'CNPJ é obrigatório');
+  else if (form.tipo_pessoa === 'PJ' && doc.length !== 14) erros.push('CNPJ deve ter 14 dígitos');
+  else if (form.tipo_pessoa === 'PF' && doc.length !== 11) erros.push('CPF deve ter 11 dígitos');
+  const temContato = form.contato_email?.trim() || form.contato_telefone?.trim();
+  if (!temContato) erros.push('Informe email OU telefone do contato');
+  return { ok: erros.length === 0, erros, cnpj_cpf: doc };
+}
+
+async function addCliente(form) {
+  const cli = getSupa(); if (!cli) return { ok:false, erro:'Sem conexão' };
+  const val = _clienteValidar(form);
+  if (!val.ok) return { ok:false, erro: val.erros.join(' · ') };
+  const { data: sess } = await cli.auth.getSession();
+  const payload = {
+    ...form,
+    cnpj_cpf: val.cnpj_cpf || null,
+    tags: form.tags || [],
+    created_by: sess?.session?.user?.id,
+  };
+  // remove campos vazios pra não validar mal
+  Object.keys(payload).forEach(k => { if (payload[k] === '') payload[k] = null; });
+  const { data, error } = await cli.from('clientes').insert(payload).select().single();
+  if (error) return { ok:false, erro: error.message };
+  return { ok:true, cliente: data };
+}
+
+async function editCliente(id, patch) {
+  const cli = getSupa(); if (!cli) return { ok:false, erro:'Sem conexão' };
+  const clean = { ...patch };
+  if (clean.cnpj_cpf) clean.cnpj_cpf = String(clean.cnpj_cpf).replace(/\D/g, '');
+  delete clean.id; delete clean.created_at; delete clean.updated_at; delete clean.created_by;
+  Object.keys(clean).forEach(k => { if (clean[k] === '') clean[k] = null; });
+  const { error } = await cli.from('clientes').update(clean).eq('id', id);
+  if (error) return { ok:false, erro: error.message };
+  return { ok:true };
+}
+
+async function deleteCliente(id) {
+  const cli = getSupa(); if (!cli) return { ok:false };
+  const { error } = await cli.from('clientes').delete().eq('id', id);
+  if (error) return { ok:false, erro: error.message };
+  return { ok:true };
+}
+
+// Autocomplete CEP via ViaCEP (público, sem auth)
+async function buscarCep(cep) {
+  const c = String(cep || '').replace(/\D/g, '');
+  if (c.length !== 8) return null;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${c}/json/`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data.erro) return null;
+    return {
+      cep: data.cep,
+      logradouro: data.logradouro,
+      bairro: data.bairro,
+      cidade: data.localidade,
+      estado: data.uf,
+    };
+  } catch { return null; }
+}
+
+// Helper: indica se cliente está "incompleto" (não tem doc OU contato)
+function clienteEstaIncompleto(c) {
+  if (!c) return false;
+  if (!c.cnpj_cpf) return true;
+  if (!c.contato_email && !c.contato_telefone) return true;
+  return false;
+}
+
+// Helper: stats agregadas de um cliente (projetos, MRR, último pagamento)
+function useClienteStats(clienteId) {
+  const [stats, setStats] = React.useState({ projetos:0, mrr:0, impl:0 });
+  React.useEffect(() => {
+    if (!clienteId) { setStats({projetos:0,mrr:0,impl:0}); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('mrr_clients').select('mensal, implementacao').eq('cliente_id', clienteId);
+      if (!alive) return;
+      const projetos = data?.length || 0;
+      const mrr = (data || []).reduce((s,r) => s + Number(r.mensal||0), 0);
+      const impl = (data || []).reduce((s,r) => s + Number(r.implementacao||0), 0);
+      setStats({ projetos, mrr, impl });
+    };
+    load();
+  }, [clienteId]);
+  return stats;
+}
+
 /* ─── Hooks Projetos / Cliente 360 (Sprint B) ─── */
 // Lista de "clientes-grupo" agregando seus projetos (contratos)
 function useClientesGrupos() {
@@ -13254,6 +13391,570 @@ function EscolherCliente({ isEntrada, recorrencia, despesas, onCancelar, onEscol
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CLIENTES CRM — página principal de cadastro/gestão de clientes
+// ═══════════════════════════════════════════════════════════════
+function ClientesCRM() {
+  const { list: clientes, loading } = useClientes();
+  const [editando, setEditando] = React.useState(null);     // {} pra novo, cliente obj pra edição
+  const [busca, setBusca] = React.useState('');
+  const [filtroStatus, setFiltroStatus] = React.useState('todos');
+  const [filtroCompleto, setFiltroCompleto] = React.useState('todos'); // todos | completo | incompleto
+  const [view, setView] = React.useState('cards'); // cards | tabela
+
+  // Estatísticas dos clientes (projetos + MRR) — buscamos uma vez via SQL
+  const recorrencia = useRecorrencia();
+  const statsPorCliente = React.useMemo(() => {
+    const m = new Map();
+    (recorrencia || []).forEach(r => {
+      if (!r.cliente_id) return;
+      if (!m.has(r.cliente_id)) m.set(r.cliente_id, { projetos:0, mrr:0, impl:0 });
+      const s = m.get(r.cliente_id);
+      s.projetos += 1;
+      s.mrr += Number(r.mensal || 0);
+      s.impl += Number(r.impl || 0);
+    });
+    return m;
+  }, [recorrencia]);
+
+  const filtrados = React.useMemo(() => {
+    let arr = [...clientes];
+    if (filtroStatus !== 'todos') arr = arr.filter(c => c.status === filtroStatus);
+    if (filtroCompleto === 'incompleto') arr = arr.filter(c => clienteEstaIncompleto(c));
+    if (filtroCompleto === 'completo')   arr = arr.filter(c => !clienteEstaIncompleto(c));
+    if (busca.trim()) {
+      const q = busca.toLowerCase();
+      arr = arr.filter(c =>
+        (c.nome || '').toLowerCase().includes(q) ||
+        (c.nome_fantasia || '').toLowerCase().includes(q) ||
+        (c.cnpj_cpf || '').includes(q.replace(/\D/g, '')) ||
+        (c.contato_email || '').toLowerCase().includes(q) ||
+        (c.contato_telefone || '').includes(q.replace(/\D/g, '')) ||
+        (c.nicho || '').toLowerCase().includes(q)
+      );
+    }
+    // Ordena: ativos primeiro, depois alfabético
+    arr.sort((a, b) => {
+      const ordemA = { ativo:0, prospecto:1, lead:2, suspenso:3, inativo:4, churn:5 }[a.status] || 9;
+      const ordemB = { ativo:0, prospecto:1, lead:2, suspenso:3, inativo:4, churn:5 }[b.status] || 9;
+      if (ordemA !== ordemB) return ordemA - ordemB;
+      return (a.nome || '').localeCompare(b.nome || '');
+    });
+    return arr;
+  }, [clientes, busca, filtroStatus, filtroCompleto]);
+
+  const stats = React.useMemo(() => ({
+    total: clientes.length,
+    ativos: clientes.filter(c => c.status === 'ativo').length,
+    prospectos: clientes.filter(c => c.status === 'prospecto').length,
+    leads: clientes.filter(c => c.status === 'lead').length,
+    incompletos: clientes.filter(clienteEstaIncompleto).length,
+  }), [clientes]);
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Clientes</div>
+          <div className="page-head__sub">{stats.total} cadastrados · {stats.ativos} ativos · {stats.prospectos} prospectos · {stats.incompletos} incompletos</div>
+        </div>
+        <div className="page-head__actions">
+          <button onClick={()=>setEditando({})} className="btn btn-primary">
+            <Icon name="Plus" size={14}/>Novo cliente
+          </button>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
+        {[
+          { label:'Total cadastrados', val: stats.total, icon:'UsersRound', cor:'var(--blue)' },
+          { label:'Ativos', val: stats.ativos, icon:'CheckCircle2', cor:'#1D9E75' },
+          { label:'Prospectos', val: stats.prospectos, icon:'TrendingUp', cor:'#BA7517' },
+          { label:'Cadastros incompletos', val: stats.incompletos, icon:'AlertCircle', cor: stats.incompletos > 0 ? '#A32D2D' : 'var(--t3)' },
+        ].map((k,i) => (
+          <div key={i} className="kpi">
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
+              <div className="kpi__label">{k.label}</div>
+              <div className="kpi__icon" style={{background:k.cor+'22'}}><Icon name={k.icon} size={17} style={{color:k.cor}}/></div>
+            </div>
+            <div className="kpi__value" style={{fontSize:24, color:'var(--t1)'}}>{k.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{padding:'14px 16px', marginBottom:14}}>
+        <div style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'7px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flex:1, minWidth:200}}>
+            <Icon name="Search" size={13} style={{color:'var(--t3)'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, CNPJ, email, telefone, nicho..." style={{flex:1, background:'none', border:'none', outline:'none', fontSize:13, color:'var(--t1)'}}/>
+          </div>
+          {['todos','ativo','prospecto','lead','inativo','churn'].map(s => (
+            <button key={s} onClick={()=>setFiltroStatus(s)} style={{
+              padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
+              background: filtroStatus === s ? 'rgba(30,144,255,.15)' : 'transparent',
+              color: filtroStatus === s ? 'var(--blue)' : 'var(--t3)',
+              border:`1px solid ${filtroStatus === s ? 'var(--blue)' : 'transparent'}`,
+              textTransform:'capitalize',
+            }}>{s === 'todos' ? 'Todos status' : s}</button>
+          ))}
+          <button onClick={()=>setFiltroCompleto(v => v === 'incompleto' ? 'todos' : 'incompleto')} style={{
+            padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:500, cursor:'pointer',
+            background: filtroCompleto === 'incompleto' ? 'rgba(163,45,45,.15)' : 'transparent',
+            color: filtroCompleto === 'incompleto' ? '#ff8585' : 'var(--t3)',
+            border:`1px solid ${filtroCompleto === 'incompleto' ? '#A32D2D55' : 'transparent'}`,
+            display:'inline-flex', alignItems:'center', gap:5,
+          }}>
+            <Icon name="AlertCircle" size={11}/>
+            {filtroCompleto === 'incompleto' ? 'Mostrando incompletos' : `Só incompletos (${stats.incompletos})`}
+          </button>
+        </div>
+      </div>
+
+      {/* Lista de clientes */}
+      {loading ? (
+        <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Carregando clientes...</div>
+      ) : filtrados.length === 0 ? (
+        <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="UsersRound" size={36} style={{color:'var(--t3)', opacity:.4, marginBottom:10}}/>
+          <div style={{fontSize:14, color:'var(--t2)', marginBottom:6}}>
+            {busca || filtroStatus !== 'todos' || filtroCompleto !== 'todos'
+              ? 'Nenhum cliente encontrado nesses filtros'
+              : 'Você ainda não cadastrou nenhum cliente'}
+          </div>
+          {busca || filtroStatus !== 'todos' || filtroCompleto !== 'todos' ? (
+            <button onClick={()=>{setBusca(''); setFiltroStatus('todos'); setFiltroCompleto('todos');}} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', textDecoration:'underline', fontSize:13}}>Limpar filtros</button>
+          ) : (
+            <button onClick={()=>setEditando({})} className="btn btn-primary" style={{marginTop:8}}>
+              <Icon name="Plus" size={13}/>Cadastrar primeiro cliente
+            </button>
+          )}
+        </div>
+      ) : (
+        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:12}}>
+          {filtrados.map(c => {
+            const s = statsPorCliente.get(c.id) || { projetos:0, mrr:0, impl:0 };
+            const incompleto = clienteEstaIncompleto(c);
+            const statusCor = { ativo:'#1D9E75', prospecto:'#BA7517', lead:'#1E90FF', inativo:'var(--t3)', churn:'#A32D2D', suspenso:'#A32D2D' }[c.status] || 'var(--t3)';
+            const iniciais = (c.nome || '?').split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
+            return (
+              <div key={c.id} onClick={()=>setEditando(c)} style={{
+                padding:'16px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:11,
+                cursor:'pointer', transition:'all .15s',
+                borderTop: `3px solid ${c.cor || statusCor}`,
+              }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateY(-2px)';}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)';}}>
+                <div style={{display:'flex', gap:11, alignItems:'flex-start', marginBottom:10}}>
+                  <div style={{
+                    width:42, height:42, borderRadius:'50%', flexShrink:0,
+                    background: c.foto_url ? `url(${c.foto_url}) center/cover` : (c.cor || 'var(--blue)'),
+                    color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                    fontFamily:'var(--f-d)', fontWeight:700, fontSize:14,
+                  }}>{!c.foto_url && iniciais}</div>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:14, color:'var(--t1)', fontWeight:600, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.nome}</div>
+                    <div style={{fontSize:11.5, color:'var(--t3)', display:'flex', gap:8, alignItems:'center'}}>
+                      <span style={{padding:'2px 7px', borderRadius:999, background:statusCor+'22', color:statusCor, fontWeight:600, fontSize:10.5, textTransform:'uppercase', letterSpacing:.4}}>{c.status}</span>
+                      {c.tipo_pessoa && <span>{c.tipo_pessoa}</span>}
+                      {c.nicho && <><span>·</span><span>{c.nicho}</span></>}
+                    </div>
+                  </div>
+                  {incompleto && (
+                    <span title="Cadastro incompleto" style={{padding:'2px 7px', borderRadius:999, background:'rgba(163,45,45,.15)', color:'#ff8585', fontSize:10, fontWeight:700, border:'1px solid rgba(163,45,45,.35)'}}>!</span>
+                  )}
+                </div>
+
+                {/* Mini-stats */}
+                <div style={{display:'flex', gap:14, padding:'10px 0', borderTop:'1px solid var(--border-soft)', fontSize:12}}>
+                  <div>
+                    <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:1}}>Projetos</div>
+                    <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-m)'}}>{s.projetos}</div>
+                  </div>
+                  <div>
+                    <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:1}}>MRR</div>
+                    <div style={{color: s.mrr > 0 ? '#1D9E75' : 'var(--t3)', fontWeight:600, fontFamily:'var(--f-m)'}}>R$ {s.mrr.toLocaleString('pt-BR')}</div>
+                  </div>
+                  <div>
+                    <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:1}}>Implantação</div>
+                    <div style={{color:'var(--t2)', fontWeight:600, fontFamily:'var(--f-m)'}}>R$ {s.impl.toLocaleString('pt-BR')}</div>
+                  </div>
+                </div>
+
+                {/* Contato */}
+                {(c.contato_nome || c.contato_email || c.contato_telefone) && (
+                  <div style={{paddingTop:8, borderTop:'1px solid var(--border-soft)', fontSize:11.5, color:'var(--t3)'}}>
+                    {c.contato_nome && <div>👤 {c.contato_nome}{c.contato_cargo ? ` · ${c.contato_cargo}` : ''}</div>}
+                    {c.contato_email && <div style={{marginTop:2}}>✉ {c.contato_email}</div>}
+                    {c.contato_telefone && <div style={{marginTop:2}}>📞 {c.contato_telefone}</div>}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {editando && <ClienteCadastroModal cliente={editando} onClose={()=>setEditando(null)}/>}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// CLIENTE CADASTRO MODAL — estilo black brava (Sprint C.1.4)
+// 4 seções: Identificação, Contato, Endereço, Comercial
+// ─────────────────────────────────────────────────────────────────
+function ClienteCadastroModal({ cliente, onClose }) {
+  const novo = !cliente?.id;
+  const [form, setForm] = React.useState({
+    nome: cliente?.nome || '',
+    nome_fantasia: cliente?.nome_fantasia || '',
+    tipo_pessoa: cliente?.tipo_pessoa || 'PJ',
+    cnpj_cpf: cliente?.cnpj_cpf || '',
+    inscricao_estadual: cliente?.inscricao_estadual || '',
+    inscricao_municipal: cliente?.inscricao_municipal || '',
+    contato_nome: cliente?.contato_nome || '',
+    contato_cargo: cliente?.contato_cargo || '',
+    contato_email: cliente?.contato_email || '',
+    contato_telefone: cliente?.contato_telefone || '',
+    site: cliente?.site || '',
+    endereco_cep: cliente?.endereco_cep || '',
+    endereco_logradouro: cliente?.endereco_logradouro || '',
+    endereco_numero: cliente?.endereco_numero || '',
+    endereco_complemento: cliente?.endereco_complemento || '',
+    endereco_bairro: cliente?.endereco_bairro || '',
+    endereco_cidade: cliente?.endereco_cidade || '',
+    endereco_estado: cliente?.endereco_estado || '',
+    nicho: cliente?.nicho || '',
+    porte: cliente?.porte || '',
+    origem: cliente?.origem || '',
+    data_aquisicao: cliente?.data_aquisicao || '',
+    status: cliente?.status || 'ativo',
+    tags: cliente?.tags || [],
+    nota_interna: cliente?.nota_interna || '',
+    cor: cliente?.cor || '#1E90FF',
+  });
+  const [erro, setErro] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [buscandoCep, setBuscandoCep] = React.useState(false);
+  const [novaTag, setNovaTag] = React.useState('');
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  // Auto-busca CEP quando digita os 8 dígitos
+  React.useEffect(() => {
+    const cep = String(form.endereco_cep || '').replace(/\D/g, '');
+    if (cep.length === 8) {
+      setBuscandoCep(true);
+      buscarCep(cep).then(res => {
+        setBuscandoCep(false);
+        if (res) {
+          setForm(f => ({
+            ...f,
+            endereco_logradouro: res.logradouro || f.endereco_logradouro,
+            endereco_bairro:     res.bairro     || f.endereco_bairro,
+            endereco_cidade:     res.cidade     || f.endereco_cidade,
+            endereco_estado:     res.estado     || f.endereco_estado,
+          }));
+        }
+      });
+    }
+  }, [form.endereco_cep]);
+
+  const salvar = async () => {
+    setErro(''); setSalvando(true);
+    const res = novo ? await addCliente(form) : await editCliente(cliente.id, form);
+    setSalvando(false);
+    if (!res.ok) { setErro(res.erro); return; }
+    showToast?.(novo ? 'Cliente cadastrado' : 'Cliente atualizado', 'success');
+    onClose();
+  };
+
+  const remover = async () => {
+    if (!confirm(`Remover "${cliente.nome}"? Os projetos vinculados ficarão sem cliente (não são apagados).`)) return;
+    const res = await deleteCliente(cliente.id);
+    if (res.ok) { showToast?.('Cliente removido', 'success'); onClose(); }
+    else showToast?.(`Erro: ${res.erro}`, 'error');
+  };
+
+  const addTag = () => {
+    if (!novaTag.trim()) return;
+    if ((form.tags || []).includes(novaTag.trim())) return;
+    set('tags', [...(form.tags || []), novaTag.trim()]);
+    setNovaTag('');
+  };
+  const removeTag = (t) => set('tags', (form.tags || []).filter(x => x !== t));
+
+  // Formata CNPJ/CPF on the fly pra visual
+  const formatarDoc = (v) => {
+    const d = String(v || '').replace(/\D/g, '');
+    if (form.tipo_pessoa === 'PJ') {
+      return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2}).*/, '$1.$2.$3/$4-$5').replace(/[-/.]\s*$/, '');
+    } else {
+      return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4').replace(/[-.]\s*$/, '');
+    }
+  };
+
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13.5, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)',
+      zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{width:'min(720px, 95vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="UserCircle" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{novo ? 'Novo cliente' : 'Editar cliente'}</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{novo ? 'Os campos com * são obrigatórios' : cliente?.nome}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          {/* SEÇÃO 1: IDENTIFICAÇÃO */}
+          <div style={{marginBottom:22}}>
+            <SecaoLabel icon="Building2">Identificação</SecaoLabel>
+
+            <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>{form.tipo_pessoa === 'PJ' ? 'Razão social' : 'Nome completo'} *</label>
+                <input style={inp} value={form.nome} onChange={e=>set('nome', e.target.value)} placeholder={form.tipo_pessoa === 'PJ' ? 'Ex: EstacionePark Aeroporto LTDA' : 'Ex: João da Silva'} autoFocus/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Tipo *</label>
+                <div style={{display:'flex', gap:6}}>
+                  {['PJ','PF'].map(t => (
+                    <button key={t} type="button" onClick={()=>set('tipo_pessoa', t)} style={{
+                      flex:1, padding:'10px', borderRadius:8,
+                      background: form.tipo_pessoa === t ? 'rgba(30,144,255,.15)' : 'var(--bg-3)',
+                      color: form.tipo_pessoa === t ? 'var(--blue)' : 'var(--t2)',
+                      border: `1px solid ${form.tipo_pessoa === t ? 'var(--blue)' : 'var(--border)'}`,
+                      fontSize:12.5, fontWeight:600, cursor:'pointer',
+                    }}>{t}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns: form.tipo_pessoa === 'PJ' ? '1fr 1fr' : '1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>{form.tipo_pessoa === 'PJ' ? 'CNPJ' : 'CPF'} *</label>
+                <input style={inp} value={formatarDoc(form.cnpj_cpf)} onChange={e=>set('cnpj_cpf', e.target.value)}
+                  placeholder={form.tipo_pessoa === 'PJ' ? '00.000.000/0000-00' : '000.000.000-00'}/>
+              </div>
+              {form.tipo_pessoa === 'PJ' && (
+                <div>
+                  <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome fantasia</label>
+                  <input style={inp} value={form.nome_fantasia} onChange={e=>set('nome_fantasia', e.target.value)} placeholder="Como o cliente é conhecido"/>
+                </div>
+              )}
+            </div>
+
+            {form.tipo_pessoa === 'PJ' && (
+              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+                <div>
+                  <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Inscrição estadual</label>
+                  <input style={inp} value={form.inscricao_estadual} onChange={e=>set('inscricao_estadual', e.target.value)} placeholder="Opcional"/>
+                </div>
+                <div>
+                  <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Inscrição municipal</label>
+                  <input style={inp} value={form.inscricao_municipal} onChange={e=>set('inscricao_municipal', e.target.value)} placeholder="Opcional"/>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SEÇÃO 2: CONTATO */}
+          <div style={{marginBottom:22}}>
+            <SecaoLabel icon="Phone">Contato principal (email OU telefone obrigatório)</SecaoLabel>
+
+            <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do contato</label>
+                <input style={inp} value={form.contato_nome} onChange={e=>set('contato_nome', e.target.value)} placeholder="Quem você fala"/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Cargo</label>
+                <input style={inp} value={form.contato_cargo} onChange={e=>set('contato_cargo', e.target.value)} placeholder="Diretor, Sócio..."/>
+              </div>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>E-mail *</label>
+                <input style={inp} type="email" value={form.contato_email} onChange={e=>set('contato_email', e.target.value)} placeholder="contato@empresa.com.br"/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Telefone / WhatsApp *</label>
+                <input style={inp} value={form.contato_telefone} onChange={e=>set('contato_telefone', e.target.value)} placeholder="(11) 99876-5432"/>
+              </div>
+            </div>
+
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Site (opcional)</label>
+              <input style={inp} value={form.site} onChange={e=>set('site', e.target.value)} placeholder="https://empresa.com.br"/>
+            </div>
+          </div>
+
+          {/* SEÇÃO 3: ENDEREÇO */}
+          <div style={{marginBottom:22}}>
+            <SecaoLabel icon="MapPin">Endereço (opcional)</SecaoLabel>
+
+            <div style={{display:'grid', gridTemplateColumns:'160px 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>CEP {buscandoCep && <span style={{color:'var(--blue)'}}>buscando...</span>}</label>
+                <input style={inp} value={form.endereco_cep} onChange={e=>set('endereco_cep', e.target.value)} placeholder="00000-000" maxLength={9}/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Logradouro</label>
+                <input style={inp} value={form.endereco_logradouro} onChange={e=>set('endereco_logradouro', e.target.value)} placeholder="Rua, Av..."/>
+              </div>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'100px 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Número</label>
+                <input style={inp} value={form.endereco_numero} onChange={e=>set('endereco_numero', e.target.value)} placeholder="123"/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Complemento</label>
+                <input style={inp} value={form.endereco_complemento} onChange={e=>set('endereco_complemento', e.target.value)} placeholder="Sala, andar..."/>
+              </div>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 80px', gap:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Bairro</label>
+                <input style={inp} value={form.endereco_bairro} onChange={e=>set('endereco_bairro', e.target.value)}/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Cidade</label>
+                <input style={inp} value={form.endereco_cidade} onChange={e=>set('endereco_cidade', e.target.value)}/>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>UF</label>
+                <input style={inp} value={form.endereco_estado} onChange={e=>set('endereco_estado', e.target.value.toUpperCase().slice(0,2))} maxLength={2} placeholder="SP"/>
+              </div>
+            </div>
+          </div>
+
+          {/* SEÇÃO 4: COMERCIAL / INTERNO */}
+          <div>
+            <SecaoLabel icon="Activity">Comercial / interno</SecaoLabel>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nicho</label>
+                <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria..." list="nichos-sugestao"/>
+                <datalist id="nichos-sugestao">
+                  {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político','Tecnologia'].map(n => <option key={n} value={n}/>)}
+                </datalist>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Porte</label>
+                <select style={inp} value={form.porte} onChange={e=>set('porte', e.target.value)}>
+                  <option value="">—</option>
+                  <option value="micro">Micro</option>
+                  <option value="pequena">Pequena</option>
+                  <option value="media">Média</option>
+                  <option value="grande">Grande</option>
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Origem</label>
+                <input style={inp} value={form.origem} onChange={e=>set('origem', e.target.value)} placeholder="Indicação, Inbound..." list="origens-sugestao"/>
+                <datalist id="origens-sugestao">
+                  {['Indicação','Inbound','Outbound','Evento','Tráfego pago','Rede social','LinkedIn','Recomendação cliente'].map(o => <option key={o} value={o}/>)}
+                </datalist>
+              </div>
+            </div>
+
+            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Status</label>
+                <select style={inp} value={form.status} onChange={e=>set('status', e.target.value)}>
+                  <option value="lead">Lead</option>
+                  <option value="prospecto">Prospecto</option>
+                  <option value="ativo">Ativo</option>
+                  <option value="suspenso">Suspenso</option>
+                  <option value="inativo">Inativo</option>
+                  <option value="churn">Churn</option>
+                </select>
+              </div>
+              <div>
+                <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data de aquisição</label>
+                <input style={inp} type="date" value={form.data_aquisicao || ''} onChange={e=>set('data_aquisicao', e.target.value)}/>
+              </div>
+            </div>
+
+            {/* Tags */}
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Tags</label>
+              <div style={{display:'flex', gap:6, flexWrap:'wrap', marginBottom:6}}>
+                {(form.tags || []).map(t => (
+                  <span key={t} style={{padding:'3px 9px', borderRadius:999, background:'rgba(30,144,255,.15)', color:'var(--blue)', fontSize:11.5, display:'inline-flex', alignItems:'center', gap:5, border:'1px solid rgba(30,144,255,.35)'}}>
+                    {t}
+                    <button onClick={()=>removeTag(t)} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', padding:0, fontSize:11}}>×</button>
+                  </span>
+                ))}
+              </div>
+              <div style={{display:'flex', gap:6}}>
+                <input style={{...inp, flex:1}} value={novaTag} onChange={e=>setNovaTag(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();addTag();}}} placeholder="VIP, Indicação Master, Multi-produto... + Enter"/>
+                <button onClick={addTag} style={{padding:'8px 14px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t2)', fontSize:12.5, cursor:'pointer'}}>+ Tag</button>
+              </div>
+            </div>
+
+            {/* Cor */}
+            <div style={{marginBottom:12}}>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Cor do avatar</label>
+              <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+                {['#1E90FF','#7B3FE4','#1D9E75','#BA7517','#A32D2D','#185FA5','#E040FB','#FF6D00','#00BCD4','#FF6B9D','#00C8B0','#6E6E78'].map(c => (
+                  <button key={c} type="button" onClick={()=>set('cor', c)} style={{
+                    width:28, height:28, borderRadius:'50%', padding:0, cursor:'pointer',
+                    background:c, border: form.cor === c ? '3px solid var(--t1)' : '2px solid transparent',
+                  }}/>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nota interna (opcional)</label>
+              <textarea style={{...inp, resize:'vertical', minHeight:60, fontFamily:'inherit'}} value={form.nota_interna} onChange={e=>set('nota_interna', e.target.value)} placeholder="Histórico, contexto, observações privadas..."/>
+            </div>
+          </div>
+
+          {erro && (
+            <div style={{marginTop:14, padding:'10px 14px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:7, fontSize:12.5, color:'#ff8585'}}>
+              ⚠ {erro}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
+          {!novo
+            ? <button onClick={remover} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}><Icon name="Trash2" size={12}/>Remover</button>
+            : <span/>}
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{padding:'8px 18px', borderRadius:7, border:'none', background: salvando ? 'var(--bg-3)' : 'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor: salvando ? 'wait' : 'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name={salvando ? 'RefreshCw' : 'Check'} size={13}/>
+              {salvando ? 'Salvando...' : (novo ? 'Cadastrar' : 'Salvar')}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // IMPORTAR EXTRATO BANCÁRIO — modal estilo black brava
 // Parse 100% client-side via SheetJS. Arquivo NUNCA sai do browser.
 // ─────────────────────────────────────────────────────────────────
@@ -15686,6 +16387,7 @@ function App() {
           : page === 'monitoramento' ? <Monitoramento pipelineCols={pipelineCols} onImpersonate={setImpersonate}/>
           : page === 'mrr'      ? <Financeiro/>
           : page === 'pipeline' ? <Pipeline cols={pipelineCols} setCols={setPipelineCols}/>
+          : page === 'clientes_crm' ? <ClientesCRM/>
           : page === 'agenda'   ? <Agenda/>
           : page === 'analytics'? <Analytics/>
           : page === 'chamados' ? <Chamados/>
