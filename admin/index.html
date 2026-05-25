@@ -3460,6 +3460,9 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     running:false, days:10, processed:0, total:0, chats:0, messages:0, errors:[], done:false,
   });
 
+  // === Catalogar contatos (vincula chats não-vinculados a clientes em bulk) ===
+  const [catalogOpen, setCatalogOpen] = React.useState(false);
+
   async function runSyncHistory(days) {
     const instanceName = activeInstance?.evolution_instance_name;
     if (!instanceName) {
@@ -3917,6 +3920,16 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}
               >
                 <Icon name="History" size={17}/>
+              </button>
+              {/* Catalogar contatos - lista chats não-vinculados e permite associar a clientes */}
+              <button onClick={()=>setCatalogOpen(true)} title="Catalogar contatos · vincular chats a clientes" style={{
+                width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                color: S.textSec, background:'none', border:'none', cursor:'pointer', transition:'background .15s',
+              }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+              >
+                <Icon name="UserPlus" size={17}/>
               </button>
               <button onClick={()=>setEscondeRuido(!escondeRuido)} title={escondeRuido ? 'Mostrando apenas conversas reais' : 'Mostrar tudo (inclusive ruido tecnico)'} style={{
                 width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
@@ -4656,6 +4669,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           </div>
         </div>
       )}
+
+      {/* ── Modal: Catalogar contatos (bulk vincular a clientes) ── */}
+      {catalogOpen && (
+        <CatalogarContatosModal S={S} onClose={()=>setCatalogOpen(false)}/>
+      )}
     </div>
   );
 }
@@ -4884,6 +4902,261 @@ function VinculoChatCliente({ chatJid, telefone, S }) {
     </div>
     {cliente360 && <Cliente360Modal cliente={cliente360} onClose={()=>setCliente360(null)}/>}
     </>
+  );
+}
+
+// ─── Modal: Catalogar contatos do WhatsApp em bulk ───
+// Lista chats SEM cliente vinculado (view v_wa_chats_catalogar)
+// Pra cada chat: dropdown de cliente (pré-seleciona match por telefone),
+// botão Vincular (1-clique) ou Pular. Sempre confirma manualmente.
+function CatalogarContatosModal({ S, onClose }) {
+  const [rows, setRows] = React.useState(null);   // null = loading
+  const [erro, setErro] = React.useState(null);
+  const [seleApta, setSeleApta] = React.useState({}); // {chat_id: cliente_id|''}
+  const [pulados, setPulados] = React.useState({});   // {chat_id: true}
+  const [busca, setBusca] = React.useState('');
+  const [vinculando, setVinculando] = React.useState({}); // {chat_id: bool}
+  const { list: clientes } = useClientes();
+
+  const load = React.useCallback(async () => {
+    const cli = getSupa(); if (!cli) { setErro('Supabase não disponível'); return; }
+    setErro(null);
+    const { data, error } = await cli.from('v_wa_chats_catalogar')
+      .select('*')
+      .order('last_message_ts', { ascending: false })
+      .limit(300);
+    if (error) { setErro(error.message); setRows([]); return; }
+    setRows(data || []);
+    // pré-seleciona match por telefone ou nome
+    const pre = {};
+    (data||[]).forEach(r => {
+      if (r.cliente_match_telefone_id) pre[r.chat_id] = r.cliente_match_telefone_id;
+      else if (r.cliente_sugerido_nome_id) pre[r.chat_id] = r.cliente_sugerido_nome_id;
+    });
+    setSeleApta(prev => ({ ...pre, ...prev })); // não sobrescreve escolhas já feitas
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const vincular = async (chatId, jid) => {
+    const clienteId = seleApta[chatId];
+    if (!clienteId) { showToast?.('Escolha um cliente primeiro', 'warn'); return; }
+    setVinculando(v => ({ ...v, [chatId]: true }));
+    const cli = getSupa();
+    const { error } = await cli.from('wa_chats')
+      .update({ cliente_id: clienteId }).eq('id', chatId);
+    setVinculando(v => { const x = { ...v }; delete x[chatId]; return x; });
+    if (error) { showToast?.('Erro: ' + error.message, 'error'); return; }
+    showToast?.('✓ Vinculado', 'success');
+    // remove da lista local (otimismo) — não precisa refetch inteiro
+    setRows(prev => (prev || []).filter(r => r.chat_id !== chatId));
+    try {
+      window.dispatchEvent(new CustomEvent('brava:wa_chats_changed'));
+      window.dispatchEvent(new CustomEvent('brava:db_changed', { detail: { table:'wa_chats' } }));
+    } catch {}
+  };
+
+  const criarClienteRapido = async (chatId, nomeSugerido, telefone) => {
+    const nome = prompt('Nome do novo cliente:', nomeSugerido || '');
+    if (!nome || !nome.trim()) return;
+    const cli = getSupa();
+    const { data, error } = await cli.from('clientes').insert({
+      nome: nome.trim(),
+      contato_telefone: telefone || null,
+      status: 'lead',
+    }).select('id').single();
+    if (error) { showToast?.('Erro: ' + error.message, 'error'); return; }
+    setSeleApta(s => ({ ...s, [chatId]: data.id }));
+    showToast?.('Cliente criado · clique "Vincular" pra confirmar', 'success');
+    try {
+      window.dispatchEvent(new CustomEvent('brava:cliente_changed'));
+      window.dispatchEvent(new CustomEvent('brava:db_changed', { detail: { table:'clientes' } }));
+    } catch {}
+  };
+
+  // filtra/oculta pulados + busca
+  const visiveis = React.useMemo(() => {
+    if (!rows) return [];
+    const q = busca.trim().toLowerCase();
+    return rows.filter(r => {
+      if (pulados[r.chat_id]) return false;
+      if (!q) return true;
+      const nome = String(r.contato_nome || '').toLowerCase();
+      const jid = String(r.jid || '').toLowerCase();
+      const fone = String(r.phone || '').toLowerCase();
+      const last = String(r.last_message_text || '').toLowerCase();
+      return nome.includes(q) || jid.includes(q) || fone.includes(q) || last.includes(q);
+    });
+  }, [rows, pulados, busca]);
+
+  const totalPendentes = rows ? rows.length - Object.keys(pulados).length : 0;
+  const comSugestao = (rows || []).filter(r => seleApta[r.chat_id]).length;
+
+  return (
+    <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+         style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.65)', backdropFilter:'blur(4px)',
+                  zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div style={{ background:S.cardBg, borderRadius:14, width:760, maxWidth:'96vw', maxHeight:'90vh',
+                    border:`1px solid ${S.border}`, boxShadow:'0 24px 60px rgba(0,0,0,.5)',
+                    display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {/* Header */}
+        <div style={{ padding:'18px 22px', borderBottom:`1px solid ${S.border}`,
+                      display:'flex', alignItems:'center', justifyContent:'space-between', gap:14 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, minWidth:0 }}>
+            <Icon name="UserPlus" size={18} style={{color:'var(--wa-green)'}}/>
+            <div style={{minWidth:0}}>
+              <h3 style={{ margin:0, fontSize:16, color:S.textPrimary, fontFamily:'var(--f-d)', fontWeight:600 }}>
+                Catalogar contatos
+              </h3>
+              <div style={{fontSize:11.5, color:S.textSec, marginTop:2}}>
+                {rows === null ? 'Carregando…' :
+                  `${totalPendentes} chats pendentes · ${comSugestao} com sugestão automática`}
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} title="Fechar" style={{
+            width:32, height:32, borderRadius:8, border:'none', background:'transparent',
+            color:S.textSec, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+          }}
+            onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.12)'}
+            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <Icon name="X" size={16}/>
+          </button>
+        </div>
+
+        {/* Busca */}
+        <div style={{ padding:'12px 22px', borderBottom:`1px solid ${S.border}` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px',
+                        background:S.searchBg, borderRadius:8 }}>
+            <Icon name="Search" size={14} style={{color:S.textSec, flexShrink:0}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)}
+              placeholder="Buscar por nome, telefone ou mensagem…"
+              style={{ background:'none', border:'none', outline:'none', fontSize:13,
+                       color:S.textPrimary, width:'100%' }}/>
+          </div>
+        </div>
+
+        {/* Lista */}
+        <div style={{ flex:1, overflowY:'auto', padding:'8px 0' }}>
+          {erro && (
+            <div style={{ padding:'14px 22px', color:'#ff8585', fontSize:12.5 }}>
+              Erro: {erro}
+            </div>
+          )}
+          {rows !== null && visiveis.length === 0 && !erro && (
+            <div style={{ padding:'40px 22px', textAlign:'center', color:S.textSec, fontSize:13 }}>
+              <Icon name="CheckCircle2" size={28} style={{color:'var(--wa-green)', marginBottom:8}}/>
+              <div>{rows.length === 0 ? 'Tudo catalogado! Nenhum chat pendente.' : 'Nenhum chat bate com a busca.'}</div>
+            </div>
+          )}
+          {visiveis.map(r => {
+            const isVinc = !!vinculando[r.chat_id];
+            const sugestaoTxt = r.cliente_match_telefone_id ? '📞 telefone bate' :
+                                r.cliente_sugerido_nome_id ? '🔤 nome bate' : null;
+            return (
+              <div key={r.chat_id} style={{
+                padding:'12px 22px', borderBottom:`1px solid ${S.border}`,
+                display:'grid', gridTemplateColumns:'auto 1fr auto', gap:12, alignItems:'center',
+              }}>
+                {/* Avatar */}
+                <div style={{
+                  width:42, height:42, borderRadius:'50%', background:'var(--bg-3)',
+                  display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden',
+                  flexShrink:0, color:S.textSec, fontSize:14, fontWeight:600,
+                }}>
+                  {r.profile_pic_url ?
+                    <img src={r.profile_pic_url} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}}/> :
+                    (r.contato_nome || r.phone || r.jid || '?').replace(/[^A-Za-zÀ-ÿ0-9]/g,'').slice(0,2).toUpperCase() || '?'
+                  }
+                </div>
+                {/* Info + dropdown */}
+                <div style={{minWidth:0}}>
+                  <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:3}}>
+                    <strong style={{
+                      fontSize:13, color:S.textPrimary, fontFamily:'var(--f-d)',
+                      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0,
+                    }}>{r.contato_nome || r.phone || r.jid}</strong>
+                    {sugestaoTxt && <span style={{
+                      fontSize:10, color:'var(--blue)', background:'rgba(30,144,255,.10)',
+                      padding:'2px 6px', borderRadius:999, flexShrink:0,
+                    }}>{sugestaoTxt}</span>}
+                    <span style={{fontSize:10.5, color:S.textSec, flexShrink:0}}>
+                      {r.total_mensagens} msg{r.total_mensagens === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                  <div style={{
+                    fontSize:11.5, color:S.textSec, marginBottom:6,
+                    overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+                  }}>{r.last_message_text || <em style={{opacity:.6}}>(sem texto)</em>}</div>
+                  <div style={{display:'flex', gap:6}}>
+                    <select
+                      value={seleApta[r.chat_id] || ''}
+                      onChange={e=>setSeleApta(s=>({ ...s, [r.chat_id]: e.target.value }))}
+                      disabled={isVinc}
+                      style={{
+                        flex:1, padding:'6px 8px', background:'var(--bg-3)',
+                        border:`1px solid ${S.border}`, borderRadius:6,
+                        color:S.textPrimary, fontSize:12, outline:'none', cursor:'pointer',
+                      }}>
+                      <option value="">— vincular a cliente —</option>
+                      {(clientes||[]).map(c => (
+                        <option key={c.id} value={c.id}>{c.nome}</option>
+                      ))}
+                    </select>
+                    <button onClick={()=>criarClienteRapido(r.chat_id, r.contato_nome, r.phone || r.jid)}
+                      disabled={isVinc}
+                      title="Criar cliente novo a partir desse contato"
+                      style={{
+                        padding:'6px 9px', borderRadius:6, border:`1px solid ${S.border}`,
+                        background:'transparent', color:S.textSec, fontSize:11,
+                        cursor:'pointer', display:'inline-flex', alignItems:'center', gap:4, flexShrink:0,
+                      }}>
+                      <Icon name="Plus" size={11}/> Novo
+                    </button>
+                  </div>
+                </div>
+                {/* Ações */}
+                <div style={{display:'flex', flexDirection:'column', gap:5, flexShrink:0}}>
+                  <button onClick={()=>vincular(r.chat_id, r.jid)}
+                    disabled={isVinc || !seleApta[r.chat_id]}
+                    style={{
+                      padding:'7px 14px', borderRadius:7, border:'none',
+                      background: seleApta[r.chat_id] && !isVinc ? 'var(--wa-green)' : 'rgba(128,128,128,.15)',
+                      color: seleApta[r.chat_id] && !isVinc ? '#fff' : S.textSec,
+                      fontSize:12, fontWeight:600, cursor: seleApta[r.chat_id] && !isVinc ? 'pointer' : 'not-allowed',
+                      display:'inline-flex', alignItems:'center', gap:5, justifyContent:'center',
+                    }}>
+                    {isVinc ? '...' : (<><Icon name="Check" size={12}/> Vincular</>)}
+                  </button>
+                  <button onClick={()=>setPulados(p=>({ ...p, [r.chat_id]: true }))}
+                    disabled={isVinc}
+                    style={{
+                      padding:'5px 14px', borderRadius:7, border:`1px solid ${S.border}`,
+                      background:'transparent', color:S.textSec, fontSize:11,
+                      cursor:'pointer',
+                    }}>Pular</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding:'12px 22px', borderTop:`1px solid ${S.border}`,
+          display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
+          background:S.searchBg,
+        }}>
+          <div style={{fontSize:11, color:S.textSec}}>
+            💡 Dica: chats com 📞 ou 🔤 já vêm pré-selecionados · confirme com "Vincular".
+          </div>
+          <button onClick={onClose} style={{
+            padding:'8px 18px', borderRadius:8, border:'none',
+            background:'var(--wa-green)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer',
+          }}>Concluir</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -14866,6 +15139,16 @@ function ProjetosCRM() {
   const [busca, setBusca] = React.useState('');
   const [filtroStatus, setFiltroStatus] = React.useState('todos');
   const [filtroCliente, setFiltroCliente] = React.useState('todos');
+  const [filtroNucleo, setFiltroNucleo] = React.useState('todos'); // brava_software | brava_audiovisual | brava_consultoria | todos
+  const [wizardAberto, setWizardAberto] = React.useState(false);
+
+  // Projetos com gaps (sem escopo OU sem valor algum) — alimenta o wizard "Organizar"
+  const projetosGap = React.useMemo(() => projetos.filter(p => {
+    const semEscopo = !String(p.escopo || '').trim();
+    const semValor  = (Number(p.valor_total_acordado)||0) === 0 && (Number(p.mensal)||0) === 0;
+    const semServ   = !String(p.servico || '').trim();
+    return semEscopo || semValor || semServ;
+  }), [projetos]);
 
   const clientesById = React.useMemo(() => {
     const m = new Map();
@@ -14877,6 +15160,7 @@ function ProjetosCRM() {
     let arr = [...projetos];
     if (filtroStatus !== 'todos') arr = arr.filter(p => (p.status_fase || 'lead') === filtroStatus);
     if (filtroCliente !== 'todos') arr = arr.filter(p => p.cliente_id === filtroCliente);
+    if (filtroNucleo !== 'todos') arr = arr.filter(p => (p.nucleo || 'brava_software') === filtroNucleo);
     if (busca.trim()) {
       const q = busca.toLowerCase();
       arr = arr.filter(p =>
@@ -14895,7 +15179,20 @@ function ProjetosCRM() {
       return Number(b.mensal||0) - Number(a.mensal||0);
     });
     return arr;
-  }, [projetos, busca, filtroStatus, filtroCliente, clientesById, statusConfig]);
+  }, [projetos, busca, filtroStatus, filtroCliente, filtroNucleo, clientesById, statusConfig]);
+
+  // KPIs por núcleo (brava_software vs audiovisual vs consultoria)
+  const statsPorNucleo = React.useMemo(() => {
+    const acc = { brava_software:{qtd:0,mrr:0,pipeline:0}, brava_audiovisual:{qtd:0,mrr:0,pipeline:0}, brava_consultoria:{qtd:0,mrr:0,pipeline:0} };
+    projetos.forEach(p => {
+      const n = p.nucleo || 'brava_software';
+      if (!acc[n]) return;
+      acc[n].qtd++;
+      if (['ativo','em_implantacao','onboarding'].includes(p.status_fase)) acc[n].mrr += Number(p.mensal||0);
+      if (['lead','em_negociacao','proposta_enviada'].includes(p.status_fase)) acc[n].pipeline += Number(p.valor_total_acordado||0);
+    });
+    return acc;
+  }, [projetos]);
 
   const stats = React.useMemo(() => ({
     total: projetos.length,
@@ -14918,7 +15215,14 @@ function ProjetosCRM() {
             {stats.sem_cliente > 0 && <> · <span style={{color:'#ff8585'}}>{stats.sem_cliente} sem cliente</span></>}
           </div>
         </div>
-        <div className="page-head__actions">
+        <div className="page-head__actions" style={{display:'flex', gap:8}}>
+          {projetosGap.length > 0 && (
+            <button onClick={()=>setWizardAberto(true)} className="btn"
+              title="Preencher rapido os campos faltando (escopo, valor, servico)"
+              style={{background:'rgba(186,117,23,.15)', color:'#E0A04D', border:'1px solid rgba(186,117,23,.35)', fontWeight:600}}>
+              <Icon name="Sparkles" size={14}/>Organizar gaps · {projetosGap.length}
+            </button>
+          )}
           <button onClick={()=>setEditando({})} className="btn btn-primary">
             <Icon name="Plus" size={14}/>Novo projeto
           </button>
@@ -14941,6 +15245,33 @@ function ProjetosCRM() {
             <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
           </div>
         ))}
+      </div>
+
+      {/* Switcher de núcleo (Brava Software | Audiovisual | Consultoria) */}
+      <div className="card" style={{padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+        {[
+          { key:'todos',              emoji:'🌐', label:'Todos núcleos', cor:'var(--blue)' },
+          { key:'brava_software',     emoji:'🤖', label:'Brava Software', cor:'#1E90FF' },
+          { key:'brava_audiovisual',  emoji:'🎬', label:'Audiovisual',    cor:'#E5544D' },
+          { key:'brava_consultoria',  emoji:'🎓', label:'Consultoria',    cor:'#7B3FE4' },
+        ].map(n => {
+          const ativo = filtroNucleo === n.key;
+          const stat = n.key === 'todos' ? null : statsPorNucleo[n.key];
+          return (
+            <button key={n.key} onClick={()=>setFiltroNucleo(n.key)} style={{
+              padding:'7px 12px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+              display:'inline-flex', alignItems:'center', gap:6,
+              background: ativo ? n.cor+'22' : 'var(--bg-3)', color: ativo ? n.cor : 'var(--t2)',
+              border:`1px solid ${ativo ? n.cor : 'var(--border)'}`,
+              transition:'all .15s',
+            }}>
+              <span>{n.emoji}</span>{n.label}
+              {stat && <span style={{marginLeft:4, padding:'1px 6px', borderRadius:999, background:'rgba(255,255,255,.06)', fontSize:10, color:'var(--t3)'}}>
+                {stat.qtd}
+              </span>}
+            </button>
+          );
+        })}
       </div>
 
       {/* Filtros */}
@@ -14998,8 +15329,21 @@ function ProjetosCRM() {
                     {cliente ? `👤 ${cliente.nome}` : '⚠ sem cliente'}
                   </div>
                 </div>
-                {/* Tipo + repasse */}
+                {/* Núcleo + tipo + repasse */}
                 <div style={{display:'flex', gap:5, flexWrap:'wrap', fontSize:10}}>
+                  {(() => {
+                    const nuc = p.nucleo || 'brava_software';
+                    const meta = nuc === 'brava_audiovisual' ? {emoji:'🎬', cor:'#E5544D'} :
+                                 nuc === 'brava_consultoria' ? {emoji:'🎓', cor:'#7B3FE4'} :
+                                 {emoji:'🤖', cor:'#1E90FF'};
+                    const catLabel = ({
+                      saas_ia:'IA+CRM', micro_saas:'Micro SaaS', sistema_integracao:'API', site:'Site', trafego:'Tráfego',
+                      audiovisual_evento:'Evento', audiovisual_filme:'Filme', consultoria:'Consultoria'
+                    })[p.categoria] || '';
+                    return <span title={`Núcleo: ${nuc}`} style={{padding:'2px 6px', borderRadius:5, background:meta.cor+'22', color:meta.cor, fontWeight:600, display:'inline-flex', alignItems:'center', gap:3}}>
+                      {meta.emoji} {catLabel || p.categoria || '—'}
+                    </span>;
+                  })()}
                   {p.tipo_projeto && <span style={{padding:'2px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.tipo_projeto}</span>}
                   {p.e_repasse_terceiros && <span style={{padding:'2px 6px', borderRadius:5, background:'rgba(186,117,23,.15)', color:'#BA7517', fontWeight:600}}>REPASSE</span>}
                 </div>
@@ -15029,6 +15373,252 @@ function ProjetosCRM() {
       )}
 
       {editando && <ProjetoCadastroModal projeto={editando} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditando(null)}/>}
+      {wizardAberto && (
+        <OrganizarProjetosWizard
+          projetos={projetosGap}
+          clientes={clientes}
+          statusConfig={statusConfig}
+          onClose={()=>setWizardAberto(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Wizard linear: passa 1 projeto por vez pra preencher gaps essenciais ───
+// Foco: organizar tudo sem ter que abrir N modais. Pulou/Salvou -> proximo.
+function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) {
+  const [idx, setIdx] = React.useState(0);
+  const [salvando, setSalvando] = React.useState(false);
+  const [pulados, setPulados] = React.useState(new Set());
+
+  const projAtual = projetos[idx] || null;
+
+  // Form local — recarrega ao trocar projeto
+  const [form, setForm] = React.useState({});
+  React.useEffect(() => {
+    if (!projAtual) return;
+    setForm({
+      servico: projAtual.servico || '',
+      escopo: projAtual.escopo || '',
+      mensal: projAtual.mensal || '',
+      valor_total_acordado: projAtual.valor_total_acordado || '',
+      dia: projAtual.dia || '',
+      nome_pagador_esperado: projAtual.nome_pagador_esperado || '',
+      status_fase: projAtual.status_fase || 'lead',
+      nucleo: projAtual.nucleo || 'brava_software',
+      categoria: projAtual.categoria || 'saas_ia',
+    });
+  }, [projAtual?.id]);
+
+  if (!projAtual) {
+    // Tudo organizado! tela de sucesso
+    return (
+      <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+        <div style={{width:420, background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, padding:32, textAlign:'center'}}>
+          <Icon name="CheckCircle2" size={48} style={{color:'#1D9E75', marginBottom:14}}/>
+          <h3 style={{margin:'0 0 8px', fontSize:18, color:'var(--t1)', fontFamily:'var(--f-d)'}}>Tudo organizado!</h3>
+          <div style={{fontSize:13, color:'var(--t3)', marginBottom:20}}>Todos os projetos com gaps foram revisados.</div>
+          <button onClick={onClose} className="btn btn-primary" style={{minWidth:140}}>Concluir</button>
+        </div>
+      </div>
+    );
+  }
+
+  const cliente = clientes.find(c => c.id === projAtual.cliente_id);
+  const total = projetos.length;
+  const cfgStatus = (statusConfig||[]).find(s => s.key === form.status_fase) || { cor:'var(--t3)', label:form.status_fase };
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const proximo = () => setIdx(i => i + 1);
+
+  const pular = () => {
+    setPulados(s => new Set([...s, projAtual.id]));
+    proximo();
+  };
+
+  const salvar = async () => {
+    setSalvando(true);
+    const cli = getSupa();
+    if (!cli) { setSalvando(false); return; }
+    const patch = {
+      servico: form.servico?.trim() || null,
+      escopo: form.escopo?.trim() || null,
+      mensal: Number(form.mensal) || 0,
+      valor_total_acordado: Number(form.valor_total_acordado) || 0,
+      dia: form.dia?.trim() || null,
+      nome_pagador_esperado: form.nome_pagador_esperado?.trim() || null,
+      status_fase: form.status_fase,
+      status: form.status_fase,
+      nucleo: form.nucleo,
+      categoria: form.categoria,
+    };
+    const { error } = await cli.from('projetos').update(patch).eq('id', projAtual.id);
+    setSalvando(false);
+    if (error) { showToast?.('Erro: '+error.message, 'error'); return; }
+    showToast?.('✓ Salvo', 'success');
+    try {
+      window.dispatchEvent(new CustomEvent('brava:projetos_changed'));
+      window.dispatchEvent(new CustomEvent('brava:db_changed', { detail:{table:'projetos'} }));
+    } catch {}
+    proximo();
+  };
+
+  const inp = { width:'100%', padding:'9px 11px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7, color:'var(--t1)', fontSize:13, outline:'none', fontFamily:'var(--f-b)' };
+  const lbl = { fontSize:11, color:'var(--t3)', marginBottom:4, display:'block', fontWeight:600, letterSpacing:.3, textTransform:'uppercase' };
+
+  // Quais gaps esse projeto tem
+  const gaps = [];
+  if (!projAtual.escopo) gaps.push('escopo');
+  if ((Number(projAtual.valor_total_acordado)||0) === 0 && (Number(projAtual.mensal)||0) === 0) gaps.push('valor');
+  if (!projAtual.servico) gaps.push('serviço');
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.72)', backdropFilter:'blur(4px)', zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div style={{width:'min(720px, 96vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header com progresso */}
+        <div style={{padding:'16px 22px', borderBottom:'1px solid var(--border)'}}>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10}}>
+            <div style={{display:'flex', alignItems:'center', gap:10}}>
+              <div style={{width:34, height:34, borderRadius:9, background:'rgba(186,117,23,.15)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <Icon name="Sparkles" size={16} style={{color:'#E0A04D'}}/>
+              </div>
+              <div>
+                <h3 style={{margin:0, fontSize:15, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Organizar projetos</h3>
+                <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
+                  Projeto {idx + 1} de {total}{pulados.size > 0 ? ` · ${pulados.size} pulado${pulados.size>1?'s':''}` : ''}
+                </div>
+              </div>
+            </div>
+            <button onClick={onClose} style={{width:30, height:30, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+          </div>
+          {/* Barra progresso */}
+          <div style={{height:4, background:'var(--bg-3)', borderRadius:2, overflow:'hidden'}}>
+            <div style={{height:'100%', width:`${((idx+1)/total)*100}%`, background:'linear-gradient(90deg,#BA7517,#E0A04D)', transition:'width .3s'}}/>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          {/* Identificacao do projeto + cliente + status */}
+          <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:12, marginBottom:18, padding:'14px 16px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:9}}>
+            <div style={{minWidth:0, flex:1}}>
+              <div style={{fontSize:16, color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)', marginBottom:3, overflow:'hidden', textOverflow:'ellipsis'}}>{projAtual.cliente}</div>
+              <div style={{fontSize:11.5, color:'var(--blue)'}}>👤 {cliente?.nome || '(sem cliente)'}</div>
+            </div>
+            <div style={{display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end'}}>
+              <span style={{padding:'3px 9px', borderRadius:999, background:cfgStatus.cor+'22', color:cfgStatus.cor, fontWeight:600, fontSize:11}}>
+                {cfgStatus.label}
+              </span>
+              <div style={{display:'flex', gap:4, flexWrap:'wrap', justifyContent:'flex-end'}}>
+                {gaps.map(g => (
+                  <span key={g} style={{padding:'2px 7px', borderRadius:999, fontSize:10, fontWeight:600, background:'rgba(229,84,77,.15)', color:'#ff8585'}}>
+                    falta {g}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Status + Núcleo + Categoria */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+            <div>
+              <label style={lbl}>Status</label>
+              <select style={inp} value={form.status_fase} onChange={e=>set('status_fase', e.target.value)}>
+                {(statusConfig||[]).map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Núcleo</label>
+              <select style={inp} value={form.nucleo} onChange={e=>{
+                const nv = e.target.value; set('nucleo', nv);
+                if (nv === 'brava_audiovisual' && !['audiovisual_evento','audiovisual_filme'].includes(form.categoria)) set('categoria','audiovisual_evento');
+                if (nv === 'brava_consultoria' && form.categoria !== 'consultoria') set('categoria','consultoria');
+                if (nv === 'brava_software' && ['audiovisual_evento','audiovisual_filme','consultoria'].includes(form.categoria)) set('categoria','saas_ia');
+              }}>
+                <option value="brava_software">🤖 Software</option>
+                <option value="brava_audiovisual">🎬 Audiovisual</option>
+                <option value="brava_consultoria">🎓 Consultoria</option>
+              </select>
+            </div>
+            <div>
+              <label style={lbl}>Categoria</label>
+              <select style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)}>
+                {form.nucleo === 'brava_audiovisual' && (<>
+                  <option value="audiovisual_evento">Evento</option>
+                  <option value="audiovisual_filme">Filme</option>
+                </>)}
+                {form.nucleo === 'brava_consultoria' && <option value="consultoria">Consultoria</option>}
+                {form.nucleo === 'brava_software' && (<>
+                  <option value="saas_ia">IA + CRM</option>
+                  <option value="micro_saas">Micro SaaS</option>
+                  <option value="sistema_integracao">API / Integração</option>
+                  <option value="site">Site</option>
+                  <option value="trafego">Tráfego</option>
+                </>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Serviço */}
+          <div style={{marginBottom:14}}>
+            <label style={lbl}>Serviço (descrição curta){!projAtual.servico && <span style={{color:'#ff8585', marginLeft:6, textTransform:'none'}}>· em branco</span>}</label>
+            <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="Ex: IA + CRM, Site + Tráfego, Captação evento..."/>
+          </div>
+
+          {/* Valores */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+            <div>
+              <label style={lbl}>Mensal (R$)</label>
+              <input style={inp} type="number" step="0.01" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="0,00"/>
+            </div>
+            <div>
+              <label style={lbl}>Valor total (R$)</label>
+              <input style={inp} type="number" step="0.01" value={form.valor_total_acordado} onChange={e=>set('valor_total_acordado', e.target.value)} placeholder="0,00"/>
+            </div>
+            <div>
+              <label style={lbl}>Dia venc.</label>
+              <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: 10"/>
+            </div>
+          </div>
+
+          {/* Pagador (concilição) */}
+          <div style={{marginBottom:14}}>
+            <label style={lbl}>Nome do pagador no extrato (opcional)</label>
+            <input style={inp} value={form.nome_pagador_esperado} onChange={e=>set('nome_pagador_esperado', e.target.value.toUpperCase())} placeholder="Ex: ESTACIONEPARKAEROPORTO LTDA"/>
+          </div>
+
+          {/* Escopo (campo principal) */}
+          <div>
+            <label style={lbl}>Escopo / Observações{!projAtual.escopo && <span style={{color:'#ff8585', marginLeft:6, textTransform:'none'}}>· em branco</span>}</label>
+            <textarea
+              style={{...inp, minHeight:120, resize:'vertical', fontFamily:'inherit', lineHeight:1.55}}
+              value={form.escopo}
+              onChange={e=>set('escopo', e.target.value)}
+              placeholder="O que está incluso, valores combinados, prazos, contatos do cliente, observações..."
+            />
+            <div style={{fontSize:10.5, color:'var(--t3)', marginTop:4}}>
+              💡 Cola direto do WhatsApp ou do contrato. Esse texto aparece em todos os relatórios do projeto.
+            </div>
+          </div>
+        </div>
+
+        {/* Footer com ações */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, background:'var(--bg-2)'}}>
+          <button onClick={pular} disabled={salvando} style={{padding:'9px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--t3)', cursor:salvando?'not-allowed':'pointer', fontSize:12.5, fontWeight:500, display:'inline-flex', alignItems:'center', gap:6}}>
+            Pular <Icon name="ArrowRight" size={12}/>
+          </button>
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={onClose} disabled={salvando} style={{padding:'9px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', cursor:salvando?'not-allowed':'pointer', fontSize:12.5}}>
+              Fechar
+            </button>
+            <button onClick={salvar} disabled={salvando} style={{padding:'9px 22px', borderRadius:8, border:'none', background:'var(--blue)', color:'#fff', cursor:salvando?'wait':'pointer', fontSize:13, fontWeight:600, display:'inline-flex', alignItems:'center', gap:6, opacity:salvando?.7:1}}>
+              {salvando ? 'Salvando…' : (<><Icon name="Check" size={13}/>Salvar e próximo</>)}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -15041,6 +15631,8 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
     cliente: projeto?.cliente || '',
     servico: projeto?.servico || '',
     nicho: projeto?.nicho || '',
+    nucleo: projeto?.nucleo || 'brava_software',
+    categoria: projeto?.categoria || 'saas_ia',
     tipo_projeto: projeto?.tipo_projeto || 'mensalidade',
     mensal: projeto?.mensal || 0,
     impl: projeto?.implementacao || projeto?.impl || 0,
@@ -15072,6 +15664,8 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
         cliente: form.cliente.trim(),
         servico: form.servico || null,
         nicho: form.nicho || null,
+        nucleo: form.nucleo || null,
+        categoria: form.categoria || null,
         tipo_projeto: form.tipo_projeto,
         mensal: Number(form.mensal) || 0,
         impl: Number(form.impl) || 0,
@@ -15182,7 +15776,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Serviço (descrição curta)</label>
               <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + Sistema + GMB"/>
@@ -15190,6 +15784,48 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nicho</label>
               <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Estacionamento, Saúde..."/>
+            </div>
+          </div>
+
+          {/* Núcleo + categoria (separação de unidade de negócio Brava vs Audiovisual vs Consultoria) */}
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Núcleo *</label>
+              <select style={inp} value={form.nucleo} onChange={e=>{
+                const nv = e.target.value; set('nucleo', nv);
+                // ajusta categoria padrão pra evitar combinação inválida
+                if (nv === 'brava_audiovisual' && !['audiovisual_evento','audiovisual_filme'].includes(form.categoria)) set('categoria', 'audiovisual_evento');
+                if (nv === 'brava_consultoria' && form.categoria !== 'consultoria') set('categoria', 'consultoria');
+                if (nv === 'brava_software' && ['audiovisual_evento','audiovisual_filme','consultoria'].includes(form.categoria)) set('categoria', 'saas_ia');
+              }}>
+                <option value="brava_software">🤖 Brava Software (SaaS / IA / Sites)</option>
+                <option value="brava_audiovisual">🎬 Brava Audiovisual (eventos / filmes)</option>
+                <option value="brava_consultoria">🎓 Brava Consultoria (mentoria)</option>
+              </select>
+              <div style={{fontSize:10, color:'var(--t3)', marginTop:3}}>Define a unidade de negócio pra relatórios separados.</div>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Categoria *</label>
+              <select style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)}>
+                {form.nucleo === 'brava_audiovisual' && (
+                  <>
+                    <option value="audiovisual_evento">Captação de evento</option>
+                    <option value="audiovisual_filme">Produção de filme</option>
+                  </>
+                )}
+                {form.nucleo === 'brava_consultoria' && (
+                  <option value="consultoria">Consultoria/Mentoria</option>
+                )}
+                {form.nucleo === 'brava_software' && (
+                  <>
+                    <option value="saas_ia">Agente IA + CRM (WhatsApp)</option>
+                    <option value="micro_saas">Micro SaaS customizado</option>
+                    <option value="sistema_integracao">Sistema / Integração / API</option>
+                    <option value="site">Site institucional</option>
+                    <option value="trafego">Tráfego pago (Ads / GMB)</option>
+                  </>
+                )}
+              </select>
             </div>
           </div>
 
