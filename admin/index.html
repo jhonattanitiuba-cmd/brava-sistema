@@ -14260,7 +14260,7 @@ function ClientesCRM() {
           )}
         </div>
       ) : (
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', gap:12}}>
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
           {filtrados.map(c => {
             const s = statsPorCliente.get(c.id) || { projetos:0, mrr:0, impl:0 };
             const incompleto = clienteEstaIncompleto(c);
@@ -14269,62 +14269,54 @@ function ClientesCRM() {
             const iniciais = (c.nome || '?').split(' ').slice(0,2).map(n => n[0]).join('').toUpperCase();
             return (
               <div key={c.id} onClick={()=>setEditando(c)} style={{
-                padding:'16px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:11,
-                cursor:'pointer', transition:'all .15s',
-                borderTop: `3px solid ${c.cor || statusCor}`,
+                padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)',
+                borderLeft:`3px solid ${c.cor || statusCor}`,
+                borderRadius:8, cursor:'pointer', transition:'background .15s',
+                display:'grid', gridTemplateColumns:'32px 2fr 1fr 110px 110px 90px 40px', gap:12, alignItems:'center',
               }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateY(-2px)';}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)';}}>
-                <div style={{display:'flex', gap:11, alignItems:'flex-start', marginBottom:10}}>
-                  <div style={{
-                    width:42, height:42, borderRadius:'50%', flexShrink:0,
-                    background: c.foto_url ? `url(${c.foto_url}) center/cover` : (c.cor || 'var(--blue)'),
-                    color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
-                    fontFamily:'var(--f-d)', fontWeight:700, fontSize:14,
-                  }}>{!c.foto_url && iniciais}</div>
-                  <div style={{flex:1, minWidth:0}}>
-                    <div style={{fontSize:14, color:'var(--t1)', fontWeight:600, marginBottom:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:5}}>
-                      {c.nome}
-                      {c.status_lock && <Icon name="Lock" size={11} style={{color:'#BA7517', flexShrink:0}}/>}
-                    </div>
-                    <div style={{fontSize:11.5, color:'var(--t3)', display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
-                      <span style={{padding:'2px 7px', borderRadius:999, background:statusCor+'22', color:statusCor, fontWeight:600, fontSize:10.5, letterSpacing:.3, display:'inline-flex', alignItems:'center', gap:4}}>
-                        <Icon name={cfg.icone} size={10}/>
-                        {cfg.label}
-                      </span>
-                      {c.tipo_pessoa && <span>{c.tipo_pessoa}</span>}
-                      {c.nicho && <><span>·</span><span>{c.nicho}</span></>}
-                    </div>
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
+                onMouseLeave={e=>e.currentTarget.style.background='var(--bg-2)'}>
+                {/* Avatar */}
+                <div style={{
+                  width:32, height:32, borderRadius:'50%', flexShrink:0,
+                  background: c.foto_url ? `url(${c.foto_url}) center/cover` : (c.cor || 'var(--blue)'),
+                  color:'#fff', display:'flex', alignItems:'center', justifyContent:'center',
+                  fontFamily:'var(--f-d)', fontWeight:700, fontSize:11.5,
+                }}>{!c.foto_url && iniciais}</div>
+                {/* Nome + tipo */}
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:5}}>
+                    {c.nome}
+                    {c.status_lock && <Icon name="Lock" size={10} style={{color:'#BA7517'}}/>}
+                    {incompleto && <span title="Cadastro incompleto" style={{color:'#ff8585', fontSize:11}}>!</span>}
                   </div>
-                  {incompleto && (
-                    <span title="Cadastro incompleto" style={{padding:'2px 7px', borderRadius:999, background:'rgba(163,45,45,.15)', color:'#ff8585', fontSize:10, fontWeight:700, border:'1px solid rgba(163,45,45,.35)'}}>!</span>
-                  )}
-                </div>
-
-                {/* Mini-stats */}
-                <div style={{display:'flex', gap:14, padding:'10px 0', borderTop:'1px solid var(--border-soft)', fontSize:12}}>
-                  <div>
-                    <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:1}}>Projetos</div>
-                    <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-m)'}}>{s.projetos}</div>
-                  </div>
-                  <div>
-                    <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:1}}>MRR</div>
-                    <div style={{color: s.mrr > 0 ? '#1D9E75' : 'var(--t3)', fontWeight:600, fontFamily:'var(--f-m)'}}>R$ {s.mrr.toLocaleString('pt-BR')}</div>
-                  </div>
-                  <div>
-                    <div style={{color:'var(--t3)', fontSize:10.5, textTransform:'uppercase', letterSpacing:.4, marginBottom:1}}>Implantação</div>
-                    <div style={{color:'var(--t2)', fontWeight:600, fontFamily:'var(--f-m)'}}>R$ {s.impl.toLocaleString('pt-BR')}</div>
+                  <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                    {c.tipo_pessoa && <>{c.tipo_pessoa} · </>}{c.nicho || '—'}
                   </div>
                 </div>
-
-                {/* Contato */}
-                {(c.contato_nome || c.contato_email || c.contato_telefone) && (
-                  <div style={{paddingTop:8, borderTop:'1px solid var(--border-soft)', fontSize:11.5, color:'var(--t3)'}}>
-                    {c.contato_nome && <div>👤 {c.contato_nome}{c.contato_cargo ? ` · ${c.contato_cargo}` : ''}</div>}
-                    {c.contato_email && <div style={{marginTop:2}}>✉ {c.contato_email}</div>}
-                    {c.contato_telefone && <div style={{marginTop:2}}>📞 {c.contato_telefone}</div>}
-                  </div>
-                )}
+                {/* Status badge */}
+                <span style={{padding:'3px 8px', borderRadius:999, background:statusCor+'22', color:statusCor, fontWeight:600, fontSize:10.5, display:'inline-flex', alignItems:'center', gap:4, justifySelf:'start'}}>
+                  <Icon name={cfg.icone} size={10}/>{cfg.label}
+                </span>
+                {/* MRR */}
+                <div style={{textAlign:'right', fontSize:12}}>
+                  <div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase', letterSpacing:.4}}>MRR</div>
+                  <div style={{color: s.mrr > 0 ? '#1D9E75' : 'var(--t3)', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {s.mrr.toLocaleString('pt-BR')}</div>
+                </div>
+                {/* Implantação */}
+                <div style={{textAlign:'right', fontSize:12}}>
+                  <div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase', letterSpacing:.4}}>Impl</div>
+                  <div style={{color:'var(--t2)', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {s.impl.toLocaleString('pt-BR')}</div>
+                </div>
+                {/* Projetos */}
+                <div style={{textAlign:'right', fontSize:12}}>
+                  <div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase', letterSpacing:.4}}>Projetos</div>
+                  <div style={{color:'var(--t1)', fontFamily:'var(--f-m)', fontWeight:600}}>{s.projetos}</div>
+                </div>
+                {/* Chevron */}
+                <div style={{color:'var(--t3)', textAlign:'right'}}>
+                  <Icon name="ChevronRight" size={14}/>
+                </div>
               </div>
             );
           })}
@@ -14837,46 +14829,49 @@ function ProjetosCRM() {
           </button>
         </div>
       ) : (
-        <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(330px, 1fr))', gap:12}}>
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
           {filtrados.map(p => {
             const cfg = getStatusByKey(statusConfig, p.status_fase || 'lead');
             const cliente = clientesById.get(p.cliente_id);
             return (
               <div key={p.id} onClick={()=>setEditando(p)} style={{
-                padding:'14px 16px', background:'var(--bg-2)', border:'1px solid var(--border)',
-                borderLeft:`3px solid ${cfg.cor}`, borderRadius:10, cursor:'pointer', transition:'all .15s',
+                padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)',
+                borderLeft:`3px solid ${cfg.cor}`, borderRadius:8, cursor:'pointer', transition:'background .15s',
+                display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 40px', gap:12, alignItems:'center',
               }}
-                onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateY(-2px)';}}
-                onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateY(0)';}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
-                  <div style={{minWidth:0, flex:1}}>
-                    <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, marginBottom:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.cliente}</div>
-                    {cliente && <div style={{fontSize:11, color:'var(--blue)', marginBottom:5}}>👤 {cliente.nome}</div>}
-                    {!cliente && <div style={{fontSize:11, color:'#ff8585', marginBottom:5}}>⚠ Sem cliente mestre</div>}
-                    <div style={{display:'flex', gap:6, alignItems:'center', flexWrap:'wrap'}}>
-                      <span style={{padding:'2px 7px', borderRadius:999, background:cfg.cor+'22', color:cfg.cor, fontWeight:600, fontSize:10, display:'inline-flex', alignItems:'center', gap:3}}>
-                        <Icon name={cfg.icone} size={9}/>{cfg.label}
-                      </span>
-                      {p.tipo_projeto && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.tipo_projeto}</span>}
-                      {p.e_repasse_terceiros && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'rgba(186,117,23,.15)', color:'#BA7517', fontWeight:600}}>REPASSE</span>}
-                    </div>
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
+                onMouseLeave={e=>e.currentTarget.style.background='var(--bg-2)'}>
+                {/* Nome projeto + cliente */}
+                <div style={{minWidth:0}}>
+                  <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.cliente}</div>
+                  <div style={{fontSize:10.5, color: cliente ? 'var(--blue)' : '#ff8585', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                    {cliente ? `👤 ${cliente.nome}` : '⚠ sem cliente'}
                   </div>
                 </div>
-                {/* mini stats */}
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, paddingTop:10, borderTop:'1px solid var(--border-soft)', fontSize:11}}>
-                  <div>
-                    <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Mensal</div>
-                    <div style={{color: Number(p.mensal||0) > 0 ? '#1D9E75' : 'var(--t3)', fontFamily:'var(--f-m)', fontWeight:600, marginTop:2}}>R$ {fmt(p.mensal)}</div>
-                  </div>
-                  <div>
-                    <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Implantação</div>
-                    <div style={{color:'var(--t2)', fontFamily:'var(--f-m)', fontWeight:600, marginTop:2}}>R$ {fmt(p.implementacao)}</div>
-                  </div>
-                  <div>
-                    <div style={{color:'var(--t3)', fontSize:10, textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Nicho</div>
-                    <div style={{color:'var(--t2)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.nicho || '-'}</div>
-                  </div>
+                {/* Tipo + repasse */}
+                <div style={{display:'flex', gap:5, flexWrap:'wrap', fontSize:10}}>
+                  {p.tipo_projeto && <span style={{padding:'2px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.tipo_projeto}</span>}
+                  {p.e_repasse_terceiros && <span style={{padding:'2px 6px', borderRadius:5, background:'rgba(186,117,23,.15)', color:'#BA7517', fontWeight:600}}>REPASSE</span>}
                 </div>
+                {/* Status */}
+                <span style={{padding:'3px 8px', borderRadius:999, background:cfg.cor+'22', color:cfg.cor, fontWeight:600, fontSize:10.5, display:'inline-flex', alignItems:'center', gap:4, justifySelf:'start'}}>
+                  <Icon name={cfg.icone} size={10}/>{cfg.label}
+                </span>
+                {/* Mensal */}
+                <div style={{textAlign:'right', fontSize:12}}>
+                  <div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase', letterSpacing:.4}}>Mensal</div>
+                  <div style={{color: Number(p.mensal||0) > 0 ? '#1D9E75' : 'var(--t3)', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {fmt(p.mensal)}</div>
+                </div>
+                {/* Implantação */}
+                <div style={{textAlign:'right', fontSize:12}}>
+                  <div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase', letterSpacing:.4}}>Impl</div>
+                  <div style={{color:'var(--t2)', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {fmt(p.implementacao)}</div>
+                </div>
+                {/* Nicho */}
+                <div style={{fontSize:11, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {p.nicho || '—'}
+                </div>
+                <div style={{color:'var(--t3)', textAlign:'right'}}><Icon name="ChevronRight" size={14}/></div>
               </div>
             );
           })}
