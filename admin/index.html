@@ -6672,9 +6672,10 @@ function useSupaChats() {
         try {
           const { data: contatos } = await cli
             .from('wa_contatos')
-            .select('jid, profile_pic_url, push_name, profile_name, verified_name, phone_jid, is_group')
+            .select('jid, profile_pic_url, push_name, profile_name, verified_name, phone_jid, is_group, saved_name')
             .eq('instancia_id', activeInstanceId)
-            .limit(2000);
+            .order('updated_at', { ascending: false })
+            .limit(5000);
           if (alive && contatos) {
             let picsChanged = 0;
             let contatosChanged = 0;
@@ -8134,11 +8135,19 @@ function useEvoProfilePic(remoteJid) {
     if (!remoteJid) return;
     const fn = () => force(x => x + 1);
     _evoPicSubs.add(fn);
+    _evoContacts.subs.add(fn); // também re-renderiza se contato atualizar
     // Dispara fetch (que ja faz retry inteligente baseado no estado do cache)
     evoEnsurePic(remoteJid);
-    return () => { _evoPicSubs.delete(fn); };
-  }, [remoteJid, activeInstanceId]); // re-dispara ao trocar de instancia
-  return _evoPicCache.get(remoteJid)?.url || null;
+    return () => {
+      _evoPicSubs.delete(fn);
+      _evoContacts.subs.delete(fn);
+    };
+  }, [remoteJid, activeInstanceId]);
+  // Tenta cache de fotos primeiro, depois contato do banco (Supabase)
+  const fromPicCache = _evoPicCache.get(remoteJid)?.url;
+  if (fromPicCache) return fromPicCache;
+  const fromContact = _evoContacts.byJid.get(remoteJid)?.profilePicUrl;
+  return fromContact || null;
 }
 
 /* ── Tabela de CONTATOS (canonical) ──
