@@ -706,6 +706,7 @@ const NAV = [
   { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
   { key:'chamados',   label:'Chamados',    icon:'LifeBuoy',        badge:3 },
   { key:'equipe',     label:'Equipe',      icon:'UsersRound',      badge:null },
+  { key:'etiquetas',  label:'Etiquetas',   icon:'Tag',             badge:null },
   { key:'logs',       label:'Logs',        icon:'ScrollText',      badge:null },
 ];
 const NAV_BOTTOM = [
@@ -17576,10 +17577,209 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
 // Lê projetos (projetos) agrupados por status_fase (fin_status_config)
 // Drag-and-drop atualiza status_fase no banco, click abre Cliente 360
 // ═════════════════════════════════════════════════════════════════
+// ─── HOOKS: catalogo de etiquetas (global) + vinculos por entidade ───
+function useEtiquetas() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('etiquetas').select('*').order('ordem').order('nome');
+      if (alive) setList(data || []);
+    };
+    load();
+    const ch = cli.channel('rt:etiquetas')
+      .on('postgres_changes', { event:'*', schema:'public', table:'etiquetas' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
+// Vinculos M:N por entidade (projetos / clientes). Retorna { byEntidadeId: Set<etiqueta_id> }
+function useEtiquetaVinculos(tabela /* 'projeto_etiquetas' | 'cliente_etiquetas' */, fkCampo /* 'projeto_id' | 'cliente_id' */) {
+  const [map, setMap] = React.useState({});
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from(tabela).select('*');
+      if (!alive) return;
+      const acc = {};
+      (data || []).forEach(r => {
+        const k = r[fkCampo];
+        if (!acc[k]) acc[k] = new Set();
+        acc[k].add(r.etiqueta_id);
+      });
+      setMap(acc);
+    };
+    load();
+    const ch = cli.channel(`rt:${tabela}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:tabela }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [tabela, fkCampo]);
+  return map;
+}
+
+// Aplica/remove etiqueta numa entidade
+async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, jaAplicada) {
+  const cli = getSupa(); if (!cli) return;
+  if (jaAplicada) {
+    await cli.from(tabela).delete().eq(fkCampo, entidadeId).eq('etiqueta_id', etiquetaId);
+  } else {
+    await cli.from(tabela).insert({ [fkCampo]: entidadeId, etiqueta_id: etiquetaId });
+  }
+}
+
+// ─── Pagina de gerenciamento de etiquetas (catalogo global) ───
+function EtiquetasPage() {
+  const etiquetas = useEtiquetas();
+  const [editando, setEditando] = React.useState(null); // {id?, nome, cor}
+  const PALETA = ['#1E90FF','#7B3FE4','#1D9E75','#E0A04D','#E5544D','#BA7517','#6E6E78','#2DC4D9','#FF6B9D','#A78BFA','#16a34a','#dc2626'];
+
+  const novo = () => setEditando({ nome:'', cor:PALETA[0] });
+
+  const salvar = async () => {
+    const cli = getSupa(); if (!cli) return;
+    const nome = editando.nome?.trim();
+    if (!nome) { showToast?.('Informe o nome','warn'); return; }
+    if (editando.id) {
+      await cli.from('etiquetas').update({ nome, cor: editando.cor }).eq('id', editando.id);
+    } else {
+      await cli.from('etiquetas').insert({ nome, cor: editando.cor, ordem: (etiquetas?.length || 0) + 1 });
+    }
+    setEditando(null);
+    showToast?.('✓ Salvo','success');
+  };
+  const remover = async (e) => {
+    if (!confirm(`Remover etiqueta "${e.nome}"? Sera removida de todos os chats/projetos/clientes.`)) return;
+    const cli = getSupa(); if (!cli) return;
+    await cli.from('etiquetas').delete().eq('id', e.id);
+    showToast?.('Removida','success');
+  };
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Etiquetas</div>
+          <div className="page-head__sub">{etiquetas.length} etiqueta{etiquetas.length===1?'':'s'} · usadas em WhatsApp, projetos e clientes</div>
+        </div>
+        <div className="page-head__actions">
+          <button onClick={novo} className="btn btn-primary"><Icon name="Plus" size={13}/>Nova etiqueta</button>
+        </div>
+      </div>
+
+      {etiquetas.length === 0 ? (
+        <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="Tag" size={32} style={{opacity:.4, marginBottom:8}}/>
+          <div style={{fontSize:13, marginBottom:8}}>Nenhuma etiqueta cadastrada.</div>
+          <button onClick={novo} className="btn btn-primary"><Icon name="Plus" size={13}/>Criar primeira</button>
+        </div>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:6}}>
+          {etiquetas.map(e => (
+            <div key={e.id} style={{
+              padding:'12px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:9,
+              display:'grid', gridTemplateColumns:'auto 1fr auto auto', gap:12, alignItems:'center',
+            }}>
+              <span style={{
+                display:'inline-flex', alignItems:'center', gap:6,
+                padding:'4px 10px', borderRadius:999, background:e.cor+'22', color:e.cor,
+                fontSize:12, fontWeight:600,
+              }}><Icon name="Tag" size={11}/>{e.nome}</span>
+              <span style={{fontSize:11, color:'var(--t3)', fontFamily:'monospace'}}>{e.cor}</span>
+              <button onClick={()=>setEditando(e)} style={{padding:'6px 10px', border:'1px solid var(--border)', background:'transparent', borderRadius:6, color:'var(--t2)', fontSize:11.5, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}>
+                <Icon name="Pencil" size={11}/>Editar
+              </button>
+              <button onClick={()=>remover(e)} style={{padding:'6px 10px', border:'1px solid rgba(229,84,77,.3)', background:'transparent', borderRadius:6, color:'#ff8585', fontSize:11.5, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}>
+                <Icon name="Trash2" size={11}/>Remover
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editando && (
+        <div onClick={(ev)=>{if(ev.target===ev.currentTarget) setEditando(null);}} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+          <div style={{width:'min(440px, 95vw)', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, padding:22}}>
+            <h3 style={{margin:'0 0 16px', fontSize:16, color:'var(--t1)', fontFamily:'var(--f-d)'}}>{editando.id ? 'Editar etiqueta' : 'Nova etiqueta'}</h3>
+            <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome</label>
+            <input autoFocus value={editando.nome} onChange={e=>setEditando(s=>({ ...s, nome:e.target.value }))}
+              placeholder="Ex: VIP, Urgente, Pago, Aguardando..."
+              style={{width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7, color:'var(--t1)', fontSize:13, marginBottom:14, outline:'none'}}/>
+            <label style={{fontSize:11, color:'var(--t3)', marginBottom:8, display:'block'}}>Cor</label>
+            <div style={{display:'flex', gap:7, flexWrap:'wrap', marginBottom:18}}>
+              {PALETA.map(cor => (
+                <button key={cor} onClick={()=>setEditando(s=>({ ...s, cor }))}
+                  style={{width:28, height:28, borderRadius:'50%', background:cor, border: editando.cor===cor?'3px solid #fff':'2px solid transparent', cursor:'pointer'}}/>
+              ))}
+            </div>
+            {/* Preview */}
+            <div style={{marginBottom:18, padding:'10px 14px', background:'var(--bg-2)', borderRadius:8, border:'1px solid var(--border)'}}>
+              <div style={{fontSize:10, color:'var(--t3)', marginBottom:6, textTransform:'uppercase', letterSpacing:.3}}>Preview</div>
+              <span style={{display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:999, background:editando.cor+'22', color:editando.cor, fontSize:12, fontWeight:600}}>
+                <Icon name="Tag" size={11}/>{editando.nome || '(sem nome)'}
+              </span>
+            </div>
+            <div style={{display:'flex', justifyContent:'flex-end', gap:8}}>
+              <button onClick={()=>setEditando(null)} style={{padding:'9px 16px', border:'1px solid var(--border)', background:'transparent', borderRadius:7, color:'var(--t2)', fontSize:12.5, cursor:'pointer'}}>Cancelar</button>
+              <button onClick={salvar} className="btn btn-primary" style={{minWidth:100}}><Icon name="Check" size={12}/>Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Popover de aplicar etiqueta a uma entidade (projeto/cliente/chat) ───
+function EtiquetaAplicarPopover({ entidadeId, tabela, fkCampo, jaAplicadas, onClose }) {
+  const etiquetas = useEtiquetas();
+  return (
+    <div onClick={(e)=>e.stopPropagation()} style={{
+      position:'absolute', top:'100%', right:0, marginTop:4, zIndex:60,
+      minWidth:220, maxHeight:280, overflowY:'auto',
+      background:'var(--bg)', border:'1px solid var(--border)', borderRadius:9, padding:6,
+      boxShadow:'0 8px 24px rgba(0,0,0,.4)',
+    }}>
+      <div style={{padding:'4px 8px 8px', fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600}}>Etiquetas</div>
+      {etiquetas.length === 0 && (
+        <div style={{padding:'10px 8px', fontSize:12, color:'var(--t3)', textAlign:'center'}}>
+          Nenhuma criada. Vá em <strong style={{color:'var(--blue)'}}>Etiquetas</strong> no menu.
+        </div>
+      )}
+      {etiquetas.map(e => {
+        const ativo = jaAplicadas?.has(e.id);
+        return (
+          <button key={e.id} onClick={()=>toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, e.id, ativo)}
+            style={{
+              width:'100%', padding:'7px 9px', display:'flex', alignItems:'center', gap:7,
+              background: ativo ? e.cor+'18' : 'transparent', color: ativo ? e.cor : 'var(--t2)',
+              border:'none', borderRadius:6, cursor:'pointer', fontSize:12, fontWeight:500, textAlign:'left',
+            }}
+            onMouseEnter={ev=>ev.currentTarget.style.background = ativo ? e.cor+'28' : 'var(--bg-3)'}
+            onMouseLeave={ev=>ev.currentTarget.style.background = ativo ? e.cor+'18' : 'transparent'}>
+            <span style={{width:10, height:10, borderRadius:'50%', background:e.cor, flexShrink:0}}/>
+            <span style={{flex:1}}>{e.nome}</span>
+            {ativo && <Icon name="Check" size={12}/>}
+          </button>
+        );
+      })}
+      <div style={{borderTop:'1px solid var(--border)', margin:'4px 0'}}/>
+      <button onClick={onClose} style={{width:'100%', padding:'6px 8px', background:'transparent', border:'none', color:'var(--t3)', fontSize:11, cursor:'pointer'}}>Fechar</button>
+    </div>
+  );
+}
+
 function PipelineProjetos() {
   const { list: statusConfig } = useStatusConfig();
   const projetos = useRecorrencia();
   const { list: clientes } = useClientes();
+  const etiquetasCat = useEtiquetas();
+  const etiquetasProjeto = useEtiquetaVinculos('projeto_etiquetas', 'projeto_id');
+  const etiquetasCliente = useEtiquetaVinculos('cliente_etiquetas', 'cliente_id');
   const [drag, setDrag] = React.useState(null);
   const [colHover, setColHover] = React.useState(null);
   const [clienteDetalhe, setClienteDetalhe] = React.useState(null);
@@ -17588,19 +17788,46 @@ function PipelineProjetos() {
   const [menuColAberto, setMenuColAberto] = React.useState(null);   // key da coluna com menu aberto
   const [editandoCol, setEditandoCol] = React.useState(null);       // { key, campo: 'nome'|'cor' }
   const [mostrarOcultas, setMostrarOcultas] = React.useState(false);
+  const [filtroEtiquetas, setFiltroEtiquetas] = React.useState(new Set()); // ids selecionados
+  const [popoverEtiqueta, setPopoverEtiqueta] = React.useState(null); // { entidadeId, tipo, x, y }
   const boardRef = React.useRef(null);
+
+  const etiquetasById = React.useMemo(() => {
+    const m = new Map();
+    (etiquetasCat||[]).forEach(e => m.set(e.id, e));
+    return m;
+  }, [etiquetasCat]);
+
+  const toggleFiltroEtiqueta = (id) => {
+    setFiltroEtiquetas(s => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+  const passaFiltroEtiqueta = (entidadeId, mapVinculos) => {
+    if (filtroEtiquetas.size === 0) return true;
+    const tags = mapVinculos[entidadeId];
+    if (!tags) return false;
+    for (const id of filtroEtiquetas) if (tags.has(id)) return true;
+    return false;
+  };
 
   // ── COLUNAS visíveis (filtra ocultas, ordena) ──
   const colunasTodas = React.useMemo(() => statusConfig || [], [statusConfig]);
   const colunas = React.useMemo(() => {
     const visiveis = colunasTodas.filter(c => !c.oculto);
     return visiveis.map(s => {
-      const projetosCol = (projetos || []).filter(p => (p.status_fase || 'lead') === s.key);
+      const projetosCol = (projetos || [])
+        .filter(p => (p.status_fase || 'lead') === s.key)
+        .filter(p => passaFiltroEtiqueta(p.id, etiquetasProjeto));
       // Cliente entra na coluna se o cliente.status bater com o status da coluna
-      const clientesCol = (clientes || []).filter(c => (c.status || 'lead') === s.key);
+      const clientesCol = (clientes || [])
+        .filter(c => (c.status || 'lead') === s.key)
+        .filter(c => passaFiltroEtiqueta(c.id, etiquetasCliente));
       return { ...s, projetos: projetosCol, clientes: clientesCol };
     });
-  }, [colunasTodas, projetos, clientes]);
+  }, [colunasTodas, projetos, clientes, filtroEtiquetas, etiquetasProjeto, etiquetasCliente]);
   const colunasOcultas = colunasTodas.filter(c => c.oculto);
 
   // ── AÇÕES de coluna (rename, cor, mover, fechar/abrir) ──
@@ -17769,6 +17996,33 @@ function PipelineProjetos() {
         )}
       </div>
 
+      {/* Filtro por etiqueta (pills clicaveis) */}
+      {etiquetasCat.length > 0 && (
+        <div style={{display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', marginBottom:12, padding:'6px 0'}}>
+          <Icon name="Tag" size={12} style={{color:'var(--t3)'}}/>
+          <span style={{fontSize:11, color:'var(--t3)', marginRight:6}}>Filtrar:</span>
+          {etiquetasCat.map(e => {
+            const ativo = filtroEtiquetas.has(e.id);
+            return (
+              <button key={e.id} onClick={()=>toggleFiltroEtiqueta(e.id)} style={{
+                padding:'3px 9px', borderRadius:999, fontSize:11, fontWeight:600, cursor:'pointer',
+                background: ativo ? e.cor+'30' : 'var(--bg-3)',
+                color: ativo ? e.cor : 'var(--t3)',
+                border:`1px solid ${ativo ? e.cor : 'var(--border)'}`,
+                display:'inline-flex', alignItems:'center', gap:4,
+              }}>
+                <span style={{width:7, height:7, borderRadius:'50%', background:e.cor}}/>{e.nome}
+              </button>
+            );
+          })}
+          {filtroEtiquetas.size > 0 && (
+            <button onClick={()=>setFiltroEtiquetas(new Set())} style={{padding:'3px 8px', borderRadius:999, fontSize:11, background:'transparent', border:'1px dashed var(--border)', color:'var(--t3)', cursor:'pointer', display:'inline-flex', alignItems:'center', gap:4}}>
+              <Icon name="X" size={10}/>limpar
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Bandeja de colunas ocultas (toggle) */}
       {mostrarOcultas && colunasOcultas.length > 0 && (
         <div style={{display:'flex', gap:8, flexWrap:'wrap', padding:'10px 12px', marginBottom:10, background:'var(--bg-2)', border:'1px dashed var(--border)', borderRadius:8}}>
@@ -17894,30 +18148,49 @@ function PipelineProjetos() {
                 })()}
 
                 {/* CLIENTES (visao=tudo|clientes) */}
-                {filtroVisao !== 'projetos' && col.clientes.map(c => (
-                  <div key={'cli_'+c.id} data-pipeline-card
-                    draggable
-                    onDragStart={e => onDragStart(e, c, col.key, 'cliente')}
-                    onClick={() => setClienteDetalhe(c)}
-                    style={{
-                      padding:'10px 12px',
-                      background:'var(--bg-2)',
-                      border:`1px solid var(--border)`,
-                      borderLeft:`3px solid ${col.cor}`,
-                      borderRadius:9, cursor:'grab', transition:'all .15s',
-                      position:'relative',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor=col.cor; e.currentTarget.style.transform='translateX(2px)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)'; }}>
-                    <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:3}}>
-                      <Icon name="UserCircle" size={12} style={{color:col.cor, flexShrink:0}}/>
-                      <span style={{fontSize:12.5, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{c.nome}</span>
+                {filtroVisao !== 'projetos' && col.clientes.map(c => {
+                  const tagsAplicadas = etiquetasCliente[c.id] || new Set();
+                  return (
+                    <div key={'cli_'+c.id} data-pipeline-card
+                      draggable
+                      onDragStart={e => onDragStart(e, c, col.key, 'cliente')}
+                      onClick={() => setClienteDetalhe(c)}
+                      style={{
+                        padding:'10px 12px',
+                        background:'var(--bg-2)',
+                        border:`1px solid var(--border)`,
+                        borderLeft:`3px solid ${col.cor}`,
+                        borderRadius:9, cursor:'grab', transition:'all .15s',
+                        position:'relative',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor=col.cor; e.currentTarget.style.transform='translateX(2px)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)'; }}>
+                      <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:3}}>
+                        <Icon name="UserCircle" size={12} style={{color:col.cor, flexShrink:0}}/>
+                        <span style={{fontSize:12.5, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{c.nome}</span>
+                        <button onClick={(ev)=>{ ev.stopPropagation(); setPopoverEtiqueta(popoverEtiqueta?.id===c.id?null:{id:c.id, tipo:'cliente'}); }}
+                          title="Aplicar etiqueta"
+                          style={{padding:2, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', borderRadius:4, position:'relative'}}>
+                          <Icon name="Tag" size={11}/>
+                          {popoverEtiqueta?.id === c.id && popoverEtiqueta?.tipo === 'cliente' && (
+                            <EtiquetaAplicarPopover entidadeId={c.id} tabela="cliente_etiquetas" fkCampo="cliente_id" jaAplicadas={tagsAplicadas} onClose={()=>setPopoverEtiqueta(null)}/>
+                          )}
+                        </button>
+                      </div>
+                      <div style={{fontSize:10.5, color:'var(--t3)'}}>
+                        {c.cnpj_cpf ? `CNPJ ${c.cnpj_cpf}` : (c.contato_telefone || (c.tipo_pessoa==='PF' ? 'PF' : 'PJ'))}
+                      </div>
+                      {tagsAplicadas.size > 0 && (
+                        <div style={{display:'flex', gap:3, marginTop:6, flexWrap:'wrap'}}>
+                          {[...tagsAplicadas].map(eid => {
+                            const e = etiquetasById.get(eid); if (!e) return null;
+                            return <span key={eid} style={{padding:'1px 6px', borderRadius:4, background:e.cor+'22', color:e.cor, fontSize:9.5, fontWeight:600}}>{e.nome}</span>;
+                          })}
+                        </div>
+                      )}
                     </div>
-                    <div style={{fontSize:10.5, color:'var(--t3)'}}>
-                      {c.cnpj_cpf ? `CNPJ ${c.cnpj_cpf}` : (c.contato_telefone || (c.tipo_pessoa==='PF' ? 'PF' : 'PJ'))}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* PROJETOS (visao=tudo|projetos) */}
                 {filtroVisao !== 'clientes' && col.projetos.map(p => {
@@ -17925,6 +18198,7 @@ function PipelineProjetos() {
                   const grupo = p.cliente_grupo || clienteObj?.nome || p.cliente;
                   const nuc = p.nucleo || 'brava_software';
                   const emojiNuc = nuc === 'brava_audiovisual' ? '🎬' : nuc === 'brava_consultoria' ? '🎓' : '🤖';
+                  const tagsAplicadas = etiquetasProjeto[p.id] || new Set();
                   return (
                     <div key={p.id} data-pipeline-card
                       draggable
@@ -17938,12 +18212,21 @@ function PipelineProjetos() {
                         borderRadius:9,
                         cursor:'grab',
                         transition:'all .15s',
+                        position:'relative',
                       }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateX(2px)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)'; }}>
                       <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:3}}>
                         <span title={nuc} style={{fontSize:11}}>{emojiNuc}</span>
                         <span style={{fontSize:13, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{p.cliente}</span>
+                        <button onClick={(ev)=>{ ev.stopPropagation(); setPopoverEtiqueta(popoverEtiqueta?.id===p.id?null:{id:p.id, tipo:'projeto'}); }}
+                          title="Aplicar etiqueta"
+                          style={{padding:2, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', borderRadius:4, position:'relative'}}>
+                          <Icon name="Tag" size={11}/>
+                          {popoverEtiqueta?.id === p.id && popoverEtiqueta?.tipo === 'projeto' && (
+                            <EtiquetaAplicarPopover entidadeId={p.id} tabela="projeto_etiquetas" fkCampo="projeto_id" jaAplicadas={tagsAplicadas} onClose={()=>setPopoverEtiqueta(null)}/>
+                          )}
+                        </button>
                       </div>
                       {grupo && grupo !== p.cliente && (
                         <div style={{fontSize:10.5, color:'var(--t3)', marginBottom:6}}>{grupo}</div>
@@ -17960,6 +18243,14 @@ function PipelineProjetos() {
                         <div style={{display:'flex', gap:6, marginTop:6, flexWrap:'wrap'}}>
                           {p.nicho && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.nicho}</span>}
                           {p.e_repasse_terceiros && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'rgba(186,117,23,.15)', color:'#BA7517', fontWeight:600}}>REPASSE</span>}
+                        </div>
+                      )}
+                      {tagsAplicadas.size > 0 && (
+                        <div style={{display:'flex', gap:3, marginTop:6, flexWrap:'wrap'}}>
+                          {[...tagsAplicadas].map(eid => {
+                            const e = etiquetasById.get(eid); if (!e) return null;
+                            return <span key={eid} style={{padding:'1px 6px', borderRadius:4, background:e.cor+'22', color:e.cor, fontSize:9.5, fontWeight:600}}>{e.nome}</span>;
+                          })}
                         </div>
                       )}
                     </div>
@@ -19413,6 +19704,7 @@ function App() {
           : page === 'analytics'? <Analytics/>
           : page === 'chamados' ? <Chamados/>
           : page === 'equipe'   ? <Equipe/>
+          : page === 'etiquetas'? <EtiquetasPage/>
           : page === 'logs'     ? <Logs/>
           : page === 'config'   ? <Config/>
           : <Placeholder page={page}/>}
