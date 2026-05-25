@@ -17577,24 +17577,8 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
 // Lê projetos (projetos) agrupados por status_fase (fin_status_config)
 // Drag-and-drop atualiza status_fase no banco, click abre Cliente 360
 // ═════════════════════════════════════════════════════════════════
-// ─── HOOKS: catalogo de etiquetas (global) + vinculos por entidade ───
-function useEtiquetas() {
-  const [list, setList] = React.useState([]);
-  React.useEffect(() => {
-    const cli = getSupa(); if (!cli) return;
-    let alive = true;
-    const load = async () => {
-      const { data } = await cli.from('etiquetas').select('*').order('ordem').order('nome');
-      if (alive) setList(data || []);
-    };
-    load();
-    const ch = cli.channel('rt:etiquetas')
-      .on('postgres_changes', { event:'*', schema:'public', table:'etiquetas' }, load)
-      .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
-  }, []);
-  return list;
-}
+// ─── HOOKS: vinculos por entidade ───
+// NOTA: useEtiquetas() ja definido acima (retorna { list, loading }). Nao redefinir aqui.
 
 // Vinculos M:N por entidade (projetos / clientes). Retorna { byEntidadeId: Set<etiqueta_id> }
 function useEtiquetaVinculos(tabela /* 'projeto_etiquetas' | 'cliente_etiquetas' */, fkCampo /* 'projeto_id' | 'cliente_id' */) {
@@ -17634,7 +17618,7 @@ async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, ja
 
 // ─── Pagina de gerenciamento de etiquetas (catalogo global) ───
 function EtiquetasPage() {
-  const etiquetas = useEtiquetas();
+  const { list: etiquetas } = useEtiquetas();
   const [editando, setEditando] = React.useState(null); // {id?, nome, cor}
   const PALETA = ['#1E90FF','#7B3FE4','#1D9E75','#E0A04D','#E5544D','#BA7517','#6E6E78','#2DC4D9','#FF6B9D','#A78BFA','#16a34a','#dc2626'];
 
@@ -17736,7 +17720,7 @@ function EtiquetasPage() {
 
 // ─── Popover de aplicar etiqueta a uma entidade (projeto/cliente/chat) ───
 function EtiquetaAplicarPopover({ entidadeId, tabela, fkCampo, jaAplicadas, onClose }) {
-  const etiquetas = useEtiquetas();
+  const { list: etiquetas } = useEtiquetas();
   return (
     <div onClick={(e)=>e.stopPropagation()} style={{
       position:'absolute', top:'100%', right:0, marginTop:4, zIndex:60,
@@ -17777,7 +17761,7 @@ function PipelineProjetos() {
   const { list: statusConfig } = useStatusConfig();
   const projetos = useRecorrencia();
   const { list: clientes } = useClientes();
-  const etiquetasCat = useEtiquetas();
+  const { list: etiquetasCat } = useEtiquetas();
   const etiquetasProjeto = useEtiquetaVinculos('projeto_etiquetas', 'projeto_id');
   const etiquetasCliente = useEtiquetaVinculos('cliente_etiquetas', 'cliente_id');
   const [drag, setDrag] = React.useState(null);
