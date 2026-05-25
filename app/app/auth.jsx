@@ -249,7 +249,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
             <p>{novoCadastro ? 'Já tem conta?' : 'Sem conta?'}{' '}
               {novoCadastro
                 ? <button type="button" className="auth-link" onClick={() => { window.location.href = '/app/'; }}>Entrar com sua conta existente</button>
-                : <a href="https://wa.me/5511991612610?text=Ol%C3%A1%21+Vim+pelo+site+da+Brava+e+gostaria+de+solicitar+uma+demonstra%C3%A7%C3%A3o+da+plataforma." className="auth-link" target="_blank">Solicite uma demonstração</a>
+                : <a href="https://wa.me/5511963342541?text=Ol%C3%A1%21+Vim+pelo+site+da+Brava+e+gostaria+de+solicitar+uma+demonstra%C3%A7%C3%A3o+da+plataforma." className="auth-link" target="_blank">Solicite uma demonstração</a>
               }
             </p>
             <div className="auth-form__legal">

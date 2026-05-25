@@ -55,7 +55,8 @@ const CTAS = {
   B: { btn: 'Quero ver a plataforma funcionando', meta: 'Demonstração ao vivo · 30 minutos · Sem cartão de crédito' }
 };
 
-const WA_LINK = 'https://wa.me/5511991612610?text=Ol%C3%A1!%20Vim%20pela%20LP%20da%20Brava%20e%20quero%20conhecer%20a%20plataforma';
+// WhatsApp oficial da Brava Company (+55 11 96334-2541)
+const WA_LINK = 'https://wa.me/5511963342541?text=Ol%C3%A1!%20Vim%20pela%20LP%20da%20Brava%20e%20quero%20conhecer%20a%20plataforma';
 
 function Hero({ headline, cta, accents }) {
   const H = HEADLINES[headline] || HEADLINES.A;

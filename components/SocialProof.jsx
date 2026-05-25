@@ -157,7 +157,7 @@ function SocialProof() {
               </div>
               <div>
                 <div className="mono" style={{ fontSize: 11, color: 'var(--text-on-light-tertiary)', letterSpacing: '0.08em' }}>WHATSAPP / TELEFONE</div>
-                <div style={{ marginTop: 2, fontSize: 15 }}>(11) 99161-2610</div>
+                <div style={{ marginTop: 2, fontSize: 15 }}>(11) 96334-2541</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
