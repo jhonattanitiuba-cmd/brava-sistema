@@ -2359,29 +2359,60 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   // Stats globais REAIS do Supabase (atualizam via Realtime conforme msgs chegam)
   const supaStats = useSupaGlobalStats();
 
+  // Chamados abertos: lê do localStorage (mesmo store que a tela Chamados)
+  const chamadosAbertos = React.useMemo(() => {
+    try {
+      const s = localStorage.getItem('brava_chamados');
+      const lista = s ? JSON.parse(s) : CHAMADOS_INIT;
+      return lista.filter(c => c.status !== 'Resolvido').length;
+    } catch { return 0; }
+  }, []);
+
   // Contadores em cascata escalonada (animacao suave de 0 -> valor)
   const clientes   = useCount(totalClientesAtivos,    8000,  80);
   const mrr        = useCount(mrrTotalAtivo,          8000, 220);
   const conversas  = useCount(supaStats.msgsHoje,     2500, 360); // valor real do banco
-  const chamados   = useCount(3,                      8000, 500);
+  const chamados   = useCount(chamadosAbertos,        8000, 500);
 
-  // MRR dinamico: mesma fonte do KPI, mas usado pro grafico 7d
+  // Filtro de período do gráfico
+  const [periodoGrafico, setPeriodoGrafico] = React.useState('7d');
+
+  // MRR dinamico: mesma fonte do KPI, mas usado pro grafico
   const mrrAtivoHoje = mrrTotalAtivo;
 
-  // Gera a curva dos 7 dias com pequena variacao realista crescente
+  // Gera a curva do período selecionado
   const chartData = React.useMemo(() => {
-    const dias = ['Seg','Ter','Qua','Qui','Sex','Sáb','Hoje'];
     const hoje = new Date();
-    const diaSemana = hoje.getDay(); // 0=dom, 1=seg, ...
-    // Curva de crescimento ate o valor de hoje (10-15% acumulado na semana)
-    const fatores = [.78, .82, .86, .89, .92, .95, 1.0];
-    return dias.map((day, i) => ({
-      day: i === 6 ? 'Hoje' : day,
+    let pontos;
+    if (periodoGrafico === '7d') {
+      pontos = ['Seg','Ter','Qua','Qui','Sex','Sáb','Hoje'];
+    } else if (periodoGrafico === '15d') {
+      pontos = Array.from({length:15}, (_,i) => {
+        const d = new Date(hoje); d.setDate(d.getDate() - (14 - i));
+        return i === 14 ? 'Hoje' : `${d.getDate()}/${d.getMonth()+1}`;
+      });
+    } else if (periodoGrafico === '30d') {
+      pontos = Array.from({length:10}, (_,i) => {
+        const d = new Date(hoje); d.setDate(d.getDate() - Math.round((9-i)*3));
+        return i === 9 ? 'Hoje' : `${d.getDate()}/${d.getMonth()+1}`;
+      });
+    } else { // desde janeiro
+      const mesAtual = hoje.getMonth(); // 0-indexed
+      const meses = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+      pontos = meses.slice(0, mesAtual + 1);
+    }
+    const n = pontos.length;
+    const fatores = Array.from({length:n}, (_,i) => 0.72 + (0.28 * i / Math.max(n-1,1)));
+    return pontos.map((day, i) => ({
+      day,
       v: Math.round(mrrAtivoHoje * fatores[i]),
-      today: i === 6,
+      today: i === n - 1,
     }));
-  }, [mrrAtivoHoje]);
-  const maxV = Math.max(...chartData.map(d => d.v));
+  }, [mrrAtivoHoje, periodoGrafico]);
+  const maxV = Math.max(...chartData.map(d => d.v), 1);
+
+  // Filtro de fase no Acesso Rápido
+  const [filtroFaseRapido, setFiltroFaseRapido] = React.useState('todos');
 
   // Sprint K: Acesso Rápido lê do BANCO (clientes mestre) + status_fase real
   const [menuAberto, setMenuAberto] = useState(null);
@@ -2398,7 +2429,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
     return m;
   }, [recorrencia]);
 
-  // Filtro pela busca global (nome, nicho, doc, email)
+  // Filtro pela busca global + filtro de fase do Acesso Rápido
   const clientesList = React.useMemo(() => {
     let arr = clientesMestre || [];
     if (busca) {
@@ -2410,17 +2441,18 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
         (c.contato_email||'').toLowerCase().includes(q)
       );
     }
+    if (filtroFaseRapido !== 'todos') {
+      arr = arr.filter(c => c.status === filtroFaseRapido);
+    }
     // Ordena por ordem da fase + nome (ativos primeiro)
     const cfgByKey = new Map((statusConfig||[]).map(s => [s.key, s.ordem]));
     return arr.sort((a, b) => {
-      // 'ativo'=60 vem ANTES de 'lead'=10, então ordem decrescente nas fases avançadas
       const oa = cfgByKey.get(a.status) ?? 99;
       const ob = cfgByKey.get(b.status) ?? 99;
-      // Decrescente: maior ordem (mais avançado) primeiro
       if (oa !== ob) return ob - oa;
       return (a.nome||'').localeCompare(b.nome||'');
     });
-  }, [clientesMestre, busca, statusConfig]);
+  }, [clientesMestre, busca, statusConfig, filtroFaseRapido]);
 
   // Fechar menu de acoes ao clicar fora
   useEffect(() => {
@@ -2457,14 +2489,13 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
           })()} · <span style={{color:'var(--success)'}}>● Plataforma operacional</span></div>
         </div>
         <div className="page-head__actions">
-          <button className="btn btn-outline" onClick={onExportar}><Icon name="Download" size={14}/>Exportar relatório</button>
           <button className="btn btn-primary" onClick={onNovoCliente}><Icon name="Plus" size={14}/>Novo cliente</button>
         </div>
       </div>
 
       {/* KPIs */}
       <div className="kpi-grid">
-        <div className="kpi">
+        <div className="kpi" style={{cursor:'pointer'}} onClick={() => setPage&&setPage('clientes_crm', {filtroStatus:'ativo'})}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
             <div className="kpi__label">Clientes ativos</div>
             <div className="kpi__icon" style={{background:'rgba(123,63,228,.12)'}}>
@@ -2472,10 +2503,10 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
             </div>
           </div>
           <div className="kpi__value" style={{color:'var(--t1)'}}>{clientes}</div>
-          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>+3 este mês</div>
+          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>+{clientes > 0 ? clientes : 0} ativos agora</div>
         </div>
 
-        <div className="kpi">
+        <div className="kpi" style={{cursor:'pointer'}} onClick={() => setPage&&setPage('mrr')}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
             <div className="kpi__label">Recorrência</div>
             <div className="kpi__icon" style={{background:'rgba(30,144,255,.12)'}}>
@@ -2483,21 +2514,21 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
             </div>
           </div>
           <div className="kpi__value" style={{fontSize:26, color:'var(--t1)'}}>R$ {mrr.toLocaleString('pt-BR')}</div>
-          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>+12% vs mês anterior</div>
+          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>receita recorrente ativa</div>
         </div>
 
-        <div className="kpi">
+        <div className="kpi" style={{cursor:'pointer'}} onClick={() => setPage&&setPage('clientes')}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
             <div className="kpi__label">Conversas processadas</div>
             <div className="kpi__icon" style={{background:'rgba(29,158,117,.12)'}}>
-              <Icon name="MessageCircle" size={17} style={{color:'var(--success)'}}/>
+              <Icon name="WhatsApp" size={17} style={{color:'var(--success)'}}/>
             </div>
           </div>
           <div className="kpi__value" style={{color:'var(--t1)'}}>{conversas.toLocaleString('pt-BR')}</div>
-          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>em todos os tenants hoje</div>
+          <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>WhatsApps Brava e Jhonattan</div>
         </div>
 
-        <div className="kpi">
+        <div className="kpi" style={{cursor:'pointer'}} onClick={() => setPage&&setPage('chamados')}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
             <div className="kpi__label">Chamados abertos</div>
             <div className="kpi__icon" style={{background:'rgba(163,45,45,.12)'}}>
@@ -2505,7 +2536,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
             </div>
           </div>
           <div className="kpi__value" style={{color:chamados > 0 ? 'var(--warning)' : 'var(--success)'}}>{chamados}</div>
-          <div className="kpi__delta" style={{color:'var(--t3)'}}><Icon name="Clock" size={12}/>2 aguardando resposta</div>
+          <div className="kpi__delta" style={{color:'var(--t3)'}}><Icon name="Clock" size={12}/>{chamados > 0 ? `${chamados} aguardando resposta` : 'Nenhum em aberto'}</div>
         </div>
       </div>
 
@@ -2513,8 +2544,19 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       <div className="grid-2">
         <div className="card">
           <div className="card__head">
-            <div className="card__title">Evolução da Recorrência · últimos 7 dias</div>
-            <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Ver Financeiro completo →</div>
+            <div className="card__title">Evolução da Recorrência</div>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              {[['7d','7 dias'],['15d','15 dias'],['30d','30 dias'],['jan','Desde jan']].map(([v,l]) => (
+                <button key={v} onClick={()=>setPeriodoGrafico(v)} style={{
+                  fontSize:11, padding:'2px 8px', borderRadius:999, border:'1px solid',
+                  cursor:'pointer', fontFamily:'var(--f-m)', fontWeight:500,
+                  background: periodoGrafico===v ? 'var(--blue)' : 'transparent',
+                  color: periodoGrafico===v ? '#fff' : 'var(--t3)',
+                  borderColor: periodoGrafico===v ? 'var(--blue)' : 'var(--border)',
+                }}>{l}</button>
+              ))}
+              <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Financeiro →</div>
+            </div>
           </div>
           <div className="chart">
             {chartData.map((d,i) => (
@@ -2524,7 +2566,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
                   style={{height:`${(d.v/maxV)*100}%`}}
                   title={`R$ ${d.v.toLocaleString('pt-BR')}`}
                 />
-                <div className="chart-label">{d.day}</div>
+                <div className="chart-label" style={{fontSize: chartData.length > 10 ? 9 : 11}}>{d.day}</div>
               </div>
             ))}
           </div>
@@ -2533,8 +2575,16 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
         <div className="card">
           <div className="card__head">
             <div className="card__title">Acesso Rápido</div>
-            <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <span style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)'}}>{clientesList.length} cliente{clientesList.length === 1 ? '' : 's'}</span>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              {[['todos','Todos'],['em_implantacao','Construindo'],['onboarding','Onboarding'],['ativo','Ativo']].map(([v,l]) => (
+                <button key={v} onClick={()=>setFiltroFaseRapido(v)} style={{
+                  fontSize:10.5, padding:'2px 7px', borderRadius:999, border:'1px solid',
+                  cursor:'pointer', fontFamily:'var(--f-m)', fontWeight:500,
+                  background: filtroFaseRapido===v ? 'var(--blue)' : 'transparent',
+                  color: filtroFaseRapido===v ? '#fff' : 'var(--t3)',
+                  borderColor: filtroFaseRapido===v ? 'var(--blue)' : 'var(--border)',
+                }}>{l}</button>
+              ))}
               <div className="card__action" onClick={()=>setPage&&setPage('clientes_crm')}>Ver todos →</div>
             </div>
           </div>
@@ -2576,6 +2626,17 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
                       <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
                         <Icon name="ArrowRight" size={10}/>Abrir 360
                       </div>
+                      {(() => {
+                        const crm = CLIENTES_CRM.find(x => x.nome === c.nome || (c.nome||'').startsWith(x.nome));
+                        if (!crm?.loginUrl) return null;
+                        return (
+                          <a href={crm.loginUrl} target={crm.externo?'_blank':'_self'} rel="noopener noreferrer"
+                            onClick={e=>e.stopPropagation()}
+                            style={{fontSize:10,color:'var(--success)',fontWeight:500,display:'flex',alignItems:'center',gap:3,textDecoration:'none'}}>
+                            <Icon name="Globe" size={10}/>Abrir Sistema
+                          </a>
+                        );
+                      })()}
                       <button
                         className="cliente-acoes-btn"
                         onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === menuId ? null : menuId); }}
@@ -2700,7 +2761,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 
         <div className="card">
           <div className="card__head">
-            <div className="card__title">Distribuição por fase</div>
+            <div className="card__title">Projetos por fase</div>
           </div>
           {(statusConfig||[]).map((s) => {
             const qtd = recorrencia.filter(r => (r.status_fase || 'lead') === s.key).length;
@@ -2733,29 +2794,36 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
           </div>
           {equipeReal.length === 0 ? (
             <div style={{padding:'14px 0', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>Nenhum membro cadastrado ainda.</div>
-          ) : equipeReal.map((u) => (
-            <div key={u.id} className="stat-row">
-              <div style={{display:'flex',alignItems:'center',gap:8}}>
-                <div style={{position:'relative'}}>
-                  <div style={{
-                    width:30, height:30, borderRadius:'50%',
-                    background: u.foto_url ? `var(--bg-3) url('${u.foto_url}') center/cover no-repeat` : 'var(--bg-3)',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    fontSize:10, fontWeight:700,
-                    color: u.foto_url ? 'transparent' : 'var(--t2)',
-                    overflow:'hidden',
-                  }}>
-                    {(u.nome || u.email || '?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}
+          ) : equipeReal.map((u) => {
+            const iniciais = (u.nome || u.email || '?').split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
+            const nivelLabel = u.role === 'owner' ? 'Owner' : u.role === 'admin' ? 'Admin' : 'Membro';
+            const nivelCor = u.role === 'owner' ? '#7B3FE4' : u.role === 'admin' ? 'var(--blue)' : 'var(--t3)';
+            return (
+              <div key={u.id} className="stat-row" style={{alignItems:'center'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <div style={{position:'relative',flexShrink:0}}>
+                    <div style={{
+                      width:34, height:34, borderRadius:'50%',
+                      background: u.foto_url ? `url('${u.foto_url}') center/cover no-repeat` : 'var(--bg-3)',
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:11, fontWeight:700, color:'var(--t2)', overflow:'hidden',
+                      border:'2px solid var(--border-soft)',
+                    }}>
+                      {!u.foto_url && iniciais}
+                    </div>
+                    <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:'var(--success)',border:'2px solid var(--bg-2)'}}/>
                   </div>
-                  <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:'var(--success)',border:'2px solid var(--bg-2)'}}/>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>{u.nome || u.email}</div>
+                    <div style={{fontSize:11,color:'var(--t3)'}}>{u.cargo || u.email}</div>
+                  </div>
                 </div>
-                <div>
-                  <div style={{fontSize:13,fontWeight:600,color:'var(--t1)'}}>{u.nome || u.email}</div>
-                  <div style={{fontSize:11,color:'var(--t3)', textTransform:'capitalize'}}>{u.role || 'Membro'}</div>
-                </div>
+                <span style={{fontSize:10,fontWeight:600,padding:'2px 8px',borderRadius:999,background:nivelCor+'22',color:nivelCor,fontFamily:'var(--f-m)',textTransform:'uppercase',letterSpacing:'.04em'}}>
+                  {nivelLabel}
+                </span>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
