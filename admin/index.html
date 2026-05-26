@@ -18738,9 +18738,74 @@ function PipelineProjetos() {
     showToast?.(`✓ Cliente movido para "${cfg?.label || novoStatus}" (status travado)`, 'success');
   };
 
+  // Ordem local dos cards por coluna (para drag intra-coluna)
+  const [cardOrderMap, setCardOrderMap] = React.useState({}); // { 'colKey_tipo': ['id1','id2',...] }
+  const [dragOverCard, setDragOverCard] = React.useState(null); // { cardId, position: 'before'|'after' }
+
+  const getOrderKey = (colKey, tipo) => `${colKey}_${tipo}`;
+
+  const getOrderedCards = (colKey, tipo, cards) => {
+    const key = getOrderKey(colKey, tipo);
+    const order = cardOrderMap[key];
+    if (!order) return cards;
+    const byId = new Map(cards.map(c => [c.id, c]));
+    const ordered = order.filter(id => byId.has(id)).map(id => byId.get(id));
+    const notInOrder = cards.filter(c => !order.includes(c.id));
+    return [...ordered, ...notInOrder];
+  };
+
   const onDragStart = (e, item, colKey, tipo) => {
-    setDrag({ item, fromCol: colKey, tipo }); // tipo = 'projeto' | 'cliente'
+    setDrag({ item, fromCol: colKey, tipo });
     e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const onCardDragOver = (e, cardId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mid = rect.top + rect.height / 2;
+    const position = e.clientY < mid ? 'before' : 'after';
+    setDragOverCard(prev => (prev?.cardId === cardId && prev?.position === position) ? prev : { cardId, position });
+  };
+
+  const onCardDrop = async (e, targetCardId, targetColKey, targetTipo) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!drag) return;
+
+    if (drag.fromCol === targetColKey && drag.tipo === targetTipo) {
+      // Reordenar dentro da mesma coluna
+      const col = colunas.find(c => c.key === targetColKey);
+      if (!col) return;
+      const cards = getOrderedCards(targetColKey, targetTipo, targetTipo === 'projeto' ? col.projetos : col.clientes);
+      const ids = cards.map(c => c.id);
+      const fromIdx = ids.indexOf(drag.item.id);
+      let toIdx = ids.indexOf(targetCardId);
+      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) { setDrag(null); setDragOverCard(null); setColHover(null); return; }
+      const position = dragOverCard?.position || 'after';
+      if (position === 'after') toIdx = Math.min(toIdx + 1, ids.length - 1);
+      const newIds = [...ids];
+      newIds.splice(fromIdx, 1);
+      const insertAt = newIds.indexOf(targetCardId);
+      const finalIdx = position === 'before' ? insertAt : insertAt + 1;
+      newIds.splice(Math.max(0, finalIdx), 0, drag.item.id);
+      const key = getOrderKey(targetColKey, targetTipo);
+      setCardOrderMap(prev => ({ ...prev, [key]: newIds }));
+      // Persistir no banco
+      const cli = getSupa();
+      if (cli) {
+        const updates = newIds.map((id, i) => ({ id, ordem_pipeline: i }));
+        const table = targetTipo === 'projeto' ? 'projetos' : 'clientes';
+        for (const u of updates) {
+          await cli.from(table).update({ ordem_pipeline: u.ordem_pipeline }).eq('id', u.id);
+        }
+      }
+    } else {
+      // Mover entre colunas
+      if (drag.tipo === 'projeto') moverProjeto(drag.item.id, targetColKey);
+      else moverCliente(drag.item.id, targetColKey);
+    }
+    setDrag(null); setDragOverCard(null); setColHover(null);
   };
 
   const onColDragOver = (e, colKey) => {
@@ -18754,10 +18819,10 @@ function PipelineProjetos() {
       if (drag.tipo === 'projeto') moverProjeto(drag.item.id, colKey);
       else moverCliente(drag.item.id, colKey);
     }
-    setDrag(null); setColHover(null);
+    setDrag(null); setDragOverCard(null); setColHover(null);
   };
 
-  const onDragEnd = () => { setDrag(null); setColHover(null); };
+  const onDragEnd = () => { setDrag(null); setDragOverCard(null); setColHover(null); };
 
   // Abre modal correto dependendo do filtro ativo
   const abrirClienteDoProjeto = (proj, col) => {
@@ -19067,12 +19132,14 @@ function PipelineProjetos() {
                 })()}
 
                 {/* CLIENTES (visao=tudo|clientes) */}
-                {filtroVisao !== 'projetos' && col.clientes.map(c => {
+                {filtroVisao !== 'projetos' && getOrderedCards(col.key, 'cliente', col.clientes).map(c => {
                   const tagsAplicadas = etiquetasCliente[c.id] || new Set();
                   return (
                     <div key={'cli_'+c.id} data-pipeline-card
                       draggable
                       onDragStart={e => onDragStart(e, c, col.key, 'cliente')}
+                      onDragOver={e => onCardDragOver(e, c.id)}
+                      onDrop={e => onCardDrop(e, c.id, col.key, 'cliente')}
                       onClick={() => {
                         if (filtroVisao === 'tudo') {
                           setTrelloCard({ cardTipo:'cliente', cardId:c.id, cardNome:c.nome, cardCliente:null, colNome:col.label, colCor:col.cor });
@@ -19085,6 +19152,8 @@ function PipelineProjetos() {
                         background:'var(--bg-2)',
                         border:`1px solid var(--border)`,
                         borderLeft:`3px solid ${col.cor}`,
+                        borderTop: dragOverCard?.cardId === c.id && dragOverCard?.position === 'before' ? `2px solid var(--blue)` : undefined,
+                        borderBottom: dragOverCard?.cardId === c.id && dragOverCard?.position === 'after' ? `2px solid var(--blue)` : undefined,
                         borderRadius:9, cursor:'grab', transition:'all .15s',
                         position:'relative',
                       }}
@@ -19118,7 +19187,7 @@ function PipelineProjetos() {
                 })}
 
                 {/* PROJETOS (visao=tudo|projetos) */}
-                {filtroVisao !== 'clientes' && col.projetos.map(p => {
+                {filtroVisao !== 'clientes' && getOrderedCards(col.key, 'projeto', col.projetos).map(p => {
                   const clienteObj = clientes.find(c => c.id === p.cliente_id);
                   const grupo = p.cliente_grupo || clienteObj?.nome || p.cliente;
                   const nuc = p.nucleo || 'brava_software';
@@ -19129,12 +19198,16 @@ function PipelineProjetos() {
                     <div key={p.id} data-pipeline-card
                       draggable
                       onDragStart={e => onDragStart(e, p, col.key, 'projeto')}
+                      onDragOver={e => onCardDragOver(e, p.id)}
+                      onDrop={e => onCardDrop(e, p.id, col.key, 'projeto')}
                       onClick={() => abrirClienteDoProjeto(p, col)}
                       style={{
                         padding:'10px 12px',
                         background:'var(--bg-2)',
                         border:`1px solid var(--border)`,
                         borderLeft: `3px solid ${col.cor}`,
+                        borderTop: dragOverCard?.cardId === p.id && dragOverCard?.position === 'before' ? `2px solid var(--blue)` : undefined,
+                        borderBottom: dragOverCard?.cardId === p.id && dragOverCard?.position === 'after' ? `2px solid var(--blue)` : undefined,
                         borderRadius:9,
                         cursor:'grab',
                         transition:'all .15s',
