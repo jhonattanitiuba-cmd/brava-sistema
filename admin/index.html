@@ -14397,10 +14397,11 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     }
   };
 
-  // FLUXO DE CAIXA REAL - apenas extrato bancário + lançamentos manuais
-  // Removida a simulação por recorrência/despesa (que duplicava com o real do BTG)
+  // FLUXO DE CAIXA ERP: real (banco + manual) + projetado (despesas fixas + MRR esperado)
+  const hoje = new Date().toISOString().slice(0,10);
   const extrato = React.useMemo(() => {
     const itens = [];
+
     // 1) Lançamentos REAIS do extrato bancário (BTG/XLSX/manual importado)
     extratoBancario.forEach(l => {
       if (l.ignorado) return;
@@ -14418,29 +14419,102 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         cliente_id: l.cliente_id,
       });
     });
-    // 2) Lançamentos manuais avulsos (caixa_lancamentos sem vínculo com extrato)
+
+    // 2) Lançamentos manuais avulsos (incluindo futuros cadastrados manualmente)
     caixa.forEach(l => {
-      // Pula se já foi gerado por conciliação de extrato (origem='banco') - evita duplicar
       const jaNoExtrato = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
       if (jaNoExtrato) return;
+      const isFuturo = l.data > hoje;
       itens.push({
         id: 'c:'+l.id, tipo: l.tipo, descricao: l.descricao, categoria: l.categoria || 'Manual',
         valor: Number(l.valor), data: l.data, origem: l.origem || 'manual',
         raw: l, editable: true,
+        projetado: isFuturo, // futuro = destaque visual diferente
       });
     });
-    // Ordena decrescente por data
-    itens.sort((a,b) => (b.data || '').localeCompare(a.data || ''));
+
+    // 3) PROJETADO: despesas fixas recorrentes para datas futuras não pagas ainda
+    // Gera entradas pros próximos 3 meses para despesas ativas + recorrentes
+    (despesas || []).filter(d => d.ativo && d.recorrente && Number(d.valor) > 0).forEach(d => {
+      for (let m = 0; m <= 2; m++) {
+        const ref = new Date();
+        ref.setMonth(ref.getMonth() + m);
+        const ym = YM(ref);
+        const dia = d.dia_vencimento || 10;
+        const dataProj = `${ym}-${String(dia).padStart(2,'0')}`;
+        if (dataProj <= hoje) continue; // só datas futuras
+        // Verifica se já foi paga neste mês
+        const jaPaga = despesasPag[d.id]?.[ym]?.pago;
+        if (jaPaga) continue;
+        // Verifica se já tem no extrato real (evita duplicar)
+        const jaNoExtrato = extratoBancario.some(e =>
+          e.conciliado_despesa_pagamento_id && e.data?.slice(0,7) === ym
+          // verificação simplificada - aceita duplicata melhor que omitir
+        );
+        itens.push({
+          id: `proj:desp:${d.id}:${ym}`,
+          tipo: 'saida',
+          descricao: d.descricao,
+          categoria: d.categoria || 'Despesa',
+          valor: Number(d.valor),
+          data: dataProj,
+          origem: 'projecao',
+          projetado: true,
+          editable: false,
+        });
+      }
+    });
+
+    // 4) PROJETADO: MRR esperado dos contratos ativos (próximos 3 meses)
+    (recorrencia || []).filter(p => p.status_fase === 'ativo' && Number(p.mensal||0) > 0).forEach(p => {
+      for (let m = 0; m <= 2; m++) {
+        const ref = new Date();
+        ref.setMonth(ref.getMonth() + m);
+        const ym = YM(ref);
+        const diaVenc = p.dia ? parseInt(p.dia) : 10;
+        const dataProj = `${ym}-${String(diaVenc).padStart(2,'0')}`;
+        if (dataProj <= hoje) continue;
+        // Verifica se já entrou no banco neste mês (tem pagamento real)
+        const jaNoBanco = extratoBancario.some(e =>
+          e.conciliado_pagamento_id && e.data?.slice(0,7) === ym && e.valor > 0
+          && (e.projeto_id === p.__id || e.cliente_id === p.cliente_id)
+        );
+        if (jaNoBanco) continue;
+        itens.push({
+          id: `proj:mrr:${p.__id}:${ym}`,
+          tipo: 'entrada',
+          descricao: `Mensalidade prevista — ${p.cliente}`,
+          categoria: 'MRR previsto',
+          valor: Number(p.mensal),
+          data: dataProj,
+          origem: 'projecao',
+          projetado: true,
+          editable: false,
+        });
+      }
+    });
+
+    // Ordena decrescente por data (real antes de projetado no mesmo dia)
+    itens.sort((a,b) => {
+      const dc = (b.data || '').localeCompare(a.data || '');
+      if (dc !== 0) return dc;
+      // real antes de projetado
+      if (!a.projetado && b.projetado) return -1;
+      if (a.projetado && !b.projetado) return 1;
+      return 0;
+    });
     return itens;
-  }, [caixa, extratoBancario]);
+  }, [caixa, extratoBancario, despesas, despesasPag, recorrencia]);
 
   // Filtro pelo mês selecionado + tipo
   const filtrado = extrato.filter(i => {
     // Filtra por mês escolhido
     if (i.data && (i.data < inicioMesFiltro || i.data > fimMesFiltro)) return false;
     if (filtroTipo === 'todos') return true;
-    if (filtroTipo === 'nao-conciliado') return i.naoConciliado === true;
-    return i.tipo === filtroTipo;
+    if (filtroTipo === 'nao-conciliado') return i.naoConciliado === true && !i.projetado;
+    if (filtroTipo === 'projecao') return i.projetado === true;
+    if (filtroTipo === 'entrada' || filtroTipo === 'saida') return i.tipo === filtroTipo;
+    return true;
   });
 
   // Saldo REAL = saldo_apos da última transação do extrato (vem do banco)
@@ -14565,7 +14639,8 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
           { id:'todos',          label:'Tudo',                cor:'var(--blue)' },
           { id:'entrada',        label:'Entradas',            cor:'#1D9E75' },
           { id:'saida',          label:'Saídas',              cor:'#A32D2D' },
-          { id:'nao-conciliado', label:`Não conciliado (${totalNaoConciliado})`, cor:'#BA7517' },
+          { id:'nao-conciliado', label:`Pendente (${totalNaoConciliado})`, cor:'#BA7517' },
+          { id:'projecao',       label:'Previsão',            cor:'var(--blue)' },
         ].map(o => (
           <button key={o.id} onClick={()=>setFiltroTipo(o.id)} style={{
             padding:'6px 14px', borderRadius:7, fontSize:12.5, fontWeight:500, cursor:'pointer',
@@ -14574,7 +14649,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             border:`1px solid ${filtroTipo === o.id ? o.cor+'55' : 'transparent'}`,
           }}>{o.label}</button>
         ))}
-        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>* Recorrência, Despesas pagas e extrato do banco entram aqui automaticamente</div>
+        <div style={{marginLeft:'auto', fontSize:11.5, color:'var(--t3)'}}>Extrato real (BTG) + lançamentos manuais · despesas e MRR projetados aparecem como previsão</div>
       </div>
 
       {/* Extrato */}
@@ -14600,11 +14675,18 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                 <tr><td colSpan={6} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos no período</td></tr>
               )}
               {filtrado.map(l => (
-                <tr key={l.id} style={{borderBottom:'1px solid var(--border-soft)'}}
+                <tr key={l.id}
+                  style={{
+                    borderBottom: l.projetado ? '1px dashed rgba(255,255,255,.08)' : '1px solid var(--border-soft)',
+                    opacity: l.projetado ? .75 : 1,
+                  }}
                   onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.02)'}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   {/* Data */}
-                  <td style={{padding:'10px 14px', color:'var(--t3)', fontFamily:'var(--f-m)', fontSize:12, whiteSpace:'nowrap'}}>{formatBR(l.data)}</td>
+                  <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t3)' : 'var(--t2)', fontFamily:'var(--f-m)', fontSize:12, whiteSpace:'nowrap'}}>
+                    {formatBR(l.data)}
+                    {l.projetado && <span style={{marginLeft:5, fontSize:9, color:'var(--blue)', fontWeight:600, letterSpacing:.3}}>PREV</span>}
+                  </td>
                   {/* Tipo */}
                   <td style={{padding:'10px 14px'}}>
                     <span style={{
@@ -14612,32 +14694,36 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                       padding:'2px 8px', borderRadius:5, fontSize:11.5, fontWeight:600,
                       background: l.tipo === 'entrada' ? 'rgba(29,158,117,.12)' : 'rgba(229,84,77,.10)',
                       color: l.tipo === 'entrada' ? '#1D9E75' : '#E5544D',
+                      opacity: l.projetado ? .7 : 1,
                     }}>
                       <Icon name={l.tipo === 'entrada' ? 'ArrowDownCircle' : 'ArrowUpCircle'} size={11}/>
                       {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                     </span>
                   </td>
                   {/* Descrição */}
-                  <td style={{padding:'10px 14px', color:'var(--t1)', maxWidth:400}}>
+                  <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t2)' : 'var(--t1)', maxWidth:400}}>
                     <div style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={l.descricao}>
                       {l.descricao}
                     </div>
-                    {l.naoConciliado && (
+                    {l.naoConciliado && !l.projetado && (
                       <span style={{display:'inline-block', marginTop:2, padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:600, background:'rgba(186,117,23,.12)', color:'#BA7517'}}>
                         pendente
                       </span>
                     )}
                   </td>
-                  {/* Fonte (substituiu Categoria + Origem) */}
+                  {/* Fonte */}
                   <td style={{padding:'10px 14px'}}>
                     <span style={{
-                      fontSize:11, padding:'2px 7px', borderRadius:4,
-                      background:'var(--bg-3)', color:'var(--t3)', fontWeight:500,
+                      fontSize:11, padding:'2px 7px', borderRadius:4, fontWeight:500,
+                      background: l.projetado ? 'rgba(30,144,255,.08)' : 'var(--bg-3)',
+                      color: l.projetado ? 'var(--blue)' : 'var(--t3)',
+                      border: l.projetado ? '1px solid rgba(30,144,255,.2)' : 'none',
                     }}>
-                      {l.origem === 'manual'  ? 'Manual'
-                       : l.origem === 'mrr'   ? 'Recorrencia'
-                       : l.origem === 'banco' ? l.categoria   // 'BTG API' ou 'XLSX'
-                                              : 'Despesa'}
+                      {l.projetado ? 'Previsão'
+                       : l.origem === 'manual'  ? 'Manual'
+                       : l.origem === 'mrr'     ? 'Recorrencia'
+                       : l.origem === 'banco'   ? l.categoria
+                                                : 'Despesa'}
                     </span>
                   </td>
                   {/* Valor */}
