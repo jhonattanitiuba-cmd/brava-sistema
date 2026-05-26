@@ -12926,12 +12926,19 @@ function ModalPagamentos({ rec, pagamentos, onClose }) {
 }
 
 // Sub-tab: Recorrência (era MRR completo, agora componente da aba Recorrência do Financeiro)
-function FinRecorrencia({ onNovoContrato }) {
+function FinRecorrencia({ onNovoContrato, mesFiltro, filtroInicial, onFiltroConsumido }) {
   const recorrencia = useRecorrencia();
   const pagamentos = usePagamentos();
   const { list: statusConfig } = useStatusConfig();
 
   const [filtro, setFiltro] = useState('todos');
+
+  // Consome filtroInicial passado pelo pai
+  React.useEffect(() => {
+    if (!filtroInicial) return;
+    setFiltro(filtroInicial === 'Ativo' ? 'Ativo' : filtroInicial === 'atrasados' ? 'atrasados' : filtroInicial);
+    onFiltroConsumido?.();
+  }, [filtroInicial]);
   const [busca, setBusca] = useState('');
   const [sortCol, setSortCol] = useState('impl');
   const [sortAsc, setSortAsc] = useState(false);
@@ -13400,6 +13407,13 @@ function FinRecorrencia({ onNovoContrato }) {
 // ═══════════════════════════════════════════════════════════════
 function Financeiro() {
   const [tab, setTab] = useState('dashboard');
+  const [filtroInicial, setFiltroInicial] = React.useState(null); // ex: 'entrada' | 'saida' | 'nao-conciliado' | 'atrasados'
+
+  // Navega pra outra aba e aplica filtro automaticamente
+  const navegarPara = React.useCallback((novaTab, filtro = null) => {
+    setFiltroInicial(filtro);
+    setTab(novaTab);
+  }, []);
   // Filtro global de mês: YYYY-MM. Default = mês atual.
   const [mesFiltro, setMesFiltro] = useState(() => YM(new Date()));
   const recorrencia = useRecorrencia();
@@ -13559,11 +13573,11 @@ function Financeiro() {
         ))}
       </div>
 
-      {/* Render condicional da tab - todas recebem mesFiltro */}
-      {tab === 'dashboard'   && <FinDashboard mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
-      {tab === 'recorrencia' && <FinRecorrencia mesFiltro={mesFiltro}/>}
-      {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag}/>}
-      {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa}/>}
+      {/* Render condicional da tab - todas recebem mesFiltro + navegarPara */}
+      {tab === 'dashboard'   && <FinDashboard mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} navegarPara={navegarPara}/>}
+      {tab === 'recorrencia' && <FinRecorrencia mesFiltro={mesFiltro} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
+      {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
+      {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
     </div>
   );
 }
@@ -13637,7 +13651,7 @@ function calcSaldoCaixaTotal(recorrencia, pagamentos, despesas, despesasPag, cai
 // ─────────────────────────────────────────────────────────────────
 // TAB 1: VISÃO GERAL (Dashboard) - KPIs reais + projeção
 // ─────────────────────────────────────────────────────────────────
-function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
+function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa, navegarPara }) {
   const extratoReal  = useExtratoBancario();
   const btgAccounts  = useBtgAccounts();
 
@@ -13662,32 +13676,44 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
       label:'Receita ativa mensal', val:`R$ ${recAtivaMensal.toLocaleString('pt-BR')}`,
       icon:'TrendingUp', color:'#1D9E75',
       sub:`${recorrencia.filter(r=>r.status_fase==='ativo').length} clientes faturando todo mês`,
+      acao: () => navegarPara?.('recorrencia', 'Ativo'),
+      hint: 'Ver contratos ativos',
     },
     {
       label:'Receita potencial mensal', val:`R$ ${recPotencialMensal.toLocaleString('pt-BR')}`,
       icon:'BarChart3', color:'#1E90FF',
       sub:`Se todos os ${recorrencia.length} contratos do funil virassem ativos`,
+      acao: () => navegarPara?.('recorrencia', 'todos'),
+      hint: 'Ver todos os contratos',
     },
     {
       label:`Entradas em ${periodoLabel}`, val:`R$ ${entradasReais.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
       icon:'ArrowDownCircle', color:'#1D9E75',
       sub:`${movimentoMes.filter(e=>e.valor>0).length} entradas no extrato BTG`,
+      acao: () => navegarPara?.('caixa', 'entrada'),
+      hint: 'Ver entradas no extrato',
     },
     {
       label:`Saídas em ${periodoLabel}`, val:`R$ ${saidasReais.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
       icon:'ArrowUpCircle', color:'#A32D2D',
       sub:`${movimentoMes.filter(e=>e.valor<0).length} saídas no extrato BTG`,
+      acao: () => navegarPara?.('caixa', 'saida'),
+      hint: 'Ver saídas no extrato',
     },
     {
       label: ehEsteAno ? `Resultado ${periodoLabel}` : `Resultado real do mês`,
       val:`R$ ${lucroReal.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
       icon:'DollarSign', color: lucroReal >= 0 ? '#1D9E75' : '#A32D2D',
       sub:`Entradas − Saídas (extrato bancário real)`,
+      acao: () => navegarPara?.('caixa', 'todos'),
+      hint: 'Ver fluxo de caixa',
     },
     {
       label:'Saldo atual (BTG)', val:`R$ ${saldoBancoReal.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,
       icon:'Wallet', color: saldoBancoReal >= 0 ? '#1E90FF' : '#A32D2D',
       sub: saldoBancoReal > 0 ? 'Saldo real da conta BTG agora' : 'Sincronize o BTG para atualizar',
+      acao: () => navegarPara?.('caixa', 'todos'),
+      hint: 'Ver fluxo de caixa',
     },
   ];
 
@@ -13695,10 +13721,16 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
     <div>
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)', marginBottom:22}}>
         {KPIS.map((k,i) => (
-          <div key={i} className="kpi">
+          <div key={i} className="kpi" onClick={k.acao} title={k.hint}
+            style={{cursor: k.acao ? 'pointer' : 'default', transition:'all .15s'}}
+            onMouseEnter={e=>{ if(k.acao){ e.currentTarget.style.borderColor=k.color+'66'; e.currentTarget.style.transform='translateY(-1px)'; }}}
+            onMouseLeave={e=>{ if(k.acao){ e.currentTarget.style.borderColor=''; e.currentTarget.style.transform=''; }}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
               <div className="kpi__label">{k.label}</div>
-              <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
+              <div style={{display:'flex', alignItems:'center', gap:6}}>
+                {k.acao && <Icon name="ArrowRight" size={11} style={{color:k.color, opacity:.6}}/>}
+                <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
+              </div>
             </div>
             <div className="kpi__value" style={{fontSize:24, color:'var(--t1)'}}>{k.val}</div>
             <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{k.sub}</div>
@@ -14282,11 +14314,19 @@ async function trocarCodigoBTG(code) {
   }
 }
 
-function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
+function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa, filtroInicial, onFiltroConsumido }) {
   const [editando, setEditando] = useState(null);
   const [importando, setImportando] = useState(false);
   const [conciliandoAberto, setConciliandoAberto] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState('todos');
+
+  // Consome o filtroInicial passado pelo pai (navegacao entre abas)
+  React.useEffect(() => {
+    if (!filtroInicial) return;
+    if (filtroInicial === 'nao-conciliado') { setFiltroTipo('nao-conciliado'); setConciliandoAberto(true); }
+    else if (['entrada','saida','todos'].includes(filtroInicial)) setFiltroTipo(filtroInicial);
+    onFiltroConsumido?.();
+  }, [filtroInicial]);
   const [sincronizandoBtg, setSincronizandoBtg] = useState(false);
   const [conectandoBtg, setConectandoBtg] = useState(false);
   const [histModalAberto, setHistModalAberto] = useState(false);
@@ -14487,20 +14527,33 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
 
       {/* Status BTG: chip discreto na linha de informação */}
 
-      {/* KPIs - TUDO REAL do extrato (sem projeções/simulações) */}
+      {/* KPIs clicáveis - filtram a tabela abaixo */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
-          { label:'Saldo no banco (BTG)',    val:`R$ ${saldoAtual.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,    icon:'Wallet',          color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D' },
-          { label:'Entradas no extrato',     val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`, icon:'ArrowDownCircle', color:'#1D9E75' },
-          { label:'Saídas no extrato',       val:`R$ ${totalSaidas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,   icon:'ArrowUpCircle',   color:'#A32D2D' },
-          { label:'Aguardando conciliar',    val: String(totalNaoConciliado),                                              icon:'AlertCircle',     color: totalNaoConciliado > 0 ? '#BA7517' : '#1D9E75' },
+          { label:'Saldo no banco (BTG)',    val:`R$ ${saldoAtual.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,    icon:'Wallet',       color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D', filtro:null, hint:'Saldo atual real BTG' },
+          { label:'Entradas no extrato',     val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`, icon:'ArrowDownCircle', color:'#1D9E75', filtro:'entrada', hint:'Filtrar só entradas' },
+          { label:'Saídas no extrato',       val:`R$ ${totalSaidas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,   icon:'ArrowUpCircle',   color:'#A32D2D', filtro:'saida',   hint:'Filtrar só saídas' },
+          { label:'Aguardando conciliar',    val: String(totalNaoConciliado),                                              icon:'AlertCircle',  color: totalNaoConciliado > 0 ? '#BA7517' : '#1D9E75', filtro:'conciliar', hint:'Abrir conciliação' },
         ].map((k,i)=>(
-          <div key={i} className="kpi">
+          <div key={i} className="kpi"
+            onClick={()=>{
+              if(k.filtro === 'conciliar') { setConciliandoAberto(true); setFiltroTipo('nao-conciliado'); }
+              else if(k.filtro) setFiltroTipo(filtroTipo === k.filtro ? 'todos' : k.filtro);
+            }}
+            title={k.hint}
+            style={{cursor: k.filtro ? 'pointer' : 'default', transition:'all .15s',
+              ...(k.filtro && filtroTipo === k.filtro ? {borderColor: k.color+'66', background: k.color+'08'} : {}),
+            }}
+            onMouseEnter={e=>{ if(k.filtro){ e.currentTarget.style.borderColor=k.color+'55'; e.currentTarget.style.transform='translateY(-1px)'; }}}
+            onMouseLeave={e=>{ if(k.filtro){ e.currentTarget.style.borderColor=''; e.currentTarget.style.transform=''; }}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
             <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
+            {k.filtro && <div style={{fontSize:10, color:k.color, marginTop:3, opacity:.7, display:'flex', alignItems:'center', gap:3}}>
+              <Icon name="ArrowRight" size={9}/> {k.hint}
+            </div>}
           </div>
         ))}
       </div>
