@@ -17851,14 +17851,23 @@ function PipelineProjetos() {
   const [drag, setDrag] = React.useState(null);
   const [colHover, setColHover] = React.useState(null);
   const [clienteDetalhe, setClienteDetalhe] = React.useState(null);
+  const [editandoProjetoModal, setEditandoProjetoModal] = React.useState(null);
   // Sprint 1 novos states
-  const [filtroVisao, setFiltroVisao] = React.useState('projetos'); // 'tudo' | 'projetos' | 'clientes'
-  const [menuColAberto, setMenuColAberto] = React.useState(null);   // key da coluna com menu aberto
-  const [editandoCol, setEditandoCol] = React.useState(null);       // { key, campo: 'nome'|'cor' }
+  const [filtroVisao, setFiltroVisao] = React.useState('tudo'); // 'tudo' | 'projetos' | 'clientes' | 'whatsapp'
+  const [filtroNucleo, setFiltroNucleo] = React.useState('todos'); // 'todos' | 'brava_software' | 'brava_audiovisual' | 'brava_consultoria'
+  const [colsCollapsed, setColsCollapsed] = React.useState(new Set()); // colunas minimizadas (só ícone+cor)
+  const [menuColAberto, setMenuColAberto] = React.useState(null);
+  const [editandoCol, setEditandoCol] = React.useState(null);
   const [mostrarOcultas, setMostrarOcultas] = React.useState(false);
-  const [filtroEtiquetas, setFiltroEtiquetas] = React.useState(new Set()); // ids selecionados
-  const [popoverEtiqueta, setPopoverEtiqueta] = React.useState(null); // { entidadeId, tipo, x, y }
+  const [filtroEtiquetas, setFiltroEtiquetas] = React.useState(new Set());
+  const [popoverEtiqueta, setPopoverEtiqueta] = React.useState(null);
   const boardRef = React.useRef(null);
+
+  const toggleCollapseCol = (key) => setColsCollapsed(s => {
+    const n = new Set(s);
+    n.has(key) ? n.delete(key) : n.add(key);
+    return n;
+  });
 
   const etiquetasById = React.useMemo(() => {
     const m = new Map();
@@ -17888,14 +17897,14 @@ function PipelineProjetos() {
     return visiveis.map(s => {
       const projetosCol = (projetos || [])
         .filter(p => (p.status_fase || 'lead') === s.key)
+        .filter(p => filtroNucleo === 'todos' || (p.nucleo || 'brava_software') === filtroNucleo)
         .filter(p => passaFiltroEtiqueta(p.id, etiquetasProjeto));
-      // Cliente entra na coluna se o cliente.status bater com o status da coluna
       const clientesCol = (clientes || [])
         .filter(c => (c.status || 'lead') === s.key)
         .filter(c => passaFiltroEtiqueta(c.id, etiquetasCliente));
       return { ...s, projetos: projetosCol, clientes: clientesCol };
     });
-  }, [colunasTodas, projetos, clientes, filtroEtiquetas, etiquetasProjeto, etiquetasCliente]);
+  }, [colunasTodas, projetos, clientes, filtroEtiquetas, filtroNucleo, etiquetasProjeto, etiquetasCliente]);
   const colunasOcultas = colunasTodas.filter(c => c.oculto);
 
   // ── AÇÕES de coluna (rename, cor, mover, fechar/abrir) ──
@@ -17967,8 +17976,12 @@ function PipelineProjetos() {
 
   const onDragEnd = () => { setDrag(null); setColHover(null); };
 
-  // Abre Cliente 360 do cliente vinculado ao projeto
+  // Abre modal correto dependendo do filtro ativo
   const abrirClienteDoProjeto = (proj) => {
+    if (filtroVisao === 'projetos') {
+      setEditandoProjetoModal(proj);
+      return;
+    }
     if (!proj.cliente_id) {
       showToast?.('Projeto sem cliente mestre vinculado. Edite o projeto pra vincular.','info');
       return;
@@ -18023,7 +18036,7 @@ function PipelineProjetos() {
   const menuItemStyle = { padding:'7px 10px', display:'inline-flex', alignItems:'center', gap:8, fontSize:12, color:'var(--t2)', background:'transparent', border:'none', borderRadius:6, cursor:'pointer', textAlign:'left' };
 
   return (
-    <div style={{padding:'28px 32px', overflowX:'auto', height:'calc(100vh - 60px)', display:'flex', flexDirection:'column'}}>
+    <div style={{padding:'12px 20px', overflowX:'auto', height:'calc(100vh - 60px)', display:'flex', flexDirection:'column'}}>
       <div className="page-head" style={{flexShrink:0, marginBottom:10}}>
         <div>
           <div className="page-head__title" style={{display:'none'}}>Projetos / Pipeline</div>
@@ -18033,17 +18046,18 @@ function PipelineProjetos() {
         </div>
       </div>
 
-      {/* Toolbar: filtro visao + colunas ocultas */}
-      <div style={{display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap'}}>
+      {/* Toolbar: filtro visao + frente de serviço + colunas ocultas */}
+      <div style={{display:'flex', gap:6, alignItems:'center', marginBottom:8, flexWrap:'wrap'}}>
         {[
-          {key:'tudo',     label:'Tudo',           icone:'Layers'},
-          {key:'projetos', label:'Apenas projetos', icone:'Layers'},
-          {key:'clientes', label:'Apenas clientes', icone:'UserCircle'},
+          {key:'tudo',     label:'Tudo',      icone:'Layers'},
+          {key:'projetos', label:'Projetos',  icone:'Layers'},
+          {key:'clientes', label:'Clientes',  icone:'UsersRound'},
+          {key:'whatsapp', label:'WhatsApp',  icone:'WhatsApp'},
         ].map(v => {
           const ativo = filtroVisao === v.key;
           return (
             <button key={v.key} onClick={()=>setFiltroVisao(v.key)} style={{
-              padding:'7px 12px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+              padding:'5px 11px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
               display:'inline-flex', alignItems:'center', gap:6,
               background: ativo ? 'rgba(30,144,255,.15)' : 'var(--bg-3)',
               color: ativo ? 'var(--blue)' : 'var(--t2)',
@@ -18053,9 +18067,28 @@ function PipelineProjetos() {
             </button>
           );
         })}
+        <div style={{width:1, height:20, background:'var(--border)', margin:'0 4px'}}/>
+        {[
+          {key:'todos',               label:'Todos núcleos'},
+          {key:'brava_software',      label:'Software'},
+          {key:'brava_audiovisual',   label:'Audiovisual'},
+          {key:'brava_consultoria',   label:'Consultoria'},
+        ].map(v => {
+          const ativo = filtroNucleo === v.key;
+          return (
+            <button key={v.key} onClick={()=>setFiltroNucleo(v.key)} style={{
+              padding:'5px 10px', borderRadius:8, fontSize:11.5, fontWeight:500, cursor:'pointer',
+              background: ativo ? 'rgba(123,63,228,.15)' : 'transparent',
+              color: ativo ? 'var(--purple)' : 'var(--t3)',
+              border:`1px solid ${ativo ? 'rgba(123,63,228,.4)' : 'var(--border)'}`,
+            }}>
+              {v.label}
+            </button>
+          );
+        })}
         {colunasOcultas.length > 0 && (
           <button onClick={()=>setMostrarOcultas(s=>!s)} style={{
-            padding:'7px 12px', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer',
+            padding:'5px 11px', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer',
             background:'transparent', color:'var(--t3)', border:'1px dashed var(--border)',
             display:'inline-flex', alignItems:'center', gap:6, marginLeft:'auto',
           }}>
@@ -18112,9 +18145,25 @@ function PipelineProjetos() {
         {colunas.map(col => {
           const isHover = colHover === col.key && drag;
           const colMrr = col.projetos.reduce((s,p) => s + Number(p.mensal||0), 0);
+          const isCollapsed = colsCollapsed.has(col.key);
+          const totalCards = (filtroVisao==='clientes'?col.clientes.length:filtroVisao==='tudo'?col.projetos.length+col.clientes.length:col.projetos.length);
+
+          // Modo colapsado: só mostra ícone+cor vertical
+          if (isCollapsed) return (
+            <div key={col.key} onClick={()=>toggleCollapseCol(col.key)} title={`Expandir ${col.label}`} style={{
+              width:36, flexShrink:0, cursor:'pointer', borderRadius:10, background:col.cor+'18',
+              border:`1px solid ${col.cor}44`, borderLeft:`3px solid ${col.cor}`,
+              display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'flex-start', gap:6,
+              padding:'12px 0', transition:'all .15s',
+            }} onMouseEnter={e=>e.currentTarget.style.background=col.cor+'28'} onMouseLeave={e=>e.currentTarget.style.background=col.cor+'18'}>
+              <Icon name={col.icone} size={14} style={{color:col.cor}}/>
+              <span style={{fontSize:10, fontFamily:'var(--f-m)', fontWeight:700, color:col.cor}}>{totalCards}</span>
+            </div>
+          );
+
           return (
             <div key={col.key} style={{
-                width:280, flexShrink:0, display:'flex', flexDirection:'column', gap:0,
+                width:260, flexShrink:0, display:'flex', flexDirection:'column', gap:0,
                 transition:'transform .15s',
                 transform: isHover ? 'translateY(-2px)' : 'none',
               }}
@@ -18151,8 +18200,15 @@ function PipelineProjetos() {
                   </span>
                 )}
                 <span style={{fontFamily:'var(--f-m)', fontSize:11, color:'var(--t3)', background:'var(--bg-3)', padding:'2px 7px', borderRadius:999}}>{(filtroVisao==='clientes'?col.clientes.length:filtroVisao==='tudo'?col.projetos.length+col.clientes.length:col.projetos.length)}</span>
+                <button onClick={(e)=>{ e.stopPropagation(); toggleCollapseCol(col.key); }}
+                  title="Minimizar coluna"
+                  style={{width:22, height:22, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', borderRadius:5, display:'flex', alignItems:'center', justifyContent:'center'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <Icon name="ChevronLeft" size={12}/>
+                </button>
                 <button onClick={(e)=>{ e.stopPropagation(); setMenuColAberto(menuColAberto===col.key?null:col.key); }}
-                  style={{width:24, height:24, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', borderRadius:5, display:'flex', alignItems:'center', justifyContent:'center'}}
+                  style={{width:22, height:22, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', borderRadius:5, display:'flex', alignItems:'center', justifyContent:'center'}}
                   onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
                   onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                   <Icon name="MoreVertical" size={14}/>
@@ -18273,7 +18329,7 @@ function PipelineProjetos() {
                       onDragStart={e => onDragStart(e, p, col.key, 'projeto')}
                       onClick={() => abrirClienteDoProjeto(p)}
                       style={{
-                        padding:'12px 14px',
+                        padding:'10px 12px',
                         background:'var(--bg-2)',
                         border:`1px solid var(--border)`,
                         borderLeft: `3px solid ${col.cor}`,
@@ -18281,6 +18337,7 @@ function PipelineProjetos() {
                         cursor:'grab',
                         transition:'all .15s',
                         position:'relative',
+                        zIndex: popoverEtiqueta?.id === p.id ? 50 : 1,
                       }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateX(2px)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)'; }}>
@@ -18300,9 +18357,11 @@ function PipelineProjetos() {
                         <div style={{fontSize:10.5, color:'var(--t3)', marginBottom:6}}>{grupo}</div>
                       )}
                       <div style={{display:'flex', gap:8, fontSize:11, color:'var(--t3)', marginTop:6, alignItems:'center'}}>
-                        {Number(p.mensal||0) > 0 && (
+                        {Number(p.mensal||0) > 0 ? (
                           <span style={{color:'#1D9E75', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {fmt(p.mensal)}/mês</span>
-                        )}
+                        ) : Number(p.valor_total_acordado||0) > 0 ? (
+                          <span style={{color:'#1D9E75', fontFamily:'var(--f-m)', fontWeight:600}}>R$ {fmt(p.valor_total_acordado)} total</span>
+                        ) : null}
                         {Number(p.implementacao||0) > 0 && (
                           <span style={{color:'var(--t3)'}}>· R$ {fmt(p.implementacao)} impl</span>
                         )}
@@ -18325,12 +18384,35 @@ function PipelineProjetos() {
                   );
                 })}
               </div>
+
+              {/* Botão + criar projeto/cliente na coluna */}
+              <button
+                onClick={()=>{
+                  if (filtroVisao === 'clientes') {
+                    setClienteDetalhe({ _novo: true, status: col.key });
+                  } else {
+                    setEditandoProjetoModal({ status_fase: col.key });
+                  }
+                }}
+                style={{
+                  marginTop:6, width:'100%', padding:'7px', borderRadius:8,
+                  border:'1px dashed var(--border)', background:'transparent',
+                  color:'var(--t3)', fontSize:12, cursor:'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:5,
+                  transition:'all .15s',
+                }}
+                onMouseEnter={e=>{ e.currentTarget.style.background='var(--bg-2)'; e.currentTarget.style.color='var(--t1)'; }}
+                onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)'; }}>
+                <Icon name="Plus" size={12}/>
+                {filtroVisao === 'clientes' ? 'Novo cliente' : 'Novo projeto'}
+              </button>
             </div>
           );
         })}
       </div>
 
-      {clienteDetalhe && <Cliente360Modal cliente={clienteDetalhe} onClose={()=>setClienteDetalhe(null)}/>}
+      {clienteDetalhe && !clienteDetalhe._novo && <Cliente360Modal cliente={clienteDetalhe} onClose={()=>setClienteDetalhe(null)}/>}
+      {editandoProjetoModal && <ProjetoCadastroModal projeto={editandoProjetoModal} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditandoProjetoModal(null)}/>}
     </div>
   );
 }
