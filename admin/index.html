@@ -16062,6 +16062,332 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE TRELLO CARD — hooks + modal com notas, checklist e @mention
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useCardNotas(cardTipo, cardId) {
+  const [notas, setNotas] = React.useState([]);
+  React.useEffect(() => {
+    if (!cardTipo || !cardId) return;
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('pipeline_card_notas')
+        .select('*, autor:usuarios(id,nome,foto_url)')
+        .eq('card_tipo', cardTipo).eq('card_id', cardId)
+        .order('created_at', { ascending: true });
+      if (alive) setNotas(data || []);
+    };
+    load();
+    const ch = cli.channel(`pcn:${cardTipo}:${cardId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_notas',
+        filter:`card_tipo=eq.${cardTipo}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [cardTipo, cardId]);
+  return notas;
+}
+
+function useCardChecklists(cardTipo, cardId) {
+  const [data, setData] = React.useState([]);
+  React.useEffect(() => {
+    if (!cardTipo || !cardId) return;
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data: cls } = await cli.from('pipeline_card_checklists')
+        .select('*, itens:pipeline_card_checklist_itens(*)')
+        .eq('card_tipo', cardTipo).eq('card_id', cardId)
+        .order('ordem', { ascending: true });
+      if (alive) setData((cls || []).map(c => ({ ...c, itens: (c.itens || []).sort((a,b)=>a.ordem-b.ordem) })));
+    };
+    load();
+    const ch = cli.channel(`pcc:${cardTipo}:${cardId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_checklists' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_checklist_itens' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [cardTipo, cardId]);
+  return data;
+}
+
+function TrelloCardModal({ cardTipo, cardId, cardNome, cardCliente, colNome, colCor, onClose }) {
+  const notas = useCardNotas(cardTipo, cardId);
+  const checklists = useCardChecklists(cardTipo, cardId);
+  const equipe = useEquipeReal();
+  const [novaNotaTxt, setNovaNotaTxt] = React.useState('');
+  const [enviando, setEnviando] = React.useState(false);
+  const [mencaoAberta, setMencaoAberta] = React.useState(false);
+  const [cursorPos, setCursorPos] = React.useState(0);
+  const [novoChecklistTitulo, setNovoChecklistTitulo] = React.useState('');
+  const [addingChecklist, setAddingChecklist] = React.useState(false);
+  const textareaRef = React.useRef(null);
+
+  const meuUserId = React.useMemo(() => {
+    try { return getSupa()?.auth?.getSession?.()?.data?.session?.user?.id; } catch { return null; }
+  }, []);
+
+  // Detecta @ para mencionar usuário
+  const handleTextareaChange = (e) => {
+    const v = e.target.value;
+    setNovaNotaTxt(v);
+    const pos = e.target.selectionStart;
+    const antes = v.slice(0, pos);
+    const match = antes.match(/@(\w*)$/);
+    setMencaoAberta(!!match);
+  };
+
+  const inserirMencao = (usuario) => {
+    const pos = textareaRef.current?.selectionStart || novaNotaTxt.length;
+    const antes = novaNotaTxt.slice(0, pos);
+    const depois = novaNotaTxt.slice(pos);
+    const match = antes.match(/@(\w*)$/);
+    if (match) {
+      const novoAntes = antes.slice(0, antes.length - match[0].length) + `@${usuario.nome} `;
+      setNovaNotaTxt(novoAntes + depois);
+    }
+    setMencaoAberta(false);
+    textareaRef.current?.focus();
+  };
+
+  const adicionarNota = async () => {
+    if (!novaNotaTxt.trim()) return;
+    setEnviando(true);
+    const cli = getSupa(); if (!cli) { setEnviando(false); return; }
+    await cli.from('pipeline_card_notas').insert({
+      card_tipo: cardTipo, card_id: cardId,
+      autor_id: meuUserId || null,
+      texto: novaNotaTxt.trim(),
+    });
+    setNovaNotaTxt('');
+    setEnviando(false);
+  };
+
+  const deletarNota = async (id) => {
+    if (!confirm('Apagar este comentário?')) return;
+    const cli = getSupa(); if (!cli) return;
+    await cli.from('pipeline_card_notas').delete().eq('id', id);
+  };
+
+  const adicionarChecklist = async () => {
+    if (!novoChecklistTitulo.trim()) return;
+    const cli = getSupa(); if (!cli) return;
+    await cli.from('pipeline_card_checklists').insert({
+      card_tipo: cardTipo, card_id: cardId,
+      titulo: novoChecklistTitulo.trim(),
+      ordem: checklists.length,
+    });
+    setNovoChecklistTitulo('');
+    setAddingChecklist(false);
+  };
+
+  const adicionarItem = async (checklistId, texto) => {
+    if (!texto.trim()) return;
+    const cli = getSupa(); if (!cli) return;
+    const cl = checklists.find(c => c.id === checklistId);
+    await cli.from('pipeline_card_checklist_itens').insert({
+      checklist_id: checklistId, texto: texto.trim(),
+      ordem: (cl?.itens?.length || 0),
+    });
+  };
+
+  const toggleItem = async (itemId, concluido) => {
+    const cli = getSupa(); if (!cli) return;
+    await cli.from('pipeline_card_checklist_itens').update({ concluido: !concluido }).eq('id', itemId);
+  };
+
+  const deletarItem = async (itemId) => {
+    const cli = getSupa(); if (!cli) return;
+    await cli.from('pipeline_card_checklist_itens').delete().eq('id', itemId);
+  };
+
+  const formatarData = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+  };
+
+  return (
+    <div onClick={e=>{if(e.target===e.currentTarget)onClose();}} style={{
+      position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:9998,
+      display:'flex',alignItems:'flex-start',justifyContent:'center',padding:20,overflowY:'auto',
+    }}>
+      <div style={{background:'var(--bg-2)',borderRadius:14,width:'min(700px,96vw)',border:'1px solid var(--border)',boxShadow:'0 24px 60px rgba(0,0,0,.5)',marginTop:40}}>
+        {/* Header */}
+        <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'flex-start',gap:12}}>
+          <div style={{width:34,height:34,borderRadius:8,background:colCor+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginTop:2}}>
+            <Icon name="Layers" size={16} style={{color:colCor}}/>
+          </div>
+          <div style={{flex:1}}>
+            <h3 style={{margin:'0 0 4px',fontSize:17,color:'var(--t1)',fontFamily:'var(--f-d)',fontWeight:600}}>{cardNome}</h3>
+            <div style={{fontSize:12,color:'var(--t3)'}}>
+              {cardCliente && <span>{cardCliente} · </span>}
+              <span style={{padding:'2px 7px',borderRadius:999,background:colCor+'22',color:colCor,fontWeight:600,fontSize:11}}>{colNome}</span>
+            </div>
+          </div>
+          <button onClick={onClose} style={{width:30,height:30,border:'none',background:'transparent',color:'var(--t3)',cursor:'pointer',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="X" size={14}/></button>
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 220px',gap:0}}>
+          {/* Coluna principal */}
+          <div style={{padding:'16px 20px',borderRight:'1px solid var(--border)'}}>
+            {/* Checklists */}
+            {checklists.map(cl => {
+              const total = cl.itens.length;
+              const feitos = cl.itens.filter(i => i.concluido).length;
+              const pct = total > 0 ? Math.round((feitos/total)*100) : 0;
+              return (
+                <div key={cl.id} style={{marginBottom:20}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                    <Icon name="CheckCircle2" size={15} style={{color:'var(--blue)'}}/>
+                    <span style={{fontSize:14,fontWeight:600,color:'var(--t1)'}}>{cl.titulo}</span>
+                    <span style={{fontSize:11,color:'var(--t3)',marginLeft:'auto'}}>{feitos}/{total} · {pct}%</span>
+                  </div>
+                  <div style={{height:4,background:'var(--bg-3)',borderRadius:999,marginBottom:10,overflow:'hidden'}}>
+                    <div style={{height:'100%',background:pct===100?'var(--success)':'var(--blue)',width:`${pct}%`,borderRadius:999,transition:'width .3s'}}/>
+                  </div>
+                  {cl.itens.map(it => (
+                    <div key={it.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 4px',borderRadius:6,cursor:'pointer'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <input type="checkbox" checked={it.concluido} onChange={()=>toggleItem(it.id, it.concluido)}
+                        style={{accentColor:'var(--blue)',width:15,height:15,flexShrink:0,cursor:'pointer'}}/>
+                      <span style={{flex:1,fontSize:13,color:it.concluido?'var(--t3)':'var(--t1)',textDecoration:it.concluido?'line-through':'none'}}>{it.texto}</span>
+                      <button onClick={()=>deletarItem(it.id)} style={{opacity:0.3,border:'none',background:'transparent',cursor:'pointer',color:'var(--t3)',padding:2,borderRadius:4,display:'flex',alignItems:'center'}}
+                        onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.3'}>
+                        <Icon name="X" size={11}/>
+                      </button>
+                    </div>
+                  ))}
+                  <AddItemInline onAdd={(txt)=>adicionarItem(cl.id, txt)} placeholder="Adicionar item..."/>
+                </div>
+              );
+            })}
+
+            {/* Adicionar checklist */}
+            {addingChecklist ? (
+              <div style={{display:'flex',gap:6,marginBottom:16}}>
+                <input autoFocus value={novoChecklistTitulo} onChange={e=>setNovoChecklistTitulo(e.target.value)}
+                  placeholder="Título do checklist"
+                  onKeyDown={e=>{if(e.key==='Enter')adicionarChecklist();if(e.key==='Escape'){setAddingChecklist(false);setNovoChecklistTitulo('');}}}
+                  style={{flex:1,padding:'8px 10px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:7,color:'var(--t1)',fontSize:13,outline:'none'}}/>
+                <button onClick={adicionarChecklist} style={{padding:'8px 12px',borderRadius:7,border:'none',background:'var(--blue)',color:'#fff',fontSize:12,cursor:'pointer'}}>Criar</button>
+                <button onClick={()=>{setAddingChecklist(false);setNovoChecklistTitulo('');}} style={{padding:'8px 10px',borderRadius:7,border:'1px solid var(--border)',background:'transparent',color:'var(--t3)',fontSize:12,cursor:'pointer'}}>✕</button>
+              </div>
+            ) : (
+              <button onClick={()=>setAddingChecklist(true)} style={{display:'flex',alignItems:'center',gap:6,padding:'7px 12px',marginBottom:16,borderRadius:7,border:'1px dashed var(--border)',background:'transparent',color:'var(--t3)',fontSize:12,cursor:'pointer',width:'100%'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--blue)'} onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}>
+                <Icon name="Plus" size={13}/>Adicionar checklist
+              </button>
+            )}
+
+            <div style={{height:1,background:'var(--border)',marginBottom:16}}/>
+
+            {/* Notas/Comentários */}
+            <div style={{fontSize:13,fontWeight:600,color:'var(--t2)',marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
+              <Icon name="MessageCircle" size={14} style={{color:'var(--blue)'}}/>
+              Comentários ({notas.length})
+            </div>
+            {notas.map(n => (
+              <div key={n.id} style={{display:'flex',gap:10,marginBottom:14}}>
+                <div style={{width:28,height:28,borderRadius:'50%',background:n.autor?.foto_url?`url(${n.autor.foto_url}) center/cover`:'var(--bg-3)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:10,fontWeight:700,color:'var(--t2)',overflow:'hidden'}}>
+                  {!n.autor?.foto_url && (n.autor?.nome||'?').charAt(0).toUpperCase()}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                    <span style={{fontSize:12,fontWeight:600,color:'var(--t1)'}}>{n.autor?.nome||'Sistema'}</span>
+                    <span style={{fontSize:11,color:'var(--t3)'}}>{formatarData(n.created_at)}</span>
+                    <button onClick={()=>deletarNota(n.id)} style={{marginLeft:'auto',opacity:.3,border:'none',background:'transparent',cursor:'pointer',color:'var(--t3)',display:'flex',alignItems:'center',padding:2,borderRadius:4}}
+                      onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.3'}>
+                      <Icon name="Trash2" size={11}/>
+                    </button>
+                  </div>
+                  <div style={{fontSize:13,color:'var(--t1)',background:'var(--bg-3)',padding:'8px 12px',borderRadius:8,lineHeight:1.5,whiteSpace:'pre-wrap'}}>
+                    {n.texto.replace(/@(\w+\s*\w*)/g, (m,u) => m)}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Input novo comentário */}
+            <div style={{position:'relative'}}>
+              <textarea ref={textareaRef} value={novaNotaTxt} onChange={handleTextareaChange}
+                placeholder="Escreva um comentário... use @ para mencionar alguém"
+                onKeyDown={e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();adicionarNota();}}}
+                rows={3}
+                style={{width:'100%',padding:'10px 12px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:8,color:'var(--t1)',fontSize:13,outline:'none',resize:'none',boxSizing:'border-box',lineHeight:1.5}}/>
+              {mencaoAberta && (
+                <div style={{position:'absolute',bottom:'calc(100% + 4px)',left:0,background:'var(--bg)',border:'1px solid var(--border)',borderRadius:9,padding:6,zIndex:50,minWidth:200,boxShadow:'0 8px 24px rgba(0,0,0,.4)'}}>
+                  {equipe.map(u => (
+                    <button key={u.id} onClick={()=>inserirMencao(u)} style={{display:'flex',alignItems:'center',gap:8,width:'100%',padding:'7px 10px',border:'none',background:'transparent',color:'var(--t1)',fontSize:13,cursor:'pointer',borderRadius:6,textAlign:'left'}}
+                      onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <div style={{width:24,height:24,borderRadius:'50%',background:u.foto_url?`url(${u.foto_url}) center/cover`:'var(--blue)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:10,fontWeight:700,overflow:'hidden'}}>
+                        {!u.foto_url && (u.nome||'?').charAt(0).toUpperCase()}
+                      </div>
+                      {u.nome}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:6}}>
+                <span style={{fontSize:11,color:'var(--t3)'}}>Ctrl+Enter para enviar</span>
+                <button onClick={adicionarNota} disabled={enviando||!novaNotaTxt.trim()} style={{padding:'7px 14px',borderRadius:7,border:'none',background:novaNotaTxt.trim()?'var(--blue)':'var(--bg-3)',color:novaNotaTxt.trim()?'#fff':'var(--t3)',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+                  {enviando ? 'Enviando...' : 'Comentar'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar direita */}
+          <div style={{padding:'16px 14px'}}>
+            <div style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)',fontWeight:600,textTransform:'uppercase',letterSpacing:.06,marginBottom:10}}>Informações</div>
+            <div style={{fontSize:12,color:'var(--t2)',marginBottom:6}}><strong>Tipo:</strong> {cardTipo === 'projeto' ? 'Projeto' : 'Cliente'}</div>
+            {cardCliente && <div style={{fontSize:12,color:'var(--t2)',marginBottom:6}}><strong>Cliente:</strong> {cardCliente}</div>}
+            <div style={{fontSize:12,color:'var(--t2)',marginBottom:16}}>
+              <strong>Fase:</strong> <span style={{color:colCor,fontWeight:600}}>{colNome}</span>
+            </div>
+            <div style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)',fontWeight:600,textTransform:'uppercase',letterSpacing:.06,marginBottom:8}}>Progresso</div>
+            {checklists.map(cl => {
+              const total = cl.itens.length;
+              const feitos = cl.itens.filter(i => i.concluido).length;
+              return total > 0 ? (
+                <div key={cl.id} style={{marginBottom:8}}>
+                  <div style={{fontSize:11,color:'var(--t3)',marginBottom:3}}>{cl.titulo}</div>
+                  <div style={{height:6,background:'var(--bg-3)',borderRadius:999,overflow:'hidden'}}>
+                    <div style={{height:'100%',background:'var(--blue)',width:`${Math.round((feitos/total)*100)}%`,borderRadius:999}}/>
+                  </div>
+                  <div style={{fontSize:10,color:'var(--t3)',marginTop:2}}>{feitos}/{total}</div>
+                </div>
+              ) : null;
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Mini input inline para adicionar item em checklist
+function AddItemInline({ onAdd, placeholder }) {
+  const [txt, setTxt] = React.useState('');
+  const [open, setOpen] = React.useState(false);
+  if (!open) return (
+    <button onClick={()=>setOpen(true)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 8px',border:'none',background:'transparent',color:'var(--t3)',fontSize:12,cursor:'pointer',borderRadius:6}}
+      onMouseEnter={e=>e.currentTarget.style.background='var(--bg-3)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+      <Icon name="Plus" size={12}/>Adicionar item
+    </button>
+  );
+  return (
+    <div style={{display:'flex',gap:5,marginTop:4}}>
+      <input autoFocus value={txt} onChange={e=>setTxt(e.target.value)} placeholder={placeholder}
+        onKeyDown={e=>{if(e.key==='Enter'){onAdd(txt);setTxt('');setOpen(false);}if(e.key==='Escape')setOpen(false);}}
+        style={{flex:1,padding:'6px 9px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:6,color:'var(--t1)',fontSize:12,outline:'none'}}/>
+      <button onClick={()=>{onAdd(txt);setTxt('');setOpen(false);}} style={{padding:'6px 10px',borderRadius:6,border:'none',background:'var(--blue)',color:'#fff',fontSize:11,cursor:'pointer'}}>+</button>
+      <button onClick={()=>setOpen(false)} style={{padding:'6px 8px',borderRadius:6,border:'1px solid var(--border)',background:'transparent',color:'var(--t3)',fontSize:11,cursor:'pointer'}}>✕</button>
+    </div>
+  );
+}
+
 // ─── Modal Gerenciar Núcleos ───
 const NUCLEOS_KEY = 'brava_nucleos_config';
 const NUCLEOS_DEFAULT = [
@@ -18308,6 +18634,7 @@ function PipelineProjetos() {
   const [colHover, setColHover] = React.useState(null);
   const [clienteDetalhe, setClienteDetalhe] = React.useState(null);
   const [editandoProjetoModal, setEditandoProjetoModal] = React.useState(null);
+  const [trelloCard, setTrelloCard] = React.useState(null); // { cardTipo, cardId, cardNome, cardCliente, colNome, colCor }
   // Sprint 1 novos states
   const [filtroVisao, setFiltroVisao] = React.useState('tudo'); // 'tudo' | 'projetos' | 'clientes' | 'whatsapp'
   const [filtroNucleo, setFiltroNucleo] = React.useState('todos'); // 'todos' | 'brava_software' | 'brava_audiovisual' | 'brava_consultoria'
@@ -18433,9 +18760,21 @@ function PipelineProjetos() {
   const onDragEnd = () => { setDrag(null); setColHover(null); };
 
   // Abre modal correto dependendo do filtro ativo
-  const abrirClienteDoProjeto = (proj) => {
+  const abrirClienteDoProjeto = (proj, col) => {
     if (filtroVisao === 'projetos') {
       setEditandoProjetoModal(proj);
+      return;
+    }
+    if (filtroVisao === 'tudo') {
+      // Trello card: abre detalhes com notas + checklist
+      setTrelloCard({
+        cardTipo: 'projeto',
+        cardId: proj.id,
+        cardNome: proj.cliente || proj.nome || 'Projeto',
+        cardCliente: clientes.find(c => c.id === proj.cliente_id)?.nome || null,
+        colNome: col?.label || '',
+        colCor: col?.cor || 'var(--blue)',
+      });
       return;
     }
     if (!proj.cliente_id) {
@@ -18734,7 +19073,13 @@ function PipelineProjetos() {
                     <div key={'cli_'+c.id} data-pipeline-card
                       draggable
                       onDragStart={e => onDragStart(e, c, col.key, 'cliente')}
-                      onClick={() => setClienteDetalhe(c)}
+                      onClick={() => {
+                        if (filtroVisao === 'tudo') {
+                          setTrelloCard({ cardTipo:'cliente', cardId:c.id, cardNome:c.nome, cardCliente:null, colNome:col.label, colCor:col.cor });
+                        } else {
+                          setClienteDetalhe(c);
+                        }
+                      }}
                       style={{
                         padding:'10px 12px',
                         background:'var(--bg-2)',
@@ -18784,7 +19129,7 @@ function PipelineProjetos() {
                     <div key={p.id} data-pipeline-card
                       draggable
                       onDragStart={e => onDragStart(e, p, col.key, 'projeto')}
-                      onClick={() => abrirClienteDoProjeto(p)}
+                      onClick={() => abrirClienteDoProjeto(p, col)}
                       style={{
                         padding:'10px 12px',
                         background:'var(--bg-2)',
@@ -18870,6 +19215,7 @@ function PipelineProjetos() {
 
       {clienteDetalhe && !clienteDetalhe._novo && <Cliente360Modal cliente={clienteDetalhe} onClose={()=>setClienteDetalhe(null)}/>}
       {editandoProjetoModal && <ProjetoCadastroModal projeto={editandoProjetoModal} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditandoProjetoModal(null)}/>}
+      {trelloCard && <TrelloCardModal {...trelloCard} onClose={()=>setTrelloCard(null)}/>}
     </div>
   );
 }
