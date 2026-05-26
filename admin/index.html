@@ -15112,11 +15112,29 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
     tags: cliente?.tags || [],
     nota_interna: cliente?.nota_interna || '',
     cor: cliente?.cor || '#1E90FF',
+    foto_url: cliente?.foto_url || '',
   });
   const [erro, setErro] = React.useState('');
   const [salvando, setSalvando] = React.useState(false);
   const [buscandoCep, setBuscandoCep] = React.useState(false);
   const [novaTag, setNovaTag] = React.useState('');
+  const [uploadingFoto, setUploadingFoto] = React.useState(false);
+  const fotoInputRef = React.useRef(null);
+
+  const uploadFoto = async (file) => {
+    if (!file) return;
+    setUploadingFoto(true);
+    try {
+      const cli = getSupa(); if (!cli) return;
+      const ext = file.name.split('.').pop();
+      const path = `logos/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await cli.storage.from('clientes').upload(path, file, { upsert: true, contentType: file.type });
+      if (error) { showToast?.('Erro no upload: ' + error.message, 'error'); return; }
+      const { data } = cli.storage.from('clientes').getPublicUrl(path);
+      set('foto_url', data.publicUrl);
+      showToast?.('Logo carregada!', 'success');
+    } finally { setUploadingFoto(false); }
+  };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -15145,6 +15163,28 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
     const res = novo ? await addCliente(form) : await editCliente(cliente.id, form);
     setSalvando(false);
     if (!res.ok) { setErro(res.erro); return; }
+
+    // Auto-vínculo WhatsApp: se telefone preenchido, busca wa_chats correspondente
+    const telefone = String(form.contato_telefone || '').replace(/\D/g, '');
+    const clienteId = res.data?.id || cliente?.id;
+    if (telefone.length >= 8 && clienteId) {
+      try {
+        const cli = getSupa();
+        if (cli) {
+          const sufixo = telefone.slice(-8);
+          const { data: chats } = await cli.from('wa_chats')
+            .select('id, jid')
+            .is('cliente_id', null)
+            .ilike('jid', `%${sufixo}%`)
+            .limit(3);
+          if (chats?.length > 0) {
+            await cli.from('wa_chats').update({ cliente_id: clienteId }).in('id', chats.map(c => c.id));
+            showToast?.(`Vinculado automaticamente a ${chats.length} chat(s) no WhatsApp`, 'success');
+          }
+        }
+      } catch {}
+    }
+
     showToast?.(novo ? 'Cliente cadastrado' : 'Cliente atualizado', 'success');
     onClose();
   };
@@ -15184,12 +15224,28 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
       <div style={{width:'min(720px, 95vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
         {/* Header */}
         <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
-          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
-            <Icon name="UserCircle" size={17} style={{color:'var(--blue)'}}/>
+          {/* Avatar clicável para upload de logo */}
+          <div
+            onClick={()=>fotoInputRef.current?.click()}
+            title="Clique para carregar logo/foto"
+            style={{
+              width:48, height:48, borderRadius:10, flexShrink:0, cursor:'pointer', position:'relative', overflow:'hidden',
+              background: form.foto_url ? `url(${form.foto_url}) center/cover` : 'rgba(30,144,255,.12)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              border:'2px dashed var(--border)', transition:'border-color .15s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.borderColor='var(--blue)'}
+            onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
+          >
+            {!form.foto_url && <Icon name={uploadingFoto ? 'Upload' : 'UserCircle'} size={18} style={{color:'var(--blue)'}}/>}
+            {uploadingFoto && <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <Icon name="Upload" size={14} style={{color:'#fff'}}/>
+            </div>}
+            <input ref={fotoInputRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>uploadFoto(e.target.files?.[0])}/>
           </div>
           <div style={{flex:1, minWidth:0}}>
             <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>{novo ? 'Novo cliente' : 'Editar cliente'}</h3>
-            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{novo ? 'Os campos com * são obrigatórios' : cliente?.nome}</div>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2}}>{form.foto_url ? 'Clique no avatar para trocar a logo' : 'Clique no avatar para carregar a logo · campos com * obrigatórios'}</div>
           </div>
           <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
         </div>
@@ -16474,8 +16530,22 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
         <InfoCardEdit label="Origem" value={cliente.origem} field="origem" clienteId={cliente.id} placeholder="Indicação, Inbound..."/>
         <InfoCardEdit label="Nicho" value={cliente.nicho} field="nicho" clienteId={cliente.id} placeholder="Estética, Saúde..."/>
         <InfoCardEdit label="Site" value={cliente.site} field="site" clienteId={cliente.id} placeholder="https://empresa.com.br"/>
-        <InfoCardEdit label="Cidade / UF" value={cliente.endereco_cidade ? `${cliente.endereco_cidade}${cliente.endereco_estado ? '/'+cliente.endereco_estado : ''}` : null} field="endereco_cidade" clienteId={cliente.id} placeholder="São Paulo"/>
       </div>
+
+      {/* Endereço completo */}
+      {(cliente.endereco_cep || cliente.endereco_logradouro || cliente.endereco_cidade) && (
+        <>
+          <SecaoLabel icon="Globe">Endereço <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
+            <InfoCardEdit label="CEP" value={cliente.endereco_cep} field="endereco_cep" clienteId={cliente.id} placeholder="00000-000"/>
+            <InfoCardEdit label="Logradouro" value={cliente.endereco_logradouro} field="endereco_logradouro" clienteId={cliente.id} placeholder="Rua, Av..."/>
+            <InfoCardEdit label="Número" value={cliente.endereco_numero} field="endereco_numero" clienteId={cliente.id} placeholder="123"/>
+            <InfoCardEdit label="Complemento" value={cliente.endereco_complemento} field="endereco_complemento" clienteId={cliente.id} placeholder="Sala, Apto..."/>
+            <InfoCardEdit label="Bairro" value={cliente.endereco_bairro} field="endereco_bairro" clienteId={cliente.id} placeholder="Centro"/>
+            <InfoCardEdit label="Cidade / UF" value={cliente.endereco_cidade ? `${cliente.endereco_cidade}${cliente.endereco_estado ? '/'+cliente.endereco_estado : ''}` : null} field="endereco_cidade" clienteId={cliente.id} placeholder="São Paulo"/>
+          </div>
+        </>
+      )}
 
       {/* Últimos lançamentos */}
       <SecaoLabel icon="Wallet">Últimos pagamentos vinculados</SecaoLabel>
