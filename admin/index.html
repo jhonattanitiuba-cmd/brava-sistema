@@ -14433,10 +14433,17 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       });
     });
 
-    // 3) PROJETADO: despesas fixas recorrentes para datas futuras não pagas ainda
-    // Gera entradas pros próximos 3 meses para despesas ativas + recorrentes
+    // Calcula quantos meses faltam até o fim do ano corrente
+    const anoAtualProj = new Date().getFullYear();
+    const fimAnoProj   = `${anoAtualProj}-12-31`;
+    const mesesRestantes = (() => {
+      const n = new Date();
+      return (anoAtualProj - n.getFullYear()) * 12 + (11 - n.getMonth()); // 11 = dezembro (0-indexed)
+    })();
+
+    // 3) PROJETADO: despesas fixas recorrentes ate o fim do ano
     (despesas || []).filter(d => d.ativo && d.recorrente && Number(d.valor) > 0).forEach(d => {
-      for (let m = 0; m <= 2; m++) {
+      for (let m = 0; m <= mesesRestantes; m++) {
         const ref = new Date();
         ref.setMonth(ref.getMonth() + m);
         const ym = YM(ref);
@@ -14465,9 +14472,9 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       }
     });
 
-    // 4) PROJETADO: MRR esperado dos contratos ativos (próximos 3 meses)
+    // 4) PROJETADO: MRR esperado dos contratos ativos ate o fim do ano
     (recorrencia || []).filter(p => p.status_fase === 'ativo' && Number(p.mensal||0) > 0).forEach(p => {
-      for (let m = 0; m <= 2; m++) {
+      for (let m = 0; m <= mesesRestantes; m++) {
         const ref = new Date();
         ref.setMonth(ref.getMonth() + m);
         const ym = YM(ref);
