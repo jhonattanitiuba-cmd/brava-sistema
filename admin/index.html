@@ -697,7 +697,7 @@ function useCount(target, duration = 1200, delay = 0) {
 /* ─── Nav items ─── */
 const NAV = [
   { key:'dashboard',  label:'Dashboard',   icon:'LayoutDashboard', badge:null },
-  { key:'clientes',   label:'WhatsApp',    icon:'MessageCircle',   badge:23 },
+  { key:'clientes',   label:'WhatsApp',    icon:'WhatsApp',        badge:23 },
   { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
   { key:'clientes_crm', label:'Clientes',  icon:'UsersRound',      badge:null },
   { key:'projetos',   label:'Projetos',    icon:'Layers',          badge:null },
@@ -2477,7 +2477,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 
         <div className="kpi">
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-            <div className="kpi__label">MRR</div>
+            <div className="kpi__label">Recorrência</div>
             <div className="kpi__icon" style={{background:'rgba(30,144,255,.12)'}}>
               <Icon name="TrendingUp" size={17} style={{color:'var(--blue)'}}/>
             </div>
@@ -2513,7 +2513,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       <div className="grid-2">
         <div className="card">
           <div className="card__head">
-            <div className="card__title">Evolução do MRR · últimos 7 dias</div>
+            <div className="card__title">Evolução da Recorrência · últimos 7 dias</div>
             <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Ver Financeiro completo →</div>
           </div>
           <div className="chart">
@@ -3295,7 +3295,7 @@ function PresenceLabel({ contato, usandoReal, iaProcessando }) {
     );
   }
   if (!usandoReal) return <span style={{fontSize:12, color:'var(--wa-green)', marginTop:1}}>{contato?.status==='online' ? 'online' : 'visto por último às 22:30'}</span>;
-  if (!presence) return <span style={{fontSize:12, color:'var(--wa-text-secondary)', marginTop:1}}>clique para ver perfil</span>;
+  if (!presence) return null;
   const s = presence.state;
   let label = 'online', cor = 'var(--wa-green)';
   if (s === 'composing')      label = 'digitando...';
@@ -4134,9 +4134,6 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 {formatPhoneFromJid(activeInstance.owner_jid)}
               </p>
             )}
-            <p style={{fontSize:14, color:S.textSec, maxWidth:420, lineHeight:1.5, marginBottom:8}}>
-              Centralize todo o atendimento da sua operação em um único workspace.
-            </p>
             <p style={{fontSize:13, color:S.textSec, opacity:.6, marginBottom:48}}>
               {realChatsLoading
                 ? 'Carregando conversas…'
@@ -4508,7 +4505,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
           ) : (
             <div style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', marginBottom:6, background:'rgba(186,117,23,.10)', border:'1px solid rgba(186,117,23,.28)', borderRadius:6, fontSize:12, color:'#E5A24A' }}>
               <Icon name="Pencil" size={12}/>
-              <span>Você assumiu este chat · IA pausada. Pra devolver pra IA digite <strong style={{fontWeight:700}}>"."</strong></span>
+              <span>Você está atendendo este chat. Para devolver à IA, digite <strong style={{fontWeight:700}}>ponto (.)</strong> na mensagem.</span>
             </div>
           )}
           {gravando ? (
@@ -4857,7 +4854,7 @@ function VinculoChatCliente({ chatJid, telefone, S }) {
             width:'100%', padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7,
             color:'var(--t1)', fontSize:12.5, outline:'none', cursor:'pointer',
           }}>
-            <option value="">— Vincular a cliente —</option>
+            <option value="">Vincular a cliente</option>
             {(clientes||[]).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
           </select>
         )}
@@ -5099,7 +5096,7 @@ function CatalogarContatosModal({ S, onClose }) {
                         border:`1px solid ${S.border}`, borderRadius:6,
                         color:S.textPrimary, fontSize:12, outline:'none', cursor:'pointer',
                       }}>
-                      <option value="">— vincular a cliente —</option>
+                      <option value="">Vincular a cliente</option>
                       {(clientes||[]).map(c => (
                         <option key={c.id} value={c.id}>{c.nome}</option>
                       ))}
@@ -10607,7 +10604,7 @@ function Analytics() {
         {[
           {l:'Clientes cadastrados', v: totalClientes, d:'na tabela mestre', c:'var(--blue)', i:'UsersRound'},
           {l:'Projetos ativos', v: projetosAtivos, d:`de ${totalProjetos} totais`, c:'#1D9E75', i:'CheckCircle2'},
-          {l:'MRR ativo', v:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, d:'soma dos projetos ativos', c:'#1D9E75', i:'TrendingUp'},
+          {l:'Recorrência ativa', v:`R$ ${mrrAtivo.toLocaleString('pt-BR')}`, d:'soma dos projetos ativos', c:'#1D9E75', i:'TrendingUp'},
           {l:'Taxa de conciliação', v:`${taxaConciliacao}%`, d:`${totalConciliados}/${totalLancamentos} do extrato`, c: taxaConciliacao > 50 ? '#1D9E75' : '#BA7517', i:'Wallet'},
         ].map((k,i) => (
           <div key={i} className="kpi">
@@ -14596,8 +14593,8 @@ function ClientesCRM() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__title">Clientes</div>
-          <div className="page-head__sub">{stats.total} cadastrados · {stats.ativos} ativos · {stats.em_implantacao} em implantação · {stats.em_negociacao} em negociação{stats.inadimplentes > 0 && <> · <span style={{color:'#ff8585'}}>{stats.inadimplentes} inadimplentes</span></>}{stats.incompletos > 0 && <> · {stats.incompletos} incompletos</>}</div>
+          <div className="page-head__title" style={{display:'none'}}>Clientes</div>
+          <div className="page-head__sub">{stats.total} cadastrados · {stats.ativos} ativos · {stats.em_implantacao} construindo · {stats.em_negociacao} em negociação{stats.inadimplentes > 0 && <> · <span style={{color:'#ff8585'}}>{stats.inadimplentes} em atraso</span></>}{stats.incompletos > 0 && <> · {stats.incompletos} incompletos</>}</div>
         </div>
         <div className="page-head__actions">
           <button onClick={()=>setEditando({})} className="btn btn-primary">
@@ -14611,8 +14608,8 @@ function ClientesCRM() {
         {[
           { label:'Total cadastrados', val: stats.total, icon:'UsersRound', cor:'var(--blue)' },
           { label:'Ativos', val: stats.ativos, icon:'CheckCircle2', cor:'#1D9E75' },
-          { label:'Em implantação', val: stats.em_implantacao, icon:'Activity', cor:'#7B3FE4' },
-          { label: stats.inadimplentes > 0 ? 'Inadimplentes' : 'Em negociação',
+          { label:'Construindo', val: stats.em_implantacao, icon:'Activity', cor:'#7B3FE4' },
+          { label: stats.inadimplentes > 0 ? 'Em atraso' : 'Em negociação',
             val: stats.inadimplentes > 0 ? stats.inadimplentes : stats.em_negociacao,
             icon: stats.inadimplentes > 0 ? 'AlertCircle' : 'MessageCircle',
             cor: stats.inadimplentes > 0 ? '#A32D2D' : '#BA7517' },
@@ -15210,9 +15207,9 @@ function ProjetosCRM() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__title">Projetos</div>
+          <div className="page-head__title" style={{display:'none'}}>Projetos</div>
           <div className="page-head__sub">
-            {stats.total} contratos · {stats.ativos} ativos · {stats.em_implantacao} em implantação · R$ {fmt(stats.mrr_total)}/mês recorrente
+            {stats.total} contratos · {stats.ativos} ativos · {stats.em_implantacao} construindo · R$ {fmt(stats.mrr_total)}/mês recorrente
             {stats.sem_cliente > 0 && <> · <span style={{color:'#ff8585'}}>{stats.sem_cliente} sem cliente</span></>}
           </div>
         </div>
@@ -15220,7 +15217,7 @@ function ProjetosCRM() {
           {projetosGap.length > 0 && (
             <button onClick={()=>setWizardAberto(true)} className="btn"
               title="Preencher rapido os campos faltando (escopo, valor, servico)"
-              style={{background:'rgba(186,117,23,.15)', color:'#E0A04D', border:'1px solid rgba(186,117,23,.35)', fontWeight:600}}>
+              style={{background:'#0d0d0d', color:'var(--blue)', border:'1px solid var(--blue)', fontWeight:600}}>
               <Icon name="Sparkles" size={14}/>Organizar gaps · {projetosGap.length}
             </button>
           )}
@@ -15234,9 +15231,9 @@ function ProjetosCRM() {
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
           { label:'Total projetos', val: stats.total, icon:'Layers', cor:'var(--blue)' },
-          { label:'Ativos faturando', val: stats.ativos, icon:'CheckCircle2', cor:'#1D9E75' },
-          { label:'MRR ativo', val: 'R$ '+fmt(stats.mrr_total), icon:'Repeat', cor:'#1D9E75' },
           { label:'Implantação total', val: 'R$ '+fmt(stats.impl_total), icon:'Activity', cor:'#7B3FE4' },
+          { label:'Ativos faturando', val: stats.ativos, icon:'CheckCircle2', cor:'#1D9E75' },
+          { label:'Recorrência ativa', val: 'R$ '+fmt(stats.mrr_total), icon:'Repeat', cor:'#1D9E75' },
         ].map((k,i) => (
           <div key={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
@@ -16057,9 +16054,9 @@ function Cliente360Modal({ cliente: clienteProp, onClose }) {
 function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
   const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   const kpis = [
-    { label:'MRR (mensalidade total)', val:'R$ '+fmt(stats.mrr), cor:'#1D9E75', icon:'Repeat' },
     { label:'Total recebido', val:'R$ '+fmt(stats.recebidoTotal), cor:'var(--blue)', icon:'ArrowDownCircle' },
     { label:'Implantação esperada', val:'R$ '+fmt(stats.implEsperada), cor:'#7B3FE4', icon:'Activity' },
+    { label:'Mensalidade', val:'R$ '+fmt(stats.mrr), cor:'#1D9E75', icon:'Repeat' },
     { label: stats.atrasos > 0 ? 'Meses em atraso' : 'Sem atrasos',
       val: stats.atrasos > 0 ? stats.atrasos : '✓',
       cor: stats.atrasos > 0 ? '#A32D2D' : '#1D9E75',
@@ -17942,9 +17939,9 @@ function PipelineProjetos() {
     <div style={{padding:'28px 32px', overflowX:'auto', height:'calc(100vh - 60px)', display:'flex', flexDirection:'column'}}>
       <div className="page-head" style={{flexShrink:0, marginBottom:10}}>
         <div>
-          <div className="page-head__title">Projetos / Pipeline</div>
+          <div className="page-head__title" style={{display:'none'}}>Projetos / Pipeline</div>
           <div className="page-head__sub">
-            {totalProjetos} projetos · {totalClientes} clientes · R$ {fmt(mrrTotal)}/mês · arraste pra mover entre fases · clique no fundo pra rolar
+            {totalProjetos} projetos · {totalClientes} clientes · R$ {fmt(mrrTotal)}/mês recorrente · arraste pra mover entre fases · clique no fundo pra rolar
           </div>
         </div>
       </div>
