@@ -14320,9 +14320,31 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     <div>
       {/* Header */}
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:14, gap:14, flexWrap:'wrap'}}>
-        <div style={{fontSize:13, color:'var(--t3)'}}>
-          {extrato.length} movimentações no extrato
-          {totalNaoConciliado > 0 && <span style={{color:'#BA7517', marginLeft:8, fontWeight:500}}>· {totalNaoConciliado} do banco aguardando conciliação</span>}
+        <div style={{display:'flex', alignItems:'center', gap:10, flexWrap:'wrap'}}>
+          <span style={{fontSize:13, color:'var(--t3)'}}>
+            {extrato.length} movimentações no extrato
+            {totalNaoConciliado > 0 && <span style={{color:'#BA7517', marginLeft:8, fontWeight:500}}>· {totalNaoConciliado} aguardando conciliação</span>}
+          </span>
+          {/* Chip BTG discreto */}
+          {btgAccounts.length > 0 && (
+            <span title={`${btgAccounts.length} conta(s) BTG · Última sync: ${ultimaSyncTxt || 'nunca'}`}
+              style={{
+                display:'inline-flex', alignItems:'center', gap:5,
+                padding:'3px 9px', borderRadius:999, fontSize:11,
+                background: ultimaSyncBtg?.status === 'erro' ? 'rgba(229,84,77,.12)' : 'rgba(30,144,255,.10)',
+                color: ultimaSyncBtg?.status === 'erro' ? '#ff8585' : 'var(--blue)',
+                border: `1px solid ${ultimaSyncBtg?.status === 'erro' ? 'rgba(229,84,77,.3)' : 'rgba(30,144,255,.2)'}`,
+                cursor:'default',
+              }}>
+              <span style={{
+                width:6, height:6, borderRadius:'50%',
+                background: ultimaSyncBtg?.status === 'erro' ? '#ff8585' : '#1D9E75',
+                flexShrink:0,
+              }}/>
+              BTG · {ultimaSyncTxt || 'sync pendente'}
+              {ultimaSyncBtg?.status === 'erro' && <Icon name="AlertCircle" size={11}/>}
+            </span>
+          )}
         </div>
         <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
           {pendentesConciliacao.length > 0 && (
@@ -14363,31 +14385,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         </div>
       </div>
 
-      {/* Card de status BTG (só aparece se tem conta conectada) */}
-      {(btgAccounts.length > 0 || ultimaSyncBtg) && (
-        <div style={{
-          display:'flex', alignItems:'center', gap:14, marginBottom:18,
-          padding:'12px 16px', background:'linear-gradient(135deg, rgba(30,144,255,.08), transparent)',
-          border:'1px solid rgba(30,144,255,.25)', borderRadius:10, flexWrap:'wrap',
-        }}>
-          <div style={{width:36, height:36, borderRadius:9, background:'rgba(30,144,255,.18)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
-            <Icon name="Zap" size={17} style={{color:'var(--blue)'}}/>
-          </div>
-          <div style={{flex:1, minWidth:180}}>
-            <div style={{fontSize:13, color:'var(--t1)', fontWeight:600}}>BTG Pactual conectado</div>
-            <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>
-              {btgAccounts.length} conta{btgAccounts.length===1?'':'s'} ·
-              Saldo atual: <strong style={{color:'var(--t2)'}}>R$ {saldoBtgTotal.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong>
-              {ultimaSyncTxt && <> · Última sync <strong style={{color:'var(--t2)'}}>{ultimaSyncTxt}</strong></>}
-            </div>
-          </div>
-          {ultimaSyncBtg?.status === 'erro' && (
-            <div style={{fontSize:11.5, color:'#ff8585', padding:'4px 10px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:6, maxWidth:280, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={ultimaSyncBtg.erro}>
-              {ultimaSyncBtg.erro}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Status BTG: chip discreto na linha de informação */}
 
       {/* KPIs - TUDO REAL do extrato (sem projeções/simulações) */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
