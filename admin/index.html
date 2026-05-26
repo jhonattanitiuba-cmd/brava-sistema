@@ -14158,7 +14158,7 @@ async function abrirOAuthBTG() {
   // e o BTG nao aceita scope com barra encodada. Constroi manualmente.
   const redirectUri = encodeURIComponent('https://brava.software/');
   const scope = 'openid%20empresas.btgpactual.com/accounts%20empresas.btgpactual.com/accounts.readonly';
-  const authUrl = `https://id.btgpactual.com/oauth2/auth?response_type=code&client_id=4cce959e-fe55-4dd0-83be-70ca5e17c1b2&redirect_uri=${redirectUri}&scope=${scope}&state=${encodeURIComponent(state)}`;
+  const authUrl = `https://id.btgpactual.com/oauth2/authorize?response_type=code&client_id=4cce959e-fe55-4dd0-83be-70ca5e17c1b2&redirect_uri=${redirectUri}&scope=${scope}&state=${encodeURIComponent(state)}`;
   window.location.href = authUrl;
 }
 
