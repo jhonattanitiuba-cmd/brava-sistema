@@ -13392,9 +13392,12 @@ function Financeiro() {
     return arr.reverse(); // mais recente primeiro
   }, []);
 
-  const mesAtualLabel = (opcoesMes.find(o => o.ym === mesFiltro)?.label) || mesFiltro;
+  const mesAtualLabel = mesFiltro === 'este_ano'
+    ? 'Este ano'
+    : (opcoesMes.find(o => o.ym === mesFiltro)?.label) || mesFiltro;
   const ymAtualSistema = YM(new Date());
   const ehMesCorrente = mesFiltro === ymAtualSistema;
+  const [mesDropOpen, setMesDropOpen] = React.useState(false);
 
   return (
     <div className="page">
@@ -13405,37 +13408,98 @@ function Financeiro() {
             {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos manuais · período: <strong style={{color:'var(--t1)'}}>{mesAtualLabel}</strong>
           </div>
         </div>
-        <div className="page-head__actions">
-          {/* Seletor de mês */}
-          <div style={{display:'flex', alignItems:'center', gap:6, padding:'6px 8px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8}}>
-            <button onClick={()=>{
-              const idx = opcoesMes.findIndex(o => o.ym === mesFiltro);
-              if (idx < opcoesMes.length - 1) setMesFiltro(opcoesMes[idx+1].ym);
-            }} title="Mês anterior" style={{width:24, height:24, borderRadius:5, border:'none', background:'transparent', color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
-              <Icon name="ChevronLeft" size={14}/>
+        <div className="page-head__actions" style={{display:'flex', gap:8, alignItems:'center'}}>
+          {/* Seletor de período — dropdown custom */}
+          <div style={{position:'relative'}}>
+            {/* Botão principal */}
+            <button
+              onClick={()=>setMesDropOpen(v=>!v)}
+              style={{
+                display:'inline-flex', alignItems:'center', gap:8,
+                padding:'8px 14px', borderRadius:8,
+                background:'var(--bg-2)', border:'1px solid var(--border)',
+                color:'var(--t1)', fontSize:13.5, fontWeight:600,
+                cursor:'pointer', userSelect:'none', transition:'border-color .15s',
+                minWidth:170,
+              }}
+              onMouseEnter={e=>e.currentTarget.style.borderColor='var(--blue)'}
+              onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border)'}
+            >
+              <Icon name="CalendarCheck" size={14} style={{color:'var(--blue)', flexShrink:0}}/>
+              <span style={{flex:1, textAlign:'left'}}>{mesAtualLabel}</span>
+              <Icon name={mesDropOpen ? 'ChevronLeft' : 'ChevronDown'} size={13} style={{color:'var(--t3)', transform: mesDropOpen ? 'rotate(90deg)' : 'none', transition:'transform .15s'}}/>
             </button>
-            <select value={mesFiltro} onChange={e=>setMesFiltro(e.target.value)} style={{
-              padding:'6px 10px', background:'transparent', border:'none', color:'var(--t1)',
-              fontSize:13, fontWeight:600, cursor:'pointer', outline:'none', textTransform:'capitalize',
-              minWidth:140,
-            }}>
-              {opcoesMes.map(o => (
-                <option key={o.ym} value={o.ym}>{o.label}{o.ym === ymAtualSistema ? ' (atual)' : ''}</option>
-              ))}
-            </select>
-            <button onClick={()=>{
-              const idx = opcoesMes.findIndex(o => o.ym === mesFiltro);
-              if (idx > 0) setMesFiltro(opcoesMes[idx-1].ym);
-            }} title="Próximo mês" style={{width:24, height:24, borderRadius:5, border:'none', background:'transparent', color:'var(--t2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center'}}>
-              <Icon name="ChevronRight" size={14}/>
-            </button>
-            {!ehMesCorrente && (
-              <button onClick={()=>setMesFiltro(ymAtualSistema)} title="Voltar pro mês atual" style={{
-                padding:'4px 9px', borderRadius:5, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)',
-                color:'var(--blue)', fontSize:11, fontWeight:600, cursor:'pointer', marginLeft:4,
-              }}>Hoje</button>
+
+            {/* Dropdown flutuante */}
+            {mesDropOpen && (
+              <div
+                onMouseLeave={()=>setMesDropOpen(false)}
+                style={{
+                  position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200,
+                  minWidth:200, maxHeight:340, overflowY:'auto',
+                  background:'var(--bg)', border:'1px solid var(--border)',
+                  borderRadius:10, boxShadow:'0 12px 36px rgba(0,0,0,.45)',
+                  padding:'6px 0',
+                }}>
+                {/* Este ano */}
+                <button
+                  onClick={()=>{ setMesFiltro('este_ano'); setMesDropOpen(false); }}
+                  style={{
+                    width:'100%', padding:'9px 14px', textAlign:'left', background:'transparent',
+                    border:'none', cursor:'pointer', fontSize:13, fontWeight:600,
+                    color: mesFiltro === 'este_ano' ? 'var(--blue)' : 'var(--t1)',
+                    display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid var(--border)',
+                    marginBottom:4,
+                    ...(mesFiltro === 'este_ano' ? {background:'rgba(30,144,255,.08)'} : {}),
+                  }}
+                  onMouseEnter={e=>{ if(mesFiltro !== 'este_ano') e.currentTarget.style.background='var(--bg-3)'; }}
+                  onMouseLeave={e=>{ if(mesFiltro !== 'este_ano') e.currentTarget.style.background='transparent'; }}
+                >
+                  <Icon name="CalendarCheck" size={13} style={{color: mesFiltro === 'este_ano' ? 'var(--blue)' : 'var(--t3)'}}/>
+                  Este ano
+                  <span style={{marginLeft:'auto', fontSize:10.5, color:'var(--t3)', fontWeight:400}}>
+                    Jan → hoje
+                  </span>
+                </button>
+
+                {/* Meses */}
+                {opcoesMes.map(o => {
+                  const sel = mesFiltro === o.ym;
+                  const ehAtual = o.ym === ymAtualSistema;
+                  return (
+                    <button key={o.ym}
+                      onClick={()=>{ setMesFiltro(o.ym); setMesDropOpen(false); }}
+                      style={{
+                        width:'100%', padding:'8px 14px', textAlign:'left', background:'transparent',
+                        border:'none', cursor:'pointer', fontSize:13,
+                        color: sel ? 'var(--blue)' : 'var(--t2)', fontWeight: sel || ehAtual ? 600 : 400,
+                        display:'flex', alignItems:'center', gap:6,
+                        ...(sel ? {background:'rgba(30,144,255,.08)'} : {}),
+                      }}
+                      onMouseEnter={e=>{ if(!sel) e.currentTarget.style.background='var(--bg-3)'; }}
+                      onMouseLeave={e=>{ if(!sel) e.currentTarget.style.background='transparent'; }}
+                    >
+                      {o.label}
+                      {ehAtual && <span style={{marginLeft:'auto', fontSize:10, padding:'1px 6px', borderRadius:999, background:'rgba(30,144,255,.15)', color:'var(--blue)', fontWeight:600}}>atual</span>}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
+
+          {/* Botão Hoje — só aparece quando nao está no mes/periodo corrente */}
+          {!ehMesCorrente && mesFiltro !== 'este_ano' && (
+            <button onClick={()=>setMesFiltro(ymAtualSistema)} style={{
+              padding:'8px 13px', borderRadius:8, border:'1px solid rgba(30,144,255,.35)',
+              background:'rgba(30,144,255,.08)', color:'var(--blue)',
+              fontSize:12.5, fontWeight:600, cursor:'pointer', transition:'all .15s',
+            }}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(30,144,255,.15)'}
+              onMouseLeave={e=>e.currentTarget.style.background='rgba(30,144,255,.08)'}>
+              Hoje
+            </button>
+          )}
         </div>
       </div>
 
@@ -14230,11 +14294,16 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     });
   }, []);
   const pendentesConciliacao = useConciliacoesPendentes();
-  const ymHoje = mesFiltro || YM(new Date());
+  const ymHoje = (mesFiltro && mesFiltro !== 'este_ano') ? mesFiltro : YM(new Date());
   const [ano, mes] = ymHoje.split('-').map(Number);
   const hoje = new Date(ano, mes - 1, 1);
-  const inicioMesFiltro = new Date(ano, mes - 1, 1).toISOString().slice(0,10);
-  const fimMesFiltro = new Date(ano, mes, 0).toISOString().slice(0,10);
+  const anoAtual = new Date().getFullYear();
+  const inicioMesFiltro = mesFiltro === 'este_ano'
+    ? `${anoAtual}-01-01`
+    : new Date(ano, mes - 1, 1).toISOString().slice(0,10);
+  const fimMesFiltro = mesFiltro === 'este_ano'
+    ? new Date().toISOString().slice(0,10)
+    : new Date(ano, mes, 0).toISOString().slice(0,10);
 
   // Saldo total das contas BTG conectadas (somatório do saldo_atual mais recente)
   const saldoBtgTotal = btgAccounts.reduce((s, a) => s + (Number(a.saldo_atual) || 0), 0);
