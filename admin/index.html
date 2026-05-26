@@ -13436,7 +13436,8 @@ function Financeiro() {
     for (let i = -12; i <= 1; i++) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
       const ym = YM(d);
-      const label = d.toLocaleDateString('pt-BR', { month:'long', year:'numeric' });
+      // Apenas o mes, sem o ano (minimalista — ja sabemos o ano)
+      const label = d.toLocaleDateString('pt-BR', { month:'long' });
       arr.push({ ym, label: label.charAt(0).toUpperCase() + label.slice(1) });
     }
     return arr.reverse(); // mais recente primeiro
@@ -13458,9 +13459,9 @@ function Financeiro() {
             {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos manuais · período: <strong style={{color:'var(--t1)'}}>{mesAtualLabel}</strong>
           </div>
         </div>
-        <div className="page-head__actions" style={{display:'flex', gap:8, alignItems:'center'}}>
+        <div className="page-head__actions" style={{display:'flex', gap:8, alignItems:'center', overflow:'visible', position:'relative', zIndex:100}}>
           {/* Seletor de período — dropdown custom */}
-          <div style={{position:'relative'}}>
+          <div style={{position:'relative', zIndex:9999}}>
             {/* Botão principal */}
             <button
               onClick={()=>setMesDropOpen(v=>!v)}
@@ -13485,7 +13486,7 @@ function Financeiro() {
               <div
                 onMouseLeave={()=>setMesDropOpen(false)}
                 style={{
-                  position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:200,
+                  position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:9999,
                   minWidth:200, maxHeight:340, overflowY:'auto',
                   background:'var(--bg)', border:'1px solid var(--border)',
                   borderRadius:10, boxShadow:'0 12px 36px rgba(0,0,0,.45)',
