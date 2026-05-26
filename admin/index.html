@@ -15524,6 +15524,7 @@ function ProjetosCRM() {
   const [filtroNucleo, setFiltroNucleo] = React.useState('todos'); // brava_software | brava_audiovisual | brava_consultoria | todos
   const [wizardAberto, setWizardAberto] = React.useState(false);
   const [mostrarGaps, setMostrarGaps] = React.useState(false);
+  const [gerenciarNucleos, setGerenciarNucleos] = React.useState(false);
 
   // Projetos com gaps (sem escopo OU sem valor algum) — alimenta o wizard "Organizar"
   const projetosGap = React.useMemo(() => projetos.filter(p => {
@@ -15607,6 +15608,9 @@ function ProjetosCRM() {
               <Icon name="Sparkles" size={14}/>Organizar gaps · {projetosGap.length}
             </button>
           )}
+          <button onClick={()=>setGerenciarNucleos(true)} className="btn btn-outline" title="Editar núcleos de negócio">
+            <Icon name="Settings" size={13}/>Núcleos
+          </button>
           <button onClick={()=>setEditando({})} className="btn btn-primary">
             <Icon name="Plus" size={14}/>Novo projeto
           </button>
@@ -15631,32 +15635,30 @@ function ProjetosCRM() {
         ))}
       </div>
 
-      {/* Switcher de núcleo (Brava Software | Audiovisual | Consultoria) */}
-      <div className="card" style={{padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
-        {[
-          { key:'todos',              icon:'Layers',   label:'Todos núcleos', cor:'var(--blue)' },
-          { key:'brava_software',     icon:'Code2',    label:'Brava Software', cor:'#1E90FF' },
-          { key:'brava_audiovisual',  icon:'Film',     label:'Audiovisual',    cor:'#E5544D' },
-          { key:'brava_consultoria',  icon:'Lightbulb',label:'Consultoria',    cor:'#7B3FE4' },
-        ].map(n => {
-          const ativo = filtroNucleo === n.key;
-          const stat = n.key === 'todos' ? null : statsPorNucleo[n.key];
-          return (
-            <button key={n.key} onClick={()=>setFiltroNucleo(n.key)} style={{
-              padding:'7px 12px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-              display:'inline-flex', alignItems:'center', gap:6,
-              background: ativo ? n.cor+'22' : 'var(--bg-3)', color: ativo ? n.cor : 'var(--t2)',
-              border:`1px solid ${ativo ? n.cor : 'var(--border)'}`,
-              transition:'all .15s',
-            }}>
-              <Icon name={n.icon} size={13}/>{n.label}
-              {stat && <span style={{marginLeft:4, padding:'1px 6px', borderRadius:999, background:'rgba(255,255,255,.06)', fontSize:10, color:'var(--t3)'}}>
-                {stat.qtd}
-              </span>}
-            </button>
-          );
-        })}
-      </div>
+      {/* Switcher de núcleo — dinâmico via getNucleosConfig */}
+      {(() => {
+        const nucleosConfig = getNucleosConfig();
+        return (
+          <div className="card" style={{padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
+            {[{ key:'todos', icone:'Layers', label:'Todos núcleos', cor:'var(--blue)' }, ...nucleosConfig].map(n => {
+              const ativo = filtroNucleo === n.key;
+              const stat = n.key === 'todos' ? null : statsPorNucleo[n.key];
+              return (
+                <button key={n.key} onClick={()=>setFiltroNucleo(n.key)} style={{
+                  padding:'7px 12px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                  display:'inline-flex', alignItems:'center', gap:6,
+                  background: ativo ? n.cor+'22' : 'var(--bg-3)', color: ativo ? n.cor : 'var(--t2)',
+                  border:`1px solid ${ativo ? n.cor : 'var(--border)'}`,
+                  transition:'all .15s',
+                }}>
+                  <Icon name={n.icone} size={13}/>{n.label}
+                  {stat && <span style={{marginLeft:4, padding:'1px 6px', borderRadius:999, background:'rgba(255,255,255,.06)', fontSize:10, color:'var(--t3)'}}>{stat.qtd}</span>}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Filtros — linha única com scroll */}
       <div className="card" style={{padding:'10px 14px', marginBottom:12, overflow:'hidden'}}>
@@ -15717,15 +15719,14 @@ function ProjetosCRM() {
                 <div style={{display:'flex', gap:5, flexWrap:'wrap', fontSize:10}}>
                   {(() => {
                     const nuc = p.nucleo || 'brava_software';
-                    const meta = nuc === 'brava_audiovisual' ? {emoji:'🎬', cor:'#E5544D'} :
-                                 nuc === 'brava_consultoria' ? {emoji:'🎓', cor:'#7B3FE4'} :
-                                 {emoji:'🤖', cor:'#1E90FF'};
+                    const nucIcone = nuc === 'brava_audiovisual' ? 'Film' : nuc === 'brava_consultoria' ? 'Lightbulb' : 'Code2';
+                    const nucCor   = nuc === 'brava_audiovisual' ? '#E5544D' : nuc === 'brava_consultoria' ? '#7B3FE4' : '#1E90FF';
                     const catLabel = ({
                       saas_ia:'IA+CRM', micro_saas:'Micro SaaS', sistema_integracao:'API', site:'Site', trafego:'Tráfego',
                       audiovisual_evento:'Evento', audiovisual_filme:'Filme', consultoria:'Consultoria'
                     })[p.categoria] || '';
-                    return <span title={`Núcleo: ${nuc}`} style={{padding:'2px 6px', borderRadius:5, background:meta.cor+'22', color:meta.cor, fontWeight:600, display:'inline-flex', alignItems:'center', gap:3}}>
-                      {meta.emoji} {catLabel || p.categoria || '—'}
+                    return <span title={`Núcleo: ${nuc}`} style={{padding:'2px 6px', borderRadius:5, background:nucCor+'22', color:nucCor, fontWeight:600, display:'inline-flex', alignItems:'center', gap:3}}>
+                      <Icon name={nucIcone} size={10}/> {catLabel || p.categoria || '—'}
                     </span>;
                   })()}
                   {p.tipo_projeto && <span style={{padding:'2px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.tipo_projeto}</span>}
@@ -15810,6 +15811,7 @@ function ProjetosCRM() {
       )}
 
       {editando && <ProjetoCadastroModal projeto={editando} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditando(null)}/>}
+      {gerenciarNucleos && <GerenciarNucleosModal onClose={()=>setGerenciarNucleos(false)}/>}
       {wizardAberto && (
         <OrganizarProjetosWizard
           projetos={projetosGap}
@@ -16054,6 +16056,94 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
               {salvando ? 'Salvando…' : (<><Icon name="Check" size={13}/>Salvar e próximo</>)}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Modal Gerenciar Núcleos ───
+const NUCLEOS_KEY = 'brava_nucleos_config';
+const NUCLEOS_DEFAULT = [
+  { key:'brava_software',    label:'Brava Software', icone:'Code2',    cor:'#1E90FF' },
+  { key:'brava_audiovisual', label:'Audiovisual',     icone:'Film',     cor:'#E5544D' },
+  { key:'brava_consultoria', label:'Consultoria',     icone:'Lightbulb',cor:'#7B3FE4' },
+];
+function getNucleosConfig() {
+  try { const s = localStorage.getItem(NUCLEOS_KEY); if (s) return JSON.parse(s); } catch {}
+  return NUCLEOS_DEFAULT;
+}
+function saveNucleosConfig(list) {
+  localStorage.setItem(NUCLEOS_KEY, JSON.stringify(list));
+  window.dispatchEvent(new Event('brava_nucleos_changed'));
+}
+function useNucleosConfig() {
+  const [list, setList] = React.useState(getNucleosConfig);
+  React.useEffect(() => {
+    const refresh = () => setList(getNucleosConfig());
+    window.addEventListener('brava_nucleos_changed', refresh);
+    return () => window.removeEventListener('brava_nucleos_changed', refresh);
+  }, []);
+  return list;
+}
+
+function GerenciarNucleosModal({ onClose }) {
+  const [nucleos, setNucleos] = React.useState(getNucleosConfig);
+  const CORES = ['#1E90FF','#7B3FE4','#1D9E75','#E5544D','#BA7517','#E5A24A','#2DC4D9','#FF6B9D','#A78BFA','#6E6E78'];
+  const ICONES = ['Code2','Film','Lightbulb','Cpu','Globe','Briefcase','Layers','Zap','Star','BookOpen'];
+
+  const update = (key, field, val) => setNucleos(prev => prev.map(n => n.key === key ? {...n, [field]: val} : n));
+  const salvar = () => { saveNucleosConfig(nucleos); showToast?.('Núcleos atualizados', 'success'); onClose(); };
+
+  const inp = {padding:'8px 10px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:7,color:'var(--t1)',fontSize:13,outline:'none',width:'100%'};
+
+  return (
+    <div onClick={e=>{if(e.target===e.currentTarget)onClose();}} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{background:'var(--bg)',border:'1px solid var(--border)',borderRadius:14,width:'min(560px,96vw)',boxShadow:'0 24px 60px rgba(0,0,0,.5)'}}>
+        <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <Icon name="Settings" size={16} style={{color:'var(--purple)'}}/>
+            <h3 style={{margin:0,fontSize:15,color:'var(--t1)',fontFamily:'var(--f-d)',fontWeight:600}}>Gerenciar Núcleos</h3>
+          </div>
+          <button onClick={onClose} style={{width:30,height:30,border:'none',background:'transparent',color:'var(--t3)',cursor:'pointer',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="X" size={14}/></button>
+        </div>
+        <div style={{padding:'16px 20px',display:'flex',flexDirection:'column',gap:16}}>
+          {nucleos.map(n => (
+            <div key={n.key} style={{padding:'14px',background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:10}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+                <div style={{width:34,height:34,borderRadius:8,background:n.cor+'22',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <Icon name={n.icone} size={16} style={{color:n.cor}}/>
+                </div>
+                <div style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)',fontWeight:600,textTransform:'uppercase',letterSpacing:.04}}>{n.key}</div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:10,marginBottom:10}}>
+                <div>
+                  <label style={{fontSize:11,color:'var(--t3)',marginBottom:4,display:'block'}}>Nome</label>
+                  <input style={inp} value={n.label} onChange={e=>update(n.key,'label',e.target.value)}/>
+                </div>
+                <div>
+                  <label style={{fontSize:11,color:'var(--t3)',marginBottom:4,display:'block'}}>Ícone</label>
+                  <select value={n.icone} onChange={e=>update(n.key,'icone',e.target.value)} style={{...inp,width:'auto',minWidth:120}}>
+                    {ICONES.map(ic => <option key={ic} value={ic}>{ic}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',marginBottom:6,display:'block'}}>Cor</label>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                  {CORES.map(cor => (
+                    <button key={cor} onClick={()=>update(n.key,'cor',cor)} style={{
+                      width:22,height:22,borderRadius:'50%',background:cor,border:n.cor===cor?'2px solid #fff':'2px solid transparent',cursor:'pointer',
+                    }}/>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border)',display:'flex',gap:8,justifyContent:'flex-end'}}>
+          <button onClick={onClose} style={{padding:'8px 16px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',color:'var(--t3)',fontSize:13,cursor:'pointer'}}>Cancelar</button>
+          <button onClick={salvar} style={{padding:'8px 18px',borderRadius:8,border:'none',background:'var(--blue)',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>Salvar alterações</button>
         </div>
       </div>
     </div>
@@ -18687,7 +18777,8 @@ function PipelineProjetos() {
                   const clienteObj = clientes.find(c => c.id === p.cliente_id);
                   const grupo = p.cliente_grupo || clienteObj?.nome || p.cliente;
                   const nuc = p.nucleo || 'brava_software';
-                  const emojiNuc = nuc === 'brava_audiovisual' ? '🎬' : nuc === 'brava_consultoria' ? '🎓' : '🤖';
+                  const nucIcone = nuc === 'brava_audiovisual' ? 'Film' : nuc === 'brava_consultoria' ? 'Lightbulb' : 'Code2';
+                  const nucCor   = nuc === 'brava_audiovisual' ? '#E5544D' : nuc === 'brava_consultoria' ? '#7B3FE4' : '#1E90FF';
                   const tagsAplicadas = etiquetasProjeto[p.id] || new Set();
                   return (
                     <div key={p.id} data-pipeline-card
@@ -18708,7 +18799,7 @@ function PipelineProjetos() {
                       onMouseEnter={e => { e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.transform='translateX(2px)'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='translateX(0)'; }}>
                       <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:3}}>
-                        <span title={nuc} style={{fontSize:11}}>{emojiNuc}</span>
+                        <Icon name={nucIcone} size={12} style={{color:nucCor, flexShrink:0}}/>
                         <span style={{fontSize:13, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{p.cliente}</span>
                         <button onClick={(ev)=>{ ev.stopPropagation(); setPopoverEtiqueta(popoverEtiqueta?.id===p.id?null:{id:p.id, tipo:'projeto'}); }}
                           title="Aplicar etiqueta"
