@@ -15251,10 +15251,10 @@ function ProjetosCRM() {
       {/* Switcher de núcleo (Brava Software | Audiovisual | Consultoria) */}
       <div className="card" style={{padding:'10px 14px', marginBottom:10, display:'flex', gap:8, alignItems:'center', flexWrap:'wrap'}}>
         {[
-          { key:'todos',              emoji:'🌐', label:'Todos núcleos', cor:'var(--blue)' },
-          { key:'brava_software',     emoji:'🤖', label:'Brava Software', cor:'#1E90FF' },
-          { key:'brava_audiovisual',  emoji:'🎬', label:'Audiovisual',    cor:'#E5544D' },
-          { key:'brava_consultoria',  emoji:'🎓', label:'Consultoria',    cor:'#7B3FE4' },
+          { key:'todos',              icon:'Layers',   label:'Todos núcleos', cor:'var(--blue)' },
+          { key:'brava_software',     icon:'Code2',    label:'Brava Software', cor:'#1E90FF' },
+          { key:'brava_audiovisual',  icon:'Film',     label:'Audiovisual',    cor:'#E5544D' },
+          { key:'brava_consultoria',  icon:'Lightbulb',label:'Consultoria',    cor:'#7B3FE4' },
         ].map(n => {
           const ativo = filtroNucleo === n.key;
           const stat = n.key === 'todos' ? null : statsPorNucleo[n.key];
@@ -15266,7 +15266,7 @@ function ProjetosCRM() {
               border:`1px solid ${ativo ? n.cor : 'var(--border)'}`,
               transition:'all .15s',
             }}>
-              <span>{n.emoji}</span>{n.label}
+              <Icon name={n.icon} size={13}/>{n.label}
               {stat && <span style={{marginLeft:4, padding:'1px 6px', borderRadius:999, background:'rgba(255,255,255,.06)', fontSize:10, color:'var(--t3)'}}>
                 {stat.qtd}
               </span>}
