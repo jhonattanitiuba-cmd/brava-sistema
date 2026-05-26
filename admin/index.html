@@ -16362,9 +16362,9 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
                 if (nv === 'brava_consultoria' && form.categoria !== 'consultoria') set('categoria','consultoria');
                 if (nv === 'brava_software' && ['audiovisual_evento','audiovisual_filme','consultoria'].includes(form.categoria)) set('categoria','saas_ia');
               }}>
-                <option value="brava_software">🤖 Software</option>
-                <option value="brava_audiovisual">🎬 Audiovisual</option>
-                <option value="brava_consultoria">🎓 Consultoria</option>
+                <option value="brava_software">Brava Software</option>
+                <option value="brava_audiovisual">Brava Audiovisual</option>
+                <option value="brava_consultoria">Brava Consultoria</option>
               </select>
             </div>
             <div>
@@ -17037,9 +17037,9 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
                 if (nv === 'brava_consultoria' && form.categoria !== 'consultoria') set('categoria', 'consultoria');
                 if (nv === 'brava_software' && ['audiovisual_evento','audiovisual_filme','consultoria'].includes(form.categoria)) set('categoria', 'saas_ia');
               }}>
-                <option value="brava_software">🤖 Brava Software (SaaS / IA / Sites)</option>
-                <option value="brava_audiovisual">🎬 Brava Audiovisual (eventos / filmes)</option>
-                <option value="brava_consultoria">🎓 Brava Consultoria (mentoria)</option>
+                <option value="brava_software">Brava Software</option>
+                <option value="brava_audiovisual">Brava Audiovisual</option>
+                <option value="brava_consultoria">Brava Consultoria</option>
               </select>
               <div style={{fontSize:10, color:'var(--t3)', marginTop:3}}>Define a unidade de negócio pra relatórios separados.</div>
             </div>
