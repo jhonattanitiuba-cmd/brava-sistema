@@ -14154,10 +14154,12 @@ function useBtgConectado() {
 async function abrirOAuthBTG() {
   const state = Math.random().toString(36).slice(2);
   sessionStorage.setItem('btg_oauth_state', state);
+  // Usa https://brava.software/ (versao 1 ja aprovada no BTG).
+  // A LP detecta ?code= e redireciona automaticamente pra /admin/?code=XXX
   const params = new URLSearchParams({
     response_type: 'code',
     client_id:     '4cce959e-fe55-4dd0-83be-70ca5e17c1b2',
-    redirect_uri:  'https://brava.software/admin/',
+    redirect_uri:  'https://brava.software/',
     scope:         'openid empresas.btgpactual.com/accounts empresas.btgpactual.com/accounts.readonly',
     state,
   });
