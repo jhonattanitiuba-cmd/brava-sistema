@@ -12470,8 +12470,21 @@ const formatBR = (iso) => { if (!iso) return ''; const [y,m,d] = iso.split('-');
 const hojeISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
 
 /* ─── Projeção MRR 12 meses (empilhada por status) - agora data-driven ─── */
+// Mapeia status_fase canonico para os buckets da projecao MRR
+function statusFaseParaGrafico(sf) {
+  if (sf === 'ativo')             return 'Ativo';
+  if (sf === 'em_implantacao')    return 'Em Prod';
+  if (sf === 'onboarding')        return 'Em Prod';
+  if (sf === 'inadimplente')      return 'Ativo';  // ainda fatura, mas em atraso
+  if (sf === 'pausado')           return null;      // nao aparece na projecao
+  if (sf === 'em_negociacao')     return 'Comercial';
+  if (sf === 'proposta_enviada')  return 'Proposta Apresentada';
+  if (sf === 'lead')              return 'Em breve';
+  return 'Em breve';
+}
+
 function ProjecaoMRR({ data }) {
-  const corStatus = { 'Em Prod':'#1D9E75', 'Ativo':'#1E90FF', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
+  const corStatus = { 'Ativo':'#1E90FF', 'Em Prod':'#1D9E75', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
 
   // Gera 13 meses começando 5 meses atrás → fim 8 meses no futuro (mês atual fica no meio)
@@ -12496,7 +12509,10 @@ function ProjecaoMRR({ data }) {
   const mrrPorStatus = {};
   lista.forEach(r => {
     if (!r.mensal) return;
-    mrrPorStatus[r.status] = (mrrPorStatus[r.status] || 0) + r.mensal;
+    // Usa status_fase (canonico) mapeado para os buckets do grafico
+    const bucket = statusFaseParaGrafico(r.status_fase || r.status);
+    if (!bucket) return; // pausado = nao aparece
+    mrrPorStatus[bucket] = (mrrPorStatus[bucket] || 0) + r.mensal;
   });
 
   // Cronograma calculado pelo offset (não hardcoded por mês do ano).
@@ -13001,7 +13017,8 @@ function FinRecorrencia({ onNovoContrato }) {
 
   const totalImpl = recorrencia.reduce((s,r) => s+(r.impl||0), 0);
   const totalMRR  = recorrencia.reduce((s,r) => s+(r.mensal||0), 0);
-  const ativos    = recorrencia.filter(r=>['Em Prod','Ativo'].includes(r.status));
+  // Usa status_fase (campo canonico) em vez do legado r.status
+  const ativos    = recorrencia.filter(r => r.status_fase === 'ativo');
   const mrrAtivo  = ativos.reduce((s,r) => s+(r.mensal||0), 0);
 
   // Pagamentos do mes atual: total atrasado + numero de contratos atrasados
