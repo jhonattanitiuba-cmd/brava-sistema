@@ -12428,6 +12428,25 @@ function sugerirMatch(lancamentoExtrato, opts) {
 
 /* Helpers de competencia/atraso */
 const YM = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+
+// Utilitario central: parseia mesFiltro (YYYY-MM ou 'este_ano') e retorna
+// os valores necessarios pra filtrar dados em qualquer aba do Financeiro.
+function parsePeriodo(mesFiltro) {
+  const anoAtual = new Date().getFullYear();
+  const ehEsteAno = mesFiltro === 'este_ano';
+  const ym = (!mesFiltro || ehEsteAno) ? YM(new Date()) : mesFiltro;
+  const parts = ym.split('-').map(Number);
+  const ano = parts[0] || anoAtual;
+  const mes = parts[1] || new Date().getMonth() + 1;
+  const inicio = ehEsteAno ? `${anoAtual}-01-01` : new Date(ano, mes-1, 1).toISOString().slice(0,10);
+  const fim    = ehEsteAno ? new Date().toISOString().slice(0,10) : new Date(ano, mes, 0).toISOString().slice(0,10);
+  const refDate = ehEsteAno ? new Date() : new Date(ano, mes-1, 1);
+  const label   = ehEsteAno
+    ? `${anoAtual}`
+    : refDate.toLocaleDateString('pt-BR', { month:'long' });
+  const ymRef = ehEsteAno ? YM(new Date()) : ym; // para calculos de pagamentos usa mes atual mesmo
+  return { ehEsteAno, ano, mes, inicio, fim, label, refDate, ymRef };
+}
 const ymToDate = (ym) => { const [y,m] = ym.split('-').map(Number); return new Date(y, m-1, 1); };
 
 // extrai dia numerico de strings tipo "Dia 30", "30", "todo dia 10"
@@ -13622,19 +13641,7 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
   const extratoReal  = useExtratoBancario();
   const btgAccounts  = useBtgAccounts();
 
-  // Suporte a 'este_ano' e YYYY-MM
-  const anoAtual = new Date().getFullYear();
-  const ehEsteAno = mesFiltro === 'este_ano';
-  const ymHoje = (!mesFiltro || ehEsteAno) ? YM(new Date()) : mesFiltro;
-  const [ano, mes] = ymHoje.split('-').map(Number);
-  const refDate = ehEsteAno ? new Date() : new Date(ano, mes - 1, 1);
-  const periodoLabel = ehEsteAno
-    ? `${anoAtual}`
-    : refDate.toLocaleDateString('pt-BR', { month:'long' });
-
-  // Intervalo de datas do período
-  const inicioMes = ehEsteAno ? `${anoAtual}-01-01` : new Date(ano, mes - 1, 1).toISOString().slice(0,10);
-  const fimMes    = ehEsteAno ? new Date().toISOString().slice(0,10) : new Date(ano, mes, 0).toISOString().slice(0,10);
+  const { ehEsteAno, inicio: inicioMes, fim: fimMes, label: periodoLabel } = parsePeriodo(mesFiltro);
 
   const movimentoMes = (extratoReal || []).filter(e => !e.ignorado && e.data >= inicioMes && e.data <= fimMes);
   const entradasReais = movimentoMes.filter(e => e.valor > 0).reduce((s,e) => s + Number(e.valor), 0);
@@ -13777,14 +13784,10 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
   const [busca, setBusca] = useState('');
   const [categorizandoExtrato, setCategorizandoExtrato] = useState(null);
   const extrato = useExtratoBancario();
-  const ymHoje = mesFiltro || YM(new Date());
-  const [ano, mes] = ymHoje.split('-').map(Number);
-  const refDate = new Date(ano, mes - 1, 1);
-  const hoje = refDate;
 
-  // Saídas reais do mês selecionado ainda não conciliadas
-  const inicioMes = new Date(ano, mes - 1, 1).toISOString().slice(0,10);
-  const fimMes = new Date(ano, mes, 0).toISOString().slice(0,10);
+  const { ehEsteAno, inicio: inicioMes, fim: fimMes, label, refDate: hoje, ymRef } = parsePeriodo(mesFiltro);
+
+  // Saídas reais do período selecionado ainda não conciliadas
   const saidasNaoConciliadas = (extrato || []).filter(e =>
     !e.ignorado && e.valor < 0 && e.data >= inicioMes && e.data <= fimMes &&
     !e.conciliado_despesa_pagamento_id && !e.conciliado_caixa_id
@@ -13795,8 +13798,8 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
     .filter(d => !busca || d.descricao.toLowerCase().includes(busca.toLowerCase()));
 
   const totalMensal = despesas.filter(d => d.ativo && d.recorrente).reduce((s,d) => s + (parseFloat(d.valor)||0), 0);
-  const totalPagoMes = despesas.reduce((s,d) => s + (despesasPag[d.id]?.[ymHoje]?.pago ? (despesasPag[d.id][ymHoje].valor_pago ?? d.valor) : 0), 0);
-  const totalPendenteMes = (calcSaidasMes(despesas, despesasPag, ymHoje)).pendente;
+  const totalPagoMes = despesas.reduce((s,d) => s + (despesasPag[d.id]?.[ymRef]?.pago ? (despesasPag[d.id][ymRef].valor_pago ?? d.valor) : 0), 0);
+  const totalPendenteMes = (calcSaidasMes(despesas, despesasPag, ymRef)).pendente;
 
   return (
     <div>
@@ -13810,8 +13813,8 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)', marginBottom:18}}>
         {[
           { label:'Despesa fixa mensal', val:`R$ ${totalMensal.toLocaleString('pt-BR')}`, icon:'Repeat', color:'#A32D2D' },
-          { label:`Pago em ${hoje.toLocaleDateString('pt-BR', {month:'long'})}`, val:`R$ ${totalPagoMes.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75' },
-          { label:`A pagar em ${hoje.toLocaleDateString('pt-BR', {month:'long'})}`, val:`R$ ${totalPendenteMes.toLocaleString('pt-BR')}`, icon:'Clock', color:'#BA7517' },
+          { label:`Pago em ${label}`, val:`R$ ${totalPagoMes.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75' },
+          { label:`A pagar em ${label}`, val:`R$ ${totalPendenteMes.toLocaleString('pt-BR')}`, icon:'Clock', color:'#BA7517' },
         ].map((k,i)=>(
           <div key={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
@@ -13830,7 +13833,7 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
             <div>
               <div style={{fontSize:13.5, color:'#F5A623', fontWeight:700, display:'flex', alignItems:'center', gap:6}}>
                 <Icon name="AlertCircle" size={14}/>
-                {saidasNaoConciliadas.length} saída{saidasNaoConciliadas.length === 1 ? '' : 's'} do banco sem categoria em {hoje.toLocaleDateString('pt-BR', {month:'long'})}
+                {saidasNaoConciliadas.length} saída{saidasNaoConciliadas.length === 1 ? '' : 's'} do banco sem categoria em {label}
               </div>
               <div style={{fontSize:11.5, color:'var(--t3)', marginTop:3}}>
                 Total: R$ {saidasNaoConciliadas.reduce((s,e)=>s+Math.abs(Number(e.valor||0)), 0).toLocaleString('pt-BR', {minimumFractionDigits:2})} · clique pra categorizar e identificar
@@ -14320,16 +14323,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     });
   }, []);
   const pendentesConciliacao = useConciliacoesPendentes();
-  const ymHoje = (mesFiltro && mesFiltro !== 'este_ano') ? mesFiltro : YM(new Date());
-  const [ano, mes] = ymHoje.split('-').map(Number);
-  const hoje = new Date(ano, mes - 1, 1);
-  const anoAtual = new Date().getFullYear();
-  const inicioMesFiltro = mesFiltro === 'este_ano'
-    ? `${anoAtual}-01-01`
-    : new Date(ano, mes - 1, 1).toISOString().slice(0,10);
-  const fimMesFiltro = mesFiltro === 'este_ano'
-    ? new Date().toISOString().slice(0,10)
-    : new Date(ano, mes, 0).toISOString().slice(0,10);
+  const { inicio: inicioMesFiltro, fim: fimMesFiltro, refDate: hoje, label: nomeMesFiltro } = parsePeriodo(mesFiltro);
 
   // Saldo total das contas BTG conectadas (somatório do saldo_atual mais recente)
   const saldoBtgTotal = btgAccounts.reduce((s, a) => s + (Number(a.saldo_atual) || 0), 0);
@@ -14415,7 +14409,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   const totalEntradas = extrato.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
   const totalSaidas = extrato.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
   const totalNaoConciliado = extrato.filter(l => l.naoConciliado).length;
-  const nomeMesAtual = hoje.toLocaleDateString('pt-BR', { month:'long' });
+  const nomeMesAtual = nomeMesFiltro; // periodo selecionado (mes ou ano)
 
   return (
     <div>
