@@ -14398,7 +14398,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   };
 
   // FLUXO DE CAIXA ERP: real (banco + manual) + projetado (despesas fixas + MRR esperado)
-  const hoje = new Date().toISOString().slice(0,10);
+  const hojeISO = new Date().toISOString().slice(0,10); // data atual em YYYY-MM-DD
   const extrato = React.useMemo(() => {
     const itens = [];
 
@@ -14424,7 +14424,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     caixa.forEach(l => {
       const jaNoExtrato = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
       if (jaNoExtrato) return;
-      const isFuturo = l.data > hoje;
+      const isFuturo = l.data > hojeISO;
       itens.push({
         id: 'c:'+l.id, tipo: l.tipo, descricao: l.descricao, categoria: l.categoria || 'Manual',
         valor: Number(l.valor), data: l.data, origem: l.origem || 'manual',
@@ -14449,7 +14449,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         const ym = YM(ref);
         const dia = d.dia_vencimento || 10;
         const dataProj = `${ym}-${String(dia).padStart(2,'0')}`;
-        if (dataProj <= hoje) continue; // só datas futuras
+        if (dataProj <= hojeISO) continue; // só datas futuras
         // Verifica se já foi paga neste mês
         const jaPaga = despesasPag[d.id]?.[ym]?.pago;
         if (jaPaga) continue;
