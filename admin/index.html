@@ -12227,13 +12227,16 @@ function useBtgUltimaSync() {
 }
 
 // Dispara a edge function btg-sync. Retorna { ok, contas, novos, duplicados, erro }
-async function sincronizarBtg(dias = 30) {
+async function sincronizarBtg(dias = 30, startDate = null, endDate = null) {
   const cli = getSupa();
   if (!cli) return { ok:false, erro:'Sem conexão' };
   const { data: sess } = await cli.auth.getSession();
   const token = sess?.session?.access_token;
   if (!token) return { ok:false, erro:'Sessão expirada - faça login novamente' };
   try {
+    const body = startDate && endDate
+      ? { startDate, endDate, tipo: 'manual' }
+      : { dias, tipo: 'manual' };
     const res = await fetch(`${SUPA_CFG.url}/functions/v1/btg-sync`, {
       method: 'POST',
       headers: {
@@ -12241,7 +12244,7 @@ async function sincronizarBtg(dias = 30) {
         'authorization': `Bearer ${token}`,
         'content-type':  'application/json',
       },
-      body: JSON.stringify({ dias, tipo: 'manual' }),
+      body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) return { ok:false, erro: data.error || `HTTP ${res.status}` };
@@ -14193,6 +14196,9 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [sincronizandoBtg, setSincronizandoBtg] = useState(false);
   const [conectandoBtg, setConectandoBtg] = useState(false);
+  const [histModalAberto, setHistModalAberto] = useState(false);
+  const [histStart, setHistStart] = useState('2026-01-01');
+  const [histEnd, setHistEnd] = useState(new Date().toISOString().slice(0,10));
   const btgConectado = useBtgConectado();
   const extratoBancario = useExtratoBancario();
   const btgAccounts = useBtgAccounts();
@@ -14370,10 +14376,15 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             </button>
           )}
           {btgConectado === true && (
-            <button onClick={onSincronizarBtg} disabled={sincronizandoBtg} className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6}}>
-              <Icon name={sincronizandoBtg ? 'RefreshCw' : 'Zap'} size={14} style={{color: sincronizandoBtg ? 'var(--t3)' : 'var(--blue)'}}/>
-              {sincronizandoBtg ? 'Sincronizando BTG...' : 'Sincronizar BTG'}
-            </button>
+            <>
+              <button onClick={onSincronizarBtg} disabled={sincronizandoBtg} className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                <Icon name={sincronizandoBtg ? 'RefreshCw' : 'Zap'} size={14} style={{color: sincronizandoBtg ? 'var(--t3)' : 'var(--blue)'}}/>
+                {sincronizandoBtg ? 'Sincronizando...' : 'Sincronizar BTG'}
+              </button>
+              <button onClick={()=>setHistModalAberto(true)} disabled={sincronizandoBtg} className="btn btn-outline" title="Importar histórico completo do BTG (qualquer período)" style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                <Icon name="History" size={14} style={{color:'var(--t3)'}}/>Histórico BTG
+              </button>
+            </>
           )}
           {btgConectado === null && (
             <button disabled className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6, opacity:.5}}>
@@ -14487,6 +14498,50 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       {editando && <CaixaLancamentoModal lancamento={editando} onClose={()=>setEditando(null)}/>}
       {importando && <ImportarExtratoModal onClose={()=>setImportando(false)}/>}
       {conciliandoAberto && <ConciliacaoModal onClose={()=>setConciliandoAberto(false)}/>}
+
+      {/* Modal: Sincronizar histórico BTG (período customizado) */}
+      {histModalAberto && (
+        <div onClick={(e)=>{ if(e.target===e.currentTarget) setHistModalAberto(false); }}
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',backdropFilter:'blur(4px)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+          <div style={{width:420,background:'var(--bg)',border:'1px solid var(--border)',borderRadius:14,padding:28}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+              <Icon name="History" size={18} style={{color:'var(--blue)'}}/>
+              <h3 style={{margin:0,fontSize:16,color:'var(--t1)',fontFamily:'var(--f-d)',fontWeight:600}}>Importar histórico BTG</h3>
+            </div>
+            <p style={{fontSize:13,color:'var(--t3)',margin:'0 0 18px',lineHeight:1.55}}>
+              Puxa todas as transações do período direto da API BTG. Duplicatas são ignoradas automaticamente.
+            </p>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',marginBottom:5,display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:.3}}>De</label>
+                <input type="date" value={histStart} onChange={e=>setHistStart(e.target.value)}
+                  style={{width:'100%',padding:'9px 11px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:7,color:'var(--t1)',fontSize:13,outline:'none'}}/>
+              </div>
+              <div>
+                <label style={{fontSize:11,color:'var(--t3)',marginBottom:5,display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:.3}}>Até</label>
+                <input type="date" value={histEnd} onChange={e=>setHistEnd(e.target.value)}
+                  style={{width:'100%',padding:'9px 11px',background:'var(--bg-3)',border:'1px solid var(--border)',borderRadius:7,color:'var(--t1)',fontSize:13,outline:'none'}}/>
+              </div>
+            </div>
+            <div style={{padding:'10px 12px',background:'rgba(30,144,255,.06)',border:'1px solid rgba(30,144,255,.2)',borderRadius:7,fontSize:11.5,color:'var(--t3)',marginBottom:18}}>
+              💡 O BTG pode limitar o histórico disponível na API. Se não trouxer dados antigos, use a importação XLSX para períodos anteriores.
+            </div>
+            <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+              <button onClick={()=>setHistModalAberto(false)} className="btn btn-outline">Cancelar</button>
+              <button onClick={async()=>{
+                setHistModalAberto(false);
+                setSincronizandoBtg(true);
+                const res = await sincronizarBtg(30, histStart, histEnd);
+                setSincronizandoBtg(false);
+                if(!res.ok) showToast?.(`Erro BTG: ${res.erro}`, 'error');
+                else showToast?.(`✓ BTG histórico: ${res.novos} novo(s) em ${res.contas} conta(s)`, 'success');
+              }} className="btn btn-primary" style={{display:'inline-flex',alignItems:'center',gap:6}}>
+                <Icon name="Zap" size={14}/>Importar do BTG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
