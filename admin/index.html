@@ -2955,42 +2955,103 @@ const STATUS_COLOR = {
   'Comercial':'#BA7517', 'Proposta Apresentada':'#BA7517', 'Em breve':'#6E6E78',
 };
 
-const SYSTEM_DATA = {
-  clientes: 21, mrr: 28400, conversas: 1247, chamados: 3,
-  planos: { 'Em Prod': 5, 'Ativo': 2, 'Implementação': 5, 'Comercial': 7, 'Proposta/Breve': 2 },
-  equipe: ['Jhonattan Itiuba','Maria Eduarda','João Silva','Ana Lima'],
-  saude: { uptime:'99.98%', latencia:'142ms', erros:0 },
-};
+// Hook que carrega dados reais do Supabase para o bot
+function useBotData() {
+  const [data, setData] = React.useState(null);
+  const load = React.useCallback(async () => {
+    const cli = getSupa(); if (!cli) return;
+    try {
+      const [
+        { data: clientes },
+        { data: projetos },
+        { data: equipe },
+        { data: chamadosLS },
+      ] = await Promise.all([
+        cli.from('clientes').select('id, nome, status, nicho'),
+        cli.from('projetos').select('id, cliente, status_fase, mensal, implementacao, nucleo'),
+        cli.from('usuarios').select('id, nome, role'),
+        Promise.resolve({ data: null }), // chamados ainda no localStorage
+      ]);
 
-function responderIA(pergunta) {
-  const p = pergunta.toLowerCase();
-  if (p.includes('mrr') || p.includes('receita') || p.includes('faturamento'))
-    return `O MRR atual é **R$ ${SYSTEM_DATA.mrr.toLocaleString('pt-BR')}**, crescimento de +12% em relação ao mês anterior. Distribuição: ${Object.entries(SYSTEM_DATA.planos).map(([k,v])=>`${v} no ${k}`).join(', ')}.`;
-  if (p.includes('cliente') || p.includes('tenant'))
-    return `Há **${SYSTEM_DATA.clientes} clientes** na base. **5 em produção** (Clínica Reunidas, Garcia Sadler, Dra. Thalita, Ldccell, VapoCamping), **2 ativos** (EstacionePark, Master Aviação), **5 em implementação**, **7 em negociação comercial** e 2 em prospecção.`;
-  if (p.includes('chamado') || p.includes('suporte'))
-    return `Existem **${SYSTEM_DATA.chamados} chamados abertos** no momento, 2 aguardando resposta da equipe. Tempo médio de resolução: 3h.`;
-  if (p.includes('conversa') || p.includes('atendimento') || p.includes('mensagem'))
-    return `Foram processadas **${SYSTEM_DATA.conversas.toLocaleString('pt-BR')} conversas** hoje em todos os tenants. A IA assumiu 91% delas com tempo médio de resposta de 22 segundos.`;
-  if (p.includes('saúde') || p.includes('uptime') || p.includes('sistema') || p.includes('erro'))
-    return `Plataforma **operacional**. Uptime de ${SYSTEM_DATA.saude.uptime} nos últimos 30 dias, latência média de ${SYSTEM_DATA.saude.latencia} e **${SYSTEM_DATA.saude.erros} erros** nas últimas 24h.`;
-  if (p.includes('plano') || p.includes('performance') || p.includes('scale') || p.includes('essencial'))
-    return `Por status: **5 em produção**, 2 ativos, 5 em implementação, 7 em negociação comercial, 2 em proposta/prospecção. Nichos: Automobilístico, Indústria, Imobiliário, Turismo, Arquitetura, Saúde, Estética, Agro, Aviação e mais. Ticket médio estimado: R$ ${Math.round(SYSTEM_DATA.mrr/SYSTEM_DATA.clientes).toLocaleString('pt-BR')}/mês.`;
-  if (p.includes('equipe') || p.includes('time'))
-    return `A equipe Brava tem **${SYSTEM_DATA.equipe.length} membros**: ${SYSTEM_DATA.equipe.join(', ')}. Todos online agora.`;
-  if (p.includes('churn') || p.includes('cancelamento') || p.includes('saiu'))
-    return `Nenhum cancelamento este mês. Taxa de churn: **0%**. O cliente mais antigo está há 8 meses na plataforma.`;
-  return `Posso te ajudar com informações sobre **clientes, MRR, chamados, conversas, saúde da plataforma, planos e equipe**. O que você quer saber?`;
+      const clientesList = clientes || [];
+      const projetosList = projetos || [];
+      const equipeList   = equipe   || [];
+
+      const totalClientes = clientesList.length;
+      const clientesAtivos = clientesList.filter(c => c.status === 'ativo');
+      const clientesConstr = clientesList.filter(c => c.status === 'em_implantacao');
+      const mrr = projetosList.filter(p => p.status_fase === 'ativo').reduce((s,p) => s + Number(p.mensal||0), 0);
+      const impl = projetosList.reduce((s,p) => s + Number(p.implementacao||0), 0);
+
+      // Contagem por status
+      const porStatus = {};
+      clientesList.forEach(c => { porStatus[c.status] = (porStatus[c.status]||0)+1; });
+
+      // Top nichos
+      const nichos = {};
+      clientesList.forEach(c => { if(c.nicho) nichos[c.nicho] = (nichos[c.nicho]||0)+1; });
+      const topNichos = Object.entries(nichos).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([n,q])=>`${n} (${q})`);
+
+      // Chamados do localStorage
+      let chamadosAbertos = 0;
+      try { const s = localStorage.getItem('brava_chamados'); chamadosAbertos = s ? JSON.parse(s).filter(c=>c.status!=='Resolvido').length : 0; } catch {}
+
+      setData({ totalClientes, clientesAtivos, clientesConstr, mrr, impl, porStatus, topNichos, equipe: equipeList, projetosList, chamadosAbertos });
+    } catch (e) { console.warn('[bot] erro ao carregar dados:', e); }
+  }, []);
+
+  React.useEffect(() => { load(); }, [load]);
+  return { data, reload: load };
+}
+
+function responderIA(pergunta, d) {
+  const p = pergunta.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  if (!d) return 'Carregando dados do sistema... tente novamente em instantes.';
+
+  const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:0});
+
+  if (p.includes('mrr') || p.includes('recorrencia') || p.includes('receita') || p.includes('faturamento'))
+    return `A **recorrência ativa** é **R$ ${fmt(d.mrr)}/mês** com base nos ${d.projetosList.filter(p=>p.status_fase==='ativo').length} projetos ativos. Ticket médio: R$ ${d.totalClientes > 0 ? fmt(Math.round(d.mrr / Math.max(d.clientesAtivos.length,1))) : 0}/cliente.`;
+
+  if (p.includes('cliente') || p.includes('base') || p.includes('tenant'))
+    return `Há **${d.totalClientes} clientes** na base: **${d.clientesAtivos.length} ativos** — ${d.clientesAtivos.slice(0,5).map(c=>c.nome).join(', ')}${d.clientesAtivos.length>5?'...':''}. **${d.clientesConstr.length} construindo** e ${d.porStatus.lead||0} leads. Top nichos: ${d.topNichos.join(', ')}.`;
+
+  if (p.includes('projeto'))
+    return `São **${d.projetosList.length} projetos** no total. ${d.projetosList.filter(p=>p.status_fase==='ativo').length} ativos, ${d.projetosList.filter(p=>p.status_fase==='em_implantacao').length} em construção. Implantação total acumulada: R$ ${fmt(d.impl)}.`;
+
+  if (p.includes('chamado') || p.includes('suporte') || p.includes('ticket'))
+    return `Existem **${d.chamadosAbertos} chamados abertos** no momento.`;
+
+  if (p.includes('saude') || p.includes('uptime') || p.includes('sistema') || p.includes('erro'))
+    return `Plataforma **operacional**. Banco com ${d.totalClientes} clientes e ${d.projetosList.length} projetos carregados. Todos os sistemas normais.`;
+
+  if (p.includes('equipe') || p.includes('time') || p.includes('membro'))
+    return `A equipe Brava tem **${d.equipe.length} membro${d.equipe.length===1?'':'s'}**: ${d.equipe.map(u=>`${u.nome} (${u.role||'membro'})`).join(', ')}.`;
+
+  if (p.includes('nucleo') || p.includes('software') || p.includes('audiovisual') || p.includes('consultoria')) {
+    const por = { brava_software:0, brava_audiovisual:0, brava_consultoria:0 };
+    d.projetosList.forEach(p => { const n = p.nucleo||'brava_software'; if(por[n]!==undefined) por[n]++; });
+    return `Por frente: **Software: ${por.brava_software}** projetos, **Audiovisual: ${por.brava_audiovisual}**, **Consultoria: ${por.brava_consultoria}**.`;
+  }
+
+  if (p.includes('churn') || p.includes('cancelamento'))
+    return `Status atual: ${d.porStatus.encerrado||0} clientes encerrados na base. ${d.clientesAtivos.length} ativos pagando.`;
+
+  if (p.includes('ajuda') || p.includes('o que') || p.includes('pode'))
+    return `Posso responder sobre **clientes, recorrência, projetos, chamados, equipe, saúde e núcleos**. Tudo com dados reais do banco. O que você quer saber?`;
+
+  return `Tenho ${d.totalClientes} clientes, R$ ${fmt(d.mrr)}/mês de recorrência e ${d.projetosList.length} projetos no banco. Pergunte sobre qualquer desses tópicos!`;
 }
 
 function AIChat() {
   const [aberto, setAberto] = useState(false);
   const [msgs, setMsgs] = useState([
-    { from:'ai', text:'Olá, Diretoria. Tenho acesso a todos os dados da plataforma em tempo real. O que você quer saber?' }
+    { from:'ai', text:'Olá, Diretoria. Conectado ao banco de dados em tempo real. O que você quer saber?' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
+  const { data: botData } = useBotData();
 
   useEffect(() => { if(aberto) bottomRef.current?.scrollIntoView({ behavior:'smooth' }); }, [msgs, aberto]);
 
@@ -3001,16 +3062,16 @@ function AIChat() {
     setInput('');
     setLoading(true);
     setTimeout(() => {
-      setMsgs(m => [...m, { from:'ai', text: responderIA(txt) }]);
+      setMsgs(m => [...m, { from:'ai', text: responderIA(txt, botData) }]);
       setLoading(false);
-    }, 700);
+    }, 400);
   };
 
   const renderText = (t) => t.split(/\*\*(.*?)\*\*/g).map((p,i) =>
     i % 2 === 1 ? <strong key={i} style={{color:'var(--t1)'}}>{p}</strong> : p
   );
 
-  const sugestoes = ['Qual o MRR?','Clientes ativos?','Como está a saúde?','Chamados abertos?'];
+  const sugestoes = ['Clientes ativos?','Recorrência total?','Projetos por núcleo?','Chamados abertos?'];
 
   // Botão flutuante (fechado) · preto com efeito saber + agent icon
   if (!aberto) return (
@@ -14070,15 +14131,100 @@ function DespesaHistoricoModal({ despesa, despesasPag, onClose }) {
 // ─────────────────────────────────────────────────────────────────
 // TAB 4: FLUXO DE CAIXA - extrato + lançamento avulso + projeção
 // ─────────────────────────────────────────────────────────────────
+// ─── Verifica se há token BTG salvo (conexao ativa) ─────────────────────────
+function useBtgConectado() {
+  const [conectado, setConectado] = React.useState(null); // null=loading
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    const check = async () => {
+      const { data } = await cli.from('btg_oauth_tokens')
+        .select('id, expires_at').limit(1).maybeSingle();
+      setConectado(!!data);
+    };
+    check();
+    const ch = cli.channel('rt:btg_oauth_tokens')
+      .on('postgres_changes', { event:'*', schema:'public', table:'btg_oauth_tokens' }, check)
+      .subscribe();
+    return () => cli.removeChannel(ch);
+  }, []);
+  return conectado;
+}
+
+// Abre o fluxo OAuth do BTG (redireciona para login BTG)
+async function abrirOAuthBTG() {
+  const state = Math.random().toString(36).slice(2);
+  sessionStorage.setItem('btg_oauth_state', state);
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id:     '4cce959e-fe55-4dd0-83be-70ca5e17c1b2',
+    redirect_uri:  'https://brava.software/admin/',
+    scope:         'openid empresas.btgpactual.com/accounts empresas.btgpactual.com/accounts.readonly',
+    state,
+  });
+  window.location.href = `https://id.btgpactual.com/oauth2/auth?${params}`;
+}
+
+// Troca o authorization_code pelo token via edge function
+async function trocarCodigoBTG(code) {
+  const cli = getSupa(); if (!cli) return { ok: false, erro: 'Sem conexao' };
+  const { data: sess } = await cli.auth.getSession();
+  const token = sess?.session?.access_token;
+  if (!token) return { ok: false, erro: 'Sessao expirada' };
+  try {
+    const res = await fetch(`${SUPA_CFG.url}/functions/v1/btg-oauth-exchange`, {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPA_CFG.publishableKey,
+        'authorization': `Bearer ${token}`,
+        'content-type':  'application/json',
+      },
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, erro: data.error || `HTTP ${res.status}` };
+    return { ok: true, ...data };
+  } catch (e) {
+    return { ok: false, erro: e.message };
+  }
+}
+
 function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, caixa }) {
   const [editando, setEditando] = useState(null);
   const [importando, setImportando] = useState(false);
   const [conciliandoAberto, setConciliandoAberto] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState('todos');
   const [sincronizandoBtg, setSincronizandoBtg] = useState(false);
+  const [conectandoBtg, setConectandoBtg] = useState(false);
+  const btgConectado = useBtgConectado();
   const extratoBancario = useExtratoBancario();
   const btgAccounts = useBtgAccounts();
   const ultimaSyncBtg = useBtgUltimaSync();
+
+  // Detecta retorno do OAuth BTG (URL tem ?code=XXX apos login no BTG)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code  = params.get('code');
+    const state = params.get('state');
+    const savedState = sessionStorage.getItem('btg_oauth_state');
+    if (!code) return;
+    // Limpa o code da URL imediatamente (evita reuso)
+    const newUrl = window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+    sessionStorage.removeItem('btg_oauth_state');
+    if (savedState && state !== savedState) {
+      showToast?.('Erro de seguranca OAuth (state nao bate). Tente novamente.', 'error');
+      return;
+    }
+    setConectandoBtg(true);
+    trocarCodigoBTG(code).then(res => {
+      setConectandoBtg(false);
+      if (!res.ok) {
+        showToast?.(`Erro ao conectar BTG: ${res.erro}`, 'error');
+      } else {
+        showToast?.('BTG conectado com sucesso!', 'success');
+      }
+    });
+  }, []);
   const pendentesConciliacao = useConciliacoesPendentes();
   const ymHoje = mesFiltro || YM(new Date());
   const [ano, mes] = ymHoje.split('-').map(Number);
@@ -14192,10 +14338,27 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
               }}>{pendentesConciliacao.length}</span>
             </button>
           )}
-          <button onClick={onSincronizarBtg} disabled={sincronizandoBtg} className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6}}>
-            <Icon name={sincronizandoBtg ? 'RefreshCw' : 'Zap'} size={14} style={{color: sincronizandoBtg ? 'var(--t3)' : 'var(--blue)'}}/>
-            {sincronizandoBtg ? 'Sincronizando BTG...' : 'Sincronizar BTG'}
-          </button>
+          {btgConectado === false && (
+            <button onClick={abrirOAuthBTG} disabled={conectandoBtg} className="btn btn-outline" style={{
+              display:'inline-flex', alignItems:'center', gap:6,
+              borderColor:'var(--blue)', color:'var(--blue)',
+              background:'rgba(30,144,255,.08)',
+            }}>
+              <Icon name="Zap" size={14} style={{color:'var(--blue)'}}/>
+              {conectandoBtg ? 'Conectando...' : 'Conectar BTG'}
+            </button>
+          )}
+          {btgConectado === true && (
+            <button onClick={onSincronizarBtg} disabled={sincronizandoBtg} className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name={sincronizandoBtg ? 'RefreshCw' : 'Zap'} size={14} style={{color: sincronizandoBtg ? 'var(--t3)' : 'var(--blue)'}}/>
+              {sincronizandoBtg ? 'Sincronizando BTG...' : 'Sincronizar BTG'}
+            </button>
+          )}
+          {btgConectado === null && (
+            <button disabled className="btn btn-outline" style={{display:'inline-flex', alignItems:'center', gap:6, opacity:.5}}>
+              <Icon name="Zap" size={14}/>BTG...
+            </button>
+          )}
           <button onClick={()=>setImportando(true)} className="btn btn-outline"><Icon name="Upload" size={14}/>Importar XLSX</button>
           <button onClick={()=>setEditando({})} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo lançamento</button>
         </div>
