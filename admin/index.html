@@ -730,6 +730,30 @@ function SidebarUnreadBadge({ fallback }) {
   return fallback ? <span className="nav-badge">{fallback}</span> : null;
 }
 
+/* Badge dinamico para "Novos cadastros": conta pendentes em onboarding + leads em tempo real */
+function SidebarOnboardingBadge() {
+  const [total, setTotal] = React.useState(0);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    async function load() {
+      const [{ count: c1 }, { count: c2 }] = await Promise.all([
+        cli.from('onboarding_pendentes').select('id', { count:'exact', head:true }).eq('status','pendente'),
+        cli.from('leads_emails').select('id', { count:'exact', head:true }).eq('status','pendente'),
+      ]);
+      if (alive) setTotal((c1 || 0) + (c2 || 0));
+    }
+    load();
+    const ch = cli.channel('rt:sidebar-onboarding-badge')
+      .on('postgres_changes',{event:'*',schema:'public',table:'onboarding_pendentes'},load)
+      .on('postgres_changes',{event:'*',schema:'public',table:'leads_emails'},load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  if (total <= 0) return null;
+  return <span className="nav-badge">{total > 99 ? '99+' : total}</span>;
+}
+
 function Sidebar({ page, setPage, collapsed, setCollapsed }) {
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
@@ -776,10 +800,14 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
 
       <nav className="sidebar__nav">
         {NAV.map(n => {
-          const isWA = n.key === 'clientes';
-          // badge real: total de nao-lidas do WhatsApp quando Evolution configurada;
-          // senao usa o badge mock pra outras abas
-          const realBadge = isWA ? <SidebarUnreadBadge fallback={n.badge}/> : (n.badge ? <span className="nav-badge">{n.badge}</span> : null);
+          const isWA         = n.key === 'clientes';
+          const isOnboarding = n.key === 'onboarding';
+          // badge real: WhatsApp usa contador de nao-lidas; onboarding usa contador de pendentes; outros usam mock estatico
+          const realBadge = isWA
+            ? <SidebarUnreadBadge fallback={n.badge}/>
+            : isOnboarding
+              ? <SidebarOnboardingBadge/>
+              : (n.badge ? <span className="nav-badge">{n.badge}</span> : null);
           return (
             <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => setPage(n.key)}>
               <Icon name={n.icon} size={16} />
@@ -944,13 +972,14 @@ function useNotificacoes() {
   return { lista, naoLidas };
 }
 
-/* Gerador: monitora wa_eventos_log via Realtime e cria notificacoes em eventos relevantes.
+/* Gerador: monitora wa_eventos_log, leads_emails e onboarding_pendentes via Realtime.
    Roda 1x no boot do admin (montado em <App/>) */
 function useNotifGenerator() {
   React.useEffect(() => {
     const cli = (typeof getSupa === 'function') ? getSupa() : null;
     if (!cli) return;
     const channel = cli.channel('rt:notif-gen')
+      /* ─── Erros de IA ─── */
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_eventos_log' }, (p) => {
         const ev = p.new;
         if (!ev) return;
@@ -966,6 +995,34 @@ function useNotifGenerator() {
             link: 'logs',
           });
         }
+      })
+      /* ─── Novo lead capturado ─── */
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads_emails' }, (p) => {
+        const r = p.new; if (!r) return;
+        adicionarNotificacao({
+          id: 'lead_' + r.id,
+          tipo: 'info',
+          titulo: 'Novo lead',
+          sub: (r.nome || r.email || 'Sem nome') + (r.interesse ? ' · ' + r.interesse : ''),
+          icon: 'Mail',
+          cor: 'var(--blue)',
+          ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+          link: 'onboarding',
+        });
+      })
+      /* ─── Novo cadastro completo aguardando aprovacao ─── */
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'onboarding_pendentes' }, (p) => {
+        const r = p.new; if (!r) return;
+        adicionarNotificacao({
+          id: 'onb_' + r.id,
+          tipo: 'sucesso',
+          titulo: 'Novo cadastro',
+          sub: (r.nome || 'Sem nome') + (r.nicho ? ' · ' + r.nicho : '') + ' — aguardando aprovacao',
+          icon: 'UserPlus',
+          cor: 'var(--blue)',
+          ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+          link: 'onboarding',
+        });
       })
       .subscribe();
     return () => cli.removeChannel(channel);
