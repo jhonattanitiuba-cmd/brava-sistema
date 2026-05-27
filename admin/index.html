@@ -14333,6 +14333,20 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   const [histModalAberto, setHistModalAberto] = useState(false);
   const [histStart, setHistStart] = useState('2026-01-01');
   const [histEnd, setHistEnd] = useState(new Date().toISOString().slice(0,10));
+  const [editandoCat, setEditandoCat] = React.useState(null); // id do lancamento editando categoria
+
+  // Categorias de negocio (entradas + saidas)
+  const CATS_ENTRADA = ['Receita cliente','Mensalidade','Implantação','Consultoria','Aporte sócio','Investimento','Outro recebimento'];
+  const CATS_SAIDA   = ['Salário','Pró-labore','Marketing','Software/SaaS','Aluguel','Imposto','Fornecedor','Operacional','Transferência','Família','Outro custo'];
+
+  const salvarCategoria = async (extratoId, novaCategoria) => {
+    const cli = getSupa(); if (!cli) return;
+    // extrato_id é no formato "bank:UUID"
+    const uuid = extratoId.startsWith('bank:') ? extratoId.slice(5) : extratoId;
+    await cli.from('fin_extrato_bancario').update({ categoria: novaCategoria || null }).eq('id', uuid);
+    setEditandoCat(null);
+    window.dispatchEvent(new CustomEvent('brava:extrato_changed'));
+  };
   const btgConectado = useBtgConectado();
   const extratoBancario = useExtratoBancario();
   const btgAccounts = useBtgAccounts();
@@ -14409,7 +14423,8 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         id: `bank:${l.id}`,
         tipo: l.valor > 0 ? 'entrada' : 'saida',
         descricao: l.descricao,
-        categoria: l.fonte === 'btg_sync' || l.fonte === 'btg_webhook' ? 'BTG API' : (l.banco ? 'XLSX' : 'Extrato'),
+        fonteLabel: l.fonte === 'btg_sync' || l.fonte === 'btg_webhook' ? 'BTG API' : (l.banco ? 'XLSX' : 'Extrato'),
+        categoriaDB: l.categoria || null, // categoria de negocio (editavel)
         valor: Math.abs(Number(l.valor)),
         data: l.data,
         origem: 'banco',
@@ -14671,12 +14686,13 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             <thead>
               <tr style={{background:'var(--bg-2)', borderBottom:'2px solid var(--border)'}}>
                 {[
-                  {h:'Data',    w:90,  align:'left'},
-                  {h:'Tipo',    w:90,  align:'left'},
-                  {h:'Descrição',       align:'left'},
-                  {h:'Fonte',   w:80,  align:'left'},
-                  {h:'Valor',   w:130, align:'right'},
-                  {h:'',        w:80,  align:'right'},
+                  {h:'Data',      w:90,  align:'left'},
+                  {h:'Tipo',      w:90,  align:'left'},
+                  {h:'Descrição',        align:'left'},
+                  {h:'Categoria', w:160, align:'left'},
+                  {h:'Fonte',     w:80,  align:'left'},
+                  {h:'Valor',     w:130, align:'right'},
+                  {h:'',          w:80,  align:'right'},
                 ].map(({h,w,align}) => (
                   <th key={h} style={{padding:'9px 14px', textAlign:align, fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:.4, textTransform:'uppercase', ...(w?{width:w}:{})}}>{h}</th>
                 ))}
@@ -14684,7 +14700,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             </thead>
             <tbody>
               {filtrado.length === 0 && (
-                <tr><td colSpan={6} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos no período</td></tr>
+                <tr><td colSpan={7} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos no período</td></tr>
               )}
               {filtrado.map(l => (
                 <tr key={l.id}
@@ -14723,6 +14739,39 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                       </span>
                     )}
                   </td>
+                  {/* Categoria (editável inline) */}
+                  <td style={{padding:'6px 14px', maxWidth:160}}>
+                    {editandoCat === l.id ? (
+                      <select autoFocus
+                        defaultValue={l.categoriaDB || ''}
+                        onBlur={e=>salvarCategoria(l.id, e.target.value)}
+                        onChange={e=>salvarCategoria(l.id, e.target.value)}
+                        style={{width:'100%', padding:'4px 7px', background:'var(--bg-3)', border:'1px solid var(--blue)', borderRadius:5, color:'var(--t1)', fontSize:11.5, outline:'none', cursor:'pointer'}}
+                      >
+                        <option value="">-- sem categoria --</option>
+                        <optgroup label="Entradas">
+                          {CATS_ENTRADA.map(c=><option key={c} value={c}>{c}</option>)}
+                        </optgroup>
+                        <optgroup label="Saídas">
+                          {CATS_SAIDA.map(c=><option key={c} value={c}>{c}</option>)}
+                        </optgroup>
+                      </select>
+                    ) : (
+                      <button
+                        onClick={()=>{ if(!l.projetado) setEditandoCat(l.id); }}
+                        title={l.projetado ? 'Categoria de previsão' : 'Clique para categorizar'}
+                        style={{
+                          background:'transparent', border:'none', cursor: l.projetado ? 'default' : 'pointer',
+                          padding:'3px 7px', borderRadius:4, textAlign:'left', width:'100%',
+                          fontSize:11.5, color: l.categoriaDB ? 'var(--t1)' : 'var(--t3)',
+                          fontStyle: l.categoriaDB ? 'normal' : 'italic',
+                        }}
+                        onMouseEnter={e=>{ if(!l.projetado) e.currentTarget.style.background='var(--bg-3)'; }}
+                        onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                        {l.categoriaDB || (l.projetado ? l.categoria : 'categorizar')}
+                      </button>
+                    )}
+                  </td>
                   {/* Fonte */}
                   <td style={{padding:'10px 14px'}}>
                     <span style={{
@@ -14734,7 +14783,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                       {l.projetado ? 'Previsão'
                        : l.origem === 'manual'  ? 'Manual'
                        : l.origem === 'mrr'     ? 'Recorrencia'
-                       : l.origem === 'banco'   ? l.categoria
+                       : l.origem === 'banco'   ? l.fonteLabel
                                                 : 'Despesa'}
                     </span>
                   </td>
