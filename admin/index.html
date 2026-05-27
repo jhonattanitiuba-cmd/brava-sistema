@@ -454,7 +454,7 @@ window.addEventListener('error', function(e) {
   var l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
 });
-// Fail-safe duplo: se nada mais escondeu o splash em 9.5s, escondemos forcado
+// Fail-safe duplo: se nada mais escondeu o splash em 25s (Babel leva tempo em cache frio), escondemos forcado
 setTimeout(function() {
   var l = document.getElementById('brava-loading');
   if (l) { l.style.opacity = '0'; setTimeout(function(){ l.remove(); }, 400); }
@@ -462,7 +462,7 @@ setTimeout(function() {
     document.body.classList.add('boot-ready');
     window.dispatchEvent(new Event('brava_boot_ready'));
   }
-}, 9500);
+}, 25000);
 // Aplica modo claro por padrao no boot
 if (!document.documentElement.getAttribute('data-theme')) {
   document.documentElement.setAttribute('data-theme', 'light');
@@ -979,7 +979,6 @@ function useNotifGenerator() {
     const cli = (typeof getSupa === 'function') ? getSupa() : null;
     if (!cli) return;
     const channel = cli.channel('rt:notif-gen')
-      /* ─── Erros de IA ─── */
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'wa_eventos_log' }, (p) => {
         const ev = p.new;
         if (!ev) return;
@@ -996,7 +995,6 @@ function useNotifGenerator() {
           });
         }
       })
-      /* ─── Novo lead capturado ─── */
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'leads_emails' }, (p) => {
         const r = p.new; if (!r) return;
         adicionarNotificacao({
@@ -1010,7 +1008,6 @@ function useNotifGenerator() {
           link: 'onboarding',
         });
       })
-      /* ─── Novo cadastro completo aguardando aprovacao ─── */
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'onboarding_pendentes' }, (p) => {
         const r = p.new; if (!r) return;
         adicionarNotificacao({
