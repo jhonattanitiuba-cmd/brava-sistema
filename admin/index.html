@@ -21632,7 +21632,9 @@ function App() {
       fontFamily:'Inter, sans-serif', fontSize:14,
     }}>Carregando sessão…</div>
   );
-  if (needLogin) return <SupaLoginModal defaultEmail={SESSAO?.email || 'diretoria@brava.company'} onSuccess={() => window.location.reload()} />;
+  // onSuccess nao precisa de reload: o onAuthStateChange em useSupaAuthGate ja seta
+  // needLogin=false quando signInWithPassword bem-sucedido, evitando o loop de re-login
+  if (needLogin) return <SupaLoginModal defaultEmail={SESSAO?.email || 'diretoria@brava.company'} onSuccess={() => {}} />;
 
   if (impersonate) return (
     <>
