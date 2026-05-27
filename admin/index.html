@@ -14436,7 +14436,15 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     });
 
     // 2) Lançamentos manuais avulsos (incluindo futuros cadastrados manualmente)
+    // NUNCA mostra caixa com origem='banco' sem link — esses sao cobertos pelo extrato bancario
     caixa.forEach(l => {
+      // origem='banco' sem link no extrato = duplicata — pula sempre
+      if (l.origem === 'banco') {
+        const temLink = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
+        if (!temLink) return; // orphan → pula
+        // tem link: o extrato ja aparece, este caixa nao precisa aparecer
+        return;
+      }
       const jaNoExtrato = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
       if (jaNoExtrato) return;
       const isFuturo = l.data > hojeISO;
