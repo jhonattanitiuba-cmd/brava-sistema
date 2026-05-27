@@ -1017,7 +1017,7 @@ function useNotifGenerator() {
           id: 'onb_' + r.id,
           tipo: 'sucesso',
           titulo: 'Novo cadastro',
-          sub: (r.nome || 'Sem nome') + (r.nicho ? ' · ' + r.nicho : '') + ' — aguardando aprovacao',
+          sub: (r.nome || 'Sem nome') + (r.nicho ? ' · ' + r.nicho : '') + ' - aguardando aprovacao',
           icon: 'UserPlus',
           cor: 'var(--blue)',
           ts: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
@@ -3072,7 +3072,7 @@ function responderIA(pergunta, d) {
     return `A **recorrência ativa** é **R$ ${fmt(d.mrr)}/mês** com base nos ${d.projetosList.filter(p=>p.status_fase==='ativo').length} projetos ativos. Ticket médio: R$ ${d.totalClientes > 0 ? fmt(Math.round(d.mrr / Math.max(d.clientesAtivos.length,1))) : 0}/cliente.`;
 
   if (p.includes('cliente') || p.includes('base') || p.includes('tenant'))
-    return `Há **${d.totalClientes} clientes** na base: **${d.clientesAtivos.length} ativos** — ${d.clientesAtivos.slice(0,5).map(c=>c.nome).join(', ')}${d.clientesAtivos.length>5?'...':''}. **${d.clientesConstr.length} construindo** e ${d.porStatus.lead||0} leads. Top nichos: ${d.topNichos.join(', ')}.`;
+    return `Há **${d.totalClientes} clientes** na base: **${d.clientesAtivos.length} ativos** - ${d.clientesAtivos.slice(0,5).map(c=>c.nome).join(', ')}${d.clientesAtivos.length>5?'...':''}. **${d.clientesConstr.length} construindo** e ${d.porStatus.lead||0} leads. Top nichos: ${d.topNichos.join(', ')}.`;
 
   if (p.includes('projeto'))
     return `São **${d.projetosList.length} projetos** no total. ${d.projetosList.filter(p=>p.status_fase==='ativo').length} ativos, ${d.projetosList.filter(p=>p.status_fase==='em_implantacao').length} em construção. Implantação total acumulada: R$ ${fmt(d.impl)}.`;
@@ -4045,7 +4045,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       mediaRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         setGravando(false); setGravandoSec(0);
-        if (!recorderRef.current) return; // cancelado pelo usuário — não envia
+        if (!recorderRef.current) return; // cancelado pelo usuário - não envia
         if (!chunks.length) return;
         const blob = new Blob(chunks, { type: mime });
         const reader = new FileReader();
@@ -4985,7 +4985,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   );
 }
 
-/* Modal Nova Conversa — digita número e envia mensagem */
+/* Modal Nova Conversa - digita número e envia mensagem */
 function NovaConversaModal({ S, activeInstance, supaEnabled, onClose }) {
   const [numero, setNumero] = React.useState('');
   const [mensagem, setMensagem] = React.useState('');
@@ -5269,7 +5269,7 @@ function VinculoChatCliente({ chatJid, telefone, S }) {
               width:'100%', padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7,
               color:'var(--t1)', fontSize:12.5, outline:'none', cursor:'pointer',
             }}>
-              <option value="">— Escolha o projeto —</option>
+              <option value="">Escolha o projeto</option>
               {projetosDoCliente.map(p => <option key={p.__id} value={p.__id}>{p.cliente}</option>)}
             </select>
           )}
@@ -13500,7 +13500,7 @@ function Financeiro() {
     for (let i = -12; i <= 1; i++) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
       const ym = YM(d);
-      // Apenas o mes, sem o ano (minimalista — ja sabemos o ano)
+      // Apenas o mes, sem o ano (minimalista - ja sabemos o ano)
       const label = d.toLocaleDateString('pt-BR', { month:'long' });
       arr.push({ ym, label: label.charAt(0).toUpperCase() + label.slice(1) });
     }
@@ -13524,7 +13524,7 @@ function Financeiro() {
           </div>
         </div>
         <div className="page-head__actions" style={{display:'flex', gap:8, alignItems:'center', overflow:'visible', position:'relative', zIndex:100}}>
-          {/* Seletor de período — dropdown custom */}
+          {/* Seletor de período - dropdown custom */}
           <div style={{position:'relative', zIndex:9999}}>
             {/* Botão principal */}
             <button
@@ -13603,7 +13603,7 @@ function Financeiro() {
             )}
           </div>
 
-          {/* Botão Hoje — só aparece quando nao está no mes/periodo corrente */}
+          {/* Botão Hoje - só aparece quando nao está no mes/periodo corrente */}
           {!ehMesCorrente && mesFiltro !== 'este_ano' && (
             <button onClick={()=>setMesFiltro(ymAtualSistema)} style={{
               padding:'8px 13px', borderRadius:8, border:'1px solid rgba(30,144,255,.35)',
@@ -14347,7 +14347,7 @@ function useBtgConectado() {
 async function abrirOAuthBTG() {
   const state = Math.random().toString(36).slice(2);
   sessionStorage.setItem('btg_oauth_state', state);
-  // IMPORTANTE: nao usar URLSearchParams pra construir a URL — ele encoda '/' como '%2F'
+  // IMPORTANTE: nao usar URLSearchParams pra construir a URL - ele encoda '/' como '%2F'
   // e o BTG nao aceita scope com barra encodada. Constroi manualmente.
   const redirectUri = encodeURIComponent('https://brava.software/');
   const scope = 'openid%20empresas.btgpactual.com/accounts%20empresas.btgpactual.com/accounts.readonly';
@@ -14500,9 +14500,9 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     });
 
     // 2) Lançamentos manuais avulsos (incluindo futuros cadastrados manualmente)
-    // NUNCA mostra caixa com origem='banco' sem link — esses sao cobertos pelo extrato bancario
+    // NUNCA mostra caixa com origem='banco' sem link - esses sao cobertos pelo extrato bancario
     caixa.forEach(l => {
-      // origem='banco' sem link no extrato = duplicata — pula sempre
+      // origem='banco' sem link no extrato = duplicata - pula sempre
       if (l.origem === 'banco') {
         const temLink = (extratoBancario||[]).some(e => e.conciliado_caixa_id === l.id);
         if (!temLink) return; // orphan → pula
@@ -14577,7 +14577,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         itens.push({
           id: `proj:mrr:${p.__id}:${ym}`,
           tipo: 'entrada',
-          descricao: `Mensalidade prevista — ${p.cliente}`,
+          descricao: `Mensalidade prevista - ${p.cliente}`,
           categoria: 'MRR previsto',
           valor: Number(p.mensal),
           data: dataProj,
@@ -15500,7 +15500,7 @@ function ClientesCRM() {
         ))}
       </div>
 
-      {/* Filtros — linha única com scroll horizontal */}
+      {/* Filtros - linha única com scroll horizontal */}
       <div className="card" style={{padding:'10px 14px', marginBottom:12, overflow:'hidden'}}>
         <div style={{display:'flex', gap:6, alignItems:'center', overflowX:'auto', whiteSpace:'nowrap', scrollbarWidth:'none'}}>
           <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, minWidth:200, flexShrink:0}}>
@@ -15590,7 +15590,7 @@ function ClientesCRM() {
                     {incompleto && <span title="Cadastro incompleto" style={{color:'#ff8585', fontSize:11}}>!</span>}
                   </div>
                   <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                    {c.tipo_pessoa && <>{c.tipo_pessoa} · </>}{c.nicho || '—'}
+                    {c.tipo_pessoa && <>{c.tipo_pessoa} · </>}{c.nicho || '-'}
                   </div>
                 </div>
                 {/* Status badge */}
@@ -15622,7 +15622,7 @@ function ClientesCRM() {
         </div>
       )}
 
-      {/* Seção de incompletos — oculta por padrão; expande automaticamente se há busca ativa */}
+      {/* Seção de incompletos - oculta por padrão; expande automaticamente se há busca ativa */}
       {stats.incompletos > 0 && (
         <div style={{marginTop:10}}>
           <button
@@ -15670,7 +15670,7 @@ function ClientesCRM() {
                       <div style={{fontSize:13, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                         {c.nome} <span style={{color:'#ff8585', fontSize:10}}>!</span>
                       </div>
-                      <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1}}>{c.tipo_pessoa} · {c.nicho || '—'}</div>
+                      <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1}}>{c.tipo_pessoa} · {c.nicho || '-'}</div>
                     </div>
                     <span style={{padding:'3px 8px', borderRadius:999, background:statusCor+'22', color:statusCor, fontWeight:600, fontSize:10.5, display:'inline-flex', alignItems:'center', gap:4}}>
                       <Icon name={cfg.icone} size={10}/>{cfg.label}
@@ -16141,7 +16141,7 @@ function ProjetosCRM() {
   const [mostrarGaps, setMostrarGaps] = React.useState(false);
   const [gerenciarNucleos, setGerenciarNucleos] = React.useState(false);
 
-  // Projetos com gaps (sem escopo OU sem valor algum) — alimenta o wizard "Organizar"
+  // Projetos com gaps (sem escopo OU sem valor algum) - alimenta o wizard "Organizar"
   const projetosGap = React.useMemo(() => projetos.filter(p => {
     const semEscopo = !String(p.escopo || '').trim();
     const semValor  = (Number(p.valor_total_acordado)||0) === 0 && (Number(p.mensal)||0) === 0;
@@ -16250,7 +16250,7 @@ function ProjetosCRM() {
         ))}
       </div>
 
-      {/* Switcher de núcleo — dinâmico via getNucleosConfig */}
+      {/* Switcher de núcleo - dinâmico via getNucleosConfig */}
       {(() => {
         const nucleosConfig = getNucleosConfig();
         return (
@@ -16275,7 +16275,7 @@ function ProjetosCRM() {
         );
       })()}
 
-      {/* Filtros — linha única com scroll */}
+      {/* Filtros - linha única com scroll */}
       <div className="card" style={{padding:'10px 14px', marginBottom:12, overflow:'hidden'}}>
         <div style={{display:'flex', gap:6, alignItems:'center', overflowX:'auto', whiteSpace:'nowrap', scrollbarWidth:'none'}}>
           <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flexShrink:0}}>
@@ -16341,7 +16341,7 @@ function ProjetosCRM() {
                       audiovisual_evento:'Evento', audiovisual_filme:'Filme', consultoria:'Consultoria'
                     })[p.categoria] || '';
                     return <span title={`Núcleo: ${nuc}`} style={{padding:'2px 6px', borderRadius:5, background:nucCor+'22', color:nucCor, fontWeight:600, display:'inline-flex', alignItems:'center', gap:3}}>
-                      <Icon name={nucIcone} size={10}/> {catLabel || p.categoria || '—'}
+                      <Icon name={nucIcone} size={10}/> {catLabel || p.categoria || '-'}
                     </span>;
                   })()}
                   {p.tipo_projeto && <span style={{padding:'2px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.tipo_projeto}</span>}
@@ -16363,7 +16363,7 @@ function ProjetosCRM() {
                 </div>
                 {/* Nicho */}
                 <div style={{fontSize:11, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
-                  {p.nicho || '—'}
+                  {p.nicho || '-'}
                 </div>
                 <div style={{color:'var(--t3)', textAlign:'right'}}><Icon name="ChevronRight" size={14}/></div>
               </div>
@@ -16372,7 +16372,7 @@ function ProjetosCRM() {
         </div>
       )}
 
-      {/* Seção de gaps — oculta por padrão, expande com animação */}
+      {/* Seção de gaps - oculta por padrão, expande com animação */}
       {projetosGap.length > 0 && (
         <div style={{marginTop:10}}>
           <button
@@ -16415,7 +16415,7 @@ function ProjetosCRM() {
                     <span style={{padding:'3px 8px', borderRadius:999, background:cfg.cor+'22', color:cfg.cor, fontWeight:600, fontSize:10.5, display:'inline-flex', alignItems:'center', gap:4}}><Icon name={cfg.icone} size={10}/>{cfg.label}</span>
                     <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Mensal</div><div style={{color:'var(--t3)', fontFamily:'var(--f-m)'}}>R$ {Number(p.mensal||0).toLocaleString('pt-BR')}</div></div>
                     <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Impl</div><div style={{color:'var(--t3)', fontFamily:'var(--f-m)'}}>R$ {Number(p.implementacao||0).toLocaleString('pt-BR')}</div></div>
-                    <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Nicho</div><div style={{color:'var(--t3)', fontSize:11}}>{p.nicho || '—'}</div></div>
+                    <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Nicho</div><div style={{color:'var(--t3)', fontSize:11}}>{p.nicho || '-'}</div></div>
                     <div style={{color:'var(--t3)', textAlign:'right'}}><Icon name="ChevronRight" size={14}/></div>
                   </div>
                 );
@@ -16448,7 +16448,7 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
 
   const projAtual = projetos[idx] || null;
 
-  // Form local — recarrega ao trocar projeto
+  // Form local - recarrega ao trocar projeto
   const [form, setForm] = React.useState({});
   React.useEffect(() => {
     if (!projAtual) return;
@@ -16678,7 +16678,7 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PIPELINE TRELLO CARD — hooks + modal com notas, checklist e @mention
+// PIPELINE TRELLO CARD - hooks + modal com notas, checklist e @mention
 // ─────────────────────────────────────────────────────────────────────────────
 
 function useCardNotas(cardTipo, cardId) {
@@ -17225,7 +17225,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
                 <option value="">- Selecione um cliente -</option>
                 {(clientes||[]).map(c => <option key={c.id} value={c.id}>{c.nome} {c.cnpj_cpf ? `· ${c.cnpj_cpf}` : ''}</option>)}
               </select>
-              {!form.cliente_id && <div style={{fontSize:10.5, color:'#ff8585', marginTop:4}}>Sem cliente vinculado — o projeto não aparece no Cliente 360</div>}
+              {!form.cliente_id && <div style={{fontSize:10.5, color:'#ff8585', marginTop:4}}>Sem cliente vinculado - o projeto não aparece no Cliente 360</div>}
             </div>
           </div>
 
@@ -19099,7 +19099,7 @@ async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, ja
 
 // ─── Pagina de gerenciamento de etiquetas (catalogo global) ───
 // ─────────────────────────────────────────────────────────────────
-// ONBOARDING ADMIN — visualiza e aprova cadastros do formulário público
+// ONBOARDING ADMIN - visualiza e aprova cadastros do formulário público
 // ─────────────────────────────────────────────────────────────────
 function useLeadsEmails() {
   const [list, setList] = React.useState([]);
@@ -19192,14 +19192,14 @@ function OnboardingAdmin() {
     setDetalhe(null);
   };
 
-  const fmt = (v) => v || '—';
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const fmt = (v) => v || '-';
+  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
 
   const statusCor = { pendente:'#BA7517', aprovado:'#1D9E75', rejeitado:'#E5544D' };
   const statusLabel = { pendente:'Pendente', aprovado:'Aprovado', rejeitado:'Rejeitado' };
 
   const leadsNovos = leads.filter(l => l.status === 'novo').length;
-  const fmtDateL = (d) => d ? new Date(d).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+  const fmtDateL = (d) => d ? new Date(d).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '-';
   const statusLeadCor = { novo:'#1E90FF', contatado:'#BA7517', qualificado:'#1D9E75', descartado:'#52525B' };
 
   const mudarStatusLead = async (id, novoStatus) => {
@@ -19331,7 +19331,7 @@ function OnboardingAdmin() {
               <div>
                 <div style={{fontSize:14, fontWeight:600, color:'var(--t1)'}}>{item.nome}</div>
                 <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>
-                  {item.tipo_pessoa} · {item.email || item.whatsapp || '—'} · {item.nicho || '—'}
+                  {item.tipo_pessoa} · {item.email || item.whatsapp || '-'} · {item.nicho || '-'}
                 </div>
               </div>
               <div style={{fontSize:11, color:'var(--t3)'}}>{fmtDate(item.created_at)}</div>
