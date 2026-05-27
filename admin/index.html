@@ -15946,7 +15946,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nicho</label>
                 <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria..." list="nichos-sugestao"/>
                 <datalist id="nichos-sugestao">
-                  {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político','Tecnologia'].map(n => <option key={n} value={n}/>)}
+                  {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político','Política','Tecnologia'].map(n => <option key={n} value={n}/>)}
                 </datalist>
               </div>
               <div>
@@ -20660,7 +20660,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             <div>
               <SecaoLabel icon="Tag">Nicho</SecaoLabel>
               <select value={form.nicho} onChange={upd('nicho')} style={inp}>
-                {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político'].map(n => <option key={n}>{n}</option>)}
+                {['Saúde','Construção','Indústria','Estética','Estacionamento','Aviação Civil','Imobiliário','Loja de Eletrônicos','Automobilístico','Arquitetura','Agro','Turismo','Veterinário','Político','Política'].map(n => <option key={n}>{n}</option>)}
               </select>
             </div>
           </div>
