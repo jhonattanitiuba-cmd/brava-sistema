@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brava Company — Quero conhecer</title>
+<link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#09090B;--bg2:#111114;--bg3:#18181C;
+    --border:rgba(255,255,255,.10);
+    --t1:#F5F5F7;--t2:#A1A1AA;--t3:#52525B;
+    --blue:#1E90FF;--green:#1D9E75;
+    --f:-apple-system,BlinkMacSystemFont,'Space Grotesk',sans-serif;
+  }
+  html{background:var(--bg);color:var(--t1);font-family:var(--f)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+
+  .wrap{width:100%;max-width:420px}
+
+  .logo-wrap{text-align:center;margin-bottom:32px}
+  .logo{height:22px;object-fit:contain}
+  .tagline{font-size:12px;color:var(--t3);margin-top:8px}
+
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px 28px}
+  h2{font-size:22px;font-weight:700;text-align:center;margin-bottom:8px}
+  .sub{font-size:14px;color:var(--t2);text-align:center;line-height:1.55;margin-bottom:28px}
+
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:11.5px;color:var(--t2);font-weight:600;margin-bottom:6px;letter-spacing:.3px}
+  .field input,.field select{
+    width:100%;padding:12px 14px;
+    background:var(--bg3);border:1px solid var(--border);
+    border-radius:9px;color:var(--t1);font-size:14px;font-family:inherit;
+    outline:none;transition:border-color .15s
+  }
+  .field input:focus,.field select:focus{border-color:var(--blue)}
+  .field input::placeholder{color:var(--t3)}
+  .field select option{background:var(--bg2)}
+
+  .btn{
+    width:100%;padding:14px;border-radius:10px;border:none;
+    background:var(--blue);color:#fff;font-size:15px;font-weight:600;
+    cursor:pointer;transition:all .15s;margin-top:8px
+  }
+  .btn:hover{background:#1a82f0;transform:translateY(-1px);box-shadow:0 6px 20px rgba(30,144,255,.3)}
+  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+
+  .divider{display:flex;align-items:center;gap:12px;margin:20px 0}
+  .divider span{font-size:12px;color:var(--t3)}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+  .link-full{
+    display:block;text-align:center;padding:12px;border-radius:10px;
+    border:1px solid var(--border);color:var(--t2);font-size:13.5px;
+    text-decoration:none;transition:all .15s
+  }
+  .link-full:hover{border-color:var(--blue);color:var(--blue)}
+
+  .err{color:#E5544D;font-size:12.5px;margin-top:6px;padding:8px 12px;background:rgba(229,84,77,.08);border-radius:6px;border:1px solid rgba(229,84,77,.2)}
+
+  .success{text-align:center;padding:20px 0;animation:fi .4s ease}
+  .ok-icon{font-size:48px;margin-bottom:16px}
+  .success h3{font-size:20px;margin-bottom:8px}
+  .success p{font-size:13.5px;color:var(--t2);line-height:1.6}
+
+  footer{margin-top:24px;font-size:11.5px;color:var(--t3);text-align:center}
+
+  @keyframes fi{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo-wrap">
+    <img src="/brava-logo-white.png" alt="Brava Company" class="logo"/>
+    <div class="tagline">Tecnologia · IA · Crescimento</div>
+  </div>
+
+  <div class="card">
+    <div id="form-section">
+      <h2>Vamos conversar?</h2>
+      <p class="sub">Deixe seus dados e nossa equipe entra em contato para apresentar como podemos transformar seu negócio.</p>
+
+      <div class="field">
+        <label>Seu nome</label>
+        <input id="nome" type="text" placeholder="Como prefere ser chamado?"/>
+      </div>
+      <div class="field">
+        <label>E-mail <span style="color:#E5544D">*</span></label>
+        <input id="email" type="email" placeholder="seu@email.com.br"/>
+      </div>
+      <div class="field">
+        <label>WhatsApp</label>
+        <input id="telefone" type="tel" placeholder="(11) 99999-9999" oninput="maskPhone(this)"/>
+      </div>
+      <div class="field">
+        <label>O que você precisa?</label>
+        <select id="interesse">
+          <option value="">Selecione uma opção</option>
+          <option>Agente de IA no WhatsApp</option>
+          <option>Site + Presença digital</option>
+          <option>Gestão de tráfego pago</option>
+          <option>Micro SaaS personalizado</option>
+          <option>Produção audiovisual</option>
+          <option>Consultoria tecnológica</option>
+          <option>Conhecer a Brava</option>
+        </select>
+      </div>
+
+      <div id="err" class="err" style="display:none"></div>
+      <button class="btn" id="btn-enviar" onclick="enviar()">Quero ser contactado</button>
+
+      <div class="divider"><span>ou</span></div>
+      <a class="link-full" href="/onboarding/">Preencher cadastro completo →</a>
+    </div>
+
+    <div id="success-section" style="display:none" class="success">
+      <div class="ok-icon">✉️</div>
+      <h3>Recebemos seu contato!</h3>
+      <p>Em breve nossa equipe vai entrar em contato pelo e-mail ou WhatsApp que você informou.<br/><br/>Enquanto isso, conheça mais sobre a Brava:</p>
+      <a href="https://brava.company" target="_blank" style="display:inline-block;margin-top:16px;color:var(--blue);font-size:13.5px">brava.company →</a>
+    </div>
+  </div>
+
+  <footer>© 2026 Brava Company · Sorocaba, SP</footer>
+</div>
+
+<script>
+const SUPA_URL='https://buvduumggjpybhzbdqzm.supabase.co';
+const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1dmR1dW1nZ2pweWJoemJkcXptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzcxODksImV4cCI6MjA5NDA1MzE4OX0.ngKGo55zIxVh-cmxkX0d1KxF16DbD0_rclmVtzybA_I';
+const supa=supabase.createClient(SUPA_URL,SUPA_ANON);
+
+function maskPhone(el){
+  let v=el.value.replace(/\D/g,'').slice(0,11);
+  if(v.length>10)v=v.replace(/^(\d{2})(\d{5})(\d{4})/,'($1) $2-$3');
+  else if(v.length>6)v=v.replace(/^(\d{2})(\d{4,5})(\d+)/,'($1) $2-$3');
+  else if(v.length>2)v=v.replace(/^(\d{2})(\d+)/,'($1) $2');
+  el.value=v;
+}
+
+// Pega origem da URL (?origem=lp, ?origem=whatsapp, etc.)
+const urlOrig = new URLSearchParams(location.search).get('origem') || 'formulario';
+
+async function enviar(){
+  const email=(document.getElementById('email').value||'').trim();
+  const errEl=document.getElementById('err');
+  if(!email||!email.includes('@')){
+    errEl.textContent='Informe um e-mail válido.';errEl.style.display='';return;
+  }
+  errEl.style.display='none';
+  const btn=document.getElementById('btn-enviar');
+  btn.disabled=true;btn.textContent='Enviando...';
+  try{
+    const {error}=await supa.from('leads_emails').insert({
+      nome:(document.getElementById('nome').value||'').trim()||null,
+      email,
+      telefone:(document.getElementById('telefone').value||'').trim()||null,
+      interesse:(document.getElementById('interesse').value||'').trim()||null,
+      origem:urlOrig,
+    });
+    if(error)throw error;
+    document.getElementById('form-section').style.display='none';
+    document.getElementById('success-section').style.display='';
+  }catch(e){
+    errEl.textContent='Erro: '+(e.message||'tente novamente.');errEl.style.display='';
+    btn.disabled=false;btn.textContent='Quero ser contactado';
+  }
+}
+</script>
+</body>
+</html>

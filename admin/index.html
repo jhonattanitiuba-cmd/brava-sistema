@@ -19044,6 +19044,25 @@ async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, ja
 // ─────────────────────────────────────────────────────────────────
 // ONBOARDING ADMIN — visualiza e aprova cadastros do formulário público
 // ─────────────────────────────────────────────────────────────────
+function useLeadsEmails() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('leads_emails')
+        .select('*').order('created_at', { ascending: false });
+      if (alive) setList(data || []);
+    };
+    load();
+    const ch = cli.channel('rt:leads_emails')
+      .on('postgres_changes', { event:'*', schema:'public', table:'leads_emails' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return list;
+}
+
 function useOnboardingPendentes() {
   const [list, setList] = React.useState([]);
   React.useEffect(() => {
@@ -19065,7 +19084,10 @@ function useOnboardingPendentes() {
 
 function OnboardingAdmin() {
   const todos = useOnboardingPendentes();
+  const leads = useLeadsEmails();
+  const [aba, setAba] = React.useState('cadastros'); // cadastros | leads
   const [filtro, setFiltro] = React.useState('pendente');
+  const [filtroLead, setFiltroLead] = React.useState('todos');
   const [detalhe, setDetalhe] = React.useState(null);
   const [aprovando, setAprovando] = React.useState(null);
 
@@ -19119,26 +19141,110 @@ function OnboardingAdmin() {
   const statusCor = { pendente:'#BA7517', aprovado:'#1D9E75', rejeitado:'#E5544D' };
   const statusLabel = { pendente:'Pendente', aprovado:'Aprovado', rejeitado:'Rejeitado' };
 
+  const leadsNovos = leads.filter(l => l.status === 'novo').length;
+  const fmtDateL = (d) => d ? new Date(d).toLocaleDateString('pt-BR', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—';
+  const statusLeadCor = { novo:'#1E90FF', contatado:'#BA7517', qualificado:'#1D9E75', descartado:'#52525B' };
+
+  const mudarStatusLead = async (id, novoStatus) => {
+    const cli = getSupa();
+    await cli.from('leads_emails').update({ status: novoStatus }).eq('id', id);
+  };
+
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__title">Novos cadastros</div>
+          <div className="page-head__title">Captação</div>
           <div className="page-head__sub">
-            Formulário público em{' '}
-            <a href="/onboarding/" target="_blank" style={{color:'var(--blue)'}}>brava.software/onboarding/</a>
-            {pendentes > 0 && <span style={{color:'#BA7517', marginLeft:8, fontWeight:600}}>· {pendentes} pendente{pendentes>1?'s':''}</span>}
+            Leads e cadastros de novos clientes em tempo real
+            {(pendentes + leadsNovos) > 0 && <span style={{color:'#BA7517', marginLeft:8, fontWeight:600}}>· {pendentes + leadsNovos} novo{(pendentes+leadsNovos)>1?'s':''}</span>}
           </div>
         </div>
-        <div>
-          <a href="/onboarding/" target="_blank" className="btn btn-outline" style={{textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6}}>
-            <Icon name="Globe" size={13}/>Ver formulário
+        <div style={{display:'flex', gap:8}}>
+          <a href="/lead/" target="_blank" className="btn btn-outline" style={{textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, fontSize:12}}>
+            <Icon name="Mail" size={12}/>Lead
+          </a>
+          <a href="/onboarding/" target="_blank" className="btn btn-outline" style={{textDecoration:'none', display:'inline-flex', alignItems:'center', gap:6, fontSize:12}}>
+            <Icon name="Globe" size={12}/>Cadastro
           </a>
         </div>
       </div>
 
+      {/* Abas */}
+      <div style={{display:'flex', gap:4, marginBottom:16, borderBottom:'1px solid var(--border-soft)', paddingBottom:0}}>
+        {[
+          ['cadastros', `Cadastros completos (${todos.length})`],
+          ['leads', `Leads / Email (${leads.length})`],
+        ].map(([k,l]) => (
+          <button key={k} onClick={()=>setAba(k)} style={{
+            padding:'9px 16px', borderRadius:'8px 8px 0 0', border:'none',
+            background: aba===k ? 'var(--bg-2)' : 'transparent',
+            color: aba===k ? 'var(--blue)' : 'var(--t2)',
+            fontSize:13, fontWeight: aba===k ? 600 : 500, cursor:'pointer',
+            borderBottom: aba===k ? '2px solid var(--blue)' : '2px solid transparent',
+            marginBottom:-1,
+          }}>{l}</button>
+        ))}
+      </div>
+
       {/* Filtros */}
       <div className="card" style={{padding:'10px 14px', marginBottom:14, display:'flex', gap:8}}>
+      {aba === 'leads' && (
+        <>
+          <div className="card" style={{padding:'10px 14px', marginBottom:14, display:'flex', gap:8, flexWrap:'wrap'}}>
+            {[['todos','Todos'], ['novo','Novos'], ['contatado','Contatados'], ['qualificado','Qualificados'], ['descartado','Descartados']].map(([k,l]) => (
+              <button key={k} onClick={()=>setFiltroLead(k)} style={{
+                padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer',
+                background: filtroLead===k ? 'rgba(30,144,255,.12)' : 'transparent',
+                color: filtroLead===k ? 'var(--blue)' : 'var(--t3)',
+                border:`1px solid ${filtroLead===k ? 'rgba(30,144,255,.3)' : 'transparent'}`,
+              }}>{l} <span style={{opacity:.7}}>({leads.filter(l=>k==='todos'||l.status===k).length})</span></button>
+            ))}
+          </div>
+          {leads.filter(l => filtroLead === 'todos' || l.status === filtroLead).length === 0 ? (
+            <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
+              <Icon name="Mail" size={32} style={{opacity:.3, marginBottom:10}}/>
+              <div>Nenhum lead ainda.</div>
+              <div style={{fontSize:12, marginTop:6}}>Compartilhe: <strong>brava.software/lead/</strong></div>
+            </div>
+          ) : (
+            <div style={{display:'flex', flexDirection:'column', gap:6}}>
+              {leads.filter(l => filtroLead === 'todos' || l.status === filtroLead).map(lead => (
+                <div key={lead.id} className="card" style={{padding:'12px 16px', display:'grid', gridTemplateColumns:'1fr auto auto', gap:12, alignItems:'center'}}>
+                  <div>
+                    <div style={{fontSize:13.5, fontWeight:600, color:'var(--t1)'}}>{lead.nome || lead.email}</div>
+                    <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>
+                      {lead.email}
+                      {lead.telefone && ` · ${lead.telefone}`}
+                      {lead.interesse && ` · ${lead.interesse}`}
+                      {lead.origem && lead.origem !== 'formulario' && <span style={{marginLeft:6, padding:'1px 5px', borderRadius:3, background:'var(--bg-3)', fontSize:10}}>{lead.origem}</span>}
+                    </div>
+                  </div>
+                  <div style={{fontSize:11, color:'var(--t3)'}}>{fmtDateL(lead.created_at)}</div>
+                  <select
+                    value={lead.status}
+                    onChange={e=>mudarStatusLead(lead.id, e.target.value)}
+                    style={{
+                      padding:'4px 8px', borderRadius:6, fontSize:11.5, fontWeight:600,
+                      background: statusLeadCor[lead.status]+'18',
+                      color: statusLeadCor[lead.status],
+                      border:`1px solid ${statusLeadCor[lead.status]}44`,
+                      cursor:'pointer', outline:'none',
+                    }}>
+                    <option value="novo">Novo</option>
+                    <option value="contatado">Contatado</option>
+                    <option value="qualificado">Qualificado</option>
+                    <option value="descartado">Descartado</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {aba === 'cadastros' && <>
+        <div className="card" style={{padding:'10px 14px', marginBottom:14, display:'flex', gap:8}}>
         {[['todos','Todos'], ['pendente','Pendentes'], ['aprovado','Aprovados'], ['rejeitado','Rejeitados']].map(([k,l]) => (
           <button key={k} onClick={()=>setFiltro(k)} style={{
             padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer',
@@ -19197,6 +19303,8 @@ function OnboardingAdmin() {
       )}
 
       {/* Modal Detalhe */}
+      </>}
+
       {detalhe && (
         <div onClick={(e)=>{if(e.target===e.currentTarget)setDetalhe(null)}} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.75)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
           <div style={{width:'min(560px,96vw)',maxHeight:'88vh',overflowY:'auto',background:'var(--bg)',border:'1px solid var(--border)',borderRadius:14,padding:28}}>
