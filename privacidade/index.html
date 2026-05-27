@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Política de Privacidade — Brava Company</title>
+<link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#09090B;--blue:#1E90FF;
+  --border:rgba(255,255,255,.08);
+  --t1:#FFFFFF;--t2:#A1A1AA;--t3:#52525B;
+}
+html{background:var(--bg);color:var(--t1);font-family:'Montserrat',sans-serif;scroll-behavior:smooth}
+body{min-height:100vh;display:flex;flex-direction:column}
+
+/* Fundo */
+.scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.grid-bg{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+  background-size:56px 56px;
+}
+.blob{position:absolute;border-radius:50%;filter:blur(140px);pointer-events:none}
+.blob-purple{background:#7B3FE4;opacity:.3;width:600px;height:600px;top:-200px;left:-150px;animation:drift-purple 8s ease-in-out infinite}
+.blob-blue{background:#1E90FF;opacity:.25;width:500px;height:500px;bottom:-150px;right:-100px;animation:drift-blue 10s ease-in-out infinite}
+@keyframes drift-purple{0%{transform:translate(0,0)}50%{transform:translate(40px,30px)}100%{transform:translate(0,0)}}
+@keyframes drift-blue{0%{transform:translate(0,0)}50%{transform:translate(-30px,-20px)}100%{transform:translate(0,0)}}
+
+/* Header */
+header{
+  position:relative;z-index:1;
+  padding:16px 24px;background:#09090B;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+}
+.logo{height:18px;object-fit:contain;filter:brightness(0) invert(1)}
+.back-btn{
+  font-size:12px;font-weight:600;color:var(--t2);
+  padding:6px 14px;background:transparent;
+  border:1px solid var(--border);border-radius:999px;
+  font-family:'Montserrat',sans-serif;letter-spacing:.2px;
+  text-decoration:none;transition:all .15s;
+}
+.back-btn:hover{border-color:var(--blue);color:var(--blue)}
+
+/* Conteúdo */
+.container{
+  position:relative;z-index:1;
+  flex:1;max-width:760px;margin:0 auto;
+  padding:52px 24px 80px;
+}
+
+/* Hero */
+.hero{margin-bottom:48px;padding-bottom:32px;border-bottom:1px solid var(--border)}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  color:var(--blue);margin-bottom:16px;
+}
+.hero h1{font-size:32px;font-weight:700;line-height:1.2;margin-bottom:12px;color:#fff}
+.hero-meta{font-size:13px;color:var(--t3);font-weight:500}
+.hero-meta span{color:var(--t2);margin-left:6px}
+
+/* Índice */
+.toc{
+  background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:12px;padding:20px 24px;margin-bottom:40px;
+}
+.toc-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);margin-bottom:12px}
+.toc ol{padding-left:16px;display:flex;flex-direction:column;gap:6px}
+.toc li{font-size:13px;color:var(--t2);font-weight:500}
+.toc a{color:var(--t2);text-decoration:none;transition:color .15s}
+.toc a:hover{color:var(--blue)}
+
+/* Seções */
+.section{margin-bottom:44px;scroll-margin-top:80px}
+.section h2{
+  font-size:17px;font-weight:700;color:#fff;
+  margin-bottom:16px;padding-bottom:10px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.section h2 .num{
+  font-size:11px;font-weight:700;color:var(--blue);
+  background:rgba(30,144,255,.1);padding:3px 8px;
+  border-radius:4px;letter-spacing:.3px;
+}
+.section p,.section li{
+  font-size:14px;color:var(--t2);line-height:1.75;font-weight:400;
+}
+.section p{margin-bottom:12px}
+.section ul,.section ol{padding-left:20px;margin-bottom:14px;display:flex;flex-direction:column;gap:6px}
+.section strong{color:var(--t1);font-weight:600}
+.section a{color:var(--blue);text-decoration:none}
+.section a:hover{text-decoration:underline}
+
+/* Destaque */
+.highlight{
+  background:rgba(30,144,255,.06);border:1px solid rgba(30,144,255,.2);
+  border-radius:8px;padding:16px 18px;margin:16px 0;
+}
+.highlight p{color:var(--t1) !important;font-weight:500 !important;margin:0}
+
+/* Footer */
+footer{
+  position:relative;z-index:1;
+  text-align:center;padding:16px 24px;
+  font-size:11.5px;color:var(--t3);
+  border-top:1px solid var(--border);
+  background:#09090B;
+  font-weight:500;letter-spacing:.3px;
+  flex-shrink:0;
+}
+
+@media(max-width:600px){
+  .hero h1{font-size:24px}
+  .container{padding:36px 18px 60px}
+}
+</style>
+</head>
+<body>
+
+<div class="scene">
+  <div class="grid-bg"></div>
+  <div class="blob blob-purple"></div>
+  <div class="blob blob-blue"></div>
+</div>
+
+<header>
+  <img src="/brava-logo-white.png" alt="Brava Company" class="logo"/>
+  <a class="back-btn" href="/">← Voltar</a>
+</header>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-tag">🔒 Privacidade & LGPD</div>
+    <h1>Política de Privacidade</h1>
+    <div class="hero-meta">
+      Última atualização:<span>27 de maio de 2026</span>
+      &nbsp;·&nbsp; Vigência:<span>imediata</span>
+    </div>
+  </div>
+
+  <div class="toc">
+    <div class="toc-title">Nesta página</div>
+    <ol>
+      <li><a href="#s1">Quem somos</a></li>
+      <li><a href="#s2">Quais dados coletamos</a></li>
+      <li><a href="#s3">Por que coletamos</a></li>
+      <li><a href="#s4">Como armazenamos e protegemos</a></li>
+      <li><a href="#s5">Com quem compartilhamos</a></li>
+      <li><a href="#s6">Por quanto tempo mantemos</a></li>
+      <li><a href="#s7">Seus direitos (LGPD)</a></li>
+      <li><a href="#s8">Cookies</a></li>
+      <li><a href="#s9">Alterações nesta política</a></li>
+      <li><a href="#s10">Contato</a></li>
+    </ol>
+  </div>
+
+  <div class="section" id="s1">
+    <h2><span class="num">01</span>Quem somos</h2>
+    <p>A <strong>Brava Company</strong> (CNPJ 34.454.770/0001-26), com sede em Sorocaba — SP, é responsável pelo tratamento dos dados pessoais coletados em seus canais digitais, incluindo o site <strong>brava.software</strong>, formulários de contato, cadastro de clientes e demais plataformas sob sua gestão.</p>
+    <p>Esta Política de Privacidade foi elaborada em conformidade com a <strong>Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018)</strong> e tem como objetivo informar como tratamos seus dados com transparência, segurança e respeito.</p>
+  </div>
+
+  <div class="section" id="s2">
+    <h2><span class="num">02</span>Quais dados coletamos</h2>
+    <p>Dependendo do formulário ou serviço utilizado, podemos coletar:</p>
+    <ul>
+      <li><strong>Dados de identificação:</strong> nome completo, razão social, CPF ou CNPJ</li>
+      <li><strong>Dados de contato:</strong> endereço de e-mail, número de WhatsApp/telefone</li>
+      <li><strong>Dados de endereço:</strong> CEP, logradouro, número, bairro, cidade, estado</li>
+      <li><strong>Dados comerciais:</strong> segmento de negócio, serviço de interesse, descrição da empresa</li>
+      <li><strong>Dados de navegação:</strong> origem do acesso (ex: link de campanha), horário de submissão</li>
+      <li><strong>Dados de comunicação:</strong> histórico de atendimento via WhatsApp</li>
+    </ul>
+    <div class="highlight">
+      <p>Nunca coletamos dados sensíveis como senhas bancárias, cartões de crédito completos ou documentos médicos.</p>
+    </div>
+  </div>
+
+  <div class="section" id="s3">
+    <h2><span class="num">03</span>Por que coletamos</h2>
+    <p>Seus dados são utilizados exclusivamente para as seguintes finalidades:</p>
+    <ul>
+      <li><strong>Prestação de serviços:</strong> execução dos contratos firmados entre você e a Brava Company</li>
+      <li><strong>Comunicação comercial:</strong> apresentação de propostas, follow-up de leads e atendimento</li>
+      <li><strong>Gestão de relacionamento:</strong> controle interno de clientes, projetos e histórico de pagamentos</li>
+      <li><strong>Obrigações legais:</strong> emissão de notas fiscais, cumprimento de obrigações tributárias e contábeis</li>
+      <li><strong>Melhoria dos serviços:</strong> análise de qualidade e aprimoramento da plataforma</li>
+    </ul>
+    <p>Não utilizamos seus dados para fins publicitários de terceiros sem seu consentimento expresso.</p>
+  </div>
+
+  <div class="section" id="s4">
+    <h2><span class="num">04</span>Como armazenamos e protegemos</h2>
+    <p>Os dados são armazenados de forma segura em infraestrutura gerenciada pelo <strong>Supabase</strong> (banco de dados PostgreSQL hospedado em servidores certificados), com as seguintes medidas de segurança:</p>
+    <ul>
+      <li>Criptografia em trânsito (TLS/HTTPS) e em repouso</li>
+      <li>Controle de acesso por função (RLS — Row Level Security)</li>
+      <li>Autenticação multifator para acessos administrativos</li>
+      <li>Backups automáticos diários</li>
+      <li>Acesso restrito apenas aos colaboradores que necessitam dos dados para execução do serviço</li>
+    </ul>
+  </div>
+
+  <div class="section" id="s5">
+    <h2><span class="num">05</span>Com quem compartilhamos</h2>
+    <p>Seus dados podem ser compartilhados com:</p>
+    <ul>
+      <li><strong>Parceiros de infraestrutura:</strong> Supabase (banco de dados), Vercel (hospedagem), Anthropic (IA de atendimento) — estritamente para prestação do serviço</li>
+      <li><strong>Obrigações legais:</strong> autoridades fiscais ou judiciais mediante determinação legal</li>
+    </ul>
+    <p><strong>Não vendemos, alugamos ou cedemos seus dados a terceiros</strong> para fins comerciais próprios deles.</p>
+  </div>
+
+  <div class="section" id="s6">
+    <h2><span class="num">06</span>Por quanto tempo mantemos</h2>
+    <ul>
+      <li><strong>Leads (interesse inicial):</strong> até 24 meses ou até solicitação de exclusão</li>
+      <li><strong>Dados de clientes ativos:</strong> durante toda a vigência do contrato + 5 anos (obrigação fiscal)</li>
+      <li><strong>Dados de comunicação (WhatsApp):</strong> 12 meses após encerramento do contrato</li>
+      <li><strong>Dados financeiros:</strong> 5 anos conforme legislação tributária brasileira</li>
+    </ul>
+  </div>
+
+  <div class="section" id="s7">
+    <h2><span class="num">07</span>Seus direitos (LGPD)</h2>
+    <p>Conforme a Lei nº 13.709/2018, você tem direito a:</p>
+    <ul>
+      <li><strong>Acesso:</strong> solicitar cópia dos seus dados que mantemos</li>
+      <li><strong>Correção:</strong> corrigir dados incompletos, inexatos ou desatualizados</li>
+      <li><strong>Exclusão:</strong> solicitar a eliminação dos seus dados (exceto quando obrigação legal impede)</li>
+      <li><strong>Portabilidade:</strong> receber seus dados em formato estruturado e legível</li>
+      <li><strong>Revogação do consentimento:</strong> retirar sua autorização a qualquer momento</li>
+      <li><strong>Oposição:</strong> se opor a determinado tratamento de dados</li>
+    </ul>
+    <div class="highlight">
+      <p>Para exercer qualquer um desses direitos, entre em contato: <a href="mailto:comercial@brava.company">comercial@brava.company</a></p>
+    </div>
+    <p>Respondemos em até <strong>15 dias úteis</strong>.</p>
+  </div>
+
+  <div class="section" id="s8">
+    <h2><span class="num">08</span>Cookies</h2>
+    <p>Nosso site utiliza cookies estritamente necessários para o funcionamento das páginas. Não utilizamos cookies de rastreamento de terceiros ou publicidade comportamental.</p>
+    <p>Você pode desativar cookies nas configurações do seu navegador, porém isso pode afetar o funcionamento de alguns recursos.</p>
+  </div>
+
+  <div class="section" id="s9">
+    <h2><span class="num">09</span>Alterações nesta política</h2>
+    <p>Esta Política de Privacidade pode ser atualizada periodicamente. Quando isso ocorrer, publicaremos a nova versão nesta página com a data de atualização indicada no topo.</p>
+    <p>Em caso de alterações relevantes que afetem seus direitos, comunicaremos por e-mail ou WhatsApp cadastrado.</p>
+  </div>
+
+  <div class="section" id="s10">
+    <h2><span class="num">10</span>Contato</h2>
+    <p><strong>Encarregado de Proteção de Dados (DPO):</strong> Jhonattan Gabriel Itiuba Silva</p>
+    <ul>
+      <li>E-mail: <a href="mailto:comercial@brava.company">comercial@brava.company</a></li>
+      <li>WhatsApp: <a href="https://wa.me/5511963342541" target="_blank">+55 11 96334-2541</a></li>
+      <li>Endereço: Sorocaba — SP, Brasil</li>
+      <li>CNPJ: 34.454.770/0001-26</li>
+    </ul>
+  </div>
+
+</div>
+
+<footer>Todos os Direitos Reservados © 2026 Brava Company · comercial@brava.company</footer>
+
+</body>
+</html>
