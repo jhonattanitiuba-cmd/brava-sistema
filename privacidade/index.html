@@ -51,11 +51,18 @@ header{
 }
 .back-btn:hover{border-color:var(--blue);color:var(--blue)}
 
-/* Conteúdo */
+/* Conteúdo — fundo preto sólido para legibilidade */
 .container{
   position:relative;z-index:1;
   flex:1;max-width:760px;margin:0 auto;
   padding:52px 24px 80px;
+  background:rgba(9,9,11,.92);
+  backdrop-filter:blur(2px);
+}
+@media(min-width:800px){
+  .container{
+    box-shadow:inset 1px 0 0 rgba(255,255,255,.04), inset -1px 0 0 rgba(255,255,255,.04);
+  }
 }
 
 /* Hero */
@@ -142,7 +149,7 @@ footer{
 <div class="container">
 
   <div class="hero">
-    <div class="hero-tag">🔒 Privacidade & LGPD</div>
+    <div class="hero-tag">Privacidade & LGPD</div>
     <h1>Política de Privacidade</h1>
     <div class="hero-meta">
       Última atualização:<span>27 de maio de 2026</span>
@@ -167,13 +174,13 @@ footer{
   </div>
 
   <div class="section" id="s1">
-    <h2><span class="num">01</span>Quem somos</h2>
+    <h2>1. Quem somos</h2>
     <p>A <strong>Brava Company</strong> (CNPJ 34.454.770/0001-26), com sede em Sorocaba — SP, é responsável pelo tratamento dos dados pessoais coletados em seus canais digitais, incluindo o site <strong>brava.software</strong>, formulários de contato, cadastro de clientes e demais plataformas sob sua gestão.</p>
     <p>Esta Política de Privacidade foi elaborada em conformidade com a <strong>Lei Geral de Proteção de Dados Pessoais (LGPD — Lei nº 13.709/2018)</strong> e tem como objetivo informar como tratamos seus dados com transparência, segurança e respeito.</p>
   </div>
 
   <div class="section" id="s2">
-    <h2><span class="num">02</span>Quais dados coletamos</h2>
+    <h2>2. Quais dados coletamos</h2>
     <p>Dependendo do formulário ou serviço utilizado, podemos coletar:</p>
     <ul>
       <li><strong>Dados de identificação:</strong> nome completo, razão social, CPF ou CNPJ</li>
@@ -189,7 +196,7 @@ footer{
   </div>
 
   <div class="section" id="s3">
-    <h2><span class="num">03</span>Por que coletamos</h2>
+    <h2>3. Por que coletamos</h2>
     <p>Seus dados são utilizados exclusivamente para as seguintes finalidades:</p>
     <ul>
       <li><strong>Prestação de serviços:</strong> execução dos contratos firmados entre você e a Brava Company</li>
@@ -202,7 +209,7 @@ footer{
   </div>
 
   <div class="section" id="s4">
-    <h2><span class="num">04</span>Como armazenamos e protegemos</h2>
+    <h2>4. Como armazenamos e protegemos</h2>
     <p>Os dados são armazenados de forma segura em infraestrutura gerenciada pelo <strong>Supabase</strong> (banco de dados PostgreSQL hospedado em servidores certificados), com as seguintes medidas de segurança:</p>
     <ul>
       <li>Criptografia em trânsito (TLS/HTTPS) e em repouso</li>
@@ -214,7 +221,7 @@ footer{
   </div>
 
   <div class="section" id="s5">
-    <h2><span class="num">05</span>Com quem compartilhamos</h2>
+    <h2>5. Com quem compartilhamos</h2>
     <p>Seus dados podem ser compartilhados com:</p>
     <ul>
       <li><strong>Parceiros de infraestrutura:</strong> Supabase (banco de dados), Vercel (hospedagem), Anthropic (IA de atendimento) — estritamente para prestação do serviço</li>
@@ -224,7 +231,7 @@ footer{
   </div>
 
   <div class="section" id="s6">
-    <h2><span class="num">06</span>Por quanto tempo mantemos</h2>
+    <h2>6. Por quanto tempo mantemos</h2>
     <ul>
       <li><strong>Leads (interesse inicial):</strong> até 24 meses ou até solicitação de exclusão</li>
       <li><strong>Dados de clientes ativos:</strong> durante toda a vigência do contrato + 5 anos (obrigação fiscal)</li>
@@ -234,7 +241,7 @@ footer{
   </div>
 
   <div class="section" id="s7">
-    <h2><span class="num">07</span>Seus direitos (LGPD)</h2>
+    <h2>7. Seus direitos (LGPD)</h2>
     <p>Conforme a Lei nº 13.709/2018, você tem direito a:</p>
     <ul>
       <li><strong>Acesso:</strong> solicitar cópia dos seus dados que mantemos</li>
@@ -251,19 +258,19 @@ footer{
   </div>
 
   <div class="section" id="s8">
-    <h2><span class="num">08</span>Cookies</h2>
+    <h2>8. Cookies</h2>
     <p>Nosso site utiliza cookies estritamente necessários para o funcionamento das páginas. Não utilizamos cookies de rastreamento de terceiros ou publicidade comportamental.</p>
     <p>Você pode desativar cookies nas configurações do seu navegador, porém isso pode afetar o funcionamento de alguns recursos.</p>
   </div>
 
   <div class="section" id="s9">
-    <h2><span class="num">09</span>Alterações nesta política</h2>
+    <h2>9. Alterações nesta política</h2>
     <p>Esta Política de Privacidade pode ser atualizada periodicamente. Quando isso ocorrer, publicaremos a nova versão nesta página com a data de atualização indicada no topo.</p>
     <p>Em caso de alterações relevantes que afetem seus direitos, comunicaremos por e-mail ou WhatsApp cadastrado.</p>
   </div>
 
   <div class="section" id="s10">
-    <h2><span class="num">10</span>Contato</h2>
+    <h2>10. Contato</h2>
     <p><strong>Encarregado de Proteção de Dados (DPO):</strong> Jhonattan Gabriel Itiuba Silva</p>
     <ul>
       <li>E-mail: <a href="mailto:comercial@brava.company">comercial@brava.company</a></li>
