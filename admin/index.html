@@ -5266,18 +5266,24 @@ function CatalogarContatosModal({ S, onClose }) {
     const clienteId = seleApta[chatId];
     if (!clienteId) { showToast?.('Escolha um cliente primeiro', 'warn'); return; }
     setVinculando(v => ({ ...v, [chatId]: true }));
-    const cli = getSupa();
-    const { error } = await cli.from('wa_chats')
-      .update({ cliente_id: clienteId }).eq('id', chatId);
-    setVinculando(v => { const x = { ...v }; delete x[chatId]; return x; });
-    if (error) { showToast?.('Erro: ' + error.message, 'error'); return; }
-    showToast?.('✓ Vinculado', 'success');
-    // remove da lista local (otimismo) — não precisa refetch inteiro
-    setRows(prev => (prev || []).filter(r => r.chat_id !== chatId));
     try {
+      const cli = getSupa();
+      if (!cli) throw new Error('Sem conexão com o banco');
+      const { data, error } = await cli.from('wa_chats')
+        .update({ cliente_id: clienteId })
+        .eq('id', chatId)
+        .select('id');
+      if (error) throw new Error(error.message);
+      if (!data || data.length === 0) throw new Error('Chat não encontrado ou sem permissão para editar');
+      showToast?.('Vinculado', 'success');
+      setRows(prev => (prev || []).filter(r => r.chat_id !== chatId));
       window.dispatchEvent(new CustomEvent('brava:wa_chats_changed'));
       window.dispatchEvent(new CustomEvent('brava:db_changed', { detail: { table:'wa_chats' } }));
-    } catch {}
+    } catch(e) {
+      showToast?.('Erro ao vincular: ' + e.message, 'error');
+    } finally {
+      setVinculando(v => { const x = { ...v }; delete x[chatId]; return x; });
+    }
   };
 
   const criarClienteRapido = async (chatId, nomeSugerido, telefone) => {
@@ -5318,10 +5324,10 @@ function CatalogarContatosModal({ S, onClose }) {
 
   return (
     <div onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-         style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.88)',
+         style={{ position:'fixed', inset:0, background:'#000',
                   zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
-      <div style={{ background:S.cardBg, borderRadius:14, width:760, maxWidth:'96vw', maxHeight:'90vh',
-                    border:`1px solid ${S.border}`, boxShadow:'0 24px 60px rgba(0,0,0,.5)',
+      <div style={{ background:'var(--bg)', borderRadius:14, width:760, maxWidth:'96vw', maxHeight:'90vh',
+                    border:`1px solid var(--border)`, boxShadow:'0 8px 32px rgba(0,0,0,.8)',
                     display:'flex', flexDirection:'column', overflow:'hidden' }}>
         {/* Header */}
         <div style={{ padding:'18px 22px', borderBottom:`1px solid ${S.border}`,
