@@ -5,77 +5,140 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Brava Company — Quero conhecer</title>
 <link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
-  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-  :root{
-    --bg:#09090B;--bg2:#111114;--bg3:#18181C;
-    --border:rgba(255,255,255,.10);
-    --t1:#F5F5F7;--t2:#A1A1AA;--t3:#52525B;
-    --blue:#1E90FF;--green:#1D9E75;
-    --f:-apple-system,BlinkMacSystemFont,'Space Grotesk',sans-serif;
-  }
-  html{background:var(--bg);color:var(--t1);font-family:var(--f)}
-  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1E90FF;
+  --blue-dim:rgba(30,144,255,.12);
+  --blue-border:rgba(30,144,255,.3);
+  --bg:#09090B;
+  --card:#0D0D10;
+  --border:rgba(255,255,255,.08);
+  --t1:#FFFFFF;
+  --t2:#A1A1AA;
+  --t3:#52525B;
+}
+html{background:var(--bg);color:var(--t1);font-family:'Montserrat',sans-serif}
+body{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;position:relative;overflow:hidden}
 
-  .wrap{width:100%;max-width:420px}
+/* ── Fundo animado ── */
+.scene{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.grid-bg{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.034) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.034) 1px,transparent 1px);
+  background-size:56px 56px;
+  mask-image:radial-gradient(ellipse at 50% 0%,#000 0%,#000 50%,transparent 80%);
+  -webkit-mask-image:radial-gradient(ellipse at 50% 0%,#000 0%,#000 50%,transparent 80%);
+}
+.blob{position:absolute;border-radius:50%;filter:blur(120px);pointer-events:none}
+.blob-purple{background:#7B3FE4;opacity:.55;width:500px;height:500px;top:-120px;left:-100px;animation:drift-purple 5s ease-in-out infinite}
+.blob-blue{background:#1E90FF;opacity:.45;width:420px;height:420px;bottom:-100px;right:-80px;animation:drift-blue 6s ease-in-out infinite}
+@keyframes drift-purple{0%{transform:translate(0,0) scale(1)} 25%{transform:translate(70px,-50px) scale(1.15)} 50%{transform:translate(30px,80px) scale(.9)} 75%{transform:translate(-60px,30px) scale(1.1)} 100%{transform:translate(0,0) scale(1)}}
+@keyframes drift-blue{0%{transform:translate(0,0) scale(1)} 25%{transform:translate(-60px,40px) scale(1.12)} 50%{transform:translate(25px,-65px) scale(.92)} 75%{transform:translate(55px,25px) scale(1.08)} 100%{transform:translate(0,0) scale(1)}}
 
-  .logo-wrap{text-align:center;margin-bottom:32px}
-  .logo{height:22px;object-fit:contain}
-  .tagline{font-size:12px;color:var(--t3);margin-top:8px}
+/* ── Layout ── */
+.wrap{position:relative;z-index:1;width:100%;max-width:420px}
 
-  .card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:32px 28px}
-  h2{font-size:22px;font-weight:700;text-align:center;margin-bottom:8px}
-  .sub{font-size:14px;color:var(--t2);text-align:center;line-height:1.55;margin-bottom:28px}
+.logo-wrap{text-align:center;margin-bottom:32px}
+.logo{height:22px;object-fit:contain;filter:brightness(0) invert(1)}
+.tagline{font-size:12px;color:var(--t3);margin-top:8px;letter-spacing:.5px;font-weight:500}
 
-  .field{margin-bottom:16px}
-  .field label{display:block;font-size:11.5px;color:var(--t2);font-weight:600;margin-bottom:6px;letter-spacing:.3px}
-  .field input,.field select{
-    width:100%;padding:12px 14px;
-    background:var(--bg3);border:1px solid var(--border);
-    border-radius:9px;color:var(--t1);font-size:14px;font-family:inherit;
-    outline:none;transition:border-color .15s
-  }
-  .field input:focus,.field select:focus{border-color:var(--blue)}
-  .field input::placeholder{color:var(--t3)}
-  .field select option{background:var(--bg2)}
+/* ── Card ── */
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:36px 32px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6),0 0 0 .5px rgba(255,255,255,.04);
+  backdrop-filter:blur(2px);
+}
+h2{
+  font-size:24px;font-weight:800;text-align:center;
+  margin-bottom:6px;color:var(--t1);letter-spacing:-.3px;line-height:1.2;
+}
+.sub{font-size:14px;color:var(--t2);text-align:center;line-height:1.6;margin-bottom:28px;font-weight:400}
 
-  .btn{
-    width:100%;padding:14px;border-radius:10px;border:none;
-    background:var(--blue);color:#fff;font-size:15px;font-weight:600;
-    cursor:pointer;transition:all .15s;margin-top:8px
-  }
-  .btn:hover{background:#1a82f0;transform:translateY(-1px);box-shadow:0 6px 20px rgba(30,144,255,.3)}
-  .btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+/* ── Campos ── */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:var(--t3);font-weight:700;margin-bottom:6px;letter-spacing:.6px;text-transform:uppercase}
+.field input,.field select{
+  width:100%;padding:12px 14px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border);
+  border-radius:9px;color:var(--t1);
+  font-size:14px;font-family:inherit;font-weight:500;
+  outline:none;transition:border-color .15s,background .15s;
+}
+.field input:focus,.field select:focus{border-color:var(--blue);background:rgba(30,144,255,.05)}
+.field input::placeholder{color:var(--t3);font-weight:400}
+.field select option{background:#111}
 
-  .divider{display:flex;align-items:center;gap:12px;margin:20px 0}
-  .divider span{font-size:12px;color:var(--t3)}
-  .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+/* ── Botão ── */
+.btn{
+  width:100%;padding:14px;border-radius:10px;border:none;
+  background:var(--blue);color:#fff;
+  font-size:15px;font-weight:700;font-family:inherit;
+  letter-spacing:.2px;cursor:pointer;
+  transition:all .15s;margin-top:4px;
+  box-shadow:0 4px 18px rgba(30,144,255,.35);
+}
+.btn:hover{background:#2095ff;transform:translateY(-1px);box-shadow:0 8px 24px rgba(30,144,255,.45)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
 
-  .link-full{
-    display:block;text-align:center;padding:12px;border-radius:10px;
-    border:1px solid var(--border);color:var(--t2);font-size:13.5px;
-    text-decoration:none;transition:all .15s
-  }
-  .link-full:hover{border-color:var(--blue);color:var(--blue)}
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0}
+.divider span{font-size:11px;color:var(--t3);font-weight:600;letter-spacing:.4px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
 
-  .err{color:#E5544D;font-size:12.5px;margin-top:6px;padding:8px 12px;background:rgba(229,84,77,.08);border-radius:6px;border:1px solid rgba(229,84,77,.2)}
+.link-full{
+  display:block;text-align:center;padding:12px;border-radius:10px;
+  border:1px solid var(--border);color:var(--t2);
+  font-size:13px;font-family:inherit;font-weight:600;
+  text-decoration:none;transition:all .15s;
+}
+.link-full:hover{border-color:var(--blue-border);color:var(--blue)}
 
-  .success{text-align:center;padding:20px 0;animation:fi .4s ease}
-  .ok-icon{font-size:48px;margin-bottom:16px}
-  .success h3{font-size:20px;margin-bottom:8px}
-  .success p{font-size:13.5px;color:var(--t2);line-height:1.6}
+.err{
+  color:#ff6b6b;font-size:12px;margin-bottom:12px;
+  padding:8px 12px;background:rgba(229,84,77,.08);
+  border-radius:6px;border:1px solid rgba(229,84,77,.2);font-weight:500;
+}
 
-  footer{margin-top:24px;font-size:11.5px;color:var(--t3);text-align:center}
+/* ── Sucesso ── */
+.success{text-align:center;padding:20px 0;animation:fade-in .4s ease}
+.ok-circle{
+  width:64px;height:64px;border-radius:50%;
+  background:rgba(30,144,255,.12);border:1.5px solid var(--blue);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 20px;font-size:26px;
+}
+.success h3{font-size:20px;font-weight:800;margin-bottom:8px}
+.success p{font-size:13.5px;color:var(--t2);line-height:1.65;font-weight:400}
 
-  @keyframes fi{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+footer{position:relative;z-index:1;margin-top:24px;font-size:11.5px;color:var(--t3);text-align:center;font-weight:500;letter-spacing:.3px}
+
+@keyframes fade-in{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+
+@media(max-width:480px){.card{padding:28px 22px}}
 </style>
 </head>
 <body>
+
+<div class="scene">
+  <div class="grid-bg"></div>
+  <div class="blob blob-purple"></div>
+  <div class="blob blob-blue"></div>
+</div>
+
 <div class="wrap">
   <div class="logo-wrap">
     <img src="/brava-logo-white.png" alt="Brava Company" class="logo"/>
-    <div class="tagline">Tecnologia · IA · Crescimento</div>
+    <div class="tagline">TECNOLOGIA · IA · CRESCIMENTO</div>
   </div>
 
   <div class="card">
@@ -88,7 +151,7 @@
         <input id="nome" type="text" placeholder="Como prefere ser chamado?"/>
       </div>
       <div class="field">
-        <label>E-mail <span style="color:#E5544D">*</span></label>
+        <label>E-mail *</label>
         <input id="email" type="email" placeholder="seu@email.com.br"/>
       </div>
       <div class="field">
@@ -110,27 +173,28 @@
       </div>
 
       <div id="err" class="err" style="display:none"></div>
-      <button class="btn" id="btn-enviar" onclick="enviar()">Quero ser contactado</button>
+      <button class="btn" id="btn-enviar" onclick="enviar()">Quero ser contatado →</button>
 
-      <div class="divider"><span>ou</span></div>
+      <div class="divider"><span>OU</span></div>
       <a class="link-full" href="/onboarding/">Preencher cadastro completo →</a>
     </div>
 
     <div id="success-section" style="display:none" class="success">
-      <div class="ok-icon">✉️</div>
+      <div class="ok-circle">✓</div>
       <h3>Recebemos seu contato!</h3>
-      <p>Em breve nossa equipe vai entrar em contato pelo e-mail ou WhatsApp que você informou.<br/><br/>Enquanto isso, conheça mais sobre a Brava:</p>
-      <a href="https://brava.company" target="_blank" style="display:inline-block;margin-top:16px;color:var(--blue);font-size:13.5px">brava.company →</a>
+      <p>Em breve nossa equipe vai entrar em contato pelo e-mail ou WhatsApp que você informou.</p>
+      <a href="https://brava.company" target="_blank" style="display:inline-block;margin-top:20px;color:var(--blue);font-size:13px;font-weight:600;text-decoration:none">Conheça a Brava Company →</a>
     </div>
   </div>
-
-  <footer>© 2026 Brava Company · Sorocaba, SP</footer>
 </div>
+
+<footer>© 2026 Brava Company · brava.company</footer>
 
 <script>
 const SUPA_URL='https://buvduumggjpybhzbdqzm.supabase.co';
 const SUPA_ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1dmR1dW1nZ2pweWJoemJkcXptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzcxODksImV4cCI6MjA5NDA1MzE4OX0.ngKGo55zIxVh-cmxkX0d1KxF16DbD0_rclmVtzybA_I';
 const supa=supabase.createClient(SUPA_URL,SUPA_ANON);
+const urlOrig=new URLSearchParams(location.search).get('origem')||'formulario';
 
 function maskPhone(el){
   let v=el.value.replace(/\D/g,'').slice(0,11);
@@ -140,24 +204,19 @@ function maskPhone(el){
   el.value=v;
 }
 
-// Pega origem da URL (?origem=lp, ?origem=whatsapp, etc.)
-const urlOrig = new URLSearchParams(location.search).get('origem') || 'formulario';
-
 async function enviar(){
   const email=(document.getElementById('email').value||'').trim();
   const errEl=document.getElementById('err');
-  if(!email||!email.includes('@')){
-    errEl.textContent='Informe um e-mail válido.';errEl.style.display='';return;
-  }
+  if(!email||!email.includes('@')){errEl.textContent='Informe um e-mail válido.';errEl.style.display='';return}
   errEl.style.display='none';
   const btn=document.getElementById('btn-enviar');
   btn.disabled=true;btn.textContent='Enviando...';
   try{
-    const {error}=await supa.from('leads_emails').insert({
+    const{error}=await supa.from('leads_emails').insert({
       nome:(document.getElementById('nome').value||'').trim()||null,
       email,
       telefone:(document.getElementById('telefone').value||'').trim()||null,
-      interesse:(document.getElementById('interesse').value||'').trim()||null,
+      interesse:(document.getElementById('interesse').value||'')||null,
       origem:urlOrig,
     });
     if(error)throw error;
@@ -165,7 +224,7 @@ async function enviar(){
     document.getElementById('success-section').style.display='';
   }catch(e){
     errEl.textContent='Erro: '+(e.message||'tente novamente.');errEl.style.display='';
-    btn.disabled=false;btn.textContent='Quero ser contactado';
+    btn.disabled=false;btn.textContent='Quero ser contatado →';
   }
 }
 </script>
