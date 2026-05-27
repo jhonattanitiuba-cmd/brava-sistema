@@ -32,11 +32,10 @@
   .grid-bg {
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(rgba(255,255,255,.034) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.034) 1px, transparent 1px);
+      linear-gradient(rgba(255,255,255,.028) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.028) 1px, transparent 1px);
     background-size: 56px 56px;
-    mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, #000 50%, transparent 80%);
-    -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 0%, #000 50%, transparent 80%);
+    /* sem mask → grid cobre a página inteira uniformemente */
   }
   .blob { position: absolute; border-radius: 50%; filter: blur(120px); pointer-events: none; }
   .blob-purple { background: #7B3FE4; opacity: .5; width: 500px; height: 500px; top: -120px; left: -100px; animation: drift-purple 5s ease-in-out infinite; }
@@ -46,14 +45,19 @@
 
   /* Header */
   .header {
-    padding: 18px 24px;
-    border-bottom: 1px solid var(--border);
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
     display: flex; align-items: center; justify-content: space-between;
+    background: #09090B;  /* preto sólido Brava */
   }
   .logo { height: 20px; object-fit: contain; }
   .header-badge {
-    font-size: 12px; color: var(--t3); padding: 4px 10px;
-    border: 1px solid var(--border); border-radius: 999px;
+    font-size: 12px; font-weight: 600; color: #fff;
+    padding: 6px 14px;
+    background: var(--blue);
+    border: none; border-radius: 999px;
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: .2px;
   }
 
   /* Layout */
@@ -155,7 +159,7 @@
   /* Buttons */
   /* Overrides Montserrat + visual upgrades */
   h1, h2, h3, .card-title, .intro h1, .intro p, label { font-family: 'Montserrat', sans-serif !important; }
-  .intro h1 { font-weight: 800 !important; color: #fff !important; font-size: 28px !important; letter-spacing: -.3px !important; }
+  .intro h1 { font-weight: 700 !important; color: #FFFFFF !important; font-size: 28px !important; letter-spacing: -.3px !important; }
   .intro p { color: var(--t2) !important; font-weight: 400 !important; }
   .card { background: #0D0D10 !important; border-color: rgba(255,255,255,.08) !important; box-shadow: 0 24px 60px rgba(0,0,0,.65), 0 0 0 .5px rgba(255,255,255,.04) !important; }
   .card-title { color: var(--t3) !important; font-size: 10px !important; letter-spacing: .7px !important; font-weight: 700 !important; }
@@ -218,8 +222,10 @@
 
   /* Footer */
   footer {
-    text-align: center; padding: 20px; font-size: 12px; color: var(--t3);
-    border-top: 1px solid var(--border);
+    text-align: center; padding: 18px 24px; font-size: 11.5px; color: var(--t3);
+    border-top: 1px solid rgba(255,255,255,.06);
+    background: #09090B; /* preto sólido Brava */
+    font-family: 'Montserrat', sans-serif; font-weight: 500; letter-spacing: .3px;
   }
 </style>
 </head>
