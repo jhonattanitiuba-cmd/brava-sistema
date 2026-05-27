@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Brava Company — Cadastro de Cliente</title>
+<link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #09090B;
+    --bg2: #111114;
+    --bg3: #18181C;
+    --border: rgba(255,255,255,.10);
+    --t1: #F5F5F7;
+    --t2: #A1A1AA;
+    --t3: #52525B;
+    --blue: #1E90FF;
+    --green: #1D9E75;
+    --red: #E5544D;
+    --f: -apple-system, BlinkMacSystemFont, 'Space Grotesk', sans-serif;
+  }
+  html { background: var(--bg); color: var(--t1); font-family: var(--f); }
+  body { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* Header */
+  .header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { height: 20px; object-fit: contain; }
+  .header-badge {
+    font-size: 12px; color: var(--t3); padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 999px;
+  }
+
+  /* Layout */
+  .container {
+    flex: 1;
+    max-width: 680px; margin: 0 auto; width: 100%; padding: 40px 20px 80px;
+  }
+
+  /* Intro */
+  .intro { text-align: center; margin-bottom: 40px; }
+  .intro h1 { font-size: 26px; font-weight: 700; margin-bottom: 10px; }
+  .intro p { font-size: 14.5px; color: var(--t2); line-height: 1.6; max-width: 480px; margin: 0 auto; }
+
+  /* Steps indicator */
+  .steps {
+    display: flex; gap: 8px; justify-content: center; margin-bottom: 36px;
+  }
+  .step {
+    display: flex; align-items: center; gap:6px;
+    font-size: 12px; color: var(--t3); font-weight: 500;
+  }
+  .step.active { color: var(--blue); }
+  .step.done { color: var(--green); }
+  .step-num {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--bg3); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 11px;
+  }
+  .step.active .step-num { background: var(--blue); border-color: var(--blue); color:#fff; }
+  .step.done .step-num { background: var(--green); border-color: var(--green); color:#fff; }
+  .step-div { width: 24px; height: 1px; background: var(--border); }
+
+  /* Card */
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 28px 28px; margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 600; color: var(--t3);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before {
+    content: ''; display: block;
+    width: 3px; height: 14px; background: var(--blue); border-radius: 2px;
+  }
+
+  /* Toggle PF/PJ */
+  .toggle-row {
+    display: flex; gap: 8px; margin-bottom: 24px;
+  }
+  .toggle-btn {
+    flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg3); color: var(--t2); font-size: 13.5px; font-weight: 500;
+    cursor: pointer; transition: all .15s; text-align: center;
+  }
+  .toggle-btn.active {
+    background: rgba(30,144,255,.12); border-color: var(--blue); color: var(--blue);
+  }
+
+  /* Fields */
+  .field { margin-bottom: 18px; }
+  .field label {
+    display: block; font-size: 11.5px; color: var(--t2); font-weight: 600;
+    margin-bottom: 6px; letter-spacing: .3px;
+  }
+  .field label span { color: var(--red); margin-left: 2px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 11px 13px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--t1); font-size: 13.5px; font-family: inherit;
+    outline: none; transition: border-color .15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--blue);
+  }
+  .field input::placeholder, .field textarea::placeholder { color: var(--t3); }
+  .field select option { background: var(--bg2); }
+  .field textarea { resize: vertical; min-height: 90px; line-height: 1.55; }
+  .field-hint { font-size: 11px; color: var(--t3); margin-top: 5px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .row3 { display: grid; grid-template-columns: 120px 1fr 120px; gap: 14px; }
+  @media(max-width:560px) {
+    .row2, .row3 { grid-template-columns: 1fr; }
+    .card { padding: 20px 18px; }
+  }
+
+  /* Checkbox consent */
+  .consent {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 14px 16px; background: var(--bg3); border-radius: 8px;
+    border: 1px solid var(--border); margin-bottom: 24px;
+  }
+  .consent input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width:16px; height:16px; cursor:pointer; accent-color: var(--blue); }
+  .consent label { font-size: 12.5px; color: var(--t2); line-height: 1.55; cursor: pointer; }
+  .consent a { color: var(--blue); text-decoration: none; }
+
+  /* Buttons */
+  .btn-primary {
+    width: 100%; padding: 14px; border-radius: 10px; border: none;
+    background: var(--blue); color: #fff; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: all .15s; display: flex; align-items: center;
+    justify-content: center; gap: 8px;
+  }
+  .btn-primary:hover { background: #1a82f0; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(30,144,255,.3); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-back {
+    width: 100%; padding: 12px; border-radius: 10px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--t2); font-size: 14px; cursor: pointer; margin-top: 10px;
+    transition: all .15s;
+  }
+  .btn-back:hover { border-color: var(--t3); color: var(--t1); }
+
+  /* Success */
+  .success {
+    text-align: center; padding: 60px 20px;
+    animation: fade-in .4s ease;
+  }
+  .success-icon {
+    width: 70px; height: 70px; border-radius: 50%;
+    background: rgba(29,158,117,.15); border: 2px solid var(--green);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px; font-size: 32px;
+  }
+  .success h2 { font-size: 22px; margin-bottom: 12px; }
+  .success p { color: var(--t2); font-size: 14px; line-height: 1.65; max-width: 400px; margin: 0 auto; }
+  .success .protocol {
+    margin-top: 20px; padding: 12px 18px; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 12px; color: var(--t3); display: inline-block;
+  }
+  .success .protocol b { color: var(--t2); }
+
+  @keyframes fade-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+  /* Error */
+  .error-msg {
+    color: var(--red); font-size: 12.5px; margin-top: 4px;
+    padding: 8px 12px; background: rgba(229,84,77,.08); border-radius: 6px;
+    border: 1px solid rgba(229,84,77,.25);
+  }
+
+  /* Footer */
+  footer {
+    text-align: center; padding: 20px; font-size: 12px; color: var(--t3);
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <img src="/brava-logo-white.png" alt="Brava Company" class="logo"/>
+  <span class="header-badge">Cadastro de cliente</span>
+</header>
+
+<div class="container">
+  <!-- STEP 1 e 2: Form -->
+  <div id="form-view">
+    <div class="intro">
+      <h1>Bem-vindo à Brava Company</h1>
+      <p>Preencha os dados abaixo para formalizarmos o seu cadastro. Leva menos de 3 minutos.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step active" id="s1"><div class="step-num">1</div><span>Empresa</span></div>
+      <div class="step-div"></div>
+      <div class="step" id="s2"><div class="step-num">2</div><span>Endereço</span></div>
+      <div class="step-div"></div>
+      <div class="step" id="s3"><div class="step-num">3</div><span>Contrato</span></div>
+    </div>
+
+    <!-- PASSO 1 -->
+    <div id="step1">
+      <div class="card">
+        <div class="card-title">Tipo de cadastro</div>
+        <div class="toggle-row">
+          <button class="toggle-btn active" id="btn-pj" onclick="setTipo('PJ')">Pessoa Jurídica</button>
+          <button class="toggle-btn" id="btn-pf" onclick="setTipo('PF')">Pessoa Física</button>
+        </div>
+
+        <div class="field">
+          <label id="lbl-nome">Razão Social <span>*</span></label>
+          <input id="nome" type="text" placeholder="Nome da empresa ou razão social"/>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label id="lbl-doc">CNPJ <span>*</span></label>
+            <input id="cnpj_cpf" type="text" placeholder="00.000.000/0001-00" oninput="maskDoc(this)"/>
+          </div>
+          <div class="field">
+            <label>Segmento / Nicho</label>
+            <select id="nicho">
+              <option value="">Selecione...</option>
+              <option>Tecnologia / SaaS</option>
+              <option>Imobiliário</option>
+              <option>Saúde</option>
+              <option>Educação</option>
+              <option>Alimentação</option>
+              <option>Estacionamento / Mobilidade</option>
+              <option>Aviação / Aeronáutica</option>
+              <option>Construção Civil</option>
+              <option>Varejo</option>
+              <option>Agronegócio</option>
+              <option>Eventos</option>
+              <option>Marketing / Publicidade</option>
+              <option>Jurídico / Consultoria</option>
+              <option>Outro</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- PJ only -->
+      <div class="card" id="card-pj">
+        <div class="card-title">Responsável</div>
+        <div class="row2">
+          <div class="field">
+            <label>Nome do responsável <span>*</span></label>
+            <input id="responsavel" type="text" placeholder="Nome completo"/>
+          </div>
+          <div class="field">
+            <label>Cargo</label>
+            <input id="cargo" type="text" placeholder="CEO, Sócio, Diretor..."/>
+          </div>
+        </div>
+        <div class="field">
+          <label>CPF do responsável</label>
+          <input id="cpf_responsavel" type="text" placeholder="000.000.000-00" oninput="maskCPF(this)"/>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Contato</div>
+        <div class="row2">
+          <div class="field">
+            <label>E-mail <span>*</span></label>
+            <input id="email" type="email" placeholder="email@empresa.com.br"/>
+          </div>
+          <div class="field">
+            <label>WhatsApp <span>*</span></label>
+            <input id="whatsapp" type="tel" placeholder="(11) 99999-9999" oninput="maskPhone(this)"/>
+            <div class="field-hint">Usado para atendimento e envio de documentos</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="err1" class="error-msg" style="display:none;margin-bottom:16px;"></div>
+      <button class="btn-primary" onclick="goStep2()">
+        Continuar → Endereço
+      </button>
+    </div>
+
+    <!-- PASSO 2 -->
+    <div id="step2" style="display:none">
+      <div class="card">
+        <div class="card-title">Endereço</div>
+        <div class="row2">
+          <div class="field">
+            <label>CEP <span>*</span></label>
+            <input id="cep" type="text" placeholder="00000-000" oninput="maskCEP(this)" onblur="buscarCEP()"/>
+          </div>
+          <div class="field">
+            <label>UF</label>
+            <input id="uf" type="text" placeholder="SP" maxlength="2" style="text-transform:uppercase"/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Logradouro</label>
+          <input id="logradouro" type="text" placeholder="Rua, Avenida, Alameda..."/>
+        </div>
+        <div class="row3">
+          <div class="field">
+            <label>Número</label>
+            <input id="numero" type="text" placeholder="123"/>
+          </div>
+          <div class="field">
+            <label>Bairro</label>
+            <input id="bairro" type="text" placeholder="Nome do bairro"/>
+          </div>
+          <div class="field">
+            <label>Complemento</label>
+            <input id="complemento" type="text" placeholder="Sala, Andar..."/>
+          </div>
+        </div>
+        <div class="field">
+          <label>Cidade</label>
+          <input id="cidade" type="text" placeholder="São Paulo"/>
+        </div>
+      </div>
+
+      <div id="err2" class="error-msg" style="display:none;margin-bottom:16px;"></div>
+      <button class="btn-primary" onclick="goStep3()">Continuar → Serviço</button>
+      <button class="btn-back" onclick="goStep1()">← Voltar</button>
+    </div>
+
+    <!-- PASSO 3 -->
+    <div id="step3" style="display:none">
+      <div class="card">
+        <div class="card-title">Serviço de interesse</div>
+        <div class="field">
+          <label>O que você está buscando?</label>
+          <select id="servico_interesse">
+            <option value="">Selecione...</option>
+            <option>Agente de IA + CRM no WhatsApp</option>
+            <option>Micro SaaS personalizado</option>
+            <option>Site institucional</option>
+            <option>Gestão de Tráfego (Google Ads / GMB)</option>
+            <option>Produção audiovisual</option>
+            <option>Consultoria tecnológica</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Conte um pouco sobre seu negócio</label>
+          <textarea id="descricao" placeholder="Descreva seu negócio, o que você precisa resolver ou qual resultado quer alcançar..."></textarea>
+        </div>
+      </div>
+
+      <div class="consent">
+        <input type="checkbox" id="consent-check"/>
+        <label for="consent-check">
+          Concordo com a <a href="https://brava.company/privacidade" target="_blank">Política de Privacidade</a> da Brava Company
+          e autorizo o uso dos dados fornecidos para contato e elaboração de proposta comercial.
+        </label>
+      </div>
+
+      <div id="err3" class="error-msg" style="display:none;margin-bottom:16px;"></div>
+      <button class="btn-primary" id="btn-submit" onclick="submeter()">
+        Enviar cadastro
+      </button>
+      <button class="btn-back" onclick="goStep2()">← Voltar</button>
+    </div>
+  </div>
+
+  <!-- SUCESSO -->
+  <div id="success-view" style="display:none">
+    <div class="success">
+      <div class="success-icon">✓</div>
+      <h2>Cadastro enviado!</h2>
+      <p>Recebemos seus dados e entraremos em contato em breve.<br/>Nossa equipe está ansiosa para conhecer melhor o seu negócio.</p>
+      <div class="protocol">
+        Protocolo: <b id="protocolo-id">—</b>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  © 2026 Brava Company · brava.company · contato@brava.company
+</footer>
+
+<script>
+const SUPA_URL = 'https://buvduumggjpybhzbdqzm.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1dmR1dW1nZ2pweWJoemJkcXptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzcxODksImV4cCI6MjA5NDA1MzE4OX0.ngKGo55zIxVh-cmxkX0d1KxF16DbD0_rclmVtzybA_I';
+const supa = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+let tipoPessoa = 'PJ';
+
+function setTipo(t) {
+  tipoPessoa = t;
+  document.getElementById('btn-pj').className = 'toggle-btn' + (t==='PJ'?' active':'');
+  document.getElementById('btn-pf').className = 'toggle-btn' + (t==='PF'?' active':'');
+  document.getElementById('card-pj').style.display = t==='PJ' ? '' : 'none';
+  document.getElementById('lbl-nome').textContent = t==='PJ' ? 'Razão Social *' : 'Nome completo *';
+  document.getElementById('lbl-doc').textContent = t==='PJ' ? 'CNPJ *' : 'CPF *';
+  document.getElementById('cnpj_cpf').placeholder = t==='PJ' ? '00.000.000/0001-00' : '000.000.000-00';
+}
+
+function val(id) { return (document.getElementById(id)?.value || '').trim(); }
+function err(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.style.display = msg ? '' : 'none';
+}
+
+// ── Máscaras ──────────────────────────────────
+function maskDoc(el) {
+  let v = el.value.replace(/\D/g,'');
+  if (tipoPessoa==='PJ') {
+    v = v.slice(0,14);
+    if (v.length>12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+    else if (v.length>8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d+)/,'$1.$2.$3/$4');
+    else if (v.length>5) v = v.replace(/^(\d{2})(\d{3})(\d+)/,'$1.$2.$3');
+    else if (v.length>2) v = v.replace(/^(\d{2})(\d+)/,'$1.$2');
+  } else {
+    v = v.slice(0,11);
+    if (v.length>9) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');
+    else if (v.length>6) v = v.replace(/^(\d{3})(\d{3})(\d+)/,'$1.$2.$3');
+    else if (v.length>3) v = v.replace(/^(\d{3})(\d+)/,'$1.$2');
+  }
+  el.value = v;
+}
+function maskCPF(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length>9) v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');
+  else if (v.length>6) v = v.replace(/^(\d{3})(\d{3})(\d+)/,'$1.$2.$3');
+  else if (v.length>3) v = v.replace(/^(\d{3})(\d+)/,'$1.$2');
+  el.value = v;
+}
+function maskPhone(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,11);
+  if (v.length>10) v = v.replace(/^(\d{2})(\d{5})(\d{4})/,'($1) $2-$3');
+  else if (v.length>6) v = v.replace(/^(\d{2})(\d{4,5})(\d+)/,'($1) $2-$3');
+  else if (v.length>2) v = v.replace(/^(\d{2})(\d+)/,'($1) $2');
+  el.value = v;
+}
+function maskCEP(el) {
+  let v = el.value.replace(/\D/g,'').slice(0,8);
+  if (v.length>5) v = v.replace(/^(\d{5})(\d+)/,'$1-$2');
+  el.value = v;
+}
+
+async function buscarCEP() {
+  const cep = val('cep').replace(/\D/g,'');
+  if (cep.length !== 8) return;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+    const d = await r.json();
+    if (!d.erro) {
+      document.getElementById('logradouro').value = d.logradouro || '';
+      document.getElementById('bairro').value = d.bairro || '';
+      document.getElementById('cidade').value = d.localidade || '';
+      document.getElementById('uf').value = d.uf || '';
+    }
+  } catch {}
+}
+
+// ── Navegação ─────────────────────────────────
+function goStep1() {
+  document.getElementById('step1').style.display='';
+  document.getElementById('step2').style.display='none';
+  document.getElementById('s1').className='step active';
+  document.getElementById('s2').className='step';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goStep2() {
+  const e = [];
+  if (!val('nome')) e.push('Informe o nome/razão social.');
+  if (!val('email')) e.push('Informe o e-mail.');
+  if (!val('whatsapp')) e.push('Informe o WhatsApp.');
+  if (e.length) { err('err1', e.join(' ')); return; }
+  err('err1','');
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='';
+  document.getElementById('s1').className='step done';
+  document.getElementById('s2').className='step active';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function goStep3() {
+  if (!val('cep') && !val('cidade')) {
+    err('err2','Informe pelo menos a cidade ou o CEP.');
+    return;
+  }
+  err('err2','');
+  document.getElementById('step2').style.display='none';
+  document.getElementById('step3').style.display='';
+  document.getElementById('s2').className='step done';
+  document.getElementById('s3').className='step active';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── Submissão ─────────────────────────────────
+async function submeter() {
+  if (!document.getElementById('consent-check').checked) {
+    err('err3','Você precisa aceitar a Política de Privacidade para continuar.'); return;
+  }
+  err('err3','');
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  const payload = {
+    tipo_pessoa: tipoPessoa,
+    nome: val('nome'),
+    cnpj_cpf: val('cnpj_cpf').replace(/\D/g,'') || null,
+    responsavel: val('responsavel') || null,
+    cpf_responsavel: val('cpf_responsavel').replace(/\D/g,'') || null,
+    cargo: val('cargo') || null,
+    email: val('email'),
+    telefone: val('whatsapp'),
+    whatsapp: val('whatsapp'),
+    nicho: val('nicho') || null,
+    descricao: val('descricao') || null,
+    cep: val('cep').replace(/\D/g,'') || null,
+    logradouro: val('logradouro') || null,
+    numero: val('numero') || null,
+    complemento: val('complemento') || null,
+    bairro: val('bairro') || null,
+    cidade: val('cidade') || null,
+    uf: val('uf').toUpperCase() || null,
+    servico_interesse: val('servico_interesse') || null,
+  };
+
+  try {
+    const { data, error } = await supa
+      .from('onboarding_pendentes')
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error) throw error;
+
+    document.getElementById('form-view').style.display = 'none';
+    document.getElementById('success-view').style.display = '';
+    document.getElementById('protocolo-id').textContent = data.id.slice(0,8).toUpperCase();
+    window.scrollTo({top:0,behavior:'smooth'});
+  } catch(e) {
+    err('err3', 'Erro ao enviar: ' + (e.message || 'tente novamente.'));
+    btn.disabled = false;
+    btn.textContent = 'Enviar cadastro';
+  }
+}
+</script>
+</body>
+</html>
