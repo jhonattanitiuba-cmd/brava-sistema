@@ -17440,23 +17440,31 @@ function ChecklistItemRow({ item, meuId }) {
 }
 
 // ─── Form inline pra adicionar item novo (texto + responsavel + data) ───
-function ChecklistAddItem({ checklistId, usuarios, ordemBase }) {
+function ChecklistAddItem({ checklistId, usuarios, ordemBase, onAdded }) {
   const [texto, setTexto] = React.useState('');
   const [respId, setRespId] = React.useState('');
   const [prazo, setPrazo] = React.useState('');
   const [showExtras, setShowExtras] = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
 
   const adicionar = async () => {
-    if (!texto.trim()) return;
-    await criarItemChecklist(checklistId, texto.trim(), respId || null, prazo || null, ordemBase);
-    setTexto(''); setRespId(''); setPrazo(''); setShowExtras(false);
+    if (!texto.trim() || salvando) return;
+    setSalvando(true);
+    const id = await criarItemChecklist(checklistId, texto.trim(), respId || null, prazo || null, ordemBase);
+    setSalvando(false);
+    if (id) {
+      setTexto(''); setRespId(''); setPrazo(''); setShowExtras(false);
+      // Forca refresh imediato do checklist (nao depende so de realtime/event)
+      if (typeof onAdded === 'function') onAdded();
+    }
   };
 
   return (
     <div style={{display:'flex', gap:6, padding:'6px 0', alignItems:'center', flexWrap:'wrap'}}>
       <input value={texto} onChange={e=>setTexto(e.target.value)}
-        onKeyDown={e=>{ if(e.key==='Enter') adicionar(); }}
+        onKeyDown={e=>{ if(e.key==='Enter') { e.preventDefault(); adicionar(); } }}
         placeholder="+ Adicionar item..."
+        disabled={salvando}
         style={{flex:1, minWidth:200, padding:'7px 10px', background:'var(--bg-3)', border:'1px solid var(--border-soft)', borderRadius:6, color:'var(--t1)', fontSize:12.5, outline:'none'}}/>
       <button onClick={()=>setShowExtras(s=>!s)} title="Responsavel + prazo"
         style={{padding:'6px 8px', borderRadius:6, border:'1px solid var(--border-soft)', background:'transparent', color: showExtras ? 'var(--blue)' : 'var(--t3)', cursor:'pointer', display:'flex'}}>
@@ -17483,7 +17491,7 @@ function ChecklistAddItem({ checklistId, usuarios, ordemBase }) {
 
 // ─── Seção completa de Checklists pra um projeto ───
 function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
-  const { checklists, progresso, loading } = useProjetoChecklists(projetoId);
+  const { checklists, progresso, loading, reload } = useProjetoChecklists(projetoId);
   const meuId = useUsuarioLogadoId();
   const [novoChecklistOpen, setNovoChecklistOpen] = React.useState(false);
   const [novoChecklistTitulo, setNovoChecklistTitulo] = React.useState('');
@@ -17499,8 +17507,9 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
 
   const criarNovo = async () => {
     if (!novoChecklistTitulo.trim()) return;
-    await criarChecklist(projetoId, novoChecklistTitulo.trim(), checklists.length);
+    const id = await criarChecklist(projetoId, novoChecklistTitulo.trim(), checklists.length);
     setNovoChecklistTitulo(''); setNovoChecklistOpen(false);
+    if (id) reload(); // forca refresh imediato
   };
 
   if (!projetoId) return null;
@@ -17543,7 +17552,7 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
             <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
               <span style={{fontSize:13, fontWeight:600, color:'var(--t1)', flex:1}}>{cl.titulo}</span>
               <span style={{fontSize:11, color:'var(--t3)'}}>{feitos}/{total} · {pct}%</span>
-              <button onClick={()=>{ if(confirm(`Remover checklist "${cl.titulo}"?`)) deletarChecklist(cl.id); }}
+              <button onClick={async ()=>{ if(confirm(`Remover checklist "${cl.titulo}"?`)) { await deletarChecklist(cl.id); reload(); } }}
                 style={{padding:3, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', display:'flex', opacity:.4}}
                 onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.4'}>
                 <Icon name="Trash2" size={11}/>
@@ -17553,7 +17562,7 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
               <div style={{height:'100%', width: pct+'%', background: pct===100?'var(--success)':'var(--blue)', borderRadius:999, transition:'width .3s'}}/>
             </div>
             {cl.itens.map(it => <ChecklistItemRow key={it.id} item={it} meuId={meuId}/>)}
-            <ChecklistAddItem checklistId={cl.id} usuarios={usuarios} ordemBase={cl.itens.length}/>
+            <ChecklistAddItem checklistId={cl.id} usuarios={usuarios} ordemBase={cl.itens.length} onAdded={reload}/>
           </div>
         );
       })}
@@ -17586,7 +17595,7 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
           projetoId={projetoId}
           projetoServico={projetoServico}
           dataBase={dataBase}
-          onClose={()=>setAplicarTplOpen(false)}
+          onClose={()=>{ setAplicarTplOpen(false); reload(); }}
         />
       )}
     </div>
@@ -19989,11 +19998,12 @@ function useChecklistTemplateItens(templateId) {
 }
 
 // Checklists de um projeto (com itens nested + responsavel embedded)
-// Retorna: { checklists: [{...cl, itens: [...]}], progresso, loading }
+// Retorna: { checklists: [...], progresso, loading, reload }
+// reload(): forca refresh imediato (usado apos mutations p/ nao depender so de realtime)
 function useProjetoChecklists(projetoId) {
   const [data, setData] = React.useState({ checklists: [], progresso: 0, loading: true });
-  // Re-load manual para forcar via eventos (fallback se realtime atrasar)
   const [refreshTick, setRefreshTick] = React.useState(0);
+  const reload = React.useCallback(() => setRefreshTick(t => t + 1), []);
   React.useEffect(() => {
     if (!projetoId) { setData({ checklists: [], progresso: 0, loading: false }); return; }
     const cli = getSupa(); if (!cli) { setData({ checklists: [], progresso: 0, loading: false }); return; }
@@ -20046,7 +20056,7 @@ function useProjetoChecklists(projetoId) {
       window.removeEventListener('brava:checklist_item_changed', evtHandler);
     };
   }, [projetoId, refreshTick]);
-  return data;
+  return { ...data, reload };
 }
 
 // Mapa global: progresso de todos os projetos (Map<projetoId, {feitos,total,pct}>).
