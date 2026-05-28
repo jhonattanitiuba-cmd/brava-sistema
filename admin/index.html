@@ -980,6 +980,116 @@ function tempoRelativo(ts) {
   return 'há ' + Math.floor(s/86400) + 'd';
 }
 
+/* Watcher: tarefas de checklist atribuidas a mim (notifica via realtime) */
+function useChecklistTaskAssignWatcher(meuId) {
+  React.useEffect(() => {
+    if (!meuId) return;
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) return;
+    const channel = cli.channel('rt:checklist-tasks-' + meuId)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'projeto_checklist_itens',
+        filter: 'responsavel_id=eq.' + meuId,
+      }, (p) => {
+        const it = p.new; if (!it) return;
+        adicionarNotificacao({
+          id: 'chk_new_' + it.id,
+          tipo: 'info',
+          titulo: 'Nova tarefa atribuida a voce',
+          sub: it.texto.slice(0, 80),
+          icon: 'CheckCircle2',
+          cor: 'var(--blue)',
+          ts: new Date(it.created_at || Date.now()).getTime(),
+          link: 'projetos',
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'projeto_checklist_itens',
+      }, (p) => {
+        const novo = p.new, antigo = p.old;
+        if (!novo || !antigo) return;
+        // So notifica se EU sou o novo responsavel E nao era antes
+        if (novo.responsavel_id === meuId && antigo.responsavel_id !== meuId) {
+          adicionarNotificacao({
+            id: 'chk_assigned_' + novo.id,
+            tipo: 'info',
+            titulo: 'Tarefa atribuida a voce',
+            sub: novo.texto.slice(0, 80),
+            icon: 'CheckCircle2',
+            cor: 'var(--blue)',
+            ts: Date.now(),
+            link: 'projetos',
+          });
+        }
+      })
+      .subscribe();
+    return () => cli.removeChannel(channel);
+  }, [meuId]);
+}
+
+/* Watcher: tarefas vencendo/vencidas. Roda 1x no mount + a cada 30 min.
+   Dedup por id pra evitar spam. */
+function useChecklistVencimentosWatcher(meuId) {
+  React.useEffect(() => {
+    if (!meuId) return;
+    let cancelled = false;
+    const checar = async () => {
+      const cli = getSupa(); if (!cli) return;
+      const hoje = new Date().toISOString().slice(0, 10);
+      const amanha = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+      const { data } = await cli.from('projeto_checklist_itens')
+        .select('id, texto, data_prazo')
+        .eq('responsavel_id', meuId)
+        .eq('concluido', false)
+        .lte('data_prazo', amanha)
+        .order('data_prazo');
+      if (cancelled || !data) return;
+      const vencidos = data.filter(i => i.data_prazo < hoje);
+      const hojeItens = data.filter(i => i.data_prazo === hoje);
+      const amanhaItens = data.filter(i => i.data_prazo === amanha);
+      if (vencidos.length > 0) {
+        adicionarNotificacao({
+          id: 'chk_vencidos_' + hoje,
+          tipo: 'erro',
+          titulo: `${vencidos.length} tarefa${vencidos.length===1?'':'s'} atrasada${vencidos.length===1?'':'s'}`,
+          sub: vencidos.slice(0, 2).map(i => i.texto.slice(0,40)).join(' · '),
+          icon: 'AlertCircle',
+          cor: '#E5544D',
+          ts: Date.now(),
+          link: 'projetos',
+        });
+      }
+      if (hojeItens.length > 0) {
+        adicionarNotificacao({
+          id: 'chk_hoje_' + hoje,
+          tipo: 'aviso',
+          titulo: `${hojeItens.length} tarefa${hojeItens.length===1?'':'s'} para hoje`,
+          sub: hojeItens.slice(0, 2).map(i => i.texto.slice(0,40)).join(' · '),
+          icon: 'Clock',
+          cor: '#BA7517',
+          ts: Date.now(),
+          link: 'projetos',
+        });
+      }
+      if (amanhaItens.length > 0) {
+        adicionarNotificacao({
+          id: 'chk_amanha_' + hoje,
+          tipo: 'info',
+          titulo: `${amanhaItens.length} tarefa${amanhaItens.length===1?'':'s'} vencem amanha`,
+          sub: amanhaItens.slice(0, 2).map(i => i.texto.slice(0,40)).join(' · '),
+          icon: 'Bell',
+          cor: 'var(--blue)',
+          ts: Date.now(),
+          link: 'projetos',
+        });
+      }
+    };
+    checar();
+    const intervalId = setInterval(checar, 30 * 60 * 1000); // 30 min
+    return () => { cancelled = true; clearInterval(intervalId); };
+  }, [meuId]);
+}
+
 /* Dropdown de notificacoes: reativo + Marcar como lidas funcional + estado vazio. */
 // Helper: formata JID do WhatsApp pra "+55 11 99999-9999" legivel
 function formatPhoneFromJid(jid) {
@@ -2539,6 +2649,11 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
           <div className="kpi__value" style={{color:chamados > 0 ? 'var(--warning)' : 'var(--success)'}}>{chamados}</div>
           <div className="kpi__delta" style={{color:'var(--t3)'}}><Icon name="Clock" size={12}/>{chamados > 0 ? `${chamados} aguardando resposta` : 'Nenhum em aberto'}</div>
         </div>
+      </div>
+
+      {/* Minhas tarefas pendentes (checklists atribuídas a mim) */}
+      <div style={{marginBottom:18}}>
+        <MinhasTarefasCard setPage={setPage}/>
       </div>
 
       {/* Gráfico MRR + Clientes recentes */}
@@ -10640,6 +10755,7 @@ function Config() {
   const abas = [
     {key:'geral',      label:'Geral',          icon:'Settings'},
     {key:'perfil',     label:'Perfil',         icon:'User'},
+    {key:'checklists', label:'Templates Checklist', icon:'CheckCircle2'},
     {key:'ia',         label:'IA',             icon:'Sparkles'},
     {key:'integracoes',label:'Integrações',    icon:'Plug'},
     {key:'webhooks',   label:'Webhooks',       icon:'Webhook'},
@@ -10913,6 +11029,7 @@ function Config() {
             </div>
           )}
           {aba==='geral' && <ConfigGeralTab/>}
+          {aba==='checklists' && <ConfigTemplatesChecklistTab/>}
           {aba==='ia' && <ConfigIATab/>}
           {aba==='integracoes' && <ConfigIntegracoesTab/>}
           {aba==='webhooks' && (
@@ -17408,6 +17525,273 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
   );
 }
 
+// ─── Card do Dashboard: minhas tarefas pendentes ───
+function MinhasTarefasCard({ setPage }) {
+  const meuId = useUsuarioLogadoId();
+  const itens = useMeusChecklistItens(meuId);
+
+  const hoje = new Date().toISOString().slice(0,10);
+  const vencidos = itens.filter(i => i.data_prazo && i.data_prazo < hoje);
+  const hojeItens = itens.filter(i => i.data_prazo === hoje);
+  const proximos = itens.filter(i => !i.data_prazo || i.data_prazo > hoje);
+
+  const fmtData = (d) => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : null;
+
+  return (
+    <div className="card" style={{padding:18}}>
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
+        <Icon name="CheckCircle2" size={17} style={{color:'var(--blue)'}}/>
+        <h3 style={{margin:0, fontSize:14, fontWeight:600, color:'var(--t1)', flex:1}}>Minhas tarefas</h3>
+        <span style={{fontSize:11, color:'var(--t3)'}}>
+          {itens.length} pendente{itens.length===1?'':'s'}
+          {vencidos.length > 0 && <span style={{color:'#E5544D', fontWeight:600}}> · {vencidos.length} vencida{vencidos.length===1?'':'s'}</span>}
+        </span>
+      </div>
+
+      {itens.length === 0 && (
+        <div style={{padding:'30px 14px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
+          Nenhuma tarefa atribuida a voce. <Icon name="Coffee" size={13} style={{verticalAlign:'middle'}}/>
+        </div>
+      )}
+
+      {[...vencidos, ...hojeItens, ...proximos].slice(0, 8).map(it => {
+        const venc = it.data_prazo && it.data_prazo < hoje;
+        const proj = it.checklist?.projeto;
+        return (
+          <div key={it.id} style={{
+            display:'flex', alignItems:'center', gap:8, padding:'8px 6px', borderRadius:6,
+            background: venc ? 'rgba(229,84,77,.06)' : 'transparent',
+            borderBottom:'1px solid var(--border-soft)',
+          }}>
+            <input type="checkbox" checked={false} onChange={()=>toggleItemChecklist(it.id, true, meuId)}
+              style={{accentColor:'var(--blue)', width:14, height:14, cursor:'pointer'}}/>
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.texto}</div>
+              {proj && (
+                <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1}}>
+                  {proj.servico || proj.cliente} · {it.checklist?.titulo}
+                </div>
+              )}
+            </div>
+            {it.data_prazo && (
+              <span style={{
+                fontSize:10.5, padding:'2px 6px', borderRadius:4, fontWeight:600, flexShrink:0,
+                background: venc ? 'rgba(229,84,77,.18)' : (it.data_prazo === hoje ? 'rgba(186,117,23,.18)' : 'rgba(30,144,255,.10)'),
+                color: venc ? '#E5544D' : (it.data_prazo === hoje ? '#BA7517' : 'var(--blue)'),
+              }}>{venc ? 'atrasada' : (it.data_prazo === hoje ? 'hoje' : fmtData(it.data_prazo))}</span>
+            )}
+          </div>
+        );
+      })}
+
+      {itens.length > 8 && (
+        <button onClick={()=>setPage && setPage('projetos')} style={{
+          marginTop:10, width:'100%', padding:'7px', borderRadius:6,
+          border:'1px solid var(--border-soft)', background:'transparent',
+          color:'var(--t2)', fontSize:11.5, cursor:'pointer',
+        }}>Ver todas ({itens.length})</button>
+      )}
+    </div>
+  );
+}
+
+// ─── Aba Configurações: gerenciar templates de checklist ───
+function ConfigTemplatesChecklistTab() {
+  const { list: templates, loading } = useChecklistTemplates();
+  const [editando, setEditando] = React.useState(null); // {id?, nome, descricao, servico_match, categoria, itens}
+
+  const novoTemplate = () => setEditando({
+    nome: '', descricao: '', servico_match: '', categoria: '',
+    itens: [{ texto: '', dias_apos_inicio: '', responsavel_sugerido_id: '' }],
+  });
+
+  const abrirParaEditar = async (tpl) => {
+    const cli = getSupa(); if (!cli) return;
+    const { data: itens } = await cli.from('checklist_template_itens')
+      .select('*').eq('template_id', tpl.id).order('ordem');
+    setEditando({ ...tpl, itens: (itens || []).map(it => ({
+      texto: it.texto,
+      dias_apos_inicio: it.dias_apos_inicio || '',
+      responsavel_sugerido_id: it.responsavel_sugerido_id || '',
+    }))});
+  };
+
+  if (loading) return <div style={{padding:20, color:'var(--t3)'}}>Carregando...</div>;
+
+  return (
+    <div style={{display:'flex', flexDirection:'column', gap:16}}>
+      <div>
+        <div className="card__title" style={{marginBottom:6}}>Templates de checklist</div>
+        <div style={{fontSize:13, color:'var(--t2)'}}>
+          Catalogo de checklists reutilizaveis por produto/servico. Ao criar um projeto, voce pode aplicar um template e ter todos os passos pre-cadastrados.
+        </div>
+      </div>
+
+      <div style={{display:'flex', justifyContent:'flex-end'}}>
+        <button onClick={novoTemplate} className="btn btn-primary">
+          <Icon name="Plus" size={13}/> Novo template
+        </button>
+      </div>
+
+      {templates.length === 0 && (
+        <div style={{padding:'30px 16px', background:'var(--bg-3)', borderRadius:8, textAlign:'center', color:'var(--t3)', fontSize:13}}>
+          Nenhum template criado ainda.
+        </div>
+      )}
+
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:12}}>
+        {templates.map(t => (
+          <div key={t.id} onClick={()=>abrirParaEditar(t)} style={{
+            padding:14, borderRadius:9, border:'1px solid var(--border)', background:'var(--bg-2)',
+            cursor:'pointer', transition:'all .15s',
+          }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.background='rgba(30,144,255,.04)';}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.background='var(--bg-2)';}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:6}}>
+              <Icon name="CheckCircle2" size={14} style={{color:'var(--blue)'}}/>
+              <span style={{fontSize:13.5, fontWeight:600, color:'var(--t1)'}}>{t.nome}</span>
+            </div>
+            {t.descricao && <div style={{fontSize:11.5, color:'var(--t3)', marginBottom:6, lineHeight:1.4}}>{t.descricao}</div>}
+            {t.servico_match && (
+              <span style={{fontSize:10.5, padding:'2px 7px', borderRadius:4, background:'rgba(30,144,255,.10)', color:'var(--blue)', fontWeight:600}}>
+                p/ {t.servico_match}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {editando && (
+        <ConfigTemplateEditorModal
+          editando={editando}
+          onClose={()=>setEditando(null)}
+          onSaved={()=>setEditando(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Modal de criar/editar template de checklist ───
+function ConfigTemplateEditorModal({ editando, onClose, onSaved }) {
+  const [form, setForm] = React.useState({
+    id: editando.id || null,
+    nome: editando.nome || '',
+    descricao: editando.descricao || '',
+    servico_match: editando.servico_match || '',
+    categoria: editando.categoria || '',
+  });
+  const [itens, setItens] = React.useState(editando.itens || [{ texto: '', dias_apos_inicio: '', responsavel_sugerido_id: '' }]);
+  const [salvando, setSalvando] = React.useState(false);
+  const [usuarios, setUsuarios] = React.useState([]);
+
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    cli.from('usuarios').select('id, nome').order('nome').then(({data})=>setUsuarios(data || []));
+  }, []);
+
+  const setF = (k, v) => setForm(f => ({...f, [k]: v}));
+  const setItem = (idx, k, v) => setItens(arr => arr.map((it, i) => i === idx ? {...it, [k]: v} : it));
+  const addItem = () => setItens(arr => [...arr, { texto: '', dias_apos_inicio: '', responsavel_sugerido_id: '' }]);
+  const removeItem = (idx) => setItens(arr => arr.filter((_, i) => i !== idx));
+
+  const salvar = async () => {
+    if (!form.nome.trim()) { alert('Nome obrigatorio'); return; }
+    setSalvando(true);
+    const itensFiltrados = itens.filter(it => it.texto.trim()).map(it => ({
+      texto: it.texto.trim(),
+      dias_apos_inicio: it.dias_apos_inicio ? Number(it.dias_apos_inicio) : null,
+      responsavel_sugerido_id: it.responsavel_sugerido_id || null,
+    }));
+    const id = await salvarTemplate(form, itensFiltrados);
+    setSalvando(false);
+    if (id) onSaved();
+  };
+
+  const desativar = async () => {
+    if (!form.id) return;
+    if (!confirm(`Desativar template "${form.nome}"? Ele some das opcoes mas nao afeta projetos onde ja foi aplicado.`)) return;
+    await desativarTemplate(form.id);
+    onClose();
+  };
+
+  const inp = { width:'100%', padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7, color:'var(--t1)', fontSize:13, outline:'none' };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.78)', backdropFilter:'blur(4px)',
+      zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{width:'min(720px,95vw)', maxHeight:'92vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:12, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        <div style={{padding:'16px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10}}>
+          <Icon name="CheckCircle2" size={18} style={{color:'var(--blue)'}}/>
+          <h3 style={{margin:0, fontSize:16, fontWeight:600, color:'var(--t1)', flex:1}}>
+            {form.id ? 'Editar template' : 'Novo template de checklist'}
+          </h3>
+          <button onClick={onClose} style={{background:'transparent', border:'none', color:'var(--t3)', fontSize:20, cursor:'pointer'}}>×</button>
+        </div>
+
+        <div style={{flex:1, overflowY:'auto', padding:20}}>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14}}>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome *</label>
+              <input style={inp} value={form.nome} onChange={e=>setF('nome', e.target.value)} placeholder="Ex: Implantacao Agente IA"/>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Serviço (pra sugerir auto)</label>
+              <input style={inp} value={form.servico_match} onChange={e=>setF('servico_match', e.target.value)} placeholder="Ex: Agente de IA"/>
+            </div>
+          </div>
+          <div style={{marginBottom:18}}>
+            <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Descrição (opcional)</label>
+            <textarea style={{...inp, minHeight:50, resize:'vertical', fontFamily:'inherit'}} value={form.descricao} onChange={e=>setF('descricao', e.target.value)} placeholder="Pra que serve esse template"/>
+          </div>
+
+          <div style={{fontSize:11.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.5, fontWeight:600, marginBottom:10, display:'flex', alignItems:'center', gap:8}}>
+            Itens do checklist
+            <span style={{textTransform:'none', letterSpacing:0, fontWeight:400, color:'var(--t3)', fontSize:11}}>· "dias" = quantos dias apos inicio do projeto vence</span>
+          </div>
+
+          {itens.map((it, i) => (
+            <div key={i} style={{display:'grid', gridTemplateColumns:'1fr 80px 1fr 28px', gap:6, marginBottom:6, alignItems:'center'}}>
+              <input style={inp} value={it.texto} onChange={e=>setItem(i, 'texto', e.target.value)} placeholder={`Item ${i+1}`}/>
+              <input style={inp} type="number" min="0" value={it.dias_apos_inicio} onChange={e=>setItem(i, 'dias_apos_inicio', e.target.value)} placeholder="dias"/>
+              <select style={inp} value={it.responsavel_sugerido_id} onChange={e=>setItem(i, 'responsavel_sugerido_id', e.target.value)}>
+                <option value="">Sem responsavel sugerido</option>
+                {usuarios.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+              </select>
+              <button onClick={()=>removeItem(i)} style={{padding:5, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', display:'flex'}}>
+                <Icon name="X" size={12}/>
+              </button>
+            </div>
+          ))}
+          <button onClick={addItem} style={{
+            marginTop:8, padding:'7px 12px', borderRadius:7, border:'1px dashed var(--border)',
+            background:'transparent', color:'var(--t2)', fontSize:12, cursor:'pointer',
+            display:'inline-flex', alignItems:'center', gap:5,
+          }}>
+            <Icon name="Plus" size={11}/> Adicionar item
+          </button>
+        </div>
+
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', gap:10}}>
+          {form.id ? (
+            <button onClick={desativar} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'transparent', color:'#E5544D', fontSize:12.5, fontWeight:600, cursor:'pointer'}}>
+              Desativar template
+            </button>
+          ) : <span/>}
+          <div style={{display:'flex', gap:8}}>
+            <button onClick={onClose} style={{padding:'8px 14px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:12.5, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} disabled={salvando} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:12.5, fontWeight:600, cursor: salvando ? 'wait' : 'pointer'}}>
+              {salvando ? 'Salvando...' : 'Salvar template'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
   const novo = !projeto?.id;
   const [form, setForm] = React.useState({
@@ -22192,6 +22576,9 @@ function App() {
   // ✨ Toca som + notif quando alguem atribui um card do Pipeline pra mim
   const _meuUserIdApp = useUsuarioLogadoId();
   usePipelineAssignWatcher(_meuUserIdApp);
+  // ✨ Watchers de checklist: notifica quando tarefa eh atribuida + checa vencimentos
+  useChecklistTaskAssignWatcher(_meuUserIdApp);
+  useChecklistVencimentosWatcher(_meuUserIdApp);
   // ✨ Notif + som quando o sistema concilia um lançamento sozinho (Sprint A)
   useConciliacaoAutoWatcher();
 
