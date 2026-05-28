@@ -19030,7 +19030,7 @@ function useEtiquetaVinculos(tabela /* 'projeto_etiquetas' | 'cliente_etiquetas'
   return map;
 }
 
-// Aplica/remove etiqueta numa entidade (com log + toast em caso de erro)
+// Aplica/remove etiqueta numa entidade (idempotente: 409 conflict = ja aplicada)
 async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, jaAplicada) {
   const cli = getSupa(); if (!cli) return;
   if (!entidadeId || !etiquetaId) {
@@ -19040,12 +19040,22 @@ async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, ja
   }
   try {
     if (jaAplicada) {
+      // DELETE: idempotente por natureza, se nao existir nao reclama
       const { error } = await cli.from(tabela).delete().eq(fkCampo, entidadeId).eq('etiqueta_id', etiquetaId);
       if (error) throw error;
     } else {
-      // .select() forca retorno, .single() para capturar erro mesmo se conflito de unique
-      const { error } = await cli.from(tabela).insert({ [fkCampo]: entidadeId, etiqueta_id: etiquetaId }).select();
-      if (error) throw error;
+      // Upsert: se ja existir (constraint unique), nao falha — apenas atualiza
+      const { error } = await cli.from(tabela)
+        .upsert({ [fkCampo]: entidadeId, etiqueta_id: etiquetaId }, { onConflict: fkCampo + ',etiqueta_id', ignoreDuplicates: true })
+        .select();
+      if (error) {
+        // 23505 = unique_violation. Trata como sucesso silencioso (etiqueta ja aplicada)
+        if (error.code === '23505' || /duplicate|conflict/i.test(error.message || '')) {
+          console.info('[etiquetas] ja aplicada (idempotente)', { entidadeId, etiquetaId });
+          return;
+        }
+        throw error;
+      }
     }
   } catch (e) {
     console.error('[etiquetas] erro ao ' + (jaAplicada ? 'remover' : 'aplicar') + ' etiqueta:', e, { tabela, fkCampo, entidadeId, etiquetaId });
