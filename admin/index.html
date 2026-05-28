@@ -17098,6 +17098,316 @@ function GerenciarNucleosModal({ onClose }) {
 }
 
 // ─── Modal de criar/editar projeto ───
+// ─── Modal: Aplicar template de checklist num projeto ───
+function AplicarTemplateChecklistModal({ projetoId, projetoServico, dataBase, onClose }) {
+  const { list: templates, loading } = useChecklistTemplates();
+  const [selecionado, setSelecionado] = React.useState(null);
+  const itensPreview = useChecklistTemplateItens(selecionado?.id);
+  const [aplicando, setAplicando] = React.useState(false);
+
+  // Sugere templates cujo servico_match bate (case insensitive, contem)
+  const ordenados = React.useMemo(() => {
+    if (!projetoServico) return templates;
+    const lower = projetoServico.toLowerCase();
+    const matches = [], outros = [];
+    templates.forEach(t => {
+      if (t.servico_match && lower.includes(t.servico_match.toLowerCase())) matches.push(t);
+      else outros.push(t);
+    });
+    return [...matches, ...outros];
+  }, [templates, projetoServico]);
+
+  const aplicar = async () => {
+    if (!selecionado) return;
+    setAplicando(true);
+    const novoId = await aplicarTemplateNoProjeto(selecionado.id, projetoId, dataBase);
+    setAplicando(false);
+    if (novoId) onClose();
+  };
+
+  return (
+    <div onClick={(e)=>{if(e.target===e.currentTarget) onClose();}} style={{
+      position:'fixed', inset:0, background:'rgba(0,0,0,.75)', backdropFilter:'blur(4px)',
+      zIndex:10001, display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+    }}>
+      <div style={{width:'min(600px,95vw)', maxHeight:'80vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:12, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        <div style={{padding:'16px 20px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10}}>
+          <Icon name="CheckCircle2" size={18} style={{color:'var(--blue)'}}/>
+          <h3 style={{margin:0, fontSize:15, fontWeight:600, color:'var(--t1)', flex:1}}>Aplicar template de checklist</h3>
+          <button onClick={onClose} style={{background:'transparent', border:'none', color:'var(--t3)', fontSize:18, cursor:'pointer'}}>×</button>
+        </div>
+        <div style={{flex:1, overflowY:'auto', padding:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+          <div style={{borderRight:'1px solid var(--border-soft)', paddingRight:10}}>
+            <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.5, marginBottom:8, fontWeight:600}}>Templates disponiveis</div>
+            {loading && <div style={{fontSize:12, color:'var(--t3)'}}>Carregando...</div>}
+            {!loading && ordenados.length === 0 && (
+              <div style={{fontSize:12, color:'var(--t3)'}}>Nenhum template criado.<br/>Vai em Configuracoes &gt; Templates Checklist.</div>
+            )}
+            {ordenados.map(t => {
+              const ativo = selecionado?.id === t.id;
+              return (
+                <button key={t.id} onClick={()=>setSelecionado(t)} style={{
+                  display:'block', width:'100%', padding:'9px 11px', marginBottom:5, borderRadius:7, textAlign:'left',
+                  background: ativo ? 'rgba(30,144,255,.12)' : 'transparent',
+                  color: ativo ? 'var(--blue)' : 'var(--t1)',
+                  border: '1px solid ' + (ativo ? 'rgba(30,144,255,.35)' : 'var(--border-soft)'),
+                  cursor:'pointer', fontSize:12.5, fontWeight: ativo ? 600 : 500,
+                }}>
+                  {t.nome}
+                  {t.servico_match && <div style={{fontSize:10, color:'var(--t3)', marginTop:2}}>p/ {t.servico_match}</div>}
+                </button>
+              );
+            })}
+          </div>
+          <div>
+            <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.5, marginBottom:8, fontWeight:600}}>
+              Pre-visualizacao {selecionado && '('+itensPreview.length+' itens)'}
+            </div>
+            {!selecionado && <div style={{fontSize:12, color:'var(--t3)'}}>Selecione um template a esquerda</div>}
+            {selecionado && itensPreview.map((it, i) => (
+              <div key={it.id} style={{display:'flex', gap:8, padding:'5px 0', borderBottom:'1px solid var(--border-soft)', fontSize:12, color:'var(--t2)'}}>
+                <span style={{color:'var(--t3)', minWidth:18}}>{i+1}.</span>
+                <span style={{flex:1}}>{it.texto}</span>
+                {it.dias_apos_inicio != null && <span style={{fontSize:10, color:'var(--t3)', whiteSpace:'nowrap'}}>+{it.dias_apos_inicio}d</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{padding:'12px 20px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8}}>
+          <button onClick={onClose} style={{padding:'7px 14px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:12.5, cursor:'pointer'}}>Cancelar</button>
+          <button onClick={aplicar} disabled={!selecionado || aplicando} style={{padding:'7px 16px', borderRadius:7, border:'none', background: selecionado ? 'var(--blue)' : 'var(--bg-3)', color: selecionado ? '#fff' : 'var(--t3)', fontSize:12.5, fontWeight:600, cursor: selecionado ? 'pointer' : 'not-allowed'}}>
+            {aplicando ? 'Aplicando...' : 'Aplicar template'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Item individual de checklist (linha com checkbox + texto + responsavel + data) ───
+function ChecklistItemRow({ item, meuId }) {
+  const [editText, setEditText] = React.useState(item.texto);
+  const [editing, setEditing] = React.useState(false);
+
+  const vencido = !item.concluido && item.data_prazo && new Date(item.data_prazo) < new Date(new Date().toISOString().slice(0,10));
+  const fotoResp = item.responsavel ? (getUserFoto(item.responsavel.email) || item.responsavel.foto_url) : null;
+  const iniResp = item.responsavel?.nome?.charAt(0)?.toUpperCase();
+
+  const salvarTexto = () => {
+    setEditing(false);
+    if (editText.trim() && editText.trim() !== item.texto) {
+      atualizarItemChecklist(item.id, { texto: editText.trim() });
+    } else {
+      setEditText(item.texto);
+    }
+  };
+
+  return (
+    <div style={{
+      display:'flex', alignItems:'center', gap:8, padding:'7px 6px', borderRadius:6,
+      background: vencido ? 'rgba(229,84,77,.06)' : 'transparent',
+      transition:'background .15s',
+    }}
+      onMouseEnter={e=>{ if(!vencido) e.currentTarget.style.background='var(--bg-3)'; }}
+      onMouseLeave={e=>{ if(!vencido) e.currentTarget.style.background='transparent'; }}>
+      <input
+        type="checkbox"
+        checked={item.concluido}
+        onChange={()=>toggleItemChecklist(item.id, !item.concluido, meuId)}
+        style={{accentColor:'var(--blue)', width:15, height:15, cursor:'pointer', flexShrink:0}}
+      />
+      {editing ? (
+        <input
+          autoFocus value={editText} onChange={e=>setEditText(e.target.value)}
+          onBlur={salvarTexto}
+          onKeyDown={e=>{ if(e.key==='Enter') salvarTexto(); if(e.key==='Escape'){ setEditText(item.texto); setEditing(false); } }}
+          style={{flex:1, padding:'3px 6px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:5, color:'var(--t1)', fontSize:13, outline:'none'}}
+        />
+      ) : (
+        <span onClick={()=>setEditing(true)}
+          style={{flex:1, fontSize:13, color: item.concluido ? 'var(--t3)' : 'var(--t1)', textDecoration: item.concluido ? 'line-through' : 'none', cursor:'text'}}>
+          {item.texto}
+        </span>
+      )}
+      {/* Responsavel mini-avatar */}
+      {item.responsavel && (
+        <div title={item.responsavel.nome} style={{
+          width:22, height:22, borderRadius:'50%', flexShrink:0, overflow:'hidden',
+          background: fotoResp ? `url(${fotoResp}) center/cover` : 'var(--blue)',
+          color:'#fff', fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center',
+        }}>{!fotoResp && iniResp}</div>
+      )}
+      {/* Data prazo */}
+      {item.data_prazo && (
+        <span style={{
+          fontSize:10.5, padding:'2px 6px', borderRadius:4, fontWeight:600,
+          background: vencido ? 'rgba(229,84,77,.18)' : (item.concluido ? 'var(--bg-3)' : 'rgba(30,144,255,.10)'),
+          color: vencido ? '#E5544D' : (item.concluido ? 'var(--t3)' : 'var(--blue)'),
+        }}>{new Date(item.data_prazo+'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}</span>
+      )}
+      <button onClick={()=>deletarItemChecklist(item.id)}
+        style={{opacity:.3, border:'none', background:'transparent', cursor:'pointer', color:'var(--t3)', padding:2, display:'flex'}}
+        onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.3'}>
+        <Icon name="X" size={11}/>
+      </button>
+    </div>
+  );
+}
+
+// ─── Form inline pra adicionar item novo (texto + responsavel + data) ───
+function ChecklistAddItem({ checklistId, usuarios, ordemBase }) {
+  const [texto, setTexto] = React.useState('');
+  const [respId, setRespId] = React.useState('');
+  const [prazo, setPrazo] = React.useState('');
+  const [showExtras, setShowExtras] = React.useState(false);
+
+  const adicionar = async () => {
+    if (!texto.trim()) return;
+    await criarItemChecklist(checklistId, texto.trim(), respId || null, prazo || null, ordemBase);
+    setTexto(''); setRespId(''); setPrazo(''); setShowExtras(false);
+  };
+
+  return (
+    <div style={{display:'flex', gap:6, padding:'6px 0', alignItems:'center', flexWrap:'wrap'}}>
+      <input value={texto} onChange={e=>setTexto(e.target.value)}
+        onKeyDown={e=>{ if(e.key==='Enter') adicionar(); }}
+        placeholder="+ Adicionar item..."
+        style={{flex:1, minWidth:200, padding:'7px 10px', background:'var(--bg-3)', border:'1px solid var(--border-soft)', borderRadius:6, color:'var(--t1)', fontSize:12.5, outline:'none'}}/>
+      <button onClick={()=>setShowExtras(s=>!s)} title="Responsavel + prazo"
+        style={{padding:'6px 8px', borderRadius:6, border:'1px solid var(--border-soft)', background:'transparent', color: showExtras ? 'var(--blue)' : 'var(--t3)', cursor:'pointer', display:'flex'}}>
+        <Icon name="Calendar" size={12}/>
+      </button>
+      {showExtras && (
+        <>
+          <select value={respId} onChange={e=>setRespId(e.target.value)} style={{padding:'6px 8px', background:'var(--bg-3)', border:'1px solid var(--border-soft)', borderRadius:6, color:'var(--t2)', fontSize:11.5, outline:'none', maxWidth:140}}>
+            <option value="">Sem responsavel</option>
+            {(usuarios||[]).map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+          </select>
+          <input type="date" value={prazo} onChange={e=>setPrazo(e.target.value)}
+            style={{padding:'6px 8px', background:'var(--bg-3)', border:'1px solid var(--border-soft)', borderRadius:6, color:'var(--t2)', fontSize:11.5, outline:'none'}}/>
+        </>
+      )}
+      {texto.trim() && (
+        <button onClick={adicionar} style={{padding:'6px 10px', borderRadius:6, border:'none', background:'var(--blue)', color:'#fff', fontSize:11.5, fontWeight:600, cursor:'pointer'}}>
+          Add
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Seção completa de Checklists pra um projeto ───
+function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
+  const { checklists, progresso, loading } = useProjetoChecklists(projetoId);
+  const meuId = useUsuarioLogadoId();
+  const [novoChecklistOpen, setNovoChecklistOpen] = React.useState(false);
+  const [novoChecklistTitulo, setNovoChecklistTitulo] = React.useState('');
+  const [aplicarTplOpen, setAplicarTplOpen] = React.useState(false);
+  const [usuarios, setUsuarios] = React.useState([]);
+
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    cli.from('usuarios').select('id, nome, email, foto_url').order('nome').then(({data})=>{
+      setUsuarios(data || []);
+    });
+  }, []);
+
+  const criarNovo = async () => {
+    if (!novoChecklistTitulo.trim()) return;
+    await criarChecklist(projetoId, novoChecklistTitulo.trim(), checklists.length);
+    setNovoChecklistTitulo(''); setNovoChecklistOpen(false);
+  };
+
+  if (!projetoId) return null;
+
+  return (
+    <div style={{marginTop:18}}>
+      {/* Header com progresso geral */}
+      <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12}}>
+        <Icon name="CheckCircle2" size={15} style={{color:'var(--blue)'}}/>
+        <span style={{fontSize:13, fontWeight:600, color:'var(--t1)'}}>Checklists do projeto</span>
+        {checklists.length > 0 && (
+          <span style={{fontSize:11, color:'var(--t3)', marginLeft:'auto'}}>
+            Progresso geral: <strong style={{color: progresso === 100 ? 'var(--success)' : 'var(--blue)'}}>{progresso}%</strong>
+          </span>
+        )}
+      </div>
+
+      {/* Barra geral */}
+      {checklists.length > 0 && (
+        <div style={{height:5, background:'var(--bg-3)', borderRadius:999, marginBottom:14, overflow:'hidden'}}>
+          <div style={{height:'100%', width: progresso+'%', background: progresso === 100 ? 'var(--success)' : 'var(--blue)', borderRadius:999, transition:'width .3s'}}/>
+        </div>
+      )}
+
+      {loading && <div style={{fontSize:12, color:'var(--t3)', padding:14}}>Carregando...</div>}
+
+      {!loading && checklists.length === 0 && (
+        <div style={{padding:'20px 16px', background:'var(--bg-3)', borderRadius:8, textAlign:'center', color:'var(--t3)', fontSize:12.5, marginBottom:10}}>
+          Nenhum checklist ainda. Crie um do zero ou aplique um template.
+        </div>
+      )}
+
+      {/* Lista de checklists */}
+      {checklists.map(cl => {
+        const total = cl.itens.length;
+        const feitos = cl.itens.filter(i => i.concluido).length;
+        const pct = total > 0 ? Math.round((feitos/total)*100) : 0;
+        return (
+          <div key={cl.id} style={{marginBottom:18, padding:'12px 14px', background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:9}}>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+              <span style={{fontSize:13, fontWeight:600, color:'var(--t1)', flex:1}}>{cl.titulo}</span>
+              <span style={{fontSize:11, color:'var(--t3)'}}>{feitos}/{total} · {pct}%</span>
+              <button onClick={()=>{ if(confirm(`Remover checklist "${cl.titulo}"?`)) deletarChecklist(cl.id); }}
+                style={{padding:3, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', display:'flex', opacity:.4}}
+                onMouseEnter={e=>e.currentTarget.style.opacity='1'} onMouseLeave={e=>e.currentTarget.style.opacity='.4'}>
+                <Icon name="Trash2" size={11}/>
+              </button>
+            </div>
+            <div style={{height:3, background:'var(--bg-3)', borderRadius:999, marginBottom:10, overflow:'hidden'}}>
+              <div style={{height:'100%', width: pct+'%', background: pct===100?'var(--success)':'var(--blue)', borderRadius:999, transition:'width .3s'}}/>
+            </div>
+            {cl.itens.map(it => <ChecklistItemRow key={it.id} item={it} meuId={meuId}/>)}
+            <ChecklistAddItem checklistId={cl.id} usuarios={usuarios} ordemBase={cl.itens.length}/>
+          </div>
+        );
+      })}
+
+      {/* Botoes: novo checklist + aplicar template */}
+      <div style={{display:'flex', gap:8, flexWrap:'wrap'}}>
+        {novoChecklistOpen ? (
+          <div style={{display:'flex', gap:6, flex:1, minWidth:240}}>
+            <input autoFocus value={novoChecklistTitulo} onChange={e=>setNovoChecklistTitulo(e.target.value)}
+              onKeyDown={e=>{ if(e.key==='Enter') criarNovo(); if(e.key==='Escape'){ setNovoChecklistOpen(false); setNovoChecklistTitulo(''); } }}
+              placeholder="Titulo do checklist (ex: Implantacao)"
+              style={{flex:1, padding:'8px 10px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:7, color:'var(--t1)', fontSize:12.5, outline:'none'}}/>
+            <button onClick={criarNovo} style={{padding:'8px 14px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer'}}>Criar</button>
+            <button onClick={()=>{setNovoChecklistOpen(false); setNovoChecklistTitulo('');}} style={{padding:'8px 10px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t3)', fontSize:12, cursor:'pointer'}}>×</button>
+          </div>
+        ) : (
+          <>
+            <button onClick={()=>setNovoChecklistOpen(true)} style={{padding:'7px 12px', borderRadius:7, border:'1px dashed var(--border)', background:'transparent', color:'var(--t2)', fontSize:12, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}>
+              <Icon name="Plus" size={12}/> Novo checklist
+            </button>
+            <button onClick={()=>setAplicarTplOpen(true)} style={{padding:'7px 12px', borderRadius:7, border:'1px solid var(--blue)', background:'rgba(30,144,255,.08)', color:'var(--blue)', fontSize:12, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:5}}>
+              <Icon name="Download" size={12}/> Aplicar template
+            </button>
+          </>
+        )}
+      </div>
+
+      {aplicarTplOpen && (
+        <AplicarTemplateChecklistModal
+          projetoId={projetoId}
+          projetoServico={projetoServico}
+          dataBase={dataBase}
+          onClose={()=>setAplicarTplOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
   const novo = !projeto?.id;
   const [form, setForm] = React.useState({
@@ -17118,6 +17428,9 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
     nome_pagador_esperado: projeto?.nome_pagador_esperado || '',
     data_inicio: projeto?.data_inicio || '',
     data_fim_previsto: projeto?.data_fim_previsto || '',
+    data_fechamento_proposta: projeto?.data_fechamento_proposta || '',
+    data_prazo_entrega: projeto?.data_prazo_entrega || projeto?.data_fim_previsto || '',
+    data_entrega_real: projeto?.data_entrega_real || '',
     escopo: projeto?.escopo || '',
     centro_de_custo: projeto?.centro_de_custo || '',
     dia: projeto?.dia || '',
@@ -17152,7 +17465,10 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
         cliente_grupo: clienteMestre?.nome || null,
         nome_pagador_esperado: form.nome_pagador_esperado || null,
         data_inicio: form.data_inicio || null,
-        data_fim_previsto: form.data_fim_previsto || null,
+        data_fim_previsto: form.data_fim_previsto || form.data_prazo_entrega || null,
+        data_fechamento_proposta: form.data_fechamento_proposta || null,
+        data_prazo_entrega: form.data_prazo_entrega || null,
+        data_entrega_real: form.data_entrega_real || null,
         escopo: form.escopo || null,
         centro_de_custo: form.centro_de_custo || null,
         dia: form.dia || '',
@@ -17369,27 +17685,45 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             <div style={{fontSize:10.5, color:'var(--t3)', marginTop:4}}>Como aparece no extrato bancário. Sistema usa pra reconhecer pagamentos automaticamente.</div>
           </div>
 
-          {/* SEÇÃO 4: Datas e escopo */}
-          <SecaoLabel icon="CalendarCheck">Datas e contexto</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
+          {/* SEÇÃO 4: Datas e marcos */}
+          <SecaoLabel icon="CalendarCheck">Datas e marcos do projeto</SecaoLabel>
+          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
-              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data início</label>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data fechamento (proposta aceita)</label>
+              <input style={inp} type="date" value={form.data_fechamento_proposta || ''} onChange={e=>set('data_fechamento_proposta', e.target.value)}/>
+            </div>
+            <div>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Inicio previsto</label>
               <input style={inp} type="date" value={form.data_inicio || ''} onChange={e=>set('data_inicio', e.target.value)}/>
             </div>
             <div>
-              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data fim prevista</label>
-              <input style={inp} type="date" value={form.data_fim_previsto || ''} onChange={e=>set('data_fim_previsto', e.target.value)}/>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Prazo de entrega (combinado)</label>
+              <input style={inp} type="date" value={form.data_prazo_entrega || ''} onChange={e=>set('data_prazo_entrega', e.target.value)}/>
             </div>
             <div>
-              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Centro de custo</label>
-              <input style={inp} value={form.centro_de_custo} onChange={e=>set('centro_de_custo', e.target.value)} placeholder="Opcional"/>
+              <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data entrega real</label>
+              <input style={inp} type="date" value={form.data_entrega_real || ''} onChange={e=>set('data_entrega_real', e.target.value)}/>
             </div>
+          </div>
+
+          <div style={{marginBottom:12}}>
+            <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Centro de custo</label>
+            <input style={inp} value={form.centro_de_custo} onChange={e=>set('centro_de_custo', e.target.value)} placeholder="Opcional"/>
           </div>
 
           <div>
             <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Escopo (opcional)</label>
             <textarea style={{...inp, resize:'vertical', minHeight:70, fontFamily:'inherit'}} value={form.escopo} onChange={e=>set('escopo', e.target.value)} placeholder="O que está incluso, observações..."/>
           </div>
+
+          {/* SEÇÃO 5: Checklists (só pra projeto já existente) */}
+          {!novo && projeto?.id && (
+            <ProjetoChecklistsSection
+              projetoId={projeto.id}
+              projetoServico={form.servico}
+              dataBase={form.data_inicio || form.data_fechamento_proposta || new Date().toISOString().slice(0,10)}
+            />
+          )}
 
           {erro && (
             <div style={{marginTop:14, padding:'10px 14px', background:'rgba(229,84,77,.10)', border:'1px solid rgba(229,84,77,.30)', borderRadius:7, fontSize:12.5, color:'#ff8585'}}>
