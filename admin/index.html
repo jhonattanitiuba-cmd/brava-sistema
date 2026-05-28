@@ -1027,6 +1027,71 @@ function useChecklistTaskAssignWatcher(meuId) {
   }, [meuId]);
 }
 
+/* Watcher: notifica quando ALGUEM completa item de checklist em projeto que tem item meu.
+   Tambem celebra quando um checklist atinge 100%. */
+function useChecklistCompletionWatcher(meuId) {
+  React.useEffect(() => {
+    if (!meuId) return;
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) return;
+    // Cache: checklists que tenho interesse (tenho pelo menos 1 item neles)
+    let meusChecklistIds = new Set();
+    const refreshMeusChecklists = async () => {
+      const { data } = await cli.from('projeto_checklist_itens')
+        .select('checklist_id').eq('responsavel_id', meuId);
+      meusChecklistIds = new Set((data || []).map(r => r.checklist_id));
+    };
+    refreshMeusChecklists();
+    const channel = cli.channel('rt:chk-completion-' + meuId)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'projeto_checklist_itens',
+      }, async (p) => {
+        const novo = p.new, antigo = p.old;
+        if (!novo || !antigo) return;
+        // Item acabou de ser concluido
+        if (novo.concluido && !antigo.concluido) {
+          // Se eu mesmo concluí, nao notifica
+          if (novo.concluido_por === meuId) return;
+          // Notifica apenas se eh checklist onde eu tenho algum item
+          if (!meusChecklistIds.has(novo.checklist_id)) {
+            await refreshMeusChecklists();
+            if (!meusChecklistIds.has(novo.checklist_id)) return;
+          }
+          adicionarNotificacao({
+            id: 'chk_done_' + novo.id,
+            tipo: 'sucesso',
+            titulo: 'Tarefa concluida pela equipe',
+            sub: novo.texto.slice(0, 80),
+            icon: 'CheckCircle2',
+            cor: 'var(--success)',
+            ts: Date.now(),
+            link: 'projetos',
+          });
+          // Verifica se o checklist inteiro virou 100%
+          const { data: outros } = await cli.from('projeto_checklist_itens')
+            .select('concluido').eq('checklist_id', novo.checklist_id);
+          if (outros && outros.length > 0 && outros.every(o => o.concluido)) {
+            const { data: cl } = await cli.from('projeto_checklists')
+              .select('titulo, projeto:projetos(servico, cliente)')
+              .eq('id', novo.checklist_id).single();
+            adicionarNotificacao({
+              id: 'chk_100_' + novo.checklist_id,
+              tipo: 'sucesso',
+              titulo: 'Checklist 100% completo!',
+              sub: (cl?.titulo || 'Checklist') + ' - ' + (cl?.projeto?.servico || cl?.projeto?.cliente || 'projeto'),
+              icon: 'Award',
+              cor: 'var(--success)',
+              ts: Date.now(),
+              link: 'projetos',
+            });
+          }
+        }
+      })
+      .subscribe();
+    return () => cli.removeChannel(channel);
+  }, [meuId]);
+}
+
 /* Watcher: tarefas vencendo/vencidas. Roda 1x no mount + a cada 30 min.
    Dedup por id pra evitar spam. */
 function useChecklistVencimentosWatcher(meuId) {
@@ -16437,7 +16502,7 @@ function ProjetosCRM() {
               <div key={p.id} onClick={()=>setEditando(p)} style={{
                 padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)',
                 borderLeft:`3px solid ${cfg.cor}`, borderRadius:8, cursor:'pointer', transition:'background .15s',
-                display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 40px', gap:12, alignItems:'center',
+                display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 100px 40px', gap:12, alignItems:'center',
               }}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
                 onMouseLeave={e=>e.currentTarget.style.background='var(--bg-2)'}>
@@ -16483,6 +16548,8 @@ function ProjetosCRM() {
                 <div style={{fontSize:11, color:'var(--t3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
                   {p.nicho || '—'}
                 </div>
+                {/* Prazo de entrega (colorido: verde >7d, amarelo 2-7d, vermelho atrasado/hoje) */}
+                <ProjetoPrazoCell projeto={p}/>
                 <div style={{color:'var(--t3)', textAlign:'right'}}><Icon name="ChevronRight" size={14}/></div>
               </div>
             );
@@ -16519,7 +16586,7 @@ function ProjetosCRM() {
                   <div key={p.id} onClick={()=>setEditando(p)} style={{
                     padding:'10px 14px', background:'var(--bg-2)', border:'1px solid #BA751744',
                     borderLeft:'3px solid #BA7517', borderRadius:8, cursor:'pointer',
-                    display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 40px', gap:12, alignItems:'center',
+                    display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 100px 40px', gap:12, alignItems:'center',
                   }}
                     onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
                     onMouseLeave={e=>e.currentTarget.style.background='var(--bg-2)'}>
@@ -16534,6 +16601,7 @@ function ProjetosCRM() {
                     <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Mensal</div><div style={{color:'var(--t3)', fontFamily:'var(--f-m)'}}>R$ {Number(p.mensal||0).toLocaleString('pt-BR')}</div></div>
                     <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Impl</div><div style={{color:'var(--t3)', fontFamily:'var(--f-m)'}}>R$ {Number(p.implementacao||0).toLocaleString('pt-BR')}</div></div>
                     <div style={{textAlign:'right', fontSize:12}}><div style={{color:'var(--t3)', fontSize:9.5, textTransform:'uppercase'}}>Nicho</div><div style={{color:'var(--t3)', fontSize:11}}>{p.nicho || '—'}</div></div>
+                    <ProjetoPrazoCell projeto={p}/>
                     <div style={{color:'var(--t3)', textAlign:'right'}}><Icon name="ChevronRight" size={14}/></div>
                   </div>
                 );
@@ -19994,6 +20062,42 @@ function useProjetoProgressoMap() {
   return map;
 }
 
+// Celula de prazo de entrega (verde >7d, amarelo 2-7d, vermelho atrasado/<2d)
+function ProjetoPrazoCell({ projeto }) {
+  const prazo = projeto?.data_prazo_entrega || projeto?.data_fim_previsto;
+  const entregue = projeto?.data_entrega_real;
+  if (entregue) {
+    return (
+      <div title={`Entregue em ${new Date(entregue+'T00:00:00').toLocaleDateString('pt-BR')}`} style={{textAlign:'center'}}>
+        <div style={{fontSize:9.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4}}>Entregue</div>
+        <span style={{fontSize:11, fontWeight:600, color:'var(--success)', display:'inline-flex', alignItems:'center', gap:3}}>
+          <Icon name="CheckCircle2" size={10}/>{new Date(entregue+'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'})}
+        </span>
+      </div>
+    );
+  }
+  if (!prazo) {
+    return <div style={{textAlign:'center', fontSize:11, color:'var(--t3)'}}>-</div>;
+  }
+  const hojeMs = new Date(new Date().toISOString().slice(0,10)+'T00:00:00').getTime();
+  const prazoMs = new Date(prazo+'T00:00:00').getTime();
+  const diffDias = Math.round((prazoMs - hojeMs) / 86400000);
+  let cor, bg, label;
+  if (diffDias < 0) { cor = '#E5544D'; bg = 'rgba(229,84,77,.12)'; label = `Atrasado ${Math.abs(diffDias)}d`; }
+  else if (diffDias === 0) { cor = '#E5544D'; bg = 'rgba(229,84,77,.12)'; label = 'Hoje'; }
+  else if (diffDias <= 2) { cor = '#E5544D'; bg = 'rgba(229,84,77,.12)'; label = `Em ${diffDias}d`; }
+  else if (diffDias <= 7) { cor = '#BA7517'; bg = 'rgba(186,117,23,.15)'; label = `Em ${diffDias}d`; }
+  else { cor = 'var(--success)'; bg = 'rgba(29,158,117,.10)'; label = `Em ${diffDias}d`; }
+  return (
+    <div style={{textAlign:'center'}} title={`Prazo: ${new Date(prazo+'T00:00:00').toLocaleDateString('pt-BR')}`}>
+      <div style={{fontSize:9.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4}}>Prazo</div>
+      <span style={{fontSize:11, fontWeight:600, color: cor, background: bg, padding:'2px 7px', borderRadius:5, display:'inline-block'}}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
 // Mini-barra de progresso pra card de Pipeline (Trello-like)
 function ChecklistProgressMini({ progresso }) {
   if (!progresso || progresso.total === 0) return null;
@@ -20682,6 +20786,8 @@ function PipelineProjetos() {
   const etiquetasCliente = useEtiquetaVinculos('cliente_etiquetas', 'cliente_id');
   // Mapa global de progresso de checklist por projeto (carrega 1x + realtime)
   const progressoMap = useProjetoProgressoMap();
+  // Atalho rapido: aplicar template direto no card do Pipeline (projeto sem checklist)
+  const [aplicarTplCardProjeto, setAplicarTplCardProjeto] = React.useState(null);
   const [drag, setDrag] = React.useState(null);
   const [colHover, setColHover] = React.useState(null);
   const [clienteDetalhe, setClienteDetalhe] = React.useState(null);
@@ -21271,6 +21377,16 @@ function PipelineProjetos() {
                       <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:3}}>
                         <Icon name={nucIcone} size={12} style={{color:nucCor, flexShrink:0}}/>
                         <span style={{fontSize:13, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{p.cliente}</span>
+                        {/* Atalho: aplicar template de checklist direto no card (so se nao tem checklist ainda) */}
+                        {!progressoMap.get(p.id) && (
+                          <button onClick={(ev)=>{ ev.stopPropagation(); setAplicarTplCardProjeto(p); }}
+                            title="Aplicar template de checklist"
+                            style={{padding:2, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', borderRadius:4}}
+                            onMouseEnter={e=>e.currentTarget.style.color='var(--blue)'}
+                            onMouseLeave={e=>e.currentTarget.style.color='var(--t3)'}>
+                            <Icon name="CheckCircle2" size={11}/>
+                          </button>
+                        )}
                         <button onClick={(ev)=>{ ev.stopPropagation(); setPopoverEtiqueta(popoverEtiqueta?.id===p.id?null:{id:p.id, tipo:'projeto'}); }}
                           title="Aplicar etiqueta"
                           style={{padding:2, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', borderRadius:4, position:'relative'}}>
@@ -21343,6 +21459,14 @@ function PipelineProjetos() {
       {clienteDetalhe && !clienteDetalhe._novo && <Cliente360Modal cliente={clienteDetalhe} onClose={()=>setClienteDetalhe(null)}/>}
       {editandoProjetoModal && <ProjetoCadastroModal projeto={editandoProjetoModal} clientes={clientes} statusConfig={statusConfig} onClose={()=>setEditandoProjetoModal(null)}/>}
       {trelloCard && <TrelloCardModal {...trelloCard} onClose={()=>setTrelloCard(null)}/>}
+      {aplicarTplCardProjeto && (
+        <AplicarTemplateChecklistModal
+          projetoId={aplicarTplCardProjeto.id}
+          projetoServico={aplicarTplCardProjeto.servico}
+          dataBase={aplicarTplCardProjeto.data_inicio || aplicarTplCardProjeto.data_fechamento_proposta || new Date().toISOString().slice(0,10)}
+          onClose={()=>setAplicarTplCardProjeto(null)}
+        />
+      )}
     </div>
   );
 }
@@ -22654,9 +22778,10 @@ function App() {
   // ✨ Toca som + notif quando alguem atribui um card do Pipeline pra mim
   const _meuUserIdApp = useUsuarioLogadoId();
   usePipelineAssignWatcher(_meuUserIdApp);
-  // ✨ Watchers de checklist: notifica quando tarefa eh atribuida + checa vencimentos
+  // ✨ Watchers de checklist: notifica quando tarefa eh atribuida + checa vencimentos + celebra conclusoes
   useChecklistTaskAssignWatcher(_meuUserIdApp);
   useChecklistVencimentosWatcher(_meuUserIdApp);
+  useChecklistCompletionWatcher(_meuUserIdApp);
   // ✨ Notif + som quando o sistema concilia um lançamento sozinho (Sprint A)
   useConciliacaoAutoWatcher();
 
