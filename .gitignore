@@ -34,3 +34,8 @@ npm-debug.log*
 
 # Backups dos PNGs originais (10MB cada, ja existe historico)
 clientes/_logos/*-original.png
+
+# Babel CDN downloads (apenas debug local)
+babel-*.min.js
+node_modules/
+package-lock.json
