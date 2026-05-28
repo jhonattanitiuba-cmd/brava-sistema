@@ -19121,22 +19121,26 @@ function OnboardingAdmin() {
     if (!confirm(`Aprovar cadastro de "${item.nome}" e criar cliente?`)) return;
     setAprovando(item.id);
     const cli = getSupa();
-    // Cria o cliente
+    // Mapeamento dos campos do onboarding (sem prefixo) para o schema clientes (com endereco_*/contato_*)
     const { data: cliente, error } = await cli.from('clientes').insert({
       nome: item.nome,
       tipo_pessoa: item.tipo_pessoa || 'PJ',
       cnpj_cpf: item.cnpj_cpf || null,
+      contato_nome: item.responsavel || null,
+      contato_cargo: item.cargo || null,
       contato_email: item.email || null,
-      contato_telefone: item.telefone || null,
+      contato_telefone: item.whatsapp || item.telefone || null,
       nicho: item.nicho || null,
+      origem: 'onboarding_form',
       status: 'lead',
-      cep: item.cep || null,
-      logradouro: item.logradouro || null,
-      numero: item.numero || null,
-      complemento: item.complemento || null,
-      bairro: item.bairro || null,
-      cidade: item.cidade || null,
-      uf: item.uf || null,
+      endereco_cep: item.cep || null,
+      endereco_logradouro: item.logradouro || null,
+      endereco_numero: item.numero || null,
+      endereco_complemento: item.complemento || null,
+      endereco_bairro: item.bairro || null,
+      endereco_cidade: item.cidade || null,
+      endereco_estado: item.uf || null,
+      nota_interna: item.descricao || null,
     }).select('id').single();
     if (error) { showToast?.('Erro: '+error.message, 'error'); setAprovando(null); return; }
     // Atualiza status do onboarding
