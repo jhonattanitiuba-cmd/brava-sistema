@@ -19992,72 +19992,102 @@ function useChecklistTemplateItens(templateId) {
 // Retorna: { checklists: [{...cl, itens: [...]}], progresso, loading }
 function useProjetoChecklists(projetoId) {
   const [data, setData] = React.useState({ checklists: [], progresso: 0, loading: true });
+  // Re-load manual para forcar via eventos (fallback se realtime atrasar)
+  const [refreshTick, setRefreshTick] = React.useState(0);
   React.useEffect(() => {
     if (!projetoId) { setData({ checklists: [], progresso: 0, loading: false }); return; }
-    const cli = getSupa(); if (!cli) return;
+    const cli = getSupa(); if (!cli) { setData({ checklists: [], progresso: 0, loading: false }); return; }
     let alive = true;
     const load = async () => {
-      const { data: cls } = await cli.from('projeto_checklists')
-        .select('*').eq('projeto_id', projetoId).order('ordem').order('created_at');
-      if (!alive) return;
-      if (!cls || cls.length === 0) {
-        setData({ checklists: [], progresso: 0, loading: false });
-        return;
+      try {
+        const { data: cls, error: e1 } = await cli.from('projeto_checklists')
+          .select('*').eq('projeto_id', projetoId).order('ordem').order('created_at');
+        if (e1) { console.error('[checklists] load cls:', e1); return; }
+        if (!alive) return;
+        if (!cls || cls.length === 0) {
+          setData({ checklists: [], progresso: 0, loading: false });
+          return;
+        }
+        const ids = cls.map(c => c.id);
+        const { data: itens, error: e2 } = await cli.from('projeto_checklist_itens')
+          .select('*, responsavel:usuarios(id, nome, email, foto_url)')
+          .in('checklist_id', ids).order('ordem').order('created_at');
+        if (e2) { console.error('[checklists] load itens:', e2); }
+        const itensPorCl = {};
+        (itens || []).forEach(i => {
+          if (!itensPorCl[i.checklist_id]) itensPorCl[i.checklist_id] = [];
+          itensPorCl[i.checklist_id].push(i);
+        });
+        const enriched = cls.map(cl => ({ ...cl, itens: itensPorCl[cl.id] || [] }));
+        const totalItens = (itens || []).length;
+        const feitos = (itens || []).filter(i => i.concluido).length;
+        const progresso = totalItens > 0 ? Math.round((feitos / totalItens) * 100) : 0;
+        if (alive) setData({ checklists: enriched, progresso, loading: false });
+      } catch (e) {
+        console.error('[checklists] load exception:', e);
+        if (alive) setData(d => ({ ...d, loading: false }));
       }
-      const ids = cls.map(c => c.id);
-      const { data: itens } = await cli.from('projeto_checklist_itens')
-        .select('*, responsavel:usuarios(id, nome, email, foto_url)')
-        .in('checklist_id', ids).order('ordem').order('created_at');
-      const itensPorCl = {};
-      (itens || []).forEach(i => {
-        if (!itensPorCl[i.checklist_id]) itensPorCl[i.checklist_id] = [];
-        itensPorCl[i.checklist_id].push(i);
-      });
-      const enriched = cls.map(cl => ({ ...cl, itens: itensPorCl[cl.id] || [] }));
-      const totalItens = (itens || []).length;
-      const feitos = (itens || []).filter(i => i.concluido).length;
-      const progresso = totalItens > 0 ? Math.round((feitos / totalItens) * 100) : 0;
-      if (alive) setData({ checklists: enriched, progresso, loading: false });
     };
     load();
+    // Realtime (canal principal)
     const ch = cli.channel('rt:proj_checklists_' + projetoId)
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklists', filter: 'projeto_id=eq.' + projetoId }, load)
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklist_itens' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
-  }, [projetoId]);
+    // Fallback: ouve eventos client-side disparados pelas mutations
+    // (cobre o caso de realtime ainda nao ter conectado ou estar lento)
+    const evtHandler = () => load();
+    window.addEventListener('brava:checklists_changed', evtHandler);
+    window.addEventListener('brava:checklist_item_changed', evtHandler);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:checklists_changed', evtHandler);
+      window.removeEventListener('brava:checklist_item_changed', evtHandler);
+    };
+  }, [projetoId, refreshTick]);
   return data;
 }
 
 // Mapa global: progresso de todos os projetos (Map<projetoId, {feitos,total,pct}>).
-// Faz 1 query unica via JOIN + group, com realtime. Usado pro card Pipeline.
+// Faz 1 query unica via JOIN + group, com realtime + fallback via event. Usado pro card Pipeline.
 function useProjetoProgressoMap() {
   const [map, setMap] = React.useState(new Map());
   React.useEffect(() => {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('projeto_checklist_itens')
-        .select('concluido, checklist:projeto_checklists(projeto_id)');
-      if (!alive || !data) return;
-      const acc = new Map();
-      data.forEach(it => {
-        const pid = it.checklist?.projeto_id;
-        if (!pid) return;
-        const cur = acc.get(pid) || { feitos: 0, total: 0, pct: 0 };
-        cur.total += 1;
-        if (it.concluido) cur.feitos += 1;
-        cur.pct = cur.total > 0 ? Math.round((cur.feitos / cur.total) * 100) : 0;
-        acc.set(pid, cur);
-      });
-      setMap(acc);
+      try {
+        const { data } = await cli.from('projeto_checklist_itens')
+          .select('concluido, checklist:projeto_checklists(projeto_id)');
+        if (!alive || !data) return;
+        const acc = new Map();
+        data.forEach(it => {
+          const pid = it.checklist?.projeto_id;
+          if (!pid) return;
+          const cur = acc.get(pid) || { feitos: 0, total: 0, pct: 0 };
+          cur.total += 1;
+          if (it.concluido) cur.feitos += 1;
+          cur.pct = cur.total > 0 ? Math.round((cur.feitos / cur.total) * 100) : 0;
+          acc.set(pid, cur);
+        });
+        setMap(acc);
+      } catch (e) { console.error('[progresso-map]', e); }
     };
     load();
     const ch = cli.channel('rt:progresso-map')
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklist_itens' }, load)
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklists' }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const evtHandler = () => load();
+    window.addEventListener('brava:checklists_changed', evtHandler);
+    window.addEventListener('brava:checklist_item_changed', evtHandler);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:checklists_changed', evtHandler);
+      window.removeEventListener('brava:checklist_item_changed', evtHandler);
+    };
   }, []);
   return map;
 }
@@ -20123,34 +20153,45 @@ function useMeusChecklistItens(meuId) {
     const cli = getSupa(); if (!cli) return;
     let alive = true;
     const load = async () => {
-      const { data } = await cli.from('projeto_checklist_itens')
-        .select('*, checklist:projeto_checklists(id, titulo, projeto:projetos(id, servico, cliente, cliente_id))')
-        .eq('responsavel_id', meuId).eq('concluido', false)
-        .order('data_prazo', { ascending: true, nullsLast: true });
-      if (alive) setList(data || []);
+      try {
+        const { data } = await cli.from('projeto_checklist_itens')
+          .select('*, checklist:projeto_checklists(id, titulo, projeto:projetos(id, servico, cliente, cliente_id))')
+          .eq('responsavel_id', meuId).eq('concluido', false)
+          .order('data_prazo', { ascending: true, nullsLast: true });
+        if (alive) setList(data || []);
+      } catch (e) { console.error('[meus-checklist]', e); }
     };
     load();
     const ch = cli.channel('rt:meus_checklist_itens_' + meuId)
       .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklist_itens', filter: 'responsavel_id=eq.' + meuId }, load)
       .subscribe();
-    return () => { alive = false; cli.removeChannel(ch); };
+    const evtHandler = () => load();
+    window.addEventListener('brava:checklist_item_changed', evtHandler);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:checklist_item_changed', evtHandler);
+    };
   }, [meuId]);
   return list;
 }
 
 // ─── Mutations ───────────────────────────────────────────────────
 async function criarChecklist(projetoId, titulo, ordem) {
-  const cli = getSupa(); if (!cli) return null;
+  const cli = getSupa();
+  if (!cli) { if (typeof showToast === 'function') showToast('Sem conexao com banco', 'error'); return null; }
+  if (!projetoId) { if (typeof showToast === 'function') showToast('Projeto invalido', 'error'); return null; }
   try {
     const { data, error } = await cli.from('projeto_checklists')
       .insert({ projeto_id: projetoId, titulo: titulo || 'Checklist', ordem: ordem || 0 })
       .select('id').single();
     if (error) throw error;
     window.dispatchEvent(new CustomEvent('brava:checklists_changed'));
+    if (typeof showToast === 'function') showToast(`Checklist "${titulo || 'Checklist'}" criado`, 'success');
     return data.id;
   } catch (e) {
     console.error('[checklists] criar:', e);
-    if (typeof showToast === 'function') showToast('Erro: ' + e.message, 'error');
+    if (typeof showToast === 'function') showToast('Erro ao criar checklist: ' + e.message, 'error');
     return null;
   }
 }
