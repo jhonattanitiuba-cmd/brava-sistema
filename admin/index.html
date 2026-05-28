@@ -19030,13 +19030,26 @@ function useEtiquetaVinculos(tabela /* 'projeto_etiquetas' | 'cliente_etiquetas'
   return map;
 }
 
-// Aplica/remove etiqueta numa entidade
+// Aplica/remove etiqueta numa entidade (com log + toast em caso de erro)
 async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, jaAplicada) {
   const cli = getSupa(); if (!cli) return;
-  if (jaAplicada) {
-    await cli.from(tabela).delete().eq(fkCampo, entidadeId).eq('etiqueta_id', etiquetaId);
-  } else {
-    await cli.from(tabela).insert({ [fkCampo]: entidadeId, etiqueta_id: etiquetaId });
+  if (!entidadeId || !etiquetaId) {
+    console.warn('[etiquetas] toggle abortado: entidadeId ou etiquetaId vazio', { tabela, fkCampo, entidadeId, etiquetaId });
+    if (typeof showToast === 'function') showToast('Falha ao aplicar etiqueta (ID invalido)', 'error');
+    return;
+  }
+  try {
+    if (jaAplicada) {
+      const { error } = await cli.from(tabela).delete().eq(fkCampo, entidadeId).eq('etiqueta_id', etiquetaId);
+      if (error) throw error;
+    } else {
+      // .select() forca retorno, .single() para capturar erro mesmo se conflito de unique
+      const { error } = await cli.from(tabela).insert({ [fkCampo]: entidadeId, etiqueta_id: etiquetaId }).select();
+      if (error) throw error;
+    }
+  } catch (e) {
+    console.error('[etiquetas] erro ao ' + (jaAplicada ? 'remover' : 'aplicar') + ' etiqueta:', e, { tabela, fkCampo, entidadeId, etiquetaId });
+    if (typeof showToast === 'function') showToast('Erro: ' + (e.message || 'falha ao salvar etiqueta'), 'error');
   }
 }
 
