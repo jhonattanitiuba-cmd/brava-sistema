@@ -17865,6 +17865,30 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
         await editRecorrencia(projeto.id, payload);
         projetoId = projeto.id;
       }
+      // Auto-aplicar template se o serviço bater com algum servico_match (so na criacao)
+      if (novo && form.servico?.trim()) {
+        try {
+          const cli = getSupa();
+          if (cli) {
+            const servicoLower = form.servico.toLowerCase();
+            // Busca templates ativos cujo servico_match aparece no servico do projeto
+            const { data: tpls } = await cli.from('checklist_templates')
+              .select('id, nome, servico_match').eq('ativo', true);
+            const match = (tpls || []).find(t => {
+              if (!t.servico_match) return false;
+              const m = t.servico_match.toLowerCase();
+              return servicoLower.includes(m) || m.includes(servicoLower);
+            });
+            if (match) {
+              const dataBase = form.data_inicio || form.data_fechamento_proposta || new Date().toISOString().slice(0,10);
+              await aplicarTemplateNoProjeto(match.id, projetoId, dataBase);
+              // showToast ja foi chamado dentro de aplicarTemplateNoProjeto
+            }
+          }
+        } catch (e) {
+          console.warn('[checklists] auto-template falhou (nao bloqueia):', e);
+        }
+      }
       // Se for projeto parcelado e tiver parcelas_planejadas, gera projeto_parcelas (se ainda não tem)
       if (novo && form.tipo_projeto === 'parcelado' && form.parcelas_planejadas > 0 && form.valor_total_acordado > 0) {
         const cli = getSupa();
@@ -19937,6 +19961,56 @@ function useProjetoChecklists(projetoId) {
   return data;
 }
 
+// Mapa global: progresso de todos os projetos (Map<projetoId, {feitos,total,pct}>).
+// Faz 1 query unica via JOIN + group, com realtime. Usado pro card Pipeline.
+function useProjetoProgressoMap() {
+  const [map, setMap] = React.useState(new Map());
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('projeto_checklist_itens')
+        .select('concluido, checklist:projeto_checklists(projeto_id)');
+      if (!alive || !data) return;
+      const acc = new Map();
+      data.forEach(it => {
+        const pid = it.checklist?.projeto_id;
+        if (!pid) return;
+        const cur = acc.get(pid) || { feitos: 0, total: 0, pct: 0 };
+        cur.total += 1;
+        if (it.concluido) cur.feitos += 1;
+        cur.pct = cur.total > 0 ? Math.round((cur.feitos / cur.total) * 100) : 0;
+        acc.set(pid, cur);
+      });
+      setMap(acc);
+    };
+    load();
+    const ch = cli.channel('rt:progresso-map')
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklist_itens' }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklists' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return map;
+}
+
+// Mini-barra de progresso pra card de Pipeline (Trello-like)
+function ChecklistProgressMini({ progresso }) {
+  if (!progresso || progresso.total === 0) return null;
+  const cor = progresso.pct === 100 ? 'var(--success)' : progresso.pct >= 70 ? 'var(--blue)' : progresso.pct >= 30 ? '#BA7517' : 'var(--t3)';
+  return (
+    <div style={{marginTop:6, display:'flex', alignItems:'center', gap:6}} title={`Checklist: ${progresso.feitos}/${progresso.total} itens`}>
+      <Icon name="CheckCircle2" size={10} style={{color: cor, flexShrink:0}}/>
+      <div style={{flex:1, height:3, background:'var(--bg-3)', borderRadius:999, overflow:'hidden'}}>
+        <div style={{height:'100%', width: progresso.pct + '%', background: cor, borderRadius:999, transition:'width .3s'}}/>
+      </div>
+      <span style={{fontSize:9.5, color: cor, fontWeight:600, fontFamily:'var(--f-m)', minWidth:32, textAlign:'right'}}>
+        {progresso.feitos}/{progresso.total}
+      </span>
+    </div>
+  );
+}
+
 // Itens atribuidos ao usuario logado (pra dashboard + notifs)
 function useMeusChecklistItens(meuId) {
   const [list, setList] = React.useState([]);
@@ -20606,6 +20680,8 @@ function PipelineProjetos() {
   const { list: etiquetasCat } = useEtiquetas();
   const etiquetasProjeto = useEtiquetaVinculos('projeto_etiquetas', 'projeto_id');
   const etiquetasCliente = useEtiquetaVinculos('cliente_etiquetas', 'cliente_id');
+  // Mapa global de progresso de checklist por projeto (carrega 1x + realtime)
+  const progressoMap = useProjetoProgressoMap();
   const [drag, setDrag] = React.useState(null);
   const [colHover, setColHover] = React.useState(null);
   const [clienteDetalhe, setClienteDetalhe] = React.useState(null);
@@ -21217,6 +21293,8 @@ function PipelineProjetos() {
                           <span style={{color:'var(--t3)'}}>· R$ {fmt(p.implementacao)} impl</span>
                         )}
                       </div>
+                      {/* Barra de progresso de checklist (puxa do projeto_checklists vinculado) */}
+                      <ChecklistProgressMini progresso={progressoMap.get(p.id)}/>
                       {(p.nicho || p.tipo_projeto) && (
                         <div style={{display:'flex', gap:6, marginTop:6, flexWrap:'wrap'}}>
                           {p.nicho && <span style={{fontSize:10, padding:'1px 6px', borderRadius:5, background:'var(--bg-3)', color:'var(--t3)'}}>{p.nicho}</span>}
