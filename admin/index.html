@@ -2803,15 +2803,20 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
               <div key={u.id} className="stat-row" style={{alignItems:'center'}}>
                 <div style={{display:'flex',alignItems:'center',gap:10}}>
                   <div style={{position:'relative',flexShrink:0}}>
-                    <div style={{
-                      width:34, height:34, borderRadius:'50%',
-                      background: u.foto_url ? `url('${u.foto_url}') center/cover no-repeat` : 'var(--bg-3)',
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      fontSize:11, fontWeight:700, color:'var(--t2)', overflow:'hidden',
-                      border:'2px solid var(--border-soft)',
-                    }}>
-                      {!u.foto_url && iniciais}
-                    </div>
+                    {(() => {
+                      const fotoReal = getUserFoto(u.email) || u.foto_url;
+                      return (
+                        <div style={{
+                          width:34, height:34, borderRadius:'50%',
+                          background: fotoReal ? `url('${fotoReal}') center/cover no-repeat` : 'var(--bg-3)',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          fontSize:11, fontWeight:700, color:'var(--t2)', overflow:'hidden',
+                          border:'2px solid var(--border-soft)',
+                        }}>
+                          {!fotoReal && iniciais}
+                        </div>
+                      );
+                    })()}
                     <div style={{position:'absolute',bottom:0,right:0,width:8,height:8,borderRadius:'50%',background:'var(--success)',border:'2px solid var(--bg-2)'}}/>
                   </div>
                   <div>
@@ -10665,30 +10670,83 @@ function Config() {
   }, [perfilStore.nome, perfilStore.cargo, perfilStore.email, perfilStore.telefone]);
   const setPF = (k,v) => setPerfilForm(p => ({...p, [k]:v}));
 
-  const onSelectFile = (file) => {
+  const onSelectFile = async (file) => {
     if (!file) return;
     if (!file.type.startsWith('image/')) { setMsg('Arquivo precisa ser uma imagem.'); return; }
-    if (file.size > 5 * 1024 * 1024) { setMsg('Imagem muito grande (máx 5MB).'); return; }
+    if (file.size > 5 * 1024 * 1024) { setMsg('Imagem muito grande (max 5MB).'); return; }
     setSalvando(true); setMsg('');
-    const reader = new FileReader();
-    reader.onload = e => {
-      const dataUrl = e.target.result;
+    try {
+      const email = _emailAtual();
+      if (!email) throw new Error('Sem email na sessao');
+
+      // 1. Preview instantaneo (dataURL local + cache local)
+      const dataUrl = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.onerror = () => rej(new Error('Erro ao ler arquivo'));
+        r.readAsDataURL(file);
+      });
       setFoto(dataUrl);
-      setUserPhoto(dataUrl);
-      setSalvando(false);
+      setUserPhoto(dataUrl);                  // localStorage (fallback offline)
+      _userFotoCache.set(email, dataUrl);     // cache global imediato
+      _notifyUserFoto();                       // notifica todos os subs
+
+      // 2. Upload no Supabase Storage
+      const cli = getSupa();
+      if (!cli) throw new Error('Cliente Supabase nao disponivel');
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const safeEmail = email.replace(/[^a-z0-9]/g, '_');
+      const path = `usuarios/${safeEmail}/avatar_${Date.now()}.${ext}`;
+      const { error: upErr } = await cli.storage.from('clientes')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upErr) throw new Error('Upload Storage: ' + upErr.message);
+
+      // 3. URL publica + update no banco
+      const { data: pub } = cli.storage.from('clientes').getPublicUrl(path);
+      const publicUrl = pub.publicUrl;
+      const { error: dbErr } = await cli.from('usuarios')
+        .update({ foto_url: publicUrl })
+        .eq('email', email);
+      if (dbErr) throw new Error('Banco: ' + dbErr.message);
+
+      // 4. Substitui cache pelo URL final (so dataURL pode ser pesado pra outros lugares)
+      setFoto(publicUrl);
+      setUserPhoto(publicUrl);
+      _userFotoCache.set(email, publicUrl);
+      _notifyUserFoto();
+
       setMsg('Foto atualizada com sucesso.');
       setTimeout(() => setMsg(''), 3000);
-    };
-    reader.onerror = () => { setSalvando(false); setMsg('Erro ao ler arquivo.'); };
-    reader.readAsDataURL(file);
+    } catch (e) {
+      console.error('[perfil] upload foto:', e);
+      setMsg('Erro: ' + (e.message || 'falha no upload'));
+    } finally {
+      setSalvando(false);
+    }
   };
 
-  const onRemove = () => {
+  const onRemove = async () => {
     if (!confirm('Remover sua foto de perfil?')) return;
-    setFoto(null);
-    setUserPhoto(null);
-    setMsg('Foto removida.');
-    setTimeout(() => setMsg(''), 3000);
+    setSalvando(true);
+    try {
+      const email = _emailAtual();
+      const cli = getSupa();
+      if (cli && email) {
+        const { error } = await cli.from('usuarios').update({ foto_url: null }).eq('email', email);
+        if (error) throw error;
+      }
+      if (email) _userFotoCache.delete(email);
+      _notifyUserFoto();
+      setFoto(null);
+      setUserPhoto(null);
+      setMsg('Foto removida.');
+      setTimeout(() => setMsg(''), 3000);
+    } catch (e) {
+      console.error('[perfil] remover foto:', e);
+      setMsg('Erro ao remover: ' + (e.message || 'falha'));
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const iniciais = (perfilStore.nome || 'JI').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
@@ -16632,7 +16690,7 @@ function useCardNotas(cardTipo, cardId) {
     let alive = true;
     const load = async () => {
       const { data } = await cli.from('pipeline_card_notas')
-        .select('*, autor:usuarios(id,nome,foto_url)')
+        .select('*, autor:usuarios(id,nome,email,foto_url)')
         .eq('card_tipo', cardTipo).eq('card_id', cardId)
         .order('created_at', { ascending: true });
       if (alive) setNotas(data || []);
@@ -16848,9 +16906,14 @@ function TrelloCardModal({ cardTipo, cardId, cardNome, cardCliente, colNome, col
             </div>
             {notas.map(n => (
               <div key={n.id} style={{display:'flex',gap:10,marginBottom:14}}>
-                <div style={{width:28,height:28,borderRadius:'50%',background:n.autor?.foto_url?`url(${n.autor.foto_url}) center/cover`:'var(--bg-3)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:10,fontWeight:700,color:'var(--t2)',overflow:'hidden'}}>
-                  {!n.autor?.foto_url && (n.autor?.nome||'?').charAt(0).toUpperCase()}
-                </div>
+                {(() => {
+                  const fotoAutor = getUserFoto(n.autor?.email) || n.autor?.foto_url;
+                  return (
+                    <div style={{width:28,height:28,borderRadius:'50%',background:fotoAutor?`url(${fotoAutor}) center/cover`:'var(--bg-3)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,fontSize:10,fontWeight:700,color:'var(--t2)',overflow:'hidden'}}>
+                      {!fotoAutor && (n.autor?.nome||'?').charAt(0).toUpperCase()}
+                    </div>
+                  );
+                })()}
                 <div style={{flex:1}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
                     <span style={{fontSize:12,fontWeight:600,color:'var(--t1)'}}>{n.autor?.nome||'Sistema'}</span>
