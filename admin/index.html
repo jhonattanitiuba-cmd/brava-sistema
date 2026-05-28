@@ -19127,6 +19127,305 @@ async function toggleEtiquetaVinculo(tabela, fkCampo, entidadeId, etiquetaId, ja
 }
 
 // ─── Pagina de gerenciamento de etiquetas (catalogo global) ───
+
+/* ══════════════════════════════════════════════════════════════════════════
+   CHECKLISTS POR PROJETO — hooks + mutations + helpers
+   Cada projeto tem N checklists; cada checklist tem N itens.
+   Item = texto + responsavel_id + data_prazo + concluido.
+   Templates (catalogo global) sao reutilizaveis por servico/categoria.
+   Tudo realtime via postgres_changes.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+// Lista templates ativos (catalogo de checklists base por produto)
+function useChecklistTemplates() {
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) { setLoading(false); return; }
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('checklist_templates')
+        .select('*').eq('ativo', true).order('nome');
+      if (alive) { setList(data || []); setLoading(false); }
+    };
+    load();
+    const ch = cli.channel('rt:checklist_templates')
+      .on('postgres_changes', { event:'*', schema:'public', table:'checklist_templates' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return { list, loading };
+}
+
+// Itens de um template (pra preview/editar)
+function useChecklistTemplateItens(templateId) {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    if (!templateId) { setList([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('checklist_template_itens')
+        .select('*').eq('template_id', templateId).order('ordem');
+      if (alive) setList(data || []);
+    };
+    load();
+    const ch = cli.channel('rt:checklist_template_itens_' + templateId)
+      .on('postgres_changes', { event:'*', schema:'public', table:'checklist_template_itens', filter: 'template_id=eq.' + templateId }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [templateId]);
+  return list;
+}
+
+// Checklists de um projeto (com itens nested + responsavel embedded)
+// Retorna: { checklists: [{...cl, itens: [...]}], progresso, loading }
+function useProjetoChecklists(projetoId) {
+  const [data, setData] = React.useState({ checklists: [], progresso: 0, loading: true });
+  React.useEffect(() => {
+    if (!projetoId) { setData({ checklists: [], progresso: 0, loading: false }); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data: cls } = await cli.from('projeto_checklists')
+        .select('*').eq('projeto_id', projetoId).order('ordem').order('created_at');
+      if (!alive) return;
+      if (!cls || cls.length === 0) {
+        setData({ checklists: [], progresso: 0, loading: false });
+        return;
+      }
+      const ids = cls.map(c => c.id);
+      const { data: itens } = await cli.from('projeto_checklist_itens')
+        .select('*, responsavel:usuarios(id, nome, email, foto_url)')
+        .in('checklist_id', ids).order('ordem').order('created_at');
+      const itensPorCl = {};
+      (itens || []).forEach(i => {
+        if (!itensPorCl[i.checklist_id]) itensPorCl[i.checklist_id] = [];
+        itensPorCl[i.checklist_id].push(i);
+      });
+      const enriched = cls.map(cl => ({ ...cl, itens: itensPorCl[cl.id] || [] }));
+      const totalItens = (itens || []).length;
+      const feitos = (itens || []).filter(i => i.concluido).length;
+      const progresso = totalItens > 0 ? Math.round((feitos / totalItens) * 100) : 0;
+      if (alive) setData({ checklists: enriched, progresso, loading: false });
+    };
+    load();
+    const ch = cli.channel('rt:proj_checklists_' + projetoId)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklists', filter: 'projeto_id=eq.' + projetoId }, load)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklist_itens' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [projetoId]);
+  return data;
+}
+
+// Itens atribuidos ao usuario logado (pra dashboard + notifs)
+function useMeusChecklistItens(meuId) {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    if (!meuId) { setList([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('projeto_checklist_itens')
+        .select('*, checklist:projeto_checklists(id, titulo, projeto:projetos(id, servico, cliente, cliente_id))')
+        .eq('responsavel_id', meuId).eq('concluido', false)
+        .order('data_prazo', { ascending: true, nullsLast: true });
+      if (alive) setList(data || []);
+    };
+    load();
+    const ch = cli.channel('rt:meus_checklist_itens_' + meuId)
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_checklist_itens', filter: 'responsavel_id=eq.' + meuId }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [meuId]);
+  return list;
+}
+
+// ─── Mutations ───────────────────────────────────────────────────
+async function criarChecklist(projetoId, titulo, ordem) {
+  const cli = getSupa(); if (!cli) return null;
+  try {
+    const { data, error } = await cli.from('projeto_checklists')
+      .insert({ projeto_id: projetoId, titulo: titulo || 'Checklist', ordem: ordem || 0 })
+      .select('id').single();
+    if (error) throw error;
+    window.dispatchEvent(new CustomEvent('brava:checklists_changed'));
+    return data.id;
+  } catch (e) {
+    console.error('[checklists] criar:', e);
+    if (typeof showToast === 'function') showToast('Erro: ' + e.message, 'error');
+    return null;
+  }
+}
+
+async function renomearChecklist(checklistId, novoTitulo) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('projeto_checklists').update({ titulo: novoTitulo }).eq('id', checklistId);
+  window.dispatchEvent(new CustomEvent('brava:checklists_changed'));
+}
+
+async function deletarChecklist(checklistId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('projeto_checklists').delete().eq('id', checklistId);
+  window.dispatchEvent(new CustomEvent('brava:checklists_changed'));
+}
+
+async function criarItemChecklist(checklistId, texto, responsavelId, dataPrazo, ordem) {
+  const cli = getSupa(); if (!cli || !checklistId || !texto) return null;
+  try {
+    const { data, error } = await cli.from('projeto_checklist_itens')
+      .insert({
+        checklist_id: checklistId,
+        texto: texto,
+        responsavel_id: responsavelId || null,
+        data_prazo: dataPrazo || null,
+        ordem: ordem || 0,
+      })
+      .select('id').single();
+    if (error) throw error;
+    window.dispatchEvent(new CustomEvent('brava:checklist_item_changed'));
+    return data.id;
+  } catch (e) {
+    console.error('[checklists] criar item:', e);
+    if (typeof showToast === 'function') showToast('Erro: ' + e.message, 'error');
+    return null;
+  }
+}
+
+async function atualizarItemChecklist(itemId, patch) {
+  const cli = getSupa(); if (!cli) return;
+  try {
+    const { error } = await cli.from('projeto_checklist_itens').update(patch).eq('id', itemId);
+    if (error) throw error;
+    window.dispatchEvent(new CustomEvent('brava:checklist_item_changed'));
+  } catch (e) {
+    console.error('[checklists] atualizar item:', e);
+    if (typeof showToast === 'function') showToast('Erro: ' + e.message, 'error');
+  }
+}
+
+async function toggleItemChecklist(itemId, novoStatus, meuId) {
+  const patch = {
+    concluido: novoStatus,
+    concluido_em: novoStatus ? new Date().toISOString() : null,
+    concluido_por: novoStatus ? (meuId || null) : null,
+  };
+  await atualizarItemChecklist(itemId, patch);
+}
+
+async function deletarItemChecklist(itemId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('projeto_checklist_itens').delete().eq('id', itemId);
+  window.dispatchEvent(new CustomEvent('brava:checklist_item_changed'));
+}
+
+// Aplica template num projeto: cria checklist novo + copia itens (com prazos calculados)
+async function aplicarTemplateNoProjeto(templateId, projetoId, dataBase) {
+  const cli = getSupa(); if (!cli || !templateId || !projetoId) return null;
+  try {
+    // 1. Busca template + itens
+    const { data: tpl, error: e1 } = await cli.from('checklist_templates')
+      .select('*').eq('id', templateId).single();
+    if (e1) throw e1;
+    const { data: tplItens, error: e2 } = await cli.from('checklist_template_itens')
+      .select('*').eq('template_id', templateId).order('ordem');
+    if (e2) throw e2;
+    // 2. Cria checklist novo no projeto
+    const { data: cl, error: e3 } = await cli.from('projeto_checklists')
+      .insert({
+        projeto_id: projetoId,
+        titulo: tpl.nome,
+        template_origem_id: templateId,
+        ordem: 0,
+      })
+      .select('id').single();
+    if (e3) throw e3;
+    // 3. Cria itens copiando do template (com prazo calculado se dias_apos_inicio)
+    const base = dataBase ? new Date(dataBase) : new Date();
+    const itensInsert = (tplItens || []).map(it => {
+      let prazo = null;
+      if (it.dias_apos_inicio != null) {
+        const d = new Date(base);
+        d.setDate(d.getDate() + it.dias_apos_inicio);
+        prazo = d.toISOString().slice(0, 10);
+      }
+      return {
+        checklist_id: cl.id,
+        texto: it.texto,
+        ordem: it.ordem,
+        responsavel_id: it.responsavel_sugerido_id || null,
+        data_prazo: prazo,
+      };
+    });
+    if (itensInsert.length) {
+      const { error: e4 } = await cli.from('projeto_checklist_itens').insert(itensInsert);
+      if (e4) throw e4;
+    }
+    window.dispatchEvent(new CustomEvent('brava:checklists_changed'));
+    if (typeof showToast === 'function') showToast(`Template "${tpl.nome}" aplicado (${itensInsert.length} itens)`, 'success');
+    return cl.id;
+  } catch (e) {
+    console.error('[checklists] aplicar template:', e);
+    if (typeof showToast === 'function') showToast('Erro ao aplicar template: ' + e.message, 'error');
+    return null;
+  }
+}
+
+// CRUD de templates (para a pagina TemplatesChecklist)
+async function salvarTemplate(template, itens) {
+  const cli = getSupa(); if (!cli) return null;
+  try {
+    let templateId = template.id;
+    if (templateId) {
+      const { error } = await cli.from('checklist_templates').update({
+        nome: template.nome,
+        descricao: template.descricao || null,
+        servico_match: template.servico_match || null,
+        categoria: template.categoria || null,
+        ativo: template.ativo != null ? template.ativo : true,
+      }).eq('id', templateId);
+      if (error) throw error;
+    } else {
+      const { data, error } = await cli.from('checklist_templates').insert({
+        nome: template.nome,
+        descricao: template.descricao || null,
+        servico_match: template.servico_match || null,
+        categoria: template.categoria || null,
+        ativo: true,
+      }).select('id').single();
+      if (error) throw error;
+      templateId = data.id;
+    }
+    // Reemplaza itens (delete + insert)
+    await cli.from('checklist_template_itens').delete().eq('template_id', templateId);
+    if (itens && itens.length) {
+      const rows = itens.map((it, idx) => ({
+        template_id: templateId,
+        texto: it.texto,
+        ordem: idx,
+        dias_apos_inicio: it.dias_apos_inicio || null,
+        responsavel_sugerido_id: it.responsavel_sugerido_id || null,
+      }));
+      const { error } = await cli.from('checklist_template_itens').insert(rows);
+      if (error) throw error;
+    }
+    window.dispatchEvent(new CustomEvent('brava:checklist_templates_changed'));
+    if (typeof showToast === 'function') showToast('Template salvo', 'success');
+    return templateId;
+  } catch (e) {
+    console.error('[checklists] salvar template:', e);
+    if (typeof showToast === 'function') showToast('Erro: ' + e.message, 'error');
+    return null;
+  }
+}
+
+async function desativarTemplate(templateId) {
+  const cli = getSupa(); if (!cli) return;
+  await cli.from('checklist_templates').update({ ativo: false }).eq('id', templateId);
+  window.dispatchEvent(new CustomEvent('brava:checklist_templates_changed'));
+}
+
 // ─────────────────────────────────────────────────────────────────
 // ONBOARDING ADMIN — visualiza e aprova cadastros do formulário público
 // ─────────────────────────────────────────────────────────────────
