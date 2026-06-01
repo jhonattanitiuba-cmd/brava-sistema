@@ -3785,6 +3785,9 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   // === Disparos (enviar mensagem para um ou vários grupos) ===
   const [disparosOpen, setDisparosOpen] = React.useState(false);
 
+  // === Agendar mensagem (envio futuro via wa_mensagens_agendadas) ===
+  const [agendarOpen, setAgendarOpen] = React.useState(false);
+
   // === Arquivar/Apagar conversa ===
   const [chatMenuAberto, setChatMenuAberto] = React.useState(null); // id do chat com menu aberto
   const [arquivados, setArquivados] = React.useState(new Set()); // ids arquivados localmente
@@ -4115,6 +4118,88 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       setEnviando(false);
     }
   };
+
+  // === Mensagens agendadas pendentes deste chat (badge no header e modal) ===
+  const [agendadasDoChat, setAgendadasDoChat] = React.useState([]);
+  const refreshAgendadasDoChat = React.useCallback(async () => {
+    if (!supaEnabled || !contato?.id) { setAgendadasDoChat([]); return; }
+    const cli = getSupa(); if (!cli) return;
+    try {
+      const { data } = await cli
+        .from('wa_mensagens_agendadas')
+        .select('id, conteudo, agendado_para, status, tipo, recorrencia')
+        .eq('contact_jid', contato.id)
+        .in('status', ['pendente', 'processando'])
+        .order('agendado_para', { ascending: true })
+        .limit(50);
+      setAgendadasDoChat(data || []);
+    } catch (e) { /* silencioso */ }
+  }, [contato?.id, supaEnabled]);
+  React.useEffect(() => { refreshAgendadasDoChat(); }, [refreshAgendadasDoChat]);
+  // Realtime: escuta mudancas em wa_mensagens_agendadas pra esse contato
+  React.useEffect(() => {
+    if (!supaEnabled || !contato?.id) return;
+    const cli = getSupa(); if (!cli) return;
+    const ch = cli.channel(`wa_msg_ag_${contato.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_mensagens_agendadas', filter: `contact_jid=eq.${contato.id}` },
+        () => refreshAgendadasDoChat()
+      )
+      .subscribe();
+    return () => { try { cli.removeChannel(ch); } catch {} };
+  }, [contato?.id, supaEnabled, refreshAgendadasDoChat]);
+
+  // === Agendar mensagem (insere em wa_mensagens_agendadas, dispatcher cuida do resto) ===
+  const agendarMensagem = React.useCallback(async ({ conteudo, agendadoPara, recorrencia, recorrenciaAte, notaInterna }) => {
+    if (!supaEnabled) { showToast?.('Agendamento requer modo Supabase', 'warn'); return false; }
+    if (!contato?.id || !activeInstance?.id) { showToast?.('Selecione um contato e instancia ativa', 'warn'); return false; }
+    const cli = getSupa(); if (!cli) return false;
+    try {
+      // Tenta descobrir workspace_id da instancia ativa
+      let workspaceId = activeInstance.workspace_id || null;
+      if (!workspaceId) {
+        try {
+          const { data: wsRow } = await cli.from('workspaces').select('id').limit(1).maybeSingle();
+          workspaceId = wsRow?.id || null;
+        } catch {}
+      }
+      // Resolve cliente_id se o contato estiver vinculado a um cliente
+      let clienteId = contato.cliente_id || null;
+      const payload = {
+        workspace_id: workspaceId,
+        instancia_id: activeInstance.id,
+        contact_jid: contato.id,
+        conteudo,
+        tipo: 'text',
+        agendado_para: agendadoPara, // ISO string com timezone
+        status: 'pendente',
+        recorrencia: recorrencia || 'none',
+        recorrencia_ate: recorrenciaAte || null,
+        cliente_id: clienteId,
+        nota_interna: notaInterna || null,
+        created_by: meuUserId || null,
+      };
+      const { error } = await cli.from('wa_mensagens_agendadas').insert(payload);
+      if (error) throw error;
+      showToast?.('Mensagem agendada com sucesso', 'success');
+      refreshAgendadasDoChat();
+      return true;
+    } catch (e) {
+      showToast?.('Erro ao agendar: ' + (e?.message || 'desconhecido'), 'error');
+      return false;
+    }
+  }, [contato, activeInstance, meuUserId, supaEnabled, refreshAgendadasDoChat]);
+
+  const cancelarAgendada = React.useCallback(async (id) => {
+    if (!supaEnabled) return;
+    const cli = getSupa(); if (!cli) return;
+    try {
+      await cli.from('wa_mensagens_agendadas').update({ status: 'cancelado' }).eq('id', id).eq('status', 'pendente');
+      showToast?.('Agendamento cancelado', 'success');
+      refreshAgendadasDoChat();
+    } catch (e) {
+      showToast?.('Erro ao cancelar: ' + (e?.message || ''), 'error');
+    }
+  }, [supaEnabled, refreshAgendadasDoChat]);
 
   // Envio universal (imagem, video, audio, doc · detecta pelo mimetype)
   const enviarArquivo = async (file) => {
@@ -4983,6 +5068,31 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               >
                 <Icon name="Paperclip" size={20}/>
               </div>
+              {/* Botao discreto: agendar envio futuro */}
+              <div
+                onClick={() => {
+                  if (!supaEnabled) { showToast?.('Agendamento requer modo Supabase', 'warn'); return; }
+                  if (!contato) { showToast?.('Selecione uma conversa primeiro', 'warn'); return; }
+                  setAgendarOpen(true);
+                }}
+                style={{ position:'relative', width:36, height:36, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, cursor:'pointer', transition:'background .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                title={agendadasDoChat.length > 0 ? `${agendadasDoChat.length} agendada(s). Clique para gerenciar.` : 'Agendar envio para horário futuro'}
+              >
+                <Icon name="Clock" size={19}/>
+                {agendadasDoChat.length > 0 && (
+                  <span style={{
+                    position:'absolute', top:-2, right:-2,
+                    minWidth:16, height:16, padding:'0 4px', borderRadius:8,
+                    background:'var(--wa-green)', color:'#fff',
+                    fontSize:10, fontWeight:700, lineHeight:'16px', textAlign:'center',
+                    boxShadow:'0 0 0 2px var(--wa-input-bg)',
+                  }}>
+                    {agendadasDoChat.length}
+                  </span>
+                )}
+              </div>
               <input value={msg} onChange={e=>setMsg(e.target.value)}
                 onKeyDown={e=>{ if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); enviar(); } }}
                 placeholder={
@@ -5123,6 +5233,330 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       {disparosOpen && (
         <DisparosModal S={S} activeInstance={activeInstance} onClose={()=>setDisparosOpen(false)}/>
       )}
+
+      {/* ── Modal: Agendar mensagem (envio futuro) ── */}
+      {agendarOpen && (
+        <AgendarMensagemModal
+          S={S}
+          contato={contato}
+          activeInstance={activeInstance}
+          msgInicial={msg}
+          agendadas={agendadasDoChat}
+          onAgendar={agendarMensagem}
+          onCancelarAgendada={cancelarAgendada}
+          onClose={() => setAgendarOpen(false)}
+          onLimparComposer={() => setMsg('')}
+        />
+      )}
+    </div>
+  );
+}
+
+/* Modal Agendar Mensagem — envio em horário futuro via wa_mensagens_agendadas */
+function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendadas, onAgendar, onCancelarAgendada, onClose, onLimparComposer }) {
+  // Helper: pega data/hora "agora + 1h" como default arredondado
+  const defaultDateTime = React.useMemo(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 60);
+    d.setSeconds(0);
+    d.setMilliseconds(0);
+    // Arredonda pros proximos 15min
+    const m = d.getMinutes();
+    const rounded = Math.ceil(m / 15) * 15;
+    d.setMinutes(rounded === 60 ? 0 : rounded);
+    if (rounded === 60) d.setHours(d.getHours() + 1);
+    // Format YYYY-MM-DD e HH:mm em horario local
+    const pad = (n) => String(n).padStart(2, '0');
+    return {
+      data: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`,
+      hora: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+  }, []);
+
+  const [conteudo, setConteudo] = React.useState(msgInicial || '');
+  const [data, setData] = React.useState(defaultDateTime.data);
+  const [hora, setHora] = React.useState(defaultDateTime.hora);
+  const [recorrencia, setRecorrencia] = React.useState('none');
+  const [recorrenciaAte, setRecorrenciaAte] = React.useState('');
+  const [notaInterna, setNotaInterna] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [tab, setTab] = React.useState('novo'); // 'novo' ou 'lista'
+
+  // Validacao: data/hora no futuro
+  const dataHoraISO = React.useMemo(() => {
+    if (!data || !hora) return null;
+    // Combina em horario LOCAL e converte pra ISO (com timezone do usuario)
+    try {
+      const local = new Date(`${data}T${hora}:00`);
+      if (isNaN(local.getTime())) return null;
+      return local.toISOString();
+    } catch { return null; }
+  }, [data, hora]);
+
+  const minutosAteEnvio = React.useMemo(() => {
+    if (!dataHoraISO) return null;
+    return Math.round((new Date(dataHoraISO).getTime() - Date.now()) / 60000);
+  }, [dataHoraISO]);
+
+  const podeAgendar = conteudo.trim().length > 0 && dataHoraISO && minutosAteEnvio > 0;
+
+  const handleSalvar = async () => {
+    if (!podeAgendar) return;
+    setSalvando(true);
+    const ok = await onAgendar({
+      conteudo: conteudo.trim(),
+      agendadoPara: dataHoraISO,
+      recorrencia,
+      recorrenciaAte: recorrencia !== 'none' && recorrenciaAte ? recorrenciaAte : null,
+      notaInterna: notaInterna.trim() || null,
+    });
+    setSalvando(false);
+    if (ok) {
+      onLimparComposer?.();
+      onClose();
+    }
+  };
+
+  // Formata data/hora amigavel pra preview
+  const previewQuando = React.useMemo(() => {
+    if (!dataHoraISO) return '';
+    const d = new Date(dataHoraISO);
+    const opts = { weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' };
+    return d.toLocaleString('pt-BR', opts);
+  }, [dataHoraISO]);
+
+  const previewRelativo = React.useMemo(() => {
+    if (minutosAteEnvio == null) return '';
+    if (minutosAteEnvio <= 0) return 'horario invalido (no passado)';
+    if (minutosAteEnvio < 60) return `em ${minutosAteEnvio} min`;
+    if (minutosAteEnvio < 1440) return `em ${Math.floor(minutosAteEnvio/60)}h ${minutosAteEnvio%60}min`;
+    return `em ${Math.floor(minutosAteEnvio/1440)}d ${Math.floor((minutosAteEnvio%1440)/60)}h`;
+  }, [minutosAteEnvio]);
+
+  const fmtAgendada = (iso) => {
+    try {
+      return new Date(iso).toLocaleString('pt-BR', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+    } catch { return iso; }
+  };
+
+  // Fecha com ESC
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const inputBase = {
+    width:'100%', height:38, padding:'0 12px', borderRadius:8,
+    background:'var(--wa-search-bg)', border:'1px solid var(--wa-border)',
+    color:'var(--wa-text-primary)', fontSize:14, outline:'none', fontFamily:'inherit',
+  };
+
+  return (
+    <div role="dialog" aria-modal="true"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{
+        position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:9999,
+        display:'flex', alignItems:'center', justifyContent:'center', padding:20,
+      }}>
+      <div style={{
+        width:'100%', maxWidth:540, maxHeight:'90vh', overflow:'hidden',
+        background:'var(--wa-header-bg)', borderRadius:14, border:'1px solid var(--wa-border)',
+        display:'flex', flexDirection:'column',
+        boxShadow:'0 18px 60px rgba(0,0,0,.4)',
+      }}>
+        {/* Header */}
+        <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--wa-border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <Icon name="Clock" size={20} style={{ color:'var(--wa-green)' }}/>
+            <div>
+              <div style={{ fontWeight:700, fontSize:15, color:'var(--wa-text-primary)', fontFamily:'var(--f-d)' }}>Agendar mensagem</div>
+              <div style={{ fontSize:12, color:'var(--wa-text-secondary)' }}>
+                {contato?.name || 'Contato'} {activeInstance?.nome ? `· via ${activeInstance.nome}` : ''}
+              </div>
+            </div>
+          </div>
+          <div onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--wa-text-secondary)' }} title="Fechar">
+            <Icon name="X" size={18}/>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display:'flex', borderBottom:'1px solid var(--wa-border)', flexShrink:0 }}>
+          {[
+            { key:'novo', label:'Novo agendamento' },
+            { key:'lista', label:`Fila (${agendadas?.length || 0})` },
+          ].map(t => (
+            <div key={t.key} onClick={() => setTab(t.key)}
+              style={{
+                flex:1, padding:'10px 14px', textAlign:'center', cursor:'pointer',
+                fontSize:13, fontWeight:600, fontFamily:'var(--f-d)',
+                color: tab === t.key ? 'var(--wa-green)' : 'var(--wa-text-secondary)',
+                borderBottom: tab === t.key ? '2px solid var(--wa-green)' : '2px solid transparent',
+                transition:'all .15s',
+              }}>
+              {t.label}
+            </div>
+          ))}
+        </div>
+
+        {/* Corpo */}
+        <div style={{ padding:18, overflowY:'auto', flex:1 }}>
+          {tab === 'novo' ? (
+            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+              {/* Conteudo */}
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>
+                  Mensagem
+                </label>
+                <textarea
+                  value={conteudo}
+                  onChange={(e) => setConteudo(e.target.value)}
+                  rows={5}
+                  placeholder="Digite a mensagem que será enviada..."
+                  style={{ ...inputBase, height:'auto', minHeight:90, padding:'10px 12px', resize:'vertical', lineHeight:1.45 }}
+                />
+                <div style={{ fontSize:11, color:'var(--wa-text-secondary)', marginTop:4, textAlign:'right' }}>
+                  {conteudo.length} caracteres
+                </div>
+              </div>
+
+              {/* Data e Hora */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Data</label>
+                  <input type="date" value={data} onChange={(e) => setData(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    style={inputBase}/>
+                </div>
+                <div>
+                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Hora</label>
+                  <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} style={inputBase}/>
+                </div>
+              </div>
+
+              {/* Recorrencia */}
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Recorrência</label>
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  {[
+                    { v:'none', label:'Uma vez' },
+                    { v:'diaria', label:'Diária' },
+                    { v:'semanal', label:'Semanal' },
+                    { v:'mensal', label:'Mensal' },
+                  ].map(r => (
+                    <div key={r.v} onClick={() => setRecorrencia(r.v)}
+                      style={{
+                        padding:'7px 14px', borderRadius:18, cursor:'pointer',
+                        background: recorrencia === r.v ? 'var(--wa-green)' : 'var(--wa-search-bg)',
+                        color: recorrencia === r.v ? '#fff' : 'var(--wa-text-primary)',
+                        border:'1px solid var(--wa-border)',
+                        fontSize:13, fontWeight:500, transition:'all .15s',
+                      }}>
+                      {r.label}
+                    </div>
+                  ))}
+                </div>
+                {recorrencia !== 'none' && (
+                  <div style={{ marginTop:10 }}>
+                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Repetir até (opcional)</label>
+                    <input type="date" value={recorrenciaAte} onChange={(e) => setRecorrenciaAte(e.target.value)}
+                      min={data}
+                      style={inputBase}/>
+                  </div>
+                )}
+              </div>
+
+              {/* Nota interna */}
+              <div>
+                <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>
+                  Nota interna (opcional, só você vê)
+                </label>
+                <input type="text" value={notaInterna} onChange={(e) => setNotaInterna(e.target.value)}
+                  placeholder="ex: follow-up sobre proposta"
+                  style={inputBase}/>
+              </div>
+
+              {/* Preview */}
+              <div style={{
+                background:'var(--wa-search-bg)', borderRadius:10, padding:'12px 14px',
+                border:'1px solid var(--wa-border)', display:'flex', flexDirection:'column', gap:6,
+              }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--wa-text-secondary)', textTransform:'uppercase', letterSpacing:.5 }}>
+                  Preview do envio
+                </div>
+                <div style={{ fontSize:13, color:'var(--wa-text-primary)', fontWeight:600 }}>
+                  {previewQuando || 'horário inválido'} {previewRelativo && <span style={{ color:'var(--wa-green)', fontWeight:500 }}>({previewRelativo})</span>}
+                </div>
+                {recorrencia !== 'none' && (
+                  <div style={{ fontSize:12, color:'var(--wa-text-secondary)' }}>
+                    Repete: {recorrencia}{recorrenciaAte ? ` até ${recorrenciaAte}` : ' (sem limite)'}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div>
+              {(!agendadas || agendadas.length === 0) ? (
+                <div style={{ textAlign:'center', padding:'40px 20px', color:'var(--wa-text-secondary)' }}>
+                  <Icon name="CalendarCheck" size={36} style={{ opacity:.4, marginBottom:10 }}/>
+                  <div style={{ fontSize:14 }}>Nenhuma mensagem agendada pra este contato.</div>
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {agendadas.map(a => (
+                    <div key={a.id} style={{
+                      background:'var(--wa-search-bg)', borderRadius:10, padding:'12px 14px',
+                      border:'1px solid var(--wa-border)',
+                      display:'flex', alignItems:'flex-start', gap:12,
+                    }}>
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:'var(--wa-green)', marginBottom:4 }}>
+                          {fmtAgendada(a.agendado_para)}
+                          {a.recorrencia && a.recorrencia !== 'none' && (
+                            <span style={{ marginLeft:8, padding:'2px 8px', background:'rgba(37,211,102,.15)', borderRadius:8, fontSize:10 }}>
+                              {a.recorrencia}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize:13, color:'var(--wa-text-primary)', lineHeight:1.4, whiteSpace:'pre-wrap', wordBreak:'break-word', maxHeight:80, overflow:'hidden' }}>
+                          {a.conteudo}
+                        </div>
+                      </div>
+                      <div onClick={() => onCancelarAgendada(a.id)}
+                        style={{ width:30, height:30, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#A32D2D', flexShrink:0 }}
+                        title="Cancelar agendamento">
+                        <Icon name="X" size={16}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {tab === 'novo' && (
+          <div style={{ padding:'12px 18px', borderTop:'1px solid var(--wa-border)', display:'flex', gap:10, justifyContent:'flex-end', flexShrink:0 }}>
+            <button onClick={onClose}
+              style={{ padding:'9px 16px', borderRadius:8, border:'1px solid var(--wa-border)', background:'transparent', color:'var(--wa-text-primary)', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              Cancelar
+            </button>
+            <button onClick={handleSalvar} disabled={!podeAgendar || salvando}
+              style={{
+                padding:'9px 18px', borderRadius:8, border:'none',
+                background: podeAgendar && !salvando ? 'var(--wa-green)' : 'rgba(128,128,128,.3)',
+                color:'#fff', fontSize:13, fontWeight:700,
+                cursor: podeAgendar && !salvando ? 'pointer' : 'not-allowed',
+                fontFamily:'inherit', display:'flex', alignItems:'center', gap:8,
+              }}>
+              <Icon name="Send" size={15}/>
+              {salvando ? 'Agendando...' : 'Agendar envio'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
