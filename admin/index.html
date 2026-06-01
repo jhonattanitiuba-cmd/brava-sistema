@@ -3782,6 +3782,9 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   // === Nova conversa (botão +) ===
   const [novaConversaOpen, setNovaConversaOpen] = React.useState(false);
 
+  // === Disparos (enviar mensagem para um ou vários grupos) ===
+  const [disparosOpen, setDisparosOpen] = React.useState(false);
+
   // === Arquivar/Apagar conversa ===
   const [chatMenuAberto, setChatMenuAberto] = React.useState(null); // id do chat com menu aberto
   const [arquivados, setArquivados] = React.useState(new Set()); // ids arquivados localmente
@@ -4315,6 +4318,12 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
                 onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                 <Icon name="Plus" size={18}/>
+              </button>
+              {/* Disparos · enviar uma mensagem para um ou vários grupos */}
+              <button onClick={()=>setDisparosOpen(true)} title="Disparos · enviar para grupos" style={{ width:34, height:34, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', color:S.textSec, background:'none', border:'none', cursor:'pointer', transition:'background .15s' }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(128,128,128,.1)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <Icon name="Send" size={16}/>
               </button>
             </div>
           </div>
@@ -5109,6 +5118,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
       {novaConversaOpen && (
         <NovaConversaModal S={S} activeInstance={activeInstance} supaEnabled={supaEnabled} onClose={()=>setNovaConversaOpen(false)}/>
       )}
+
+      {/* ── Modal: Disparos (enviar para grupos) ── */}
+      {disparosOpen && (
+        <DisparosModal S={S} activeInstance={activeInstance} onClose={()=>setDisparosOpen(false)}/>
+      )}
     </div>
   );
 }
@@ -5181,6 +5195,183 @@ function NovaConversaModal({ S, activeInstance, supaEnabled, onClose }) {
           <button onClick={onClose} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${S.border}`,background:'transparent',color:S.textSec,fontSize:13,cursor:'pointer'}}>Cancelar</button>
           <button onClick={enviar} disabled={enviando} style={{padding:'8px 18px',borderRadius:8,border:'none',background:'var(--wa-green)',color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer'}}>
             {enviando ? 'Enviando...' : 'Enviar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Modal Disparos — envia uma mensagem para um ou vários grupos do WhatsApp.
+   Estrutura base; daqui evoluímos (agendar mensagem, etc). */
+function DisparosModal({ S, activeInstance, onClose }) {
+  const instanciaId = activeInstance?.id;
+  const [grupos, setGrupos] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [selecionados, setSelecionados] = React.useState(() => new Set());
+  const [mensagem, setMensagem] = React.useState('');
+  const [filtro, setFiltro] = React.useState('');
+  const [enviando, setEnviando] = React.useState(false);
+  const [progresso, setProgresso] = React.useState({ feitos: 0, total: 0 });
+  const [resultados, setResultados] = React.useState(null); // [{jid, nome, ok, erro}]
+
+  // Carrega os grupos da instância ativa (membership em wa_chats + nome em wa_contatos)
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const cli = getSupa();
+      if (!cli || !instanciaId) { setLoading(false); return; }
+      try {
+        const [{ data: chats }, { data: contatos }] = await Promise.all([
+          cli.from('wa_chats').select('jid, last_message_ts').eq('instancia_id', instanciaId).eq('is_group', true),
+          cli.from('wa_contatos').select('jid, group_subject, push_name').eq('instancia_id', instanciaId).eq('is_group', true),
+        ]);
+        const nomeMap = {};
+        (contatos || []).forEach(c => { nomeMap[c.jid] = c.group_subject || c.push_name || ''; });
+        const lista = (chats || []).map(c => ({
+          jid: c.jid,
+          nome: nomeMap[c.jid] || 'Grupo sem nome',
+          ts: c.last_message_ts ? new Date(c.last_message_ts).getTime() : 0,
+        })).sort((a, b) => b.ts - a.ts);
+        if (alive) setGrupos(lista);
+      } catch (e) {
+        showToast?.('Erro ao carregar grupos: ' + (e.message || ''), 'error');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [instanciaId]);
+
+  const gruposFiltrados = grupos.filter(g => g.nome.toLowerCase().includes(filtro.trim().toLowerCase()));
+  const todosVisiveisMarcados = gruposFiltrados.length > 0 && gruposFiltrados.every(g => selecionados.has(g.jid));
+
+  const toggle = (jid) => setSelecionados(s => {
+    const n = new Set(s);
+    n.has(jid) ? n.delete(jid) : n.add(jid);
+    return n;
+  });
+  const marcarTodos = () => setSelecionados(s => {
+    const n = new Set(s);
+    if (todosVisiveisMarcados) gruposFiltrados.forEach(g => n.delete(g.jid));
+    else gruposFiltrados.forEach(g => n.add(g.jid));
+    return n;
+  });
+
+  const disparar = async () => {
+    const alvos = grupos.filter(g => selecionados.has(g.jid));
+    if (!alvos.length) { showToast?.('Selecione ao menos um grupo', 'warn'); return; }
+    if (!mensagem.trim()) { showToast?.('Digite a mensagem', 'warn'); return; }
+    if (!confirm(`Disparar esta mensagem para ${alvos.length} grupo(s)?`)) return;
+    setEnviando(true);
+    setResultados(null);
+    setProgresso({ feitos: 0, total: alvos.length });
+    const res = [];
+    for (let i = 0; i < alvos.length; i++) {
+      const g = alvos[i];
+      try {
+        await supaProxyCall({
+          path: '/message/sendText/{{instance}}',
+          method: 'POST',
+          body: { number: g.jid, text: mensagem.trim() },
+          instanceId: instanciaId,
+        });
+        res.push({ jid: g.jid, nome: g.nome, ok: true });
+      } catch (e) {
+        res.push({ jid: g.jid, nome: g.nome, ok: false, erro: e.message || 'falha' });
+      }
+      setProgresso({ feitos: i + 1, total: alvos.length });
+      if (i < alvos.length - 1) await new Promise(r => setTimeout(r, 700)); // não floodar a Evolution
+    }
+    setResultados(res);
+    setEnviando(false);
+    const okN = res.filter(r => r.ok).length;
+    showToast?.(`Disparo concluído: ${okN}/${res.length} enviados`, okN === res.length ? 'success' : 'warn');
+  };
+
+  const inp = { width:'100%', padding:'9px 12px', borderRadius:8, border:`1px solid ${S.border}`, background:S.inputBg, color:S.textPrimary, fontSize:13, outline:'none', boxSizing:'border-box' };
+
+  return (
+    <div onClick={e=>{ if(e.target===e.currentTarget && !enviando) onClose(); }} style={{position:'fixed',inset:0,background:'rgba(0,0,0,.88)',zIndex:10000,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{background:S.cardBg||'var(--bg-2)',borderRadius:14,width:560,maxWidth:'96vw',maxHeight:'90vh',display:'flex',flexDirection:'column',border:`1px solid ${S.border}`,boxShadow:'0 24px 60px rgba(0,0,0,.5)'}}>
+        {/* Header */}
+        <div style={{padding:'16px 20px',borderBottom:`1px solid ${S.border}`,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <Icon name="Send" size={16} style={{color:'var(--wa-green)'}}/>
+            <div>
+              <h3 style={{margin:0,fontSize:15,color:S.textPrimary,fontFamily:'var(--f-d)',fontWeight:600}}>Disparos</h3>
+              <div style={{fontSize:11,color:S.textSec,marginTop:1}}>Enviando por: {activeInstance?.nome || activeInstance?.evolution_instance_name || 'instância ativa'}</div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{width:30,height:30,border:'none',background:'transparent',color:S.textSec,cursor:'pointer',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="X" size={14}/></button>
+        </div>
+
+        {/* Abas (estrutura para evoluir: Agendar em breve) */}
+        <div style={{display:'flex',gap:6,padding:'10px 20px 0'}}>
+          <div style={{padding:'6px 12px',borderRadius:8,fontSize:12.5,fontWeight:600,background:'var(--wa-green)',color:'#fff'}}>Disparar agora</div>
+          <div title="Em breve" style={{padding:'6px 12px',borderRadius:8,fontSize:12.5,color:S.textSec,border:`1px dashed ${S.border}`,display:'flex',alignItems:'center',gap:5,opacity:.7}}>
+            <Icon name="CalendarCheck" size={13}/> Agendar (em breve)
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{padding:'14px 20px',display:'flex',flexDirection:'column',gap:12,overflowY:'auto'}}>
+          {/* Seleção de grupos */}
+          <div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+              <label style={{fontSize:11,color:S.textSec}}>Grupos {selecionados.size > 0 ? `(${selecionados.size} selecionado(s))` : ''}</label>
+              {gruposFiltrados.length > 0 && (
+                <button onClick={marcarTodos} style={{fontSize:11,color:'var(--wa-green)',background:'none',border:'none',cursor:'pointer'}}>
+                  {todosVisiveisMarcados ? 'Desmarcar todos' : 'Marcar todos'}
+                </button>
+              )}
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:S.searchBg,borderRadius:8,marginBottom:8}}>
+              <Icon name="Search" size={13} style={{color:S.textSec,flexShrink:0}}/>
+              <input value={filtro} onChange={e=>setFiltro(e.target.value)} placeholder="Buscar grupo..." style={{background:'none',border:'none',outline:'none',fontSize:13,color:S.textPrimary,width:'100%'}}/>
+            </div>
+            <div style={{maxHeight:200,overflowY:'auto',border:`1px solid ${S.border}`,borderRadius:8}}>
+              {loading ? (
+                <div style={{padding:'18px',textAlign:'center',color:S.textSec,fontSize:13}}>Carregando grupos...</div>
+              ) : gruposFiltrados.length === 0 ? (
+                <div style={{padding:'18px',textAlign:'center',color:S.textSec,fontSize:13}}>Nenhum grupo encontrado nesta instância.</div>
+              ) : gruposFiltrados.map(g => (
+                <label key={g.jid} style={{display:'flex',alignItems:'center',gap:10,padding:'9px 12px',cursor:'pointer',borderBottom:`1px solid ${S.border}`}}>
+                  <input type="checkbox" checked={selecionados.has(g.jid)} onChange={()=>toggle(g.jid)} style={{accentColor:'var(--wa-green)'}}/>
+                  <Icon name="Users" size={14} style={{color:S.textSec,flexShrink:0}}/>
+                  <span style={{fontSize:13,color:S.textPrimary,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{g.nome}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Mensagem */}
+          <div>
+            <label style={{fontSize:11,color:S.textSec,marginBottom:5,display:'block'}}>Mensagem</label>
+            <textarea value={mensagem} onChange={e=>setMensagem(e.target.value)} rows={6} placeholder="Digite o comunicado..." style={{...inp,resize:'vertical',fontFamily:'inherit',lineHeight:1.45}}/>
+            <div style={{fontSize:10.5,color:S.textSec,marginTop:4}}>Negrito no WhatsApp: *texto* (um asterisco). {mensagem.length} caracteres.</div>
+          </div>
+
+          {/* Resultados do disparo */}
+          {resultados && (
+            <div style={{border:`1px solid ${S.border}`,borderRadius:8,padding:'8px 12px',display:'flex',flexDirection:'column',gap:4}}>
+              {resultados.map(r => (
+                <div key={r.jid} style={{display:'flex',alignItems:'center',gap:8,fontSize:12.5,color:S.textPrimary}}>
+                  <Icon name={r.ok ? 'Check' : 'XCircle'} size={13} style={{color:r.ok ? 'var(--wa-green)' : '#E5544D',flexShrink:0}}/>
+                  <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.nome}</span>
+                  {!r.ok && <span style={{color:'#E5544D',fontSize:11}}>· {r.erro}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'12px 20px',borderTop:`1px solid ${S.border}`,display:'flex',gap:8,justifyContent:'flex-end',alignItems:'center'}}>
+          {enviando && <span style={{fontSize:12,color:S.textSec,marginRight:'auto'}}>Enviando {progresso.feitos}/{progresso.total}...</span>}
+          <button onClick={onClose} disabled={enviando} style={{padding:'8px 16px',borderRadius:8,border:`1px solid ${S.border}`,background:'transparent',color:S.textSec,fontSize:13,cursor:enviando?'not-allowed':'pointer'}}>Fechar</button>
+          <button onClick={disparar} disabled={enviando} style={{padding:'8px 18px',borderRadius:8,border:'none',background:'var(--wa-green)',color:'#fff',fontSize:13,fontWeight:600,cursor:enviando?'not-allowed':'pointer',display:'inline-flex',alignItems:'center',gap:6,opacity:enviando ? 0.7 : 1}}>
+            <Icon name="Send" size={13}/>{enviando ? 'Enviando...' : `Disparar${selecionados.size ? ' ('+selecionados.size+')' : ''}`}
           </button>
         </div>
       </div>
