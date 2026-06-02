@@ -5347,10 +5347,11 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
   }, [onClose]);
 
   const inputBase = {
-    width:'100%', height:38, padding:'0 12px', borderRadius:8,
+    width:'100%', height:34, padding:'0 10px', borderRadius:6,
     background:'var(--wa-search-bg)', border:'1px solid var(--wa-border)',
-    color:'var(--wa-text-primary)', fontSize:14, outline:'none', fontFamily:'inherit',
+    color:'var(--wa-text-primary)', fontSize:13, outline:'none', fontFamily:'inherit',
   };
+  const labelBase = { display:'block', fontSize:11, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:4, textTransform:'uppercase', letterSpacing:.4 };
 
   return (
     <div role="dialog" aria-modal="true"
@@ -5360,40 +5361,40 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
         display:'flex', alignItems:'center', justifyContent:'center', padding:20,
       }}>
       <div style={{
-        width:'100%', maxWidth:540, maxHeight:'90vh', overflow:'hidden',
-        background:'var(--wa-header-bg)', borderRadius:14, border:'1px solid var(--wa-border)',
+        width:'100%', maxWidth:440, maxHeight:'88vh', overflow:'hidden',
+        background:'var(--wa-header-bg)', borderRadius:10, border:'1px solid var(--wa-border)',
         display:'flex', flexDirection:'column',
-        boxShadow:'0 18px 60px rgba(0,0,0,.4)',
+        boxShadow:'0 12px 40px rgba(0,0,0,.45)',
       }}>
-        {/* Header */}
-        <div style={{ padding:'14px 18px', borderBottom:'1px solid var(--wa-border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <Icon name="Clock" size={20} style={{ color:'var(--wa-green)' }}/>
-            <div>
-              <div style={{ fontWeight:700, fontSize:15, color:'var(--wa-text-primary)', fontFamily:'var(--f-d)' }}>Agendar mensagem</div>
-              <div style={{ fontSize:12, color:'var(--wa-text-secondary)' }}>
-                {contato?.name || 'Contato'} {activeInstance?.nome ? `· via ${activeInstance.nome}` : ''}
-              </div>
+        {/* Header compacto */}
+        <div style={{ padding:'12px 14px', borderBottom:'1px solid var(--wa-border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontWeight:700, fontSize:14, color:'var(--wa-text-primary)', fontFamily:'var(--f-d)', display:'flex', alignItems:'center', gap:7 }}>
+              <Icon name="Clock" size={15} style={{ color:'var(--wa-green)' }}/>
+              Agendar mensagem
+            </div>
+            <div style={{ fontSize:11, color:'var(--wa-text-secondary)', marginTop:2, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
+              {contato?.name || 'Contato'}{activeInstance?.nome ? ` · ${activeInstance.nome}` : ''}
             </div>
           </div>
-          <div onClick={onClose} style={{ width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--wa-text-secondary)' }} title="Fechar">
-            <Icon name="X" size={18}/>
+          <div onClick={onClose} style={{ width:26, height:26, borderRadius:6, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--wa-text-secondary)', flexShrink:0 }} title="Fechar (Esc)">
+            <Icon name="X" size={16}/>
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs compactas */}
         <div style={{ display:'flex', borderBottom:'1px solid var(--wa-border)', flexShrink:0 }}>
           {[
-            { key:'novo', label:'Novo agendamento' },
-            { key:'lista', label:`Fila (${agendadas?.length || 0})` },
+            { key:'novo', label:'Novo' },
+            { key:'lista', label:`Fila${agendadas?.length ? ` · ${agendadas.length}` : ''}` },
           ].map(t => (
             <div key={t.key} onClick={() => setTab(t.key)}
               style={{
-                flex:1, padding:'10px 14px', textAlign:'center', cursor:'pointer',
-                fontSize:13, fontWeight:600, fontFamily:'var(--f-d)',
+                flex:1, padding:'9px 12px', textAlign:'center', cursor:'pointer',
+                fontSize:12, fontWeight:600, fontFamily:'var(--f-d)',
                 color: tab === t.key ? 'var(--wa-green)' : 'var(--wa-text-secondary)',
                 borderBottom: tab === t.key ? '2px solid var(--wa-green)' : '2px solid transparent',
-                transition:'all .15s',
+                marginBottom:-1,
               }}>
               {t.label}
             </div>
@@ -5401,44 +5402,42 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
         </div>
 
         {/* Corpo */}
-        <div style={{ padding:18, overflowY:'auto', flex:1 }}>
+        <div style={{ padding:'14px', overflowY:'auto', flex:1 }}>
           {tab === 'novo' ? (
-            <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-              {/* Conteudo */}
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {/* Mensagem */}
               <div>
-                <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>
-                  Mensagem
-                </label>
+                <label style={labelBase}>Mensagem</label>
                 <textarea
                   value={conteudo}
                   onChange={(e) => setConteudo(e.target.value)}
-                  rows={5}
+                  rows={3}
                   placeholder="Digite a mensagem que será enviada..."
-                  style={{ ...inputBase, height:'auto', minHeight:90, padding:'10px 12px', resize:'vertical', lineHeight:1.45 }}
+                  style={{ ...inputBase, height:'auto', minHeight:64, padding:'8px 10px', resize:'vertical', lineHeight:1.4 }}
                 />
-                <div style={{ fontSize:11, color:'var(--wa-text-secondary)', marginTop:4, textAlign:'right' }}>
+                <div style={{ fontSize:10, color:'var(--wa-text-secondary)', marginTop:2, textAlign:'right' }}>
                   {conteudo.length} caracteres
                 </div>
               </div>
 
-              {/* Data e Hora */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              {/* Data, Hora e Recorrencia em uma linha */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 110px', gap:8 }}>
                 <div>
-                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Data</label>
+                  <label style={labelBase}>Data</label>
                   <input type="date" value={data} onChange={(e) => setData(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
                     style={inputBase}/>
                 </div>
                 <div>
-                  <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Hora</label>
+                  <label style={labelBase}>Hora</label>
                   <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} style={inputBase}/>
                 </div>
               </div>
 
-              {/* Recorrencia */}
+              {/* Recorrencia compacta */}
               <div>
-                <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Recorrência</label>
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                <label style={labelBase}>Repetir</label>
+                <div style={{ display:'flex', gap:4 }}>
                   {[
                     { v:'none', label:'Uma vez' },
                     { v:'diaria', label:'Diária' },
@@ -5447,19 +5446,19 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
                   ].map(r => (
                     <div key={r.v} onClick={() => setRecorrencia(r.v)}
                       style={{
-                        padding:'7px 14px', borderRadius:18, cursor:'pointer',
+                        flex:1, padding:'6px 8px', borderRadius:6, cursor:'pointer', textAlign:'center',
                         background: recorrencia === r.v ? 'var(--wa-green)' : 'var(--wa-search-bg)',
-                        color: recorrencia === r.v ? '#fff' : 'var(--wa-text-primary)',
-                        border:'1px solid var(--wa-border)',
-                        fontSize:13, fontWeight:500, transition:'all .15s',
+                        color: recorrencia === r.v ? '#fff' : 'var(--wa-text-secondary)',
+                        border: `1px solid ${recorrencia === r.v ? 'var(--wa-green)' : 'var(--wa-border)'}`,
+                        fontSize:12, fontWeight:600, transition:'all .15s',
                       }}>
                       {r.label}
                     </div>
                   ))}
                 </div>
                 {recorrencia !== 'none' && (
-                  <div style={{ marginTop:10 }}>
-                    <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>Repetir até (opcional)</label>
+                  <div style={{ marginTop:8 }}>
+                    <label style={labelBase}>Até (opcional)</label>
                     <input type="date" value={recorrenciaAte} onChange={(e) => setRecorrenciaAte(e.target.value)}
                       min={data}
                       style={inputBase}/>
@@ -5469,64 +5468,64 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
 
               {/* Nota interna */}
               <div>
-                <label style={{ display:'block', fontSize:12, fontWeight:600, color:'var(--wa-text-secondary)', marginBottom:6 }}>
-                  Nota interna (opcional, só você vê)
-                </label>
+                <label style={labelBase}>Nota interna (privada)</label>
                 <input type="text" value={notaInterna} onChange={(e) => setNotaInterna(e.target.value)}
                   placeholder="ex: follow-up sobre proposta"
                   style={inputBase}/>
               </div>
 
-              {/* Preview */}
+              {/* Preview em linha sutil */}
               <div style={{
-                background:'var(--wa-search-bg)', borderRadius:10, padding:'12px 14px',
-                border:'1px solid var(--wa-border)', display:'flex', flexDirection:'column', gap:6,
+                display:'flex', alignItems:'center', gap:8,
+                padding:'8px 10px', borderRadius:6,
+                background:'rgba(37,211,102,.06)',
+                border:'1px solid rgba(37,211,102,.25)',
               }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--wa-text-secondary)', textTransform:'uppercase', letterSpacing:.5 }}>
-                  Preview do envio
+                <Icon name="Send" size={13} style={{ color:'var(--wa-green)', flexShrink:0 }}/>
+                <div style={{ flex:1, minWidth:0, fontSize:12, color:'var(--wa-text-primary)' }}>
+                  {previewQuando || 'data/hora inválida'}
+                  {previewRelativo && <span style={{ color:'var(--wa-text-secondary)', marginLeft:6 }}>· {previewRelativo}</span>}
+                  {recorrencia !== 'none' && (
+                    <span style={{ color:'var(--wa-text-secondary)', marginLeft:6 }}>· repete {recorrencia}{recorrenciaAte ? ` até ${recorrenciaAte}` : ''}</span>
+                  )}
                 </div>
-                <div style={{ fontSize:13, color:'var(--wa-text-primary)', fontWeight:600 }}>
-                  {previewQuando || 'horário inválido'} {previewRelativo && <span style={{ color:'var(--wa-green)', fontWeight:500 }}>({previewRelativo})</span>}
-                </div>
-                {recorrencia !== 'none' && (
-                  <div style={{ fontSize:12, color:'var(--wa-text-secondary)' }}>
-                    Repete: {recorrencia}{recorrenciaAte ? ` até ${recorrenciaAte}` : ' (sem limite)'}
-                  </div>
-                )}
               </div>
             </div>
           ) : (
             <div>
               {(!agendadas || agendadas.length === 0) ? (
-                <div style={{ textAlign:'center', padding:'40px 20px', color:'var(--wa-text-secondary)' }}>
-                  <Icon name="CalendarCheck" size={36} style={{ opacity:.4, marginBottom:10 }}/>
-                  <div style={{ fontSize:14 }}>Nenhuma mensagem agendada pra este contato.</div>
+                <div style={{ textAlign:'center', padding:'32px 16px', color:'var(--wa-text-secondary)' }}>
+                  <Icon name="CalendarCheck" size={28} style={{ opacity:.35, marginBottom:8 }}/>
+                  <div style={{ fontSize:13 }}>Nenhuma mensagem agendada pra este contato.</div>
                 </div>
               ) : (
-                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                   {agendadas.map(a => (
                     <div key={a.id} style={{
-                      background:'var(--wa-search-bg)', borderRadius:10, padding:'12px 14px',
+                      background:'var(--wa-search-bg)', borderRadius:6, padding:'10px 12px',
                       border:'1px solid var(--wa-border)',
-                      display:'flex', alignItems:'flex-start', gap:12,
+                      display:'flex', alignItems:'flex-start', gap:10,
                     }}>
                       <div style={{ flex:1, minWidth:0 }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:'var(--wa-green)', marginBottom:4 }}>
+                        <div style={{ fontSize:11, fontWeight:700, color:'var(--wa-green)', marginBottom:3, display:'flex', alignItems:'center', gap:6 }}>
+                          <Icon name="Clock" size={11}/>
                           {fmtAgendada(a.agendado_para)}
                           {a.recorrencia && a.recorrencia !== 'none' && (
-                            <span style={{ marginLeft:8, padding:'2px 8px', background:'rgba(37,211,102,.15)', borderRadius:8, fontSize:10 }}>
+                            <span style={{ padding:'1px 6px', background:'rgba(37,211,102,.15)', borderRadius:4, fontSize:9, textTransform:'uppercase', letterSpacing:.4 }}>
                               {a.recorrencia}
                             </span>
                           )}
                         </div>
-                        <div style={{ fontSize:13, color:'var(--wa-text-primary)', lineHeight:1.4, whiteSpace:'pre-wrap', wordBreak:'break-word', maxHeight:80, overflow:'hidden' }}>
+                        <div style={{ fontSize:12.5, color:'var(--wa-text-primary)', lineHeight:1.4, whiteSpace:'pre-wrap', wordBreak:'break-word', maxHeight:70, overflow:'hidden' }}>
                           {a.conteudo}
                         </div>
                       </div>
                       <div onClick={() => onCancelarAgendada(a.id)}
-                        style={{ width:30, height:30, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#A32D2D', flexShrink:0 }}
+                        style={{ width:24, height:24, borderRadius:4, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'var(--wa-text-secondary)', flexShrink:0, transition:'all .15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(163,45,45,.12)'; e.currentTarget.style.color = '#A32D2D'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--wa-text-secondary)'; }}
                         title="Cancelar agendamento">
-                        <Icon name="X" size={16}/>
+                        <Icon name="X" size={14}/>
                       </div>
                     </div>
                   ))}
@@ -5538,21 +5537,21 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
 
         {/* Footer */}
         {tab === 'novo' && (
-          <div style={{ padding:'12px 18px', borderTop:'1px solid var(--wa-border)', display:'flex', gap:10, justifyContent:'flex-end', flexShrink:0 }}>
+          <div style={{ padding:'10px 14px', borderTop:'1px solid var(--wa-border)', display:'flex', gap:8, justifyContent:'flex-end', flexShrink:0 }}>
             <button onClick={onClose}
-              style={{ padding:'9px 16px', borderRadius:8, border:'1px solid var(--wa-border)', background:'transparent', color:'var(--wa-text-primary)', fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+              style={{ padding:'7px 14px', borderRadius:6, border:'1px solid var(--wa-border)', background:'transparent', color:'var(--wa-text-primary)', fontSize:12.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
               Cancelar
             </button>
             <button onClick={handleSalvar} disabled={!podeAgendar || salvando}
               style={{
-                padding:'9px 18px', borderRadius:8, border:'none',
-                background: podeAgendar && !salvando ? 'var(--wa-green)' : 'rgba(128,128,128,.3)',
-                color:'#fff', fontSize:13, fontWeight:700,
+                padding:'7px 16px', borderRadius:6, border:'none',
+                background: podeAgendar && !salvando ? 'var(--wa-green)' : 'rgba(128,128,128,.25)',
+                color:'#fff', fontSize:12.5, fontWeight:700,
                 cursor: podeAgendar && !salvando ? 'pointer' : 'not-allowed',
-                fontFamily:'inherit', display:'flex', alignItems:'center', gap:8,
+                fontFamily:'inherit', display:'flex', alignItems:'center', gap:6,
               }}>
-              <Icon name="Send" size={15}/>
-              {salvando ? 'Agendando...' : 'Agendar envio'}
+              <Icon name="Send" size={13}/>
+              {salvando ? 'Agendando...' : 'Agendar'}
             </button>
           </div>
         )}
