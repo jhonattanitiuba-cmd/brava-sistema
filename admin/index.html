@@ -15684,7 +15684,11 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                             onMouseLeave={e=>e.currentTarget.style.background='rgba(186,117,23,.10)'}>
                             <Icon name="Link" size={11}/>Conciliar
                           </button>
-                        : <span style={{fontSize:11, color:'var(--t3)'}}>conciliado</span>}
+                        : <button onClick={()=>setConciliandoAberto(true)} title="Clique para revisar ou alterar o vinculo" style={{background:'transparent', border:'1px solid rgba(29,158,117,.3)', cursor:'pointer', color:'#1D9E75', padding:'3px 8px', borderRadius:5, fontSize:11.5, fontWeight:600, display:'inline-flex', alignItems:'center', gap:4}}
+                            onMouseEnter={e=>e.currentTarget.style.background='rgba(29,158,117,.12)'}
+                            onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                            <Icon name="Link" size={11}/>conciliado
+                          </button>}
                   </td>
                 </tr>
               ))}
