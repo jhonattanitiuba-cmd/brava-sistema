@@ -12726,6 +12726,124 @@ function FinPlanoContas() {
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   DRE — Relatorio gerencial (Tela 4). Agrega o extrato por grupo_dre.
+   valor ja vem assinado (negativo = saida). nao_dre fica fora do resultado.
+   ═══════════════════════════════════════════════════════════════════ */
+function FinDRE({ mesFiltro }) {
+  const categorias = useDreCategorias();
+  const extrato = useExtratoBancario();
+  const { inicio, fim, label } = parsePeriodo(mesFiltro);
+  const [expandido, setExpandido] = React.useState({});
+
+  const catById = React.useMemo(() => { const m = {}; categorias.forEach(c => { m[c.id] = c; }); return m; }, [categorias]);
+
+  const dados = React.useMemo(() => {
+    const porGrupo = {}, porCat = {};
+    GRUPOS_DRE.forEach(g => { porGrupo[g.id] = 0; porCat[g.id] = {}; });
+    let semCatN = 0, semCatV = 0;
+    (extrato || []).forEach(l => {
+      if (l.ignorado) return;
+      const d = l.data;
+      if (!d || d < inicio || d > fim) return;
+      const v = Number(l.valor) || 0;
+      const cat = l.categoria_id ? catById[l.categoria_id] : null;
+      if (!cat) { semCatN++; semCatV += Math.abs(v); return; }
+      const g = cat.grupo_dre;
+      if (porGrupo[g] == null) { porGrupo[g] = 0; porCat[g] = {}; }
+      porGrupo[g] += v;
+      if (!porCat[g][cat.id]) porCat[g][cat.id] = { nome: cat.nome, cor: cat.cor, total: 0 };
+      porCat[g][cat.id].total += v;
+    });
+    const receitaBruta = porGrupo['receita_bruta'] || 0;
+    const deducoes = porGrupo['deducoes'] || 0;
+    const receitaLiquida = receitaBruta + deducoes;
+    const custos = porGrupo['custos'] || 0;
+    const lucroBruto = receitaLiquida + custos;
+    const despOp = porGrupo['despesas_operacionais'] || 0;
+    const despPes = porGrupo['despesas_pessoal'] || 0;
+    const despFin = porGrupo['despesas_financeiras'] || 0;
+    const resultadoOperacional = lucroBruto + despOp + despPes + despFin;
+    const naoOper = porGrupo['nao_operacional'] || 0;
+    const resultadoLiquido = resultadoOperacional + naoOper;
+    const naoDre = porGrupo['nao_dre'] || 0;
+    return { porGrupo, porCat, receitaBruta, deducoes, receitaLiquida, custos, lucroBruto, resultadoOperacional, naoOper, resultadoLiquido, naoDre, semCatN, semCatV };
+  }, [extrato, catById, inicio, fim]);
+
+  const fmt = (v) => (v < 0 ? '- ' : '') + 'R$ ' + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const margem = dados.receitaBruta > 0 ? (dados.resultadoLiquido / dados.receitaBruta * 100) : null;
+
+  const linhaGrupo = (grupoId, prefixo, lbl) => {
+    const total = dados.porGrupo[grupoId] || 0;
+    const cats = Object.values(dados.porCat[grupoId] || {}).sort((a, b) => Math.abs(b.total) - Math.abs(a.total));
+    const aberto = !!expandido[grupoId];
+    return (
+      <div key={grupoId}>
+        <div onClick={() => cats.length && setExpandido(s => ({ ...s, [grupoId]: !s[grupoId] }))}
+          style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 14px', borderBottom:'1px solid var(--border-soft)', cursor: cats.length ? 'pointer' : 'default' }}>
+          <span style={{ display:'flex', alignItems:'center', gap:8, fontSize:13, color:'var(--t2)' }}>
+            {cats.length ? <Icon name={aberto ? 'ChevronDown' : 'ChevronRight'} size={13} style={{ color:'var(--t3)' }} /> : <span style={{ display:'inline-block', width:13 }} />}
+            <span style={{ color:'var(--t3)' }}>{prefixo}</span> {lbl}
+            {!!cats.length && <span style={{ fontSize:11, color:'var(--t3)' }}>({cats.length})</span>}
+          </span>
+          <span style={{ fontFamily:'var(--f-m)', fontSize:13, color: total < 0 ? '#E5544D' : 'var(--t1)' }}>{fmt(total)}</span>
+        </div>
+        {aberto && cats.map((c, i) => (
+          <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 14px 5px 40px', fontSize:12, color:'var(--t3)', background:'var(--bg-2)' }}>
+            <span style={{ display:'flex', alignItems:'center', gap:7 }}><span style={{ width:8, height:8, borderRadius:2, background: c.cor || '#6B7280' }} />{c.nome}</span>
+            <span style={{ fontFamily:'var(--f-m)' }}>{fmt(c.total)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const subtotal = (lbl, valor, forte) => (
+    <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--border)', background: forte ? 'var(--bg-2)' : 'transparent' }}>
+      <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>{lbl}</span>
+      <span style={{ fontFamily:'var(--f-m)', fontSize:13.5, fontWeight:700, color: valor < 0 ? '#E5544D' : (forte ? '#1D9E75' : 'var(--t1)') }}>{fmt(valor)}</span>
+    </div>
+  );
+
+  const temNaoDre = (dados.naoDre !== 0) || (dados.porCat['nao_dre'] && Object.keys(dados.porCat['nao_dre']).length > 0);
+
+  return (
+    <div>
+      {dados.semCatN > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 14px', marginBottom:14, borderRadius:8, background:'rgba(186,117,23,.10)', border:'1px solid rgba(186,117,23,.3)', color:'#BA7517', fontSize:12.5 }}>
+          <Icon name="AlertTriangle" size={15} />
+          {dados.semCatN} lançamento(s) sem categoria no período ({fmt(dados.semCatV)} em volume) ficam de fora do DRE. Classifique em Plano de Contas → Regras.
+        </div>
+      )}
+
+      <div className="card" style={{ padding:0, overflow:'hidden' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderBottom:'2px solid var(--border)', background:'var(--bg-2)' }}>
+          <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>DRE · {label}</span>
+          {margem != null && <span style={{ fontSize:12, color: dados.resultadoLiquido >= 0 ? '#1D9E75' : '#E5544D', fontWeight:600 }}>Margem líquida {margem.toFixed(1)}%</span>}
+        </div>
+
+        {linhaGrupo('receita_bruta', '', 'Receita Bruta')}
+        {linhaGrupo('deducoes', '(-)', 'Deduções')}
+        {subtotal('= Receita Líquida', dados.receitaLiquida)}
+        {linhaGrupo('custos', '(-)', 'Custos')}
+        {subtotal('= Lucro Bruto', dados.lucroBruto)}
+        {linhaGrupo('despesas_operacionais', '(-)', 'Despesas Operacionais')}
+        {linhaGrupo('despesas_pessoal', '(-)', 'Despesas com Pessoal')}
+        {linhaGrupo('despesas_financeiras', '(-)', 'Despesas Financeiras')}
+        {subtotal('= Resultado Operacional', dados.resultadoOperacional)}
+        {linhaGrupo('nao_operacional', '(+/-)', 'Não Operacional')}
+        {subtotal('= Resultado Líquido', dados.resultadoLiquido, true)}
+      </div>
+
+      {temNaoDre && (
+        <div style={{ marginTop:12, padding:'10px 14px', borderRadius:8, border:'1px dashed var(--border)', fontSize:12, color:'var(--t3)' }}>
+          Fora do DRE (aportes, empréstimos, transferências, distribuição de lucros): {fmt(dados.naoDre)}. Não afeta o resultado.
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─── Store EXTRATO BANCÁRIO - Supabase (tabela fin_extrato_bancario) ─── */
 
 // Normaliza descrição pra calcular hash de dedup determinístico (espaços, case, acentos)
@@ -14692,6 +14810,7 @@ function Financeiro() {
     { id:'despesas',     label:'Despesas',              icon:'CreditCard' },
     { id:'caixa',        label:'Fluxo de caixa',        icon:'Wallet'     },
     { id:'plano_contas', label:'Plano de Contas',       icon:'Layers'     },
+    { id:'dre',          label:'DRE',                   icon:'ScrollText' },
   ];
 
   // Gera 12 meses pra trás + 1 mês à frente
@@ -14845,6 +14964,7 @@ function Financeiro() {
       {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
       {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
       {tab === 'plano_contas' && <FinPlanoContas/>}
+      {tab === 'dre'          && <FinDRE mesFiltro={mesFiltro}/>}
     </div>
   );
 }
