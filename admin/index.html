@@ -12402,6 +12402,62 @@ async function deleteDreCategoria(id) {
   return true;
 }
 
+/* ─── Tela 2: Regras de auto-classificacao (fin_categoria_regras) ─── */
+const _dreNorm = (s) => (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+
+function useCategoriaRegras() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_categoria_regras').select('*').order('prioridade', { ascending: true });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:fin_categoria_regras')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_categoria_regras' }, load)
+      .subscribe();
+    const onChange = () => load();
+    window.addEventListener('brava:categoria_regra_changed', onChange);
+    return () => { alive = false; cli.removeChannel(ch); window.removeEventListener('brava:categoria_regra_changed', onChange); };
+  }, []);
+  return list;
+}
+
+async function addCategoriaRegra(item) {
+  const cli = getSupa(); if (!cli) return null;
+  const payload = { padrao: _dreNorm(item.padrao), categoria_id: item.categoria_id, cliente_id: item.cliente_id || null, prioridade: item.prioridade != null ? item.prioridade : 100, ativo: item.ativo !== false };
+  const { data, error } = await cli.from('fin_categoria_regras').insert(payload).select().single();
+  if (error) { showToast?.('Erro ao criar regra: ' + error.message, 'error'); return null; }
+  _bravaEmit('categoria_regra', { op:'insert', id: data?.id });
+  return data?.id || null;
+}
+async function editCategoriaRegra(id, patch) {
+  const cli = getSupa(); if (!cli) return false;
+  const clean = { ...patch }; delete clean.id; delete clean.created_at;
+  if (clean.padrao != null) clean.padrao = _dreNorm(clean.padrao);
+  if ('cliente_id' in clean && !clean.cliente_id) clean.cliente_id = null;
+  const { error } = await cli.from('fin_categoria_regras').update(clean).eq('id', id);
+  if (error) { showToast?.('Erro ao salvar regra: ' + error.message, 'error'); return false; }
+  _bravaEmit('categoria_regra', { op:'update', id, patch });
+  return true;
+}
+async function deleteCategoriaRegra(id) {
+  const cli = getSupa(); if (!cli) return false;
+  const { error } = await cli.from('fin_categoria_regras').delete().eq('id', id);
+  if (error) { showToast?.('Erro ao apagar regra: ' + error.message, 'error'); return false; }
+  _bravaEmit('categoria_regra', { op:'delete', id });
+  return true;
+}
+async function reclassificarExtrato(somenteSemCategoria) {
+  const cli = getSupa(); if (!cli) return null;
+  const { data, error } = await cli.rpc('fin_auto_classificar', { p_somente_sem_categoria: !!somenteSemCategoria });
+  if (error) { showToast?.('Erro ao reclassificar: ' + error.message, 'error'); return null; }
+  _bravaEmit('extrato', { op:'reclassificar' });
+  return data;
+}
+
 function DreCategoriaModal({ inicial, onFechar }) {
   const ehNovo = !(inicial && inicial.id);
   const [form, setForm] = React.useState(() => ({
@@ -12468,7 +12524,7 @@ function DreCategoriaModal({ inicial, onFechar }) {
   );
 }
 
-function FinPlanoContas() {
+function FinCategoriasView() {
   const cats = useDreCategorias();
   const [modal, setModal] = React.useState(null);
 
@@ -12525,6 +12581,147 @@ function FinPlanoContas() {
       })}
 
       {modal && <DreCategoriaModal inicial={modal} onFechar={() => setModal(null)} />}
+    </div>
+  );
+}
+
+function DreRegraModal({ inicial, categorias, clientes, onFechar }) {
+  const ehNovo = !(inicial && inicial.id);
+  const cativas = categorias.filter(c => c.ativo);
+  const [form, setForm] = React.useState(() => ({
+    padrao: (inicial && inicial.padrao) || '',
+    categoria_id: (inicial && inicial.categoria_id) || (cativas[0] && cativas[0].id) || '',
+    cliente_id: (inicial && inicial.cliente_id) || '',
+    prioridade: (inicial && inicial.prioridade) != null ? inicial.prioridade : 100,
+    ativo: !(inicial && inicial.ativo === false),
+  }));
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const salvar = async () => {
+    const padrao = (form.padrao || '').trim();
+    if (!padrao) { showToast?.('Informe o texto (padrão) a procurar na descrição', 'error'); return; }
+    if (!form.categoria_id) { showToast?.('Escolha a categoria', 'error'); return; }
+    if (ehNovo) {
+      const ok = await addCategoriaRegra(form);
+      if (ok) showToast?.('Regra criada', 'success');
+    } else {
+      const ok = await editCategoriaRegra(inicial.id, form);
+      if (ok) showToast?.('Regra atualizada', 'success');
+    }
+    onFechar();
+  };
+  return (
+    <div style={_dreOverlay} onClick={onFechar}>
+      <div style={_dreModal} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize:15, fontWeight:700, color:'var(--t1)', marginBottom:6 }}>{ehNovo ? 'Nova regra' : 'Editar regra'}</div>
+        <div style={{ fontSize:12, color:'var(--t3)', marginBottom:16 }}>Quando a descrição do lançamento contiver o texto abaixo, ele recebe a categoria escolhida.</div>
+        <label style={_dreLbl}>Texto na descrição (padrão)</label>
+        <input value={form.padrao} onChange={e => set('padrao', e.target.value)} style={_dreInp} autoFocus placeholder="ex: uber, posto, ifood, salario joao" />
+        <label style={_dreLbl}>Categoria</label>
+        <select value={form.categoria_id} onChange={e => set('categoria_id', e.target.value)} style={_dreInp}>
+          {GRUPOS_DRE.map(g => {
+            const opts = cativas.filter(c => c.grupo_dre === g.id);
+            if (!opts.length) return null;
+            return <optgroup key={g.id} label={g.label}>{opts.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</optgroup>;
+          })}
+        </select>
+        <label style={_dreLbl}>Cliente (opcional)</label>
+        <select value={form.cliente_id} onChange={e => set('cliente_id', e.target.value)} style={_dreInp}>
+          <option value="">Nenhum</option>
+          {(clientes || []).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+        </select>
+        <label style={_dreLbl}>Prioridade (menor = aplicada primeiro)</label>
+        <input type="number" value={form.prioridade} onChange={e => set('prioridade', parseInt(e.target.value || '100', 10))} style={_dreInp} />
+        <label style={{ display:'flex', alignItems:'center', gap:7, cursor:'pointer', fontSize:13, color:'var(--t2)', marginBottom:6 }}>
+          <input type="checkbox" checked={form.ativo} onChange={e => set('ativo', e.target.checked)} /> Ativa
+        </label>
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:10 }}>
+          <button onClick={onFechar} style={_dreBtnGhost}>Cancelar</button>
+          <button onClick={salvar} style={_dreBtnPrimary}>Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinRegrasView() {
+  const regras = useCategoriaRegras();
+  const categorias = useDreCategorias();
+  const { list: clientes } = useClientes();
+  const [modal, setModal] = React.useState(null);
+  const [reclass, setReclass] = React.useState(false);
+
+  const catById = React.useMemo(() => { const m = {}; categorias.forEach(c => { m[c.id] = c; }); return m; }, [categorias]);
+  const cliById = React.useMemo(() => { const m = {}; (clientes || []).forEach(c => { m[c.id] = c; }); return m; }, [clientes]);
+
+  const apagar = async (r) => {
+    if (!window.confirm('Apagar a regra "' + r.padrao + '"?')) return;
+    const ok = await deleteCategoriaRegra(r.id);
+    if (ok) showToast?.('Regra apagada', 'success');
+  };
+  const rodar = async (somenteSem) => {
+    setReclass(true);
+    const n = await reclassificarExtrato(somenteSem);
+    setReclass(false);
+    if (n != null) showToast?.(n + ' lançamento(s) classificado(s)', 'success');
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16, gap:12, flexWrap:'wrap' }}>
+        <div style={{ color:'var(--t3)', fontSize:13 }}>{regras.length} regras · o sistema usa elas pra classificar o extrato automaticamente.</div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+          <button onClick={() => rodar(true)} disabled={reclass} style={{ ..._dreBtnGhost, opacity: reclass ? .6 : 1 }}>{reclass ? 'Processando...' : 'Reclassificar (só sem categoria)'}</button>
+          <button onClick={() => rodar(false)} disabled={reclass} style={{ ..._dreBtnGhost, opacity: reclass ? .6 : 1 }}>Reclassificar tudo</button>
+          <button onClick={() => setModal({})} style={_dreBtnPrimary}>+ Nova regra</button>
+        </div>
+      </div>
+
+      <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+        {regras.length === 0 && <div style={{ fontSize:12.5, color:'var(--t3)', padding:'10px 12px', fontStyle:'italic' }}>Nenhuma regra ainda. Crie a primeira pra automatizar a classificação.</div>}
+        {regras.map(r => {
+          const cat = catById[r.categoria_id];
+          const cli = r.cliente_id ? cliById[r.cliente_id] : null;
+          return (
+            <div key={r.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, opacity: r.ativo ? 1 : .45 }}>
+              <span style={{ fontSize:11, color:'var(--t3)', minWidth:34, textAlign:'center' }}>{r.prioridade}</span>
+              <span style={{ fontSize:13, color:'var(--t1)', fontFamily:'monospace', flex:1 }}>"{r.padrao}"</span>
+              <Icon name="ArrowRight" size={13} style={{ color:'var(--t3)' }} />
+              <span style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:12.5, color:'var(--t1)' }}>
+                <span style={{ width:10, height:10, borderRadius:3, background:(cat && cat.cor) || '#6B7280' }} />
+                {cat ? cat.nome : <span style={{ color:'#ef4444' }}>categoria removida</span>}
+              </span>
+              {cli && <span style={{ fontSize:11, color:'var(--t3)' }}>· {cli.nome}</span>}
+              <button onClick={() => editCategoriaRegra(r.id, { ativo: !r.ativo })} style={{ fontSize:10.5, fontWeight:600, color: r.ativo ? '#22c55e' : 'var(--t3)', background:'none', border:'none', cursor:'pointer', minWidth:48 }}>{r.ativo ? 'ativa' : 'inativa'}</button>
+              <button onClick={() => setModal(r)} style={_dreIconBtn} title="Editar"><Icon name="Pencil" size={13} /></button>
+              <button onClick={() => apagar(r)} style={_dreIconBtn} title="Apagar"><Icon name="Trash2" size={13} /></button>
+            </div>
+          );
+        })}
+      </div>
+
+      {modal && <DreRegraModal inicial={modal} categorias={categorias} clientes={clientes || []} onFechar={() => setModal(null)} />}
+    </div>
+  );
+}
+
+function FinPlanoContas() {
+  const [sub, setSub] = React.useState('categorias');
+  const subs = [
+    { id:'categorias', label:'Categorias' },
+    { id:'regras', label:'Regras de classificação' },
+  ];
+  return (
+    <div>
+      <div style={{ display:'flex', gap:6, marginBottom:18 }}>
+        {subs.map(s => (
+          <button key={s.id} onClick={() => setSub(s.id)} style={{
+            padding:'6px 14px', borderRadius:999, border:'1px solid var(--border)',
+            background: sub === s.id ? 'var(--blue)' : 'transparent',
+            color: sub === s.id ? '#fff' : 'var(--t2)', fontSize:12.5, fontWeight:600, cursor:'pointer',
+          }}>{s.label}</button>
+        ))}
+      </div>
+      {sub === 'categorias' ? <FinCategoriasView/> : <FinRegrasView/>}
     </div>
   );
 }
