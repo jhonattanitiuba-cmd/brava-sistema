@@ -12333,6 +12333,202 @@ function useCaixaLancamentos() {
   return list;
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   DRE — Plano de Contas (Tela 1). Tabela fin_dre_categorias.
+   Tudo personalizavel: criar/editar/apagar/ativar categorias.
+   ═══════════════════════════════════════════════════════════════════ */
+const GRUPOS_DRE = [
+  { id:'receita_bruta',         label:'Receita Bruta',         cor:'#22c55e' },
+  { id:'deducoes',              label:'Deduções',              cor:'#f59e0b' },
+  { id:'custos',                label:'Custos',                cor:'#ef4444' },
+  { id:'despesas_operacionais', label:'Despesas Operacionais', cor:'#f97316' },
+  { id:'despesas_pessoal',      label:'Despesas com Pessoal',  cor:'#a855f7' },
+  { id:'despesas_financeiras',  label:'Despesas Financeiras',  cor:'#ec4899' },
+  { id:'nao_operacional',       label:'Não Operacional',       cor:'#3b82f6' },
+  { id:'nao_dre',               label:'Fora do DRE',           cor:'#6b7280' },
+];
+const grupoDreLabel = (id) => (GRUPOS_DRE.find(g => g.id === id) || {}).label || id;
+
+const _dreInp = { width:'100%', padding:'8px 11px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--t1)', fontSize:13, marginBottom:10, boxSizing:'border-box', fontFamily:'inherit' };
+const _dreLbl = { display:'block', fontSize:11, fontWeight:600, color:'var(--t3)', marginBottom:5, textTransform:'uppercase', letterSpacing:'.04em' };
+const _dreBtnPrimary = { padding:'8px 16px', borderRadius:8, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer' };
+const _dreBtnGhost = { padding:'8px 16px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:600, cursor:'pointer' };
+const _dreIconBtn = { padding:'5px 6px', borderRadius:6, border:'1px solid var(--border)', background:'var(--bg)', color:'var(--t3)', cursor:'pointer', display:'inline-flex', alignItems:'center' };
+const _dreOverlay = { position:'fixed', inset:0, background:'rgba(0,0,0,.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:10000 };
+const _dreModal = { width:'min(460px,92vw)', maxHeight:'88vh', overflowY:'auto', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:'22px 24px', boxShadow:'0 20px 60px rgba(0,0,0,.5)' };
+
+function useDreCategorias() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_dre_categorias').select('*').order('ordem', { ascending: true });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:fin_dre_categorias')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_dre_categorias' }, load)
+      .subscribe();
+    const onChange = () => load();
+    window.addEventListener('brava:dre_categoria_changed', onChange);
+    return () => { alive = false; cli.removeChannel(ch); window.removeEventListener('brava:dre_categoria_changed', onChange); };
+  }, []);
+  return list;
+}
+
+async function addDreCategoria(item) {
+  const cli = getSupa(); if (!cli) return null;
+  const base = { nome:'', grupo_dre:'despesas_operacionais', natureza:'ambos', cor:'#6B7280', ativo:true, ordem:0 };
+  const { data, error } = await cli.from('fin_dre_categorias').insert({ ...base, ...item }).select().single();
+  if (error) { showToast?.('Erro ao criar: ' + error.message, 'error'); return null; }
+  _bravaEmit('dre_categoria', { op:'insert', id: data?.id });
+  return data?.id || null;
+}
+async function editDreCategoria(id, patch) {
+  const cli = getSupa(); if (!cli) return false;
+  const clean = { ...patch }; delete clean.id; delete clean.created_at; delete clean.updated_at;
+  clean.updated_at = new Date().toISOString();
+  const { error } = await cli.from('fin_dre_categorias').update(clean).eq('id', id);
+  if (error) { showToast?.('Erro ao salvar: ' + error.message, 'error'); return false; }
+  _bravaEmit('dre_categoria', { op:'update', id, patch });
+  return true;
+}
+async function deleteDreCategoria(id) {
+  const cli = getSupa(); if (!cli) return false;
+  const { error } = await cli.from('fin_dre_categorias').delete().eq('id', id);
+  if (error) { showToast?.('Erro ao apagar: ' + error.message, 'error'); return false; }
+  _bravaEmit('dre_categoria', { op:'delete', id });
+  return true;
+}
+
+function DreCategoriaModal({ inicial, onFechar }) {
+  const ehNovo = !(inicial && inicial.id);
+  const [form, setForm] = React.useState(() => ({
+    nome: (inicial && inicial.nome) || '',
+    grupo_dre: (inicial && inicial.grupo_dre) || 'despesas_operacionais',
+    natureza: (inicial && inicial.natureza) || 'ambos',
+    cor: (inicial && inicial.cor) || '#6B7280',
+    descricao: (inicial && inicial.descricao) || '',
+    ativo: !(inicial && inicial.ativo === false),
+  }));
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const salvar = async () => {
+    const nome = (form.nome || '').trim();
+    if (!nome) { showToast?.('Informe o nome da categoria', 'error'); return; }
+    if (ehNovo) {
+      const ok = await addDreCategoria({ ...form, nome, descricao: form.descricao || null, ordem: (inicial && inicial.ordem) || 0 });
+      if (ok) showToast?.('Categoria criada', 'success');
+    } else {
+      const ok = await editDreCategoria(inicial.id, { ...form, nome, descricao: form.descricao || null });
+      if (ok) showToast?.('Categoria atualizada', 'success');
+    }
+    onFechar();
+  };
+
+  return (
+    <div style={_dreOverlay} onClick={onFechar}>
+      <div style={_dreModal} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize:15, fontWeight:700, color:'var(--t1)', marginBottom:16 }}>
+          {ehNovo ? 'Nova categoria' : 'Editar categoria'}
+        </div>
+        <label style={_dreLbl}>Nome</label>
+        <input value={form.nome} onChange={e => set('nome', e.target.value)} style={_dreInp} autoFocus
+          onKeyDown={e => { if (e.key === 'Enter') salvar(); }} />
+        <label style={_dreLbl}>Grupo no DRE</label>
+        <select value={form.grupo_dre} onChange={e => set('grupo_dre', e.target.value)} style={_dreInp}>
+          {GRUPOS_DRE.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+        </select>
+        <label style={_dreLbl}>Natureza</label>
+        <select value={form.natureza} onChange={e => set('natureza', e.target.value)} style={_dreInp}>
+          <option value="entrada">Entrada</option>
+          <option value="saida">Saída</option>
+          <option value="ambos">Ambos</option>
+        </select>
+        <div style={{ display:'flex', gap:18, alignItems:'center', margin:'4px 0 12px' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <span style={{ ..._dreLbl, margin:0 }}>Cor</span>
+            <input type="color" value={form.cor} onChange={e => set('cor', e.target.value)}
+              style={{ width:40, height:30, border:'1px solid var(--border)', borderRadius:6, background:'none', cursor:'pointer', padding:0 }} />
+          </div>
+          <label style={{ display:'flex', alignItems:'center', gap:7, cursor:'pointer', fontSize:13, color:'var(--t2)' }}>
+            <input type="checkbox" checked={form.ativo} onChange={e => set('ativo', e.target.checked)} /> Ativa
+          </label>
+        </div>
+        <label style={_dreLbl}>Descrição (opcional)</label>
+        <textarea value={form.descricao} onChange={e => set('descricao', e.target.value)}
+          style={{ ..._dreInp, minHeight:54, resize:'vertical' }} />
+        <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:8 }}>
+          <button onClick={onFechar} style={_dreBtnGhost}>Cancelar</button>
+          <button onClick={salvar} style={_dreBtnPrimary}>Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinPlanoContas() {
+  const cats = useDreCategorias();
+  const [modal, setModal] = React.useState(null);
+
+  const natBadge = (n) => {
+    const map = { entrada:{ t:'Entrada', c:'#22c55e' }, saida:{ t:'Saída', c:'#ef4444' }, ambos:{ t:'Ambos', c:'#94a3b8' } };
+    const m = map[n] || map.ambos;
+    return <span style={{ fontSize:10, fontWeight:600, color:m.c, background:m.c+'22', padding:'2px 8px', borderRadius:999 }}>{m.t}</span>;
+  };
+
+  const apagar = async (c) => {
+    if (!window.confirm('Apagar a categoria "' + c.nome + '"?\n\nOs lançamentos vinculados a ela ficarão sem categoria (dá pra reclassificar depois).')) return;
+    const ok = await deleteDreCategoria(c.id);
+    if (ok) showToast?.('Categoria apagada', 'success');
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18, gap:12, flexWrap:'wrap' }}>
+        <div style={{ color:'var(--t3)', fontSize:13 }}>{cats.length} categorias · tudo editável. Crie, renomeie, troque de grupo, defina cor ou desative.</div>
+        <button onClick={() => setModal({ grupo_dre:'despesas_operacionais' })} style={_dreBtnPrimary}>+ Nova categoria</button>
+      </div>
+
+      {GRUPOS_DRE.map(g => {
+        const doGrupo = cats.filter(c => c.grupo_dre === g.id);
+        const maxOrd = doGrupo.length ? Math.max(...doGrupo.map(c => c.ordem || 0)) : (GRUPOS_DRE.findIndex(x => x.id === g.id) + 1) * 100;
+        return (
+          <div key={g.id} style={{ marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+              <span style={{ width:10, height:10, borderRadius:3, background:g.cor, flexShrink:0 }} />
+              <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>{g.label}</span>
+              <span style={{ fontSize:11, color:'var(--t3)' }}>({doGrupo.length})</span>
+              <button onClick={() => setModal({ grupo_dre:g.id, ordem:maxOrd + 1 })}
+                style={{ marginLeft:6, fontSize:11.5, color:'var(--blue)', background:'none', border:'none', cursor:'pointer', fontWeight:600 }}>+ adicionar</button>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+              {doGrupo.length === 0 && <div style={{ fontSize:12, color:'var(--t3)', padding:'4px 12px', fontStyle:'italic' }}>Nenhuma categoria aqui ainda.</div>}
+              {doGrupo.map(c => (
+                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, opacity: c.ativo ? 1 : .45 }}>
+                  <span style={{ width:12, height:12, borderRadius:4, background:c.cor || '#6B7280', flexShrink:0 }} />
+                  <span style={{ fontSize:13, color:'var(--t1)', fontWeight:500, flex:1 }}>{c.nome}</span>
+                  {c.codigo && <span style={{ fontSize:11, color:'var(--t3)', fontFamily:'monospace' }}>{c.codigo}</span>}
+                  {natBadge(c.natureza)}
+                  <button onClick={() => editDreCategoria(c.id, { ativo: !c.ativo })} title={c.ativo ? 'Clique para desativar' : 'Clique para ativar'}
+                    style={{ fontSize:10.5, fontWeight:600, color: c.ativo ? '#22c55e' : 'var(--t3)', background:'none', border:'none', cursor:'pointer', minWidth:48 }}>
+                    {c.ativo ? 'ativa' : 'inativa'}
+                  </button>
+                  <button onClick={() => setModal(c)} style={_dreIconBtn} title="Editar"><Icon name="Pencil" size={13} /></button>
+                  <button onClick={() => apagar(c)} style={_dreIconBtn} title="Apagar"><Icon name="Trash2" size={13} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      {modal && <DreCategoriaModal inicial={modal} onFechar={() => setModal(null)} />}
+    </div>
+  );
+}
+
 /* ─── Store EXTRATO BANCÁRIO - Supabase (tabela fin_extrato_bancario) ─── */
 
 // Normaliza descrição pra calcular hash de dedup determinístico (espaços, case, acentos)
@@ -14298,6 +14494,7 @@ function Financeiro() {
     { id:'recorrencia',  label:'Receita recorrente',    icon:'TrendingUp' },
     { id:'despesas',     label:'Despesas',              icon:'CreditCard' },
     { id:'caixa',        label:'Fluxo de caixa',        icon:'Wallet'     },
+    { id:'plano_contas', label:'Plano de Contas',       icon:'Layers'     },
   ];
 
   // Gera 12 meses pra trás + 1 mês à frente
@@ -14450,6 +14647,7 @@ function Financeiro() {
       {tab === 'recorrencia' && <FinRecorrencia mesFiltro={mesFiltro} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
       {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
       {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
+      {tab === 'plano_contas' && <FinPlanoContas/>}
     </div>
   );
 }
