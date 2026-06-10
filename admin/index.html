@@ -793,9 +793,10 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
 
         {NAV_BOTTOM.map(n => (
           <div key={n.key} className={`nav-item${n.danger ? ' danger' : ''}`}
-            onClick={() => {
+            onClick={async () => {
               if (n.key === 'sair') {
                 if (confirm('Sair da plataforma?')) {
+                  try { await getSupa()?.auth.signOut(); } catch {}  // invalida o JWT do Supabase de fato
                   localStorage.removeItem('brava_sessao');
                   const tema = document.documentElement.getAttribute('data-theme') || 'dark';
                   window.location.href = `/?logout=1&theme=${tema}`;
@@ -1153,6 +1154,65 @@ function useChecklistVencimentosWatcher(meuId) {
     const intervalId = setInterval(checar, 30 * 60 * 1000); // 30 min
     return () => { cancelled = true; clearInterval(intervalId); };
   }, [meuId]);
+}
+
+/* Watcher: projetos que ficaram CRÍTICOS (saúde < 50, mesma régua do Monitoramento).
+   Roda no mount, a cada 30 min, e na hora quando um checkpoint muda
+   (evento brava_checkpoints_changed que o Monitoramento dispara). Dedup por dia/projeto. */
+function useProjetoCriticoWatcher(meuId) {
+  const clientes = useClientesReactivos();
+  const clientesRef = React.useRef(clientes);
+  clientesRef.current = clientes;
+  const temClientes = !!(clientes && clientes.length);   // dispara o effect quando a lista carrega (false->true)
+  React.useEffect(() => {
+    if (!meuId || !temClientes) return;
+    let cancelled = false;
+    const checar = async () => {
+      const cli = getSupa(); if (!cli) return;
+      const lista = clientesRef.current || [];
+      if (!lista.length) return;
+      try {
+        const { data: checkpoints } = await cli.from('project_checkpoints').select('cliente_slug, done');
+        const { data: msgs7d } = await cli.from('wa_mensagens')
+          .select('instancia_id, timestamp')
+          .gte('timestamp', new Date(Date.now() - 7 * 86400000).toISOString())
+          .limit(20000);
+        if (cancelled) return;
+        const ckByCliente = {};
+        (checkpoints || []).forEach(c => { (ckByCliente[c.cliente_slug] = ckByCliente[c.cliente_slug] || []).push(c); });
+        const waTotal = {};
+        (msgs7d || []).forEach(m => { waTotal[m.instancia_id] = (waTotal[m.instancia_id] || 0) + 1; });
+        const hoje = new Date().toISOString().slice(0, 10);
+        lista.forEach(c => {
+          const slug = c.slug || (c.nome || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cks = ckByCliente[slug] || [];
+          const done = cks.filter(k => k.done).length;
+          const total = cks.length || 1;
+          const percentEntreg = Math.round((done / total) * 100);
+          const mrrAtivo = c.status === 'Ativo' || c.status === 'Em Prod';
+          const msgsUltimos7d = waTotal[c.instancia_id] || 0;
+          const saude = calcSaude({ percentEntreg, msgsUltimos7d, mrrAtivo, diasNaFase: 5 });
+          if (saude < 50) {
+            adicionarNotificacao({
+              id: 'projeto_critico_' + slug + '_' + hoje,   // 1x por projeto por dia
+              tipo: 'erro',
+              titulo: 'Projeto crítico: ' + (c.nome || slug),
+              sub: 'Saúde ' + saude + '/100 · precisa de atenção',
+              icon: 'AlertCircle',
+              cor: '#A32D2D',
+              ts: Date.now(),
+              link: 'projetos',
+            });
+          }
+        });
+      } catch (e) { console.warn('projeto-critico watcher:', e); }
+    };
+    checar();
+    const intervalId = setInterval(checar, 30 * 60 * 1000); // 30 min
+    const onChange = () => checar();                          // recheca na hora ao salvar checkpoint
+    window.addEventListener('brava_checkpoints_changed', onChange);
+    return () => { cancelled = true; clearInterval(intervalId); window.removeEventListener('brava_checkpoints_changed', onChange); };
+  }, [meuId, temClientes]);
 }
 
 /* Dropdown de notificacoes: reativo + Marcar como lidas funcional + estado vazio. */
@@ -24016,6 +24076,7 @@ function App() {
   // ✨ Watchers de checklist: notifica quando tarefa eh atribuida + checa vencimentos + celebra conclusoes
   useChecklistTaskAssignWatcher(_meuUserIdApp);
   useChecklistVencimentosWatcher(_meuUserIdApp);
+  useProjetoCriticoWatcher(_meuUserIdApp);
   useChecklistCompletionWatcher(_meuUserIdApp);
   // ✨ Notif + som quando o sistema concilia um lançamento sozinho (Sprint A)
   useConciliacaoAutoWatcher();
