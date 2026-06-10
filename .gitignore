@@ -39,3 +39,5 @@ clientes/_logos/*-original.png
 babel-*.min.js
 node_modules/
 package-lock.json
+
+.vercel
