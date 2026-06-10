@@ -3964,6 +3964,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   }, [supaEnabled]);
   const [msg, setMsg] = useState('');
   const [busca, setBusca] = useState('');
+  const [filtroEtiqueta, setFiltroEtiqueta] = useState(null);  // filtra a lista por uma etiqueta
   const [buscaMsg, setBuscaMsg] = useState('');           // texto da busca dentro da conversa
   const [buscaMsgAberta, setBuscaMsgAberta] = useState(false);
   const [menuMaisAberto, setMenuMaisAberto] = useState(false);
@@ -4304,9 +4305,23 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     setGravando(false); setGravandoSec(0);
   };
 
+  // Etiquetas efetivamente aplicadas nos chats atuais — alimenta a barra de filtro por etiqueta
+  const etiquetasDisponiveis = React.useMemo(() => {
+    const vistos = new Map();
+    fonteContatos.forEach(c => {
+      (etiquetasByJid[c.id] || []).forEach(e => { if (e && !vistos.has(e.id)) vistos.set(e.id, e); });
+    });
+    return Array.from(vistos.values());
+  }, [fonteContatos, etiquetasByJid]);
+  // Se a etiqueta filtrada sumir (ex: troca de instância), limpa o filtro pra não esconder tudo
+  React.useEffect(() => {
+    if (filtroEtiqueta && !etiquetasDisponiveis.some(e => e.id === filtroEtiqueta)) setFiltroEtiqueta(null);
+  }, [filtroEtiqueta, etiquetasDisponiveis]);
+
   const filtrados = fonteContatos.filter(c => {
     if (arquivados.has(c.id)) return false; // arquivados ficam na seção própria
     if (busca && !c.name.toLowerCase().includes(busca.toLowerCase())) return false;
+    if (filtroEtiqueta && !(etiquetasByJid[c.id] || []).some(e => e.id === filtroEtiqueta)) return false;
     if (filtro === 'nao_lidas') return c.unread > 0 && !lidasLocal.has(c.id);
     if (filtro === 'ia') return !c.agenteId;
     if (filtro === 'minhas') return meuUserId && c.agenteId === meuUserId;
@@ -4451,6 +4466,29 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               });
             })()}
           </div>
+          {/* Filtro por etiqueta — chips das etiquetas em uso nas conversas */}
+          {etiquetasDisponiveis.length > 0 && (
+            <div style={{ display:'flex', gap:5, marginTop:8, overflowX:'auto', paddingBottom:2 }}>
+              {etiquetasDisponiveis.map(e => {
+                const ativa = filtroEtiqueta === e.id;
+                return (
+                  <button key={e.id} onClick={()=>setFiltroEtiqueta(ativa ? null : e.id)}
+                    title={ativa ? 'Remover filtro de etiqueta' : `Filtrar por ${e.nome}`} style={{
+                    display:'inline-flex', alignItems:'center', gap:5, flexShrink:0,
+                    padding:'3px 9px', borderRadius:999, fontSize:10.5, fontWeight:600, cursor:'pointer',
+                    background: ativa ? e.cor : e.cor + '22',
+                    color: ativa ? '#fff' : e.cor,
+                    border: `1px solid ${ativa ? e.cor : e.cor + '55'}`,
+                    transition:'all .15s', whiteSpace:'nowrap',
+                  }}>
+                    <span style={{ width:6, height:6, borderRadius:'50%', background: ativa ? '#fff' : e.cor }}/>
+                    {e.nome}
+                    {ativa && <span style={{ fontSize:13, lineHeight:1, marginLeft:1 }}>×</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Banner: so aparece se tiver erro. Status normal vai no botao discreto do header. */}
@@ -8723,7 +8761,7 @@ const _chatEtiquetasSubs = new Set();
 function _notifyEtiquetas() { _chatEtiquetasSubs.forEach(fn => { try { fn(); } catch {} }); }
 
 function useTodasChatEtiquetas() {
-  const [, force] = React.useState(0);
+  const [tick, force] = React.useState(0);
   const activeInstanceId = useActiveInstanceId();
   React.useEffect(() => {
     if (!activeInstanceId) return;
@@ -8751,7 +8789,10 @@ function useTodasChatEtiquetas() {
       .subscribe();
     return () => { alive = false; _chatEtiquetasSubs.delete(fn); cli.removeChannel(ch); };
   }, [activeInstanceId]);
-  return _chatEtiquetasCache;
+  // Retorna NOVA referência sempre que o cache muda (tick) ou a instância troca,
+  // pra que os useMemo consumidores (ex: etiquetasByJid) recomputem. Sem isso, como o
+  // Map é module-level e estável, o realtime atualizava o cache mas a UI não refletia.
+  return React.useMemo(() => new Map(_chatEtiquetasCache), [tick, activeInstanceId]);
 }
 
 async function applyEtiqueta(instanciaId, chatJid, etiquetaId) {
