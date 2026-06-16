@@ -4229,7 +4229,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         workspace_id: workspaceId,
         instancia_id: activeInstance.id,
         contact_jid: contato.id,
-        conteudo,
+        conteudo: limparTravessao(conteudo),
         tipo: 'text',
         agendado_para: agendadoPara, // ISO string com timezone
         status: 'pendente',
@@ -8282,13 +8282,13 @@ const supa = {
   sendText: (number, text) => supaProxyCall({
     path: `/message/sendText/{{instance}}`,
     method: 'POST',
-    body: { number, text },
+    body: { number, text: limparTravessao(text) },
   }),
   sendMedia: (number, base64, mediatype = 'image', caption = '', fileName = 'arquivo', mimetype = 'image/jpeg') =>
     supaProxyCall({
       path: `/message/sendMedia/{{instance}}`,
       method: 'POST',
-      body: { number, mediatype, media: base64, caption, fileName, mimetype },
+      body: { number, mediatype, media: base64, caption: limparTravessao(caption), fileName, mimetype },
     }),
   sendWhatsAppAudio: (number, base64) =>
     supaProxyCall({
@@ -9611,13 +9611,13 @@ const evo = {
   // Enviar texto
   sendText: (number, text) => evoFetch(`/message/sendText/${encodeURIComponent(getEvoConfig().instance)}`, {
     method:'POST',
-    body: JSON.stringify({ number, text }),
+    body: JSON.stringify({ number, text: limparTravessao(text) }),
   }),
   // Enviar imagem (base64 sem "data:image/...;base64,")
   sendMedia: (number, base64, mediatype = 'image', caption = '', fileName = 'image.jpg', mimetype = 'image/jpeg') =>
     evoFetch(`/message/sendMedia/${encodeURIComponent(getEvoConfig().instance)}`, {
       method:'POST',
-      body: JSON.stringify({ number, mediatype, media: base64, caption, fileName, mimetype }),
+      body: JSON.stringify({ number, mediatype, media: base64, caption: limparTravessao(caption), fileName, mimetype }),
     }),
   // Enviar audio (PTT - mensagem de voz)
   sendWhatsAppAudio: (number, base64) =>
@@ -13791,6 +13791,15 @@ function useParcelasPendentes() {
     };
   }, []);
   return list;
+}
+
+// Rede de segurança anti-travessão: nenhum texto enviado pelo sistema sai com
+// travessão (— ou –), que entrega "cara de IA". Aplicado em todo envio de WhatsApp.
+function limparTravessao(text) {
+  if (text == null) return text;
+  return String(text)
+    .replace(/\s+[—–]\s+/g, ', ')  // "X — Y" vira "X, Y"
+    .replace(/[—–]/g, '-');         // travessão grudado vira hífen comum
 }
 
 // Converte data BR (DD/MM/AAAA) ou Date pra ISO (YYYY-MM-DD)
