@@ -16016,9 +16016,13 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     // 5) PROJETADO: parcelas reais cadastradas (projeto_parcelas) ainda não pagas.
     //    Esta é a FONTE DE VERDADE dos recebíveis: tem data e valor exatos, e some
     //    da previsão automaticamente quando a parcela vira pago=true (baixa).
-    const projetosComParcela = new Set();
+    // Chave projeto|YYYY-MM dos meses que JÁ têm parcela cadastrada (pra não duplicar
+    // com o MRR genérico SÓ nesses meses; meses futuros sem parcela seguem projetando).
+    const parcelaProjMes = new Set();
     (parcelasPendentes || []).forEach(pc => {
-      if (pc.projeto_id) projetosComParcela.add(pc.projeto_id);
+      if (pc.projeto_id && pc.data_vencimento_esperada) {
+        parcelaProjMes.add(pc.projeto_id + '|' + pc.data_vencimento_esperada.slice(0,7));
+      }
       const dataVenc = pc.data_vencimento_esperada;
       if (!dataVenc) return;
       const valor = Number(pc.valor_esperado || 0);
@@ -16043,11 +16047,11 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
     // 4) PROJETADO: MRR genérico dos contratos ativos — SÓ pra projetos que NÃO
     //    têm parcelas cadastradas (senão duplicaria com a fonte 5, que é precisa).
     (recorrencia || []).filter(p => p.status_fase === 'ativo' && Number(p.mensal||0) > 0).forEach(p => {
-      if (projetosComParcela.has(p.__id)) return; // já coberto pelas parcelas reais
       for (let m = 0; m <= mesesRestantes; m++) {
         const ref = new Date();
         ref.setMonth(ref.getMonth() + m);
         const ym = YM(ref);
+        if (parcelaProjMes.has(p.__id + '|' + ym)) continue; // mês já coberto por parcela real
         const diaVenc = p.dia ? parseInt(p.dia) : 10;
         const dataProj = `${ym}-${String(diaVenc).padStart(2,'0')}`;
         if (dataProj <= hojeISO) continue; // FIX: era 'hoje' (Date) e quebrava a comparação
@@ -16100,13 +16104,27 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   const saldoAtual = Number(saldoBtgTotal || ultimaTransacao?.saldo_apos || 0);
 
   // KPIs calculados sobre o PERÍODO selecionado (nao sobre todo o extrato)
-  const extratoPeriodo = extrato.filter(i =>
-    !i.projetado && i.data >= inicioMesFiltro && i.data <= fimMesFiltro
-  );
-  const totalEntradas = extratoPeriodo.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
-  const totalSaidas   = extratoPeriodo.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
-  const totalNaoConciliado = extratoPeriodo.filter(l => l.naoConciliado).length;
+  // Separa REAL (extrato/manual já realizado) de PREVISTO (projeção futura).
+  const itensPeriodo = extrato.filter(i => i.data >= inicioMesFiltro && i.data <= fimMesFiltro);
+  const realPeriodo = itensPeriodo.filter(i => !i.projetado);
+  const prevPeriodo = itensPeriodo.filter(i => i.projetado);
+
+  const entradasReal = realPeriodo.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
+  const saidasReal   = realPeriodo.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
+  const entradasPrev = prevPeriodo.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
+  const saidasPrev   = prevPeriodo.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
+
+  // Total do período = realizado + previsto (entra a projeção quando o mês é futuro)
+  const totalEntradas = entradasReal + entradasPrev;
+  const totalSaidas   = saidasReal + saidasPrev;
+  const temPrevisao   = entradasPrev > 0 || saidasPrev > 0;
+
+  // Resultado projetado do período (entradas - saídas, real + previsto)
+  const resultadoPeriodo = totalEntradas - totalSaidas;
+
+  const totalNaoConciliado = realPeriodo.filter(l => l.naoConciliado).length;
   const nomeMesAtual = nomeMesFiltro; // periodo selecionado (mes ou ano)
+  const fmtR = (v) => `R$ ${v.toLocaleString('pt-BR', {minimumFractionDigits:2})}`;
 
   return (
     <div>
@@ -16187,10 +16205,13 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       {/* KPIs clicáveis - filtram a tabela abaixo */}
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(4,1fr)', marginBottom:18}}>
         {[
-          { label:'Saldo no banco (BTG)',    val:`R$ ${saldoAtual.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,    icon:'Wallet',       color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D', filtro:null, hint:'Saldo atual real BTG' },
-          { label:'Entradas no extrato',     val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`, icon:'ArrowDownCircle', color:'#1D9E75', filtro:'entrada', hint:'Filtrar só entradas' },
-          { label:'Saídas no extrato',       val:`R$ ${totalSaidas.toLocaleString('pt-BR', {minimumFractionDigits:2})}`,   icon:'ArrowUpCircle',   color:'#A32D2D', filtro:'saida',   hint:'Filtrar só saídas' },
-          { label:'Aguardando conciliar',    val: String(totalNaoConciliado),                                              icon:'AlertCircle',  color: totalNaoConciliado > 0 ? '#BA7517' : '#1D9E75', filtro:'conciliar', hint:'Abrir conciliação' },
+          { label:'Saldo no banco (BTG)',    val:fmtR(saldoAtual),    icon:'Wallet',       color: saldoAtual >= 0 ? '#1D9E75' : '#A32D2D', filtro:null, hint:'Saldo atual real BTG' },
+          { label: temPrevisao ? 'Entradas (real + previsto)' : 'Entradas no período', val:fmtR(totalEntradas), icon:'ArrowDownCircle', color:'#1D9E75', filtro:'entrada', hint:'Filtrar só entradas',
+            sub: temPrevisao ? `${fmtR(entradasReal)} real · ${fmtR(entradasPrev)} previsto` : null },
+          { label: temPrevisao ? 'Saídas (real + previsto)' : 'Saídas no período',   val:fmtR(totalSaidas),   icon:'ArrowUpCircle',   color:'#A32D2D', filtro:'saida',   hint:'Filtrar só saídas',
+            sub: temPrevisao ? `${fmtR(saidasReal)} real · ${fmtR(saidasPrev)} previsto` : null },
+          { label: temPrevisao ? 'Resultado projetado' : 'Resultado do período', val:fmtR(resultadoPeriodo), icon: resultadoPeriodo >= 0 ? 'TrendingUp' : 'TrendingDown', color: resultadoPeriodo >= 0 ? '#1D9E75' : '#A32D2D', filtro:null, hint:'Entradas menos saídas no período',
+            sub: totalNaoConciliado > 0 ? `${totalNaoConciliado} aguardando conciliar` : null },
         ].map((k,i)=>(
           <div key={i} className="kpi"
             onClick={()=>{
@@ -16208,6 +16229,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
             <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
+            {k.sub && <div style={{fontSize:10.5, color:'var(--t3)', marginTop:3}}>{k.sub}</div>}
             {k.filtro && <div style={{fontSize:10, color:k.color, marginTop:3, opacity:.7, display:'flex', alignItems:'center', gap:3}}>
               <Icon name="ArrowRight" size={9}/> {k.hint}
             </div>}
