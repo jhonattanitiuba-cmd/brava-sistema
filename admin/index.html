@@ -13763,6 +13763,36 @@ function useExtratoBancario() {
   return list;
 }
 
+// Carrega TODAS as parcelas pendentes (pago=false) de todos os projetos, com
+// o cliente do projeto pelo join. Fonte de verdade pra projeção de recebíveis
+// no fluxo de caixa: quando a parcela vira pago=true, some da previsão sozinha.
+function useParcelasPendentes() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('projeto_parcelas')
+        .select('id, projeto_id, descricao, valor_esperado, data_vencimento_esperada, pago, projetos(cliente, cliente_id, status_fase)')
+        .eq('pago', false)
+        .order('data_vencimento_esperada', { ascending: true });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:projeto_parcelas:fluxo')
+      .on('postgres_changes', { event:'*', schema:'public', table:'projeto_parcelas' }, load)
+      .subscribe();
+    const onChange = () => load();
+    window.addEventListener('brava:parcelas_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:parcelas_changed', onChange);
+    };
+  }, []);
+  return list;
+}
+
 // Converte data BR (DD/MM/AAAA) ou Date pra ISO (YYYY-MM-DD)
 function _toIsoDate(v) {
   if (!v) return null;
@@ -15838,6 +15868,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   const extratoBancario = useExtratoBancario();
   const btgAccounts = useBtgAccounts();
   const ultimaSyncBtg = useBtgUltimaSync();
+  const parcelasPendentes = useParcelasPendentes();
 
   // Detecta retorno do OAuth BTG (URL tem ?code=XXX apos login no BTG)
   React.useEffect(() => {
@@ -15982,15 +16013,44 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       }
     });
 
-    // 4) PROJETADO: MRR esperado dos contratos ativos ate o fim do ano
+    // 5) PROJETADO: parcelas reais cadastradas (projeto_parcelas) ainda não pagas.
+    //    Esta é a FONTE DE VERDADE dos recebíveis: tem data e valor exatos, e some
+    //    da previsão automaticamente quando a parcela vira pago=true (baixa).
+    const projetosComParcela = new Set();
+    (parcelasPendentes || []).forEach(pc => {
+      if (pc.projeto_id) projetosComParcela.add(pc.projeto_id);
+      const dataVenc = pc.data_vencimento_esperada;
+      if (!dataVenc) return;
+      const valor = Number(pc.valor_esperado || 0);
+      if (valor <= 0) return;
+      // Evita duplicar se já entrou no banco conciliado nessa parcela
+      const jaConciliado = extratoBancario.some(e => e.parcela_id === pc.id);
+      if (jaConciliado) return;
+      const cliNome = pc.projetos?.cliente || 'Cliente';
+      itens.push({
+        id: `proj:parc:${pc.id}`,
+        tipo: 'entrada',
+        descricao: `${pc.descricao || 'Parcela'} — ${cliNome}`,
+        categoria: 'Recebível previsto',
+        valor,
+        data: dataVenc,
+        origem: 'projecao',
+        projetado: true,
+        editable: false,
+      });
+    });
+
+    // 4) PROJETADO: MRR genérico dos contratos ativos — SÓ pra projetos que NÃO
+    //    têm parcelas cadastradas (senão duplicaria com a fonte 5, que é precisa).
     (recorrencia || []).filter(p => p.status_fase === 'ativo' && Number(p.mensal||0) > 0).forEach(p => {
+      if (projetosComParcela.has(p.__id)) return; // já coberto pelas parcelas reais
       for (let m = 0; m <= mesesRestantes; m++) {
         const ref = new Date();
         ref.setMonth(ref.getMonth() + m);
         const ym = YM(ref);
         const diaVenc = p.dia ? parseInt(p.dia) : 10;
         const dataProj = `${ym}-${String(diaVenc).padStart(2,'0')}`;
-        if (dataProj <= hoje) continue;
+        if (dataProj <= hojeISO) continue; // FIX: era 'hoje' (Date) e quebrava a comparação
         // Verifica se já entrou no banco neste mês (tem pagamento real)
         const jaNoBanco = extratoBancario.some(e =>
           e.conciliado_pagamento_id && e.data?.slice(0,7) === ym && e.valor > 0
@@ -16021,7 +16081,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       return 0;
     });
     return itens;
-  }, [caixa, extratoBancario, despesas, despesasPag, recorrencia]);
+  }, [caixa, extratoBancario, despesas, despesasPag, recorrencia, parcelasPendentes]);
 
   // Filtro pelo mês selecionado + tipo
   const filtrado = extrato.filter(i => {
