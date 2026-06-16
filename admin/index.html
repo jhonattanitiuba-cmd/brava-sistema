@@ -16053,17 +16053,21 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       });
     });
 
-    // 4) PROJETADO: MRR genérico dos contratos ativos — SÓ pra projetos que NÃO
-    //    têm parcelas cadastradas (senão duplicaria com a fonte 5, que é precisa).
-    (recorrencia || []).filter(p => p.status_fase === 'ativo' && Number(p.mensal||0) > 0).forEach(p => {
+    // 4) PROJETADO: MRR recorrente dos contratos operacionais até o fim do ano.
+    //    Plug-and-play: qualquer projeto com mensalidade + status operacional projeta
+    //    sozinho até dezembro. recorrencia_ate (se preenchida) limita o prazo (ex: Garcia).
+    //    Só preenche os meses que NÃO têm parcela cadastrada (fonte 5 é a precisa).
+    const STATUS_PROJETAVEIS = ['ativo','onboarding','em_implantacao','em_implementacao','inadimplente'];
+    (recorrencia || []).filter(p => STATUS_PROJETAVEIS.includes(p.status_fase) && Number(p.mensal||0) > 0).forEach(p => {
+      const diaVenc = (() => { const n = parseInt(String(p.dia||'').replace(/\D/g,'')); return (n>=1 && n<=31) ? n : 10; })();
       for (let m = 0; m <= mesesRestantes; m++) {
         const ref = new Date();
         ref.setMonth(ref.getMonth() + m);
         const ym = YM(ref);
         if (parcelaProjMes.has(p.__id + '|' + ym)) continue; // mês já coberto por parcela real
-        const diaVenc = p.dia ? parseInt(p.dia) : 10;
         const dataProj = `${ym}-${String(diaVenc).padStart(2,'0')}`;
-        if (dataProj <= hojeISO) continue; // FIX: era 'hoje' (Date) e quebrava a comparação
+        if (dataProj <= hojeISO) continue; // só datas futuras
+        if (p.recorrencia_ate && dataProj > p.recorrencia_ate) continue; // prazo fixo (ex: Garcia)
         // Verifica se já entrou no banco neste mês (tem pagamento real)
         const jaNoBanco = extratoBancario.some(e =>
           e.conciliado_pagamento_id && e.data?.slice(0,7) === ym && e.valor > 0
