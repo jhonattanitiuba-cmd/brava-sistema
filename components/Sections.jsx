@@ -1,4 +1,4 @@
-/* global React, FeatureIcon */
+/* global React, FeatureIcon, WA_LINK */
 
 // ─── SVG Illustrations ────────────────────────────────────────────────────────
 
@@ -273,9 +273,8 @@ function ProposalBlock() {
   return (
     <section className="section dark" id="proposta" style={{ padding: '96px 0' }}>
       <div className="container">
-        <div className="prop-eyebrow">
-          <span className="prop-eyebrow__line" />
-          <span className="prop-eyebrow__text">Proposta de valor</span>
+        <div className="sec-header" style={{ marginBottom: 48 }}>
+          <div className="eyebrow"><span className="dot"></span>Proposta de valor</div>
         </div>
         <div className="prop-top">
           <h2 className="h2 prop-h2">
@@ -335,6 +334,7 @@ function PainBlock() {
           <h2 className="h2" style={{ marginTop: 18 }}>
             Sua operacao esta deixando <span className="gradient-text">dinheiro na mesa</span>. Todo dia.
           </h2>
+          <p className="sec-sub">Oito situacoes que drenam receita em silencio. Quantas voce reconhece na sua empresa?</p>
         </div>
         <div className="pain-grid">
           {pains.map((p, i) => (
@@ -423,8 +423,8 @@ function SolutionBlock() {
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                   <polyline points="9 12 11 14 15 10"/>
                 </svg>
-                <div style={{ marginTop: 16, fontSize: 13, color: '#1E90FF', fontFamily: 'Inter', fontWeight: 600, opacity: 0.8 }}>White-label completo</div>
-                <div style={{ marginTop: 6, fontSize: 11, color: '#6E6E78', fontFamily: 'Inter' }}>Logo, cores e dominio proprios</div>
+                <div style={{ marginTop: 16, fontSize: 13, color: '#1E90FF', fontWeight: 600, opacity: 0.8 }}>White-label completo</div>
+                <div style={{ marginTop: 6, fontSize: 11, color: '#6E6E78' }}>Logo, cores e dominio proprios</div>
               </div>
             }
             tag="WHITE-LABEL"
@@ -439,8 +439,8 @@ function SolutionBlock() {
                   <circle cx="12" cy="12" r="10"/>
                   <polyline points="12 6 12 12 16 14"/>
                 </svg>
-                <div style={{ marginTop: 16, fontSize: 13, color: '#7B3FE4', fontFamily: 'Inter', fontWeight: 600, opacity: 0.85 }}>SLA garantido em contrato</div>
-                <div style={{ marginTop: 6, fontSize: 11, color: '#6E6E78', fontFamily: 'Inter' }}>Suporte direto dentro do produto</div>
+                <div style={{ marginTop: 16, fontSize: 13, color: '#7B3FE4', fontWeight: 600, opacity: 0.85 }}>SLA garantido em contrato</div>
+                <div style={{ marginTop: 6, fontSize: 11, color: '#6E6E78' }}>Suporte direto dentro do produto</div>
               </div>
             }
             tag="SUPORTE"
@@ -448,6 +448,22 @@ function SolutionBlock() {
             desc="Bug, duvida ou ajuste: voce fala com a Brava direto dentro da plataforma. SLA visivel, sem abrir ticket generico."
             accent="#7B3FE4"
           />
+        </div>
+
+        {/* Encerramento da secao */}
+        <div style={{ textAlign:'center', marginTop:64 }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:16, marginBottom:20 }}>
+            Tudo isso ja esta pronto. So falta configurar para a sua empresa.
+          </p>
+          <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap' }}>
+            <a href="#planos" className="btn btn-primary">
+              Ver planos
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+            </a>
+            <a href={WA_LINK} className="btn btn-secondary">
+              Falar com especialista
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -508,6 +524,7 @@ function BenefitsBlock() {
           <h2 className="h2" style={{ marginTop: 18 }}>
             Mudancas concretas <span className="gradient-text">no primeiro mes</span>.
           </h2>
+          <p className="sec-sub">Do atendimento ao fechamento, cada parte da operacao trabalha melhor e mais rapido.</p>
         </div>
         <div className="benefits-grid">
           {benefits.map((b, i) => (
@@ -517,6 +534,15 @@ function BenefitsBlock() {
               <div className="benefit-desc">{b.d}</div>
             </div>
           ))}
+        </div>
+        <div style={{ textAlign:'center', marginTop:64 }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:16, marginBottom:20 }}>
+            Pronto para ter tudo isso funcionando na sua empresa?
+          </p>
+          <a href="#planos" className="btn btn-primary">
+            Escolher meu plano
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
         </div>
       </div>
     </section>

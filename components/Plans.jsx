@@ -171,20 +171,12 @@ function Plans() {
       <div className="glow-blob purple" style={{ width: 600, height: 600, top: 100, left: '20%', opacity: 0.3 }}></div>
       <div className="glow-blob blue" style={{ width: 600, height: 600, bottom: 0, right: '10%', opacity: 0.3 }}></div>
       <div className="container">
-        <div style={{ textAlign: 'center', maxWidth: 760, margin: '0 auto 64px' }}>
-          <div style={{ display:'inline-flex', alignItems:'center', gap:7,
-            padding:'6px 16px', borderRadius:999,
-            background:'#1E90FF', color:'#fff',
-            fontSize:11, fontFamily:'JetBrains Mono, monospace',
-            letterSpacing:'0.12em', fontWeight:600, textTransform:'uppercase',
-            boxShadow:'0 4px 14px rgba(30,144,255,.35)',
-          }}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
-            Planos
-          </div>
-          <h2 className="h2" style={{ marginTop: 20 }}>
+        <div className="sec-header">
+          <div className="eyebrow"><span className="dot"></span>Planos e precos</div>
+          <h2 className="h2" style={{ marginTop: 18 }}>
             Escolha o plano que combina com <span className="gradient-text">seu momento</span>.
           </h2>
+          <p className="sec-sub">Todos os planos incluem configuracao guiada, agente de IA treinado e suporte direto. Sem fidelidade, sem surpresa.</p>
         </div>
 
         <div style={{

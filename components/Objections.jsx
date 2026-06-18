@@ -14,13 +14,11 @@ function Objections() {
     <section className="section dark" id="objecoes">
       <div className="container">
         <div className="sec-header">
-          <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'JetBrains Mono, monospace', letterSpacing:'.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)' }}>
-            <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
-            Quebra de objeções
-          </div>
-          <h2 className="h2" style={{ marginTop:20 }}>
-            As <span className="gradient-text">dúvidas honestas</span> que você tem agora.
+          <div className="eyebrow"><span className="dot"></span>Quebra de objecoes</div>
+          <h2 className="h2" style={{ marginTop:18 }}>
+            As <span className="gradient-text">duvidas honestas</span> que voce tem agora.
           </h2>
+          <p className="sec-sub">Cada objecao abaixo foi ouvida de um cliente real. As respostas tambem sao reais.</p>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(360px,1fr))', gap:14 }}>
           {OBJECTIONS.map((o, i) => (
@@ -40,11 +38,20 @@ function Objections() {
                   display:'grid', placeItems:'center',
                   fontFamily:'Inter', fontWeight:700, fontSize:13
                 }}>{String(i+1).padStart(2,'0')}</span>
-                <h3 style={{ margin:0, fontFamily:'Inter', fontSize:18, fontWeight:600, letterSpacing:'-.01em', lineHeight:1.25, color:'var(--text-primary)' }}>{o.q}</h3>
+                <h3 style={{ margin:0, fontSize:18, fontWeight:600, letterSpacing:'-.01em', lineHeight:1.25, color:'var(--text-primary)' }}>{o.q}</h3>
               </div>
               <p style={{ margin:0, marginLeft:46, color:'var(--text-secondary)', fontSize:15, lineHeight:1.6 }}>{o.a}</p>
             </div>
           ))}
+        </div>
+        <div style={{ textAlign:'center', marginTop:56 }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:16, marginBottom:20 }}>
+            Ficou alguma duvida? Vem conversar direto com a gente.
+          </p>
+          <a href={WA_LINK} className="btn btn-primary">
+            Tirar duvida no WhatsApp
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
         </div>
       </div>
     </section>

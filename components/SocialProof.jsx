@@ -51,9 +51,10 @@ function SocialProof() {
       <div className="container">
         <div className="sec-header">
           <div className="eyebrow"><span className="dot"></span>Prova social</div>
-          <h2 className="h2" style={{ marginTop: 20 }}>
+          <h2 className="h2" style={{ marginTop: 18 }}>
             +22 empresas confiam na Brava em <span className="gradient-text">11 segmentos</span> diferentes.
           </h2>
+          <p className="sec-sub">De imobiliarias a clinicas, de construtoras a estagionamentos. A Brava funciona onde tem atendimento e venda pelo WhatsApp.</p>
         </div>
 
         {/* Segmentos */}
@@ -174,8 +175,18 @@ function SocialProof() {
           ))}
         </div>
         <p style={{ textAlign:'center', marginTop:18, fontSize:12, color:'var(--text-tertiary)', fontStyle:'italic' }}>
-          Depoimentos exibidos como exemplo. Versões finais serão coletadas com clientes reais antes da publicação.
+          Depoimentos exibidos como exemplo. Versoes finais serao coletadas com clientes reais antes da publicacao.
         </p>
+
+        <div style={{ textAlign:'center', marginTop:56 }}>
+          <p style={{ color:'var(--text-secondary)', fontSize:16, marginBottom:20 }}>
+            Quer ver sua empresa nessa lista?
+          </p>
+          <a href="#planos" className="btn btn-primary">
+            Comecar agora
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
+        </div>
 
         <style>{`
           @media (max-width: 820px) { .cred-card { grid-template-columns: 1fr !important; gap: 24px !important; } }
