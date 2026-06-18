@@ -29,8 +29,8 @@
 <style>
 /* Cursor personalizado - colinha preta slow motion */
 * { cursor: none !important; }
-#brava-cursor       { position:fixed; width:8px; height:8px; border-radius:50%; background:#000; pointer-events:none; z-index:99999; transform:translate(-50%,-50%); transition:none; }
-#brava-cursor-tail  { position:fixed; width:18px; height:18px; border-radius:50%; background:rgba(0,0,0,.35); pointer-events:none; z-index:99998; transform:translate(-50%,-50%); transition:left .18s ease, top .18s ease; }
+#brava-cursor       { position:fixed; width:8px; height:8px; border-radius:50%; background:#fff; pointer-events:none; z-index:99999; transform:translate(-50%,-50%); transition:none; mix-blend-mode:difference; }
+#brava-cursor-tail  { position:fixed; width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,.18); border:1px solid rgba(255,255,255,.3); pointer-events:none; z-index:99998; transform:translate(-50%,-50%); transition:left .18s ease, top .18s ease; mix-blend-mode:difference; }
 
 /* ── Intro: CSS esconde ANTES do React renderizar (zero flash) ──────────
    body.brava-intro-active é adicionado pelo script inline ANTES de tudo.
