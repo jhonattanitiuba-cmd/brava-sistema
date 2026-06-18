@@ -1,11 +1,10 @@
 /* global React, WA_LINK, FeatureIcon */
 
-// Links de pagamento do Stripe - trocar pelos links de PRODUCAO quando migrar.
-// Hoje sao links de TESTE (test_*) - funcionam normal mas nao cobram dinheiro real.
-const STRIPE_LINKS = {
-  essencial:   'https://buy.stripe.com/test_3cI00i0Sd3G1eLZ9CS9fW00',
-  performance: 'https://buy.stripe.com/test_9B6eVc58tgsN33h3eu9fW01',
-  scale:       'https://buy.stripe.com/test_eVq14m6cx3G1dHV2aq9fW02',
+// Links para tela de checkout propria (brava.software/checkout/?plano=X)
+const CHECKOUT_LINKS = {
+  essencial:   '/checkout/?plano=essencial',
+  performance: '/checkout/?plano=performance',
+  scale:       '/checkout/?plano=scale',
 };
 
 const PLANS = [
@@ -232,7 +231,7 @@ function Plans() {
                   {p.cycle && <span style={{ fontSize: 14, color: 'var(--text-tertiary)' }}>{p.cycle}</span>}
                 </div>
                 <a
-                  href={p.id === 'enterprise' ? WA_LINK : (STRIPE_LINKS[p.id] || '#')}
+                  href={p.id === 'enterprise' ? WA_LINK : (CHECKOUT_LINKS[p.id] || '#')}
                   className={`btn ${p.highlight ? '' : 'btn-ghost'}`}
                   style={{
                     width: '100%', marginBottom: 24,
