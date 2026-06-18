@@ -5,12 +5,12 @@
   --brava-gradient: linear-gradient(90deg, #7B3FE4 0%, #1E90FF 100%);
   --brava-gradient-soft: linear-gradient(135deg, rgba(123,63,228,0.18) 0%, rgba(30,144,255,0.18) 100%);
 
-  --bg-deep: #000000;
-  --bg-elevated: #0E0E14;
-  --bg-card: #15151E;
-  --bg-card-2: #1A1A24;
-  --border-dark: #2A2A3A;
-  --border-dark-soft: rgba(255,255,255,0.06);
+  --bg-deep: #05080F;
+  --bg-elevated: #0A0D18;
+  --bg-card: #10141E;
+  --bg-card-2: #151A28;
+  --border-dark: #1E2336;
+  --border-dark-soft: rgba(255,255,255,0.07);
 
   --text-primary: #F5F5F7;
   --text-secondary: #A0A0AA;
