@@ -94,6 +94,28 @@ function Hero({ headline, cta, accents }) {
               </a>
               <a href="#planos" className="btn btn-ghost cta-item">Ver planos</a>
             </div>
+
+            <div className="hero-plans">
+              {[
+                { nome: 'Essencial', preco: 'R$ 1.297', desc: 'Comece a vender no WhatsApp com IA', destaque: false },
+                { nome: 'Performance', preco: 'R$ 2.497', desc: 'Pipeline, automações e white-label', destaque: true },
+                { nome: 'Scale', preco: 'R$ 4.697', desc: 'Site incluso, API e múltiplos times', destaque: false },
+              ].map((p) => (
+                <a key={p.nome} href="#planos" className="hero-plan-card" style={{
+                  display: 'block', padding: '16px 18px', borderRadius: 14, textDecoration: 'none',
+                  background: p.destaque ? 'rgba(30,144,255,.06)' : 'rgba(255,255,255,.03)',
+                  border: p.destaque ? '1px solid rgba(30,144,255,.35)' : '1px solid rgba(255,255,255,.08)',
+                  transition: 'transform .2s, border-color .2s',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Inter' }}>{p.nome}</span>
+                    {p.destaque && <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '.08em', color: '#1E90FF', border: '1px solid rgba(30,144,255,.35)', borderRadius: 999, padding: '2px 7px' }}>MAIS ESCOLHIDO</span>}
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'Inter', letterSpacing: '-0.02em', color: '#fff' }}>{p.preco}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-tertiary)' }}>/mês</span></div>
+                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 5, lineHeight: 1.4 }}>{p.desc}</div>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
       </div>

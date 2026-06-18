@@ -332,6 +332,25 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
 .hero-meta span { display: inline-flex; align-items: center; gap: 8px; }
 .hero-meta .check { color: #4ade80; }
 
+/* Mini-cards de plano no hero (conceito Google AI Plans) */
+.hero-plans {
+  margin-top: 44px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left;
+}
+.hero-plan-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(30,144,255,.45) !important;
+}
+@media (max-width: 720px) {
+  .hero-plans { grid-template-columns: 1fr; max-width: 380px; }
+}
+
 .hero-stats {
   margin-top: 56px;
   display: grid;

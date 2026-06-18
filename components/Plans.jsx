@@ -82,6 +82,88 @@ const PLANS = [
   }
 ];
 
+// Tabela comparativa (conceito Google AI Plans): linhas de recurso × 4 planos.
+const COMPARE_COLS = ['Essencial', 'Performance', 'Scale', 'Enterprise'];
+const COMPARE_ROWS = [
+  { grupo: 'Operação' },
+  { label: 'Atendentes',                 vals: ['3', '10', '30', 'Ilimitado'] },
+  { label: 'Números de WhatsApp',        vals: ['1', '2', '5', 'Ilimitado'] },
+  { label: 'Inbox compartilhada',        vals: [true, true, true, true] },
+  { label: 'Etiquetas, contatos e respostas rápidas', vals: [true, true, true, true] },
+  { grupo: 'Inteligência' },
+  { label: 'Agente de IA',               vals: ['Básico', 'Múltiplos', 'Múltiplos', 'Múltiplos'] },
+  { label: 'Automações e follow-up automático', vals: [false, true, true, true] },
+  { label: 'Pipeline de vendas (funil kanban)', vals: [false, true, 'Múltiplos', 'Múltiplos'] },
+  { label: 'Analytics e relatórios completos',  vals: [false, true, true, true] },
+  { grupo: 'Marca e presença' },
+  { label: 'White-label (seu logo, suas cores)', vals: [false, true, true, true] },
+  { label: 'Site institucional incluso', vals: [false, false, true, true] },
+  { label: 'Domínio próprio (crm.suaempresa.com.br)', vals: [false, false, false, true] },
+  { grupo: 'Integrações e suporte' },
+  { label: 'API REST e webhooks',        vals: [false, false, true, true] },
+  { label: 'Integração com n8n',         vals: [false, false, true, true] },
+  { label: 'SSO corporativo',            vals: [false, false, false, true] },
+  { label: 'Gerente de conta dedicado',  vals: [false, false, false, true] },
+  { label: 'Suporte', vals: ['Guiado', 'Até 4h úteis', 'Prioritário 1h', 'SLA 30min'] },
+];
+
+function CompareCell({ v }) {
+  if (v === true) return (
+    <span style={{ display:'inline-flex', width:22, height:22, borderRadius:999, background:'rgba(30,144,255,.14)', border:'1px solid rgba(30,144,255,.3)', color:'#1E90FF', alignItems:'center', justifyContent:'center' }}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </span>
+  );
+  if (v === false) return <span style={{ color:'rgba(255,255,255,.18)', fontSize:18 }}>·</span>;
+  return <span style={{ fontSize:13.5, color:'var(--text-primary)', fontWeight:500 }}>{v}</span>;
+}
+
+function PlansComparison() {
+  return (
+    <div className="plans-compare-wrap" style={{ marginTop: 64 }}>
+      <div style={{ textAlign:'center', marginBottom: 28 }}>
+        <h3 style={{ fontFamily:'Inter', fontSize:24, fontWeight:600, letterSpacing:'-0.02em', margin:0 }}>
+          Compare os planos <span className="gradient-text">lado a lado</span>
+        </h3>
+      </div>
+      <div style={{ overflowX:'auto', borderRadius:18, border:'1px solid var(--border-dark)', background:'var(--bg-card)' }}>
+        <table className="plans-compare" style={{ width:'100%', borderCollapse:'collapse', minWidth:720 }}>
+          <thead>
+            <tr>
+              <th style={{ textAlign:'left', padding:'18px 22px', fontSize:13, color:'var(--text-tertiary)', fontWeight:500, position:'sticky', left:0, background:'var(--bg-card)' }}>Recurso</th>
+              {COMPARE_COLS.map((c, i) => (
+                <th key={c} style={{ padding:'18px 16px', textAlign:'center', minWidth:130,
+                  fontFamily:'Inter', fontSize:15, fontWeight:600,
+                  color: i===1 ? 'transparent' : '#fff',
+                  background: i===1 ? 'var(--brava-gradient)' : 'transparent',
+                  WebkitBackgroundClip: i===1 ? 'text' : 'unset', WebkitTextFillColor: i===1 ? 'transparent' : 'inherit',
+                }}>
+                  {c}{i===1 && <div style={{ fontSize:9, fontFamily:'JetBrains Mono', letterSpacing:'.08em', color:'#1E90FF', marginTop:2 }}>MAIS ESCOLHIDO</div>}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARE_ROWS.map((r, i) => r.grupo ? (
+              <tr key={i}>
+                <td colSpan={5} style={{ padding:'18px 22px 8px', fontSize:11, fontFamily:'JetBrains Mono', letterSpacing:'.12em', textTransform:'uppercase', color:'#7B3FE4', fontWeight:600 }}>{r.grupo}</td>
+              </tr>
+            ) : (
+              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,.05)' }}>
+                <td style={{ padding:'13px 22px', fontSize:14, color:'var(--text-secondary)', position:'sticky', left:0, background:'var(--bg-card)' }}>{r.label}</td>
+                {r.vals.map((v, j) => (
+                  <td key={j} style={{ padding:'13px 16px', textAlign:'center', background: j===1 ? 'rgba(30,144,255,.04)' : 'transparent' }}>
+                    <CompareCell v={v} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Plans() {
   return (
     <section className="section dark" id="planos">
@@ -234,6 +316,8 @@ function Plans() {
             </div>
           ))}
         </div>
+
+        <PlansComparison />
 
         <div style={{
           marginTop: 56,
