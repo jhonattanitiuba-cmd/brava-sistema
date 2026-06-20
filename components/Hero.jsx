@@ -2,34 +2,58 @@
 const { useState: useStateHero } = React;
 
 function Nav() {
+  const [open, setOpen] = useStateHero(false);
   const tema = () => document.documentElement.getAttribute('data-theme') || 'dark';
+  const close = () => setOpen(false);
+  const entrarHref = `/app/?login=1&theme=${tema()}`;
+  const sections = [
+    ['#setores', 'Plataforma'],
+    ['#planos', 'Planos'],
+    ['#prova', 'Clientes'],
+    ['#faq', 'Perguntas'],
+  ];
+  const waStyle = {
+    display:'inline-flex', alignItems:'center', justifyContent:'center',
+    height:38, padding:'0 18px', borderRadius:999,
+    background:'#25D366', color:'#fff',
+    fontSize:14, fontWeight:500, textDecoration:'none',
+    border:'none', outline:'none', lineHeight:1, flexShrink:0,
+  };
+  const entrarStyle = {
+    display:'inline-flex', alignItems:'center', justifyContent:'center',
+    height:38, padding:'0 18px', borderRadius:999,
+    background:'#1E90FF', color:'#fff',
+    fontSize:14, fontWeight:500, textDecoration:'none',
+    border:'none', outline:'none', lineHeight:1, flexShrink:0,
+    boxShadow:'0 4px 14px rgba(30,144,255,.35)',
+  };
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <a id="nav-logo" className="logo" href="#top">
+        <a id="nav-logo" className="logo" href="#top" onClick={close}>
           <img src="brava-logo-white.png" alt="Brava Company" style={{ height: 17, objectFit: 'contain' }} />
         </a>
         <div className="nav-links">
-          <a id="nav-plataforma" href="#setores">Plataforma</a>
-          <a id="nav-planos"     href="#planos">Planos</a>
-          <a id="nav-clientes"   href="#prova">Clientes</a>
-          <a id="nav-perguntas"  href="#faq">Perguntas</a>
-          <a id="nav-whatsapp" href={WA_LINK} style={{
-            display:'inline-flex', alignItems:'center', justifyContent:'center',
-            height:38, padding:'0 18px', borderRadius:999,
-            background:'#25D366', color:'#fff',
-            fontSize:14, fontWeight:500, textDecoration:'none',
-            border:'none', outline:'none', lineHeight:1, flexShrink:0,
-          }}>WhatsApp</a>
-          <a id="nav-entrar" href={`/app/?login=1&theme=${tema()}`} style={{
-            display:'inline-flex', alignItems:'center', justifyContent:'center',
-            height:38, padding:'0 18px', borderRadius:999,
-            background:'#1E90FF', color:'#fff',
-            fontSize:14, fontWeight:500, textDecoration:'none',
-            border:'none', outline:'none', lineHeight:1, flexShrink:0,
-            boxShadow:'0 4px 14px rgba(30,144,255,.35)',
-          }}>Entrar</a>
+          {sections.map(([href, label]) => (
+            <a key={href} href={href}>{label}</a>
+          ))}
+          <a id="nav-whatsapp" href={WA_LINK} style={waStyle}>WhatsApp</a>
+          <a id="nav-entrar" href={entrarHref} style={entrarStyle}>Entrar</a>
         </div>
+        <button className="nav-burger" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            {open
+              ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+              : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>}
+          </svg>
+        </button>
+      </div>
+      <div className={`nav-mobile ${open ? 'open' : ''}`}>
+        {sections.map(([href, label]) => (
+          <a key={href} href={href} onClick={close}>{label}</a>
+        ))}
+        <a href={WA_LINK} className="nav-mobile-pill nav-mobile-wa" onClick={close}>WhatsApp</a>
+        <a href={entrarHref} className="nav-mobile-pill nav-mobile-entrar" onClick={close}>Entrar</a>
       </div>
     </nav>
   );
