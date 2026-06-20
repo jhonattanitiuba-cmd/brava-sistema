@@ -65,7 +65,7 @@ function SocialProof() {
             { n:'8',   l:'setores numa só plataforma' },
           ].map((m, i) => (
             <div key={i} style={{ textAlign:'center' }}>
-              <div style={{ fontFamily:'Inter', fontWeight:700, fontSize:34, letterSpacing:'-0.02em', background:'var(--brava-gradient)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', lineHeight:1 }}>{m.n}</div>
+              <div style={{ fontFamily:'Montserrat', fontWeight:700, fontSize:34, letterSpacing:'-0.02em', background:'var(--brava-gradient)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', lineHeight:1 }}>{m.n}</div>
               <div className="mono" style={{ marginTop:6, fontSize:11, letterSpacing:'.08em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>{m.l}</div>
             </div>
           ))}
@@ -107,7 +107,7 @@ function SocialProof() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(140px,1fr))', gap:'16px 28px', alignItems:'center' }}>
             {CLIENTS.map(c => (
               <div key={c} style={{
-                fontFamily:'Inter, sans-serif', fontWeight:600, fontSize:15,
+                fontFamily:'Montserrat, sans-serif', fontWeight:600, fontSize:15,
                 letterSpacing:'-0.01em', color:'var(--text-tertiary)',
                 textAlign:'center', padding:'14px 8px', opacity:0.7
               }}>{c}</div>
@@ -161,12 +161,12 @@ function SocialProof() {
             }}>
               <span style={{
                 position:'absolute', top:16, right:16,
-                fontSize:9, fontFamily:'JetBrains Mono, monospace', letterSpacing:'.1em',
+                fontSize:9, fontFamily:'Montserrat, sans-serif', letterSpacing:'.1em',
                 padding:'2px 8px', borderRadius:999,
                 background:'rgba(123,63,228,0.1)', color:'#7B3FE4',
                 border:'1px solid rgba(123,63,228,0.2)'
               }}>EXEMPLO</span>
-              <span style={{ fontFamily:'Inter', fontSize:48, lineHeight:0.6, color:'#7B3FE4', opacity:0.35, marginBottom:8 }}>"</span>
+              <span style={{ fontFamily:'Montserrat', fontSize:48, lineHeight:0.6, color:'#7B3FE4', opacity:0.35, marginBottom:8 }}>"</span>
               <blockquote style={{ margin:0, fontSize:15.5, lineHeight:1.55, color:'var(--text-primary)', flex:1 }}>{t.quote}</blockquote>
               <figcaption style={{ marginTop:24, paddingTop:18, borderTop:'1px solid var(--border-dark-soft)' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
@@ -174,7 +174,7 @@ function SocialProof() {
                     width:38, height:38, borderRadius:999,
                     background:'var(--brava-gradient)',
                     display:'grid', placeItems:'center',
-                    color:'#fff', fontWeight:700, fontSize:13, fontFamily:'Inter'
+                    color:'#fff', fontWeight:700, fontSize:13, fontFamily:'Montserrat'
                   }}>{t.name.split(' ').map(s => s[0]).slice(0,2).join('')}</div>
                   <div>
                     <div style={{ fontWeight:600, fontSize:14, color:'var(--text-primary)' }}>{t.name}</div>

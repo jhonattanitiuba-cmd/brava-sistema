@@ -75,7 +75,7 @@ function ProductShowcase() {
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <h2 style={{
-            fontFamily: 'Inter', fontSize: 'clamp(32px,4vw,52px)',
+            fontFamily: 'Montserrat', fontSize: 'clamp(32px,4vw,52px)',
             fontWeight: 700, color: '#F5F5F7', letterSpacing: '-.02em',
             lineHeight: 1.1, margin: 0,
           }}>
@@ -97,7 +97,7 @@ function ProductShowcase() {
             return (
               <button key={i} onClick={() => { setActive(i); if (i !== active) playSwoosh(); }} style={{
                 padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
-                fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Inter',
+                fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Montserrat',
                 background: isSel ? '#000' : 'transparent',
                 color: isSel ? '#fff' : 'rgba(255,255,255,.40)',
                 border: isSel ? '1.5px solid rgba(30,144,255,.55)' : '1px solid transparent',
@@ -233,7 +233,7 @@ function ProductShowcase() {
         <p style={{
           margin: 0, fontSize: 16,
           color: 'rgba(255,255,255,.55)',
-          fontFamily: 'Inter', fontWeight: 400, lineHeight: 1.45,
+          fontFamily: 'Montserrat', fontWeight: 400, lineHeight: 1.45,
           animation: 'showcase-desc 0.4s cubic-bezier(.22,1,.36,1) both',
         }} key={active}>{SCREENS[active]?.desc}</p>
       </div>

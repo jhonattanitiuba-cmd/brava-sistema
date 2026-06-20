@@ -56,7 +56,7 @@ function App() {
     if (logout) {
       // Banner sutil de "Sessão encerrada"
       const div = document.createElement('div');
-      div.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:99999;padding:14px 18px;background:#0E0E14;border:1px solid #2A2A3A;border-left:3px solid #1D9E75;border-radius:10px;color:#F5F5F7;font-size:13.5px;font-family:Inter;box-shadow:0 12px 32px rgba(0,0,0,.4);animation:slideup .3s';
+      div.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:99999;padding:14px 18px;background:#0E0E14;border:1px solid #2A2A3A;border-left:3px solid #1D9E75;border-radius:10px;color:#F5F5F7;font-size:13.5px;font-family:Montserrat;box-shadow:0 12px 32px rgba(0,0,0,.4);animation:slideup .3s';
       div.textContent = 'Você saiu da plataforma. Até logo!';
       document.body.appendChild(div);
       setTimeout(() => div.remove(), 4000);
@@ -129,8 +129,8 @@ function App() {
         <Hero headline={t.headline} cta={t.cta} accents={t.accents} />
         <ProductShowcase />
       </div>
-      <Sectors />
       <PainBlock />
+      <Sectors />
       <SocialProof />
       <Plans />
       <FAQ />
@@ -150,7 +150,7 @@ function App() {
           {['comercial','financeiro','suporte'].map((dep, i, arr) => (
             <React.Fragment key={dep}>
               <a href={`mailto:${dep}@brava.company`} style={{
-                color: '#A0A0AA', fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5,
+                color: '#A0A0AA', fontFamily: 'Montserrat, sans-serif', fontSize: 11.5,
                 textDecoration: 'none', transition: 'color .15s',
               }}
                 onMouseEnter={e => e.target.style.color='#1E90FF'}

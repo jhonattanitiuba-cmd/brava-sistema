@@ -51,7 +51,7 @@ function FAQ() {
                     display:'flex', justifyContent:'space-between', gap:16, alignItems:'center',
                     textAlign:'left', color:'var(--text-primary)'
                   }}>
-                    <span style={{ fontFamily:'Inter', fontWeight:600, fontSize:16.5, letterSpacing:'-.01em' }}>{f.q}</span>
+                    <span style={{ fontFamily:'Montserrat', fontWeight:600, fontSize:16.5, letterSpacing:'-.01em' }}>{f.q}</span>
                     <span style={{
                       flex:'0 0 28px', width:28, height:28, borderRadius:999,
                       background: open ? 'var(--brava-gradient)' : 'transparent',
@@ -87,7 +87,7 @@ function FinalCTA() {
       <div className="glow-blob purple" style={{ width:600, height:600, top:-100, left:-100, opacity:0.38 }}></div>
       <div className="glow-blob blue"   style={{ width:600, height:600, bottom:-100, right:-100, opacity:0.38 }}></div>
       <div className="container" style={{ maxWidth:920, textAlign:'center' }}>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'JetBrains Mono, monospace', letterSpacing:'.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)', margin:'0 auto' }}>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'Montserrat, sans-serif', letterSpacing:'.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)', margin:'0 auto' }}>
           <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
           Vamos conversar
         </div>

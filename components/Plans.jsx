@@ -124,7 +124,7 @@ function PlansComparison() {
   return (
     <div className="plans-compare-wrap" style={{ marginTop: 64 }}>
       <div style={{ textAlign:'center', marginBottom: 28 }}>
-        <h3 style={{ fontFamily:'Inter', fontSize:24, fontWeight:600, letterSpacing:'-0.02em', margin:0 }}>
+        <h3 style={{ fontFamily:'Montserrat', fontSize:24, fontWeight:600, letterSpacing:'-0.02em', margin:0 }}>
           Compare os planos <span className="gradient-text">lado a lado</span>
         </h3>
       </div>
@@ -135,12 +135,12 @@ function PlansComparison() {
               <th style={{ textAlign:'left', padding:'18px 22px', fontSize:13, color:'var(--text-tertiary)', fontWeight:500, position:'sticky', left:0, background:'var(--bg-card)' }}>Recurso</th>
               {COMPARE_COLS.map((c, i) => (
                 <th key={c} style={{ padding:'18px 16px', textAlign:'center', minWidth:130,
-                  fontFamily:'Inter', fontSize:15, fontWeight:600,
+                  fontFamily:'Montserrat', fontSize:15, fontWeight:600,
                   color: i===1 ? 'transparent' : '#fff',
                   background: i===1 ? 'var(--brava-gradient)' : 'transparent',
                   WebkitBackgroundClip: i===1 ? 'text' : 'unset', WebkitTextFillColor: i===1 ? 'transparent' : 'inherit',
                 }}>
-                  {c}{i===1 && <div style={{ fontSize:9, fontFamily:'JetBrains Mono', letterSpacing:'.08em', color:'#1E90FF', marginTop:2 }}>MAIS ESCOLHIDO</div>}
+                  {c}{i===1 && <div style={{ fontSize:9, fontFamily:'Montserrat', letterSpacing:'.08em', color:'#1E90FF', marginTop:2 }}>MAIS ESCOLHIDO</div>}
                 </th>
               ))}
             </tr>
@@ -148,7 +148,7 @@ function PlansComparison() {
           <tbody>
             {COMPARE_ROWS.map((r, i) => r.grupo ? (
               <tr key={i}>
-                <td colSpan={5} style={{ padding:'18px 22px 8px', fontSize:11, fontFamily:'JetBrains Mono', letterSpacing:'.12em', textTransform:'uppercase', color:'#7B3FE4', fontWeight:600 }}>{r.grupo}</td>
+                <td colSpan={5} style={{ padding:'18px 22px 8px', fontSize:11, fontFamily:'Montserrat', letterSpacing:'.12em', textTransform:'uppercase', color:'#7B3FE4', fontWeight:600 }}>{r.grupo}</td>
               </tr>
             ) : (
               <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,.05)' }}>
@@ -201,7 +201,7 @@ function Plans() {
                 <span style={{
                   position: 'absolute',
                   top: -12, left: '50%', transform: 'translateX(-50%)',
-                  fontFamily: 'JetBrains Mono, monospace',
+                  fontFamily: 'Montserrat, sans-serif',
                   fontSize: 11, letterSpacing: '0.1em',
                   padding: '6px 14px',
                   borderRadius: 999,
@@ -218,20 +218,20 @@ function Plans() {
                 height: '100%',
                 display: 'flex', flexDirection: 'column'
               }}>
-                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontFamily: 'Montserrat, Inter, sans-serif', fontWeight: 400, lineHeight: 1.4 }}>{p.tag}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontFamily: 'Montserrat, sans-serif', fontWeight: 400, lineHeight: 1.4 }}>{p.tag}</div>
                 <h3 style={{
-                  fontFamily: 'Inter', fontSize: 26, fontWeight: 600,
+                  fontFamily: 'Montserrat', fontSize: 26, fontWeight: 700,
                   margin: '8px 0 12px', letterSpacing: '-0.02em'
                 }}>{p.name}</h3>
                 {p.perfil && (
                   <div style={{ marginBottom: 18 }}>
-                    <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 5 }}>Para quem é</div>
+                    <div style={{ fontSize: 10, fontFamily: 'Montserrat, sans-serif', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 5 }}>Para quem é</div>
                     <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>{p.perfil}</div>
                   </div>
                 )}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 24 }}>
                   <span style={{
-                    fontFamily: 'Inter', fontSize: 36, fontWeight: 700,
+                    fontFamily: 'Montserrat', fontSize: 36, fontWeight: 700,
                     letterSpacing: '-0.02em',
                     background: p.highlight ? 'var(--brava-gradient)' : 'transparent',
                     WebkitBackgroundClip: p.highlight ? 'text' : 'unset',
@@ -283,7 +283,7 @@ function Plans() {
                       return (
                         <li key={i} style={{
                           fontSize: 11, color: 'var(--text-tertiary)',
-                          fontWeight: 600, fontFamily: 'JetBrains Mono',
+                          fontWeight: 600, fontFamily: 'Montserrat',
                           letterSpacing: '0.10em', textTransform: 'uppercase',
                           marginTop: 8, marginBottom: 2,
                           paddingBottom: 8, borderBottom: '1px solid rgba(255,255,255,.06)',
@@ -300,7 +300,7 @@ function Plans() {
                         }}>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                             <span style={{
-                              fontSize: 9, fontFamily: 'JetBrains Mono',
+                              fontSize: 9, fontFamily: 'Montserrat',
                               padding: '2px 6px', borderRadius: 4,
                               background: 'var(--brava-gradient)', color: '#fff'
                             }}>NOVO</span>
@@ -356,7 +356,7 @@ function Plans() {
                 color:'#1E90FF', marginTop:2,
               }}>{x.icon}</div>
               <div>
-                <div style={{ fontSize:11, color:'var(--text-tertiary)', fontFamily:'JetBrains Mono,monospace', letterSpacing:'0.1em', textTransform:'uppercase' }}>{x.l}</div>
+                <div style={{ fontSize:11, color:'var(--text-tertiary)', fontFamily:'Montserrat, sans-serif', letterSpacing:'0.1em', textTransform:'uppercase' }}>{x.l}</div>
                 <div style={{ marginTop:5, fontSize:14, color:'var(--text-primary)', lineHeight:1.45 }}>{x.v}</div>
               </div>
             </div>

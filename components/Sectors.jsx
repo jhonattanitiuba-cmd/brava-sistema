@@ -103,12 +103,12 @@ function SectorCard({ s }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <FeatureIcon text={s.icon} size={18} color={s.accent} />
           <span style={{
-            fontSize: 10.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.12em',
+            fontSize: 10.5, fontFamily: 'Montserrat, sans-serif', letterSpacing: '.12em',
             color: 'var(--text-tertiary)',
           }}>{String(s.n).padStart(2, '0')}</span>
         </div>
         <span style={{
-          fontSize: 9.5, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.08em',
+          fontSize: 9.5, fontFamily: 'Montserrat, sans-serif', letterSpacing: '.08em',
           textTransform: 'uppercase', color: st.color,
           background: st.bg, border: `1px solid ${st.border}`,
           borderRadius: 999, padding: '3px 9px',
@@ -117,7 +117,7 @@ function SectorCard({ s }) {
 
       <div>
         <h3 style={{
-          fontSize: 18, fontWeight: 600, fontFamily: 'Inter', letterSpacing: '-0.01em',
+          fontSize: 18, fontWeight: 700, fontFamily: 'Montserrat', letterSpacing: '-0.01em',
           color: 'var(--text-primary)', margin: '0 0 4px',
         }}>{s.nome}</h3>
         <div style={{ fontSize: 12.5, fontWeight: 500, color: s.accent }}>{s.tag}</div>
@@ -134,7 +134,7 @@ function SectorCard({ s }) {
         }}>
           <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-primary)', fontWeight: 500 }}>{s.stat}</div>
           {s.fonte && (
-            <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.04em', color: 'var(--text-tertiary)', marginTop: 6 }}>
+            <div style={{ fontSize: 10, fontFamily: 'Montserrat, sans-serif', letterSpacing: '.04em', color: 'var(--text-tertiary)', marginTop: 6 }}>
               Fonte: {s.fonte}
             </div>
           )}

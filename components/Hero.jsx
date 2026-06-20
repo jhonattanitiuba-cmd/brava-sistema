@@ -17,7 +17,7 @@ function Nav() {
           <a id="nav-whatsapp" href={WA_LINK} style={{
             display:'inline-flex', alignItems:'center', justifyContent:'center',
             height:38, padding:'0 18px', borderRadius:999,
-            background:'#25D366', color:'#fff',
+            background:'#1E90FF', color:'#fff',
             fontSize:14, fontWeight:500, textDecoration:'none',
             border:'none', outline:'none', lineHeight:1, flexShrink:0,
           }}>WhatsApp</a>
@@ -58,7 +58,7 @@ function Hero({ accents }) {
           <div>
             <span className="hero-overline" style={{
               display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 18,
-              fontSize: 11, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.1em',
+              fontSize: 11, fontFamily: 'Montserrat, sans-serif', letterSpacing: '.1em',
               textTransform: 'uppercase', color: '#1E90FF',
               background: 'rgba(30,144,255,.07)', border: '1px solid rgba(30,144,255,.28)',
               borderRadius: 999, padding: '6px 14px',
@@ -96,10 +96,10 @@ function Hero({ accents }) {
                   transition: 'transform .2s, border-color .2s',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Inter' }}>{p.nome}</span>
-                    {p.destaque && <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '.08em', color: '#1E90FF', border: '1px solid rgba(30,144,255,.35)', borderRadius: 999, padding: '2px 7px' }}>MAIS ESCOLHIDO</span>}
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Montserrat' }}>{p.nome}</span>
+                    {p.destaque && <span style={{ fontSize: 8, fontFamily: 'Montserrat', letterSpacing: '.08em', color: '#1E90FF', border: '1px solid rgba(30,144,255,.35)', borderRadius: 999, padding: '2px 7px' }}>MAIS ESCOLHIDO</span>}
                   </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'Inter', letterSpacing: '-0.02em', color: '#fff' }}>{p.preco}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-tertiary)' }}>/mês</span></div>
+                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'Montserrat', letterSpacing: '-0.02em', color: '#fff' }}>{p.preco}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-tertiary)' }}>/mês</span></div>
                   <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 5, lineHeight: 1.4 }}>{p.desc}</div>
                 </a>
               ))}
