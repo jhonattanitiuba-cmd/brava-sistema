@@ -175,11 +175,11 @@ function Plans() {
       <div className="glow-blob blue" style={{ width: 600, height: 600, bottom: 0, right: '10%', opacity: 0.3 }}></div>
       <div className="container">
         <div className="sec-header">
-          <div className="eyebrow"><span className="dot"></span>Planos e precos</div>
+          <div className="eyebrow"><span className="dot"></span>Planos e preços</div>
           <h2 className="h2" style={{ marginTop: 18 }}>
             Escolha o plano que combina com <span className="gradient-text">seu momento</span>.
           </h2>
-          <p className="sec-sub">Todos os planos incluem configuracao guiada, agente de IA treinado e suporte direto. Sem fidelidade, sem surpresa.</p>
+          <p className="sec-sub">Todos os planos incluem configuração guiada, agente de IA treinado e suporte direto. Sem fidelidade, sem surpresa.</p>
         </div>
 
         <div style={{

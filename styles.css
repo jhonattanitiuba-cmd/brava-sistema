@@ -152,32 +152,31 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
   transition: transform .15s ease, box-shadow .25s ease, background .2s ease;
 }
 .btn-primary {
-  background: #1E90FF;
-  color: #ffffff;
-  border: 1px solid transparent;
-  box-shadow: 0 12px 32px -14px rgba(30,144,255,0.55), 0 4px 12px -6px rgba(30,144,255,0.35);
+  background: #ffffff;
+  color: #0A0A0F;
+  border: 1px solid rgba(10,10,15,0.12);
+  box-shadow: 0 12px 32px -14px rgba(0,0,0,0.35), 0 4px 12px -6px rgba(30,144,255,0.18);
   transition: background .2s ease, color .2s ease, transform .15s ease, box-shadow .25s ease;
 }
-.btn-primary svg { color: #ffffff; transition: none; }
+.btn-primary svg { color: #1E90FF; transition: none; }
 .btn-primary:hover {
-  background: #1877D6;
+  background: #000000;
   color: #ffffff;
-  border-color: transparent;
+  border-color: #000000;
   transform: translateY(-1px);
-  box-shadow: 0 22px 60px -16px rgba(30,144,255,0.55), 0 10px 28px -10px rgba(30,144,255,0.45);
+  box-shadow: 0 22px 60px -16px rgba(0,0,0,0.6), 0 10px 28px -10px rgba(30,144,255,0.35);
 }
-.btn-primary:hover svg { color: #ffffff; }
+.btn-primary:hover svg { color: #1E90FF; }
 .btn-ghost {
-  background: rgba(30,144,255,0.16);
-  border: 1px solid #1E90FF;
-  color: #ffffff;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-dark);
+  color: var(--text-primary);
 }
-.btn-ghost svg { color: #ffffff; }
-.btn-ghost:hover { background: rgba(30,144,255,0.30); color: #ffffff; }
+.btn-ghost:hover { background: rgba(255,255,255,0.08); }
 .section.light .btn-ghost {
-  background: #1E90FF;
-  border-color: transparent;
-  color: #ffffff;
+  background: transparent;
+  border-color: var(--border-light);
+  color: var(--text-on-light-primary);
 }
 .btn-sm { height: 40px; padding: 0 16px; font-size: 14px; }
 
@@ -281,10 +280,10 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
   transition: background .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
 }
 .btn-whatsapp:hover {
-  background: #1877D6 !important;
+  background: #25D366 !important;
   color: #fff !important;
-  border-color: #1877D6 !important;
-  box-shadow: 0 6px 20px rgba(30,144,255,.35) !important;
+  border-color: #25D366 !important;
+  box-shadow: 0 6px 20px rgba(37,211,102,.35) !important;
   transform: translateY(-2px);
 }
 
@@ -883,7 +882,7 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
 .btn:hover  { transform: translateY(-2px); }
 .btn:active { transform: translateY(0) scale(.97); }
 .btn-primary:hover {
-  box-shadow: 0 10px 30px rgba(30,144,255,.45);
+  box-shadow: 0 10px 30px rgba(123,63,228,.45);
 }
 
 /* Cards hover lift */
