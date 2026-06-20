@@ -332,9 +332,9 @@ function PainBlock() {
         <div className="sec-header">
           <div className="eyebrow"><span className="dot"></span>Reconhece alguma?</div>
           <h2 className="h2" style={{ marginTop: 18 }}>
-            Sua operacao esta deixando <span className="gradient-text">dinheiro na mesa</span>. Todo dia.
+            O que costuma <span className="gradient-text">travar a operacao</span> antes de virar venda.
           </h2>
-          <p className="sec-sub">Oito situacoes que drenam receita em silencio. Quantas voce reconhece na sua empresa?</p>
+          <p className="sec-sub">Oito situacoes comuns no dia a dia. Quantas voce reconhece na sua empresa?</p>
         </div>
         <div className="pain-grid">
           {pains.map((p, i) => (
@@ -349,7 +349,7 @@ function PainBlock() {
             </div>
           ))}
         </div>
-        <p className="pain-cta-text">Marcou 3 ou mais? Voce esta sangrando receita silenciosamente. Vamos parar isso.</p>
+        <p className="pain-cta-text">Reconheceu tres ou mais? E exatamente isso que a plataforma organiza para voce.</p>
       </div>
     </section>
   );

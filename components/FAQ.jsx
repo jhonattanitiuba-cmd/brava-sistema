@@ -89,17 +89,17 @@ function FinalCTA() {
       <div className="container" style={{ maxWidth:920, textAlign:'center' }}>
         <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'JetBrains Mono, monospace', letterSpacing:'.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)', margin:'0 auto' }}>
           <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
-          Última chamada
+          Vamos conversar
         </div>
         <h2 className="h1" style={{ marginTop:24, fontSize:'clamp(36px,4.6vw,64px)' }}>
-          Sua próxima venda pode estar te esperando agora. <br/>
-          <span className="gradient-text">E ninguém respondeu.</span>
+          A operação inteira da sua empresa, <br/>
+          <span className="gradient-text">num só lugar.</span>
         </h2>
         <p className="lead" style={{ marginTop:28, maxWidth:720, marginLeft:'auto', marginRight:'auto' }}>
-          Cada minuto que sua operação roda no WhatsApp bagunçado é dinheiro escorrendo. Lead que não responderam. Cliente que esqueceu de você. Atendente sobrecarregado.
+          Comercial, financeiro, jurídico, operações e o restante da sua empresa, conectados com engenharia de dados e IA. Mostramos a plataforma funcionando e desenhamos com você o melhor ponto de partida.
         </p>
         <p className="lead" style={{ marginTop:16, fontWeight:600, color:'var(--text-primary)' }}>
-          Não precisa continuar assim.
+          Comece pela conversa, sem compromisso.
         </p>
         <div style={{ marginTop:36, display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap' }}>
           <a href={WA_LINK} className="btn btn-primary" style={{ height:64, padding:'0 32px', fontSize:18 }}>

@@ -22,6 +22,8 @@ const SECTORS = [
     tag: 'Vender mais, com método',
     desc: 'Agentes de IA organizados por setor, todos conectados ao banco de dados central. WhatsApp, CRM e pipeline trabalham juntos para nenhum lead esfriar.',
     telas: ['WhatsApp + CRM', 'Pipeline de vendas', 'IA de vendas'],
+    stat: 'PMEs perdem de 20% a 40% das vendas no WhatsApp e no Instagram por falhas de atendimento e falta de follow-up.',
+    fonte: 'DataCrazy, via CartaCapital',
   },
   {
     id: 'administrativo', n: 2, nome: 'Administrativo', status: 'disponivel',
@@ -124,6 +126,20 @@ function SectorCard({ s }) {
       <p style={{ fontSize: 13.5, lineHeight: 1.55, color: 'var(--text-secondary)', margin: 0 }}>
         {s.desc}
       </p>
+
+      {s.stat && (
+        <div style={{
+          padding: '10px 12px', borderRadius: 10,
+          background: 'rgba(30,144,255,.06)', borderLeft: `2px solid ${s.accent}`,
+        }}>
+          <div style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--text-primary)', fontWeight: 500 }}>{s.stat}</div>
+          {s.fonte && (
+            <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.04em', color: 'var(--text-tertiary)', marginTop: 6 }}>
+              Fonte: {s.fonte}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 'auto', paddingTop: 6 }}>
         {s.telas.map((t) => (
