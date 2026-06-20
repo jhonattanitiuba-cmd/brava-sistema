@@ -10,7 +10,7 @@ function Nav() {
           <img src="brava-logo-white.png" alt="Brava Company" style={{ height: 17, objectFit: 'contain' }} />
         </a>
         <div className="nav-links">
-          <a id="nav-plataforma" href="#solucao">Plataforma</a>
+          <a id="nav-plataforma" href="#setores">Plataforma</a>
           <a id="nav-planos"     href="#planos">Planos</a>
           <a id="nav-clientes"   href="#prova">Clientes</a>
           <a id="nav-perguntas"  href="#faq">Perguntas</a>
@@ -78,14 +78,24 @@ function Hero({ headline, cta, accents }) {
       <div className="container">
         <div className="hero-grid">
           <div>
+            <span className="hero-overline" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 18,
+              fontSize: 11, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '.1em',
+              textTransform: 'uppercase', color: '#1E90FF',
+              background: 'rgba(30,144,255,.07)', border: '1px solid rgba(30,144,255,.28)',
+              borderRadius: 999, padding: '6px 14px',
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1E90FF' }}></span>
+              Brava Software · Braço de tecnologia B2B
+            </span>
             <h1 className="h1">
-              <span className="h1-line" style={{ display: 'block' }}>Tenha uma plataforma</span>
-              <span className="h1-line gradient-text" style={{ display: 'block' }}>para atendimento e venda com IA</span>
+              <span className="h1-line" style={{ display: 'block' }}>A operação inteira da sua empresa,</span>
+              <span className="h1-line gradient-text" style={{ display: 'block' }}>num só lugar.</span>
             </h1>
             <p className="lead hero-sub">
-              <span className="lead-line" style={{ display: 'block' }}>Arquitetura com múltiplos funcionários de IA pra atender,</span>
-              <span className="lead-line" style={{ display: 'block' }}>vender e organizar tudo em um só lugar</span>
-              <span className="lead-line" style={{ display: 'block' }}>com sua logo, cores e equipe</span>
+              <span className="lead-line" style={{ display: 'block' }}>Comercial, administrativo, jurídico, operações, tráfego,</span>
+              <span className="lead-line" style={{ display: 'block' }}>marketing, financeiro e tecnologia, integrados, com a sua marca</span>
+              <span className="lead-line" style={{ display: 'block' }}>e inteligência artificial plug and play: conectou, usou.</span>
             </p>
             <div className="hero-cta">
               <a href={WA_LINK} className="btn btn-primary cta-item">
