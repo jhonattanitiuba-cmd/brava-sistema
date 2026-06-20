@@ -1,4 +1,4 @@
-/* global React, ReactDOM, Nav, Hero, ProposalBlock, Sectors, PainBlock, SolutionBlock, BenefitsBlock, SocialProof, Plans, Objections, Guarantee, Urgency, FAQ, FinalCTA, PSFooter, useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakSelect, ProductShowcase */
+/* global React, ReactDOM, Nav, Hero, Sectors, PainBlock, SocialProof, Plans, FAQ, FinalCTA, PSFooter, useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakToggle, TweakSelect, ProductShowcase */
 
 const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
   "headline": "A",
@@ -129,14 +129,10 @@ function App() {
         <Hero headline={t.headline} cta={t.cta} accents={t.accents} />
         <ProductShowcase />
       </div>
-      <ProposalBlock />
       <Sectors />
       <PainBlock />
-      <SolutionBlock />
-      <BenefitsBlock />
       <SocialProof />
       <Plans />
-      <Objections />
       <FAQ />
       <FinalCTA />
       <PSFooter />

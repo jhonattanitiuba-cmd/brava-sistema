@@ -35,32 +35,10 @@ function Nav() {
   );
 }
 
-const HEADLINES = {
-  A: {
-    h1: <>Pare de perder venda no <span className="gradient-text">WhatsApp bagunçado</span>.</>,
-    sub: 'Tenha agentes de IA treinados pra responder, vender e organizar tudo no seu lugar, com seu logo, suas regras e seu time no comando.'
-  },
-  B: {
-    h1: <>O WhatsApp da sua empresa virou uma <span className="gradient-text">fábrica de venda perdida</span>?</>,
-    sub: 'A Brava transforma ele num sistema com seu logo, suas regras e agentes de IA configurados pelo seu time.'
-  },
-  C: {
-    h1: <>Pare de juntar agência, CRM, automação e <span className="gradient-text">suporte</span>.</>,
-    sub: 'A Brava é o setor de tecnologia integrado da sua empresa: site, CRM, agentes de IA e suporte. Tudo num só parceiro, com seu logo.'
-  }
-};
-
-const CTAS = {
-  A: { btn: 'Falar com um especialista', meta: 'Resposta em até 30 minutos no horário comercial · Sem compromisso' },
-  B: { btn: 'Quero ver a plataforma funcionando', meta: 'Demonstração ao vivo · 30 minutos · Sem cartão de crédito' }
-};
-
 // WhatsApp oficial da Brava Company (+55 11 96334-2541)
 const WA_LINK = 'https://wa.me/5511963342541?text=Ol%C3%A1!%20Vim%20pela%20LP%20da%20Brava%20e%20quero%20conhecer%20a%20plataforma';
 
-function Hero({ headline, cta, accents }) {
-  const H = HEADLINES[headline] || HEADLINES.A;
-  const C = CTAS[cta] || CTAS.A;
+function Hero({ accents }) {
   return (
     <section className="hero section dark" id="top" style={{
       background: 'transparent',
@@ -107,9 +85,9 @@ function Hero({ headline, cta, accents }) {
 
             <div className="hero-plans">
               {[
-                { nome: 'Essencial', preco: 'R$ 1.297', desc: 'Comece a vender no WhatsApp com IA', destaque: false },
-                { nome: 'Performance', preco: 'R$ 2.497', desc: 'Pipeline, automações e white-label', destaque: true },
-                { nome: 'Scale', preco: 'R$ 4.697', desc: 'Site incluso, API e múltiplos times', destaque: false },
+                { nome: 'Essencial', preco: 'R$ 1.297', desc: 'Para começar a organizar e vender melhor', destaque: false },
+                { nome: 'Performance', preco: 'R$ 2.497', desc: 'Comercial, marca própria e processos no lugar', destaque: true },
+                { nome: 'Scale', preco: 'R$ 4.697', desc: 'Operação consolidada, multi-time e multicanal', destaque: false },
               ].map((p) => (
                 <a key={p.nome} href="#planos" className="hero-plan-card" style={{
                   display: 'block', padding: '16px 18px', borderRadius: 14, textDecoration: 'none',
@@ -136,5 +114,3 @@ function Hero({ headline, cta, accents }) {
 window.Hero = Hero;
 window.Nav = Nav;
 window.WA_LINK = WA_LINK;
-window.HEADLINES = HEADLINES;
-window.CTAS = CTAS;

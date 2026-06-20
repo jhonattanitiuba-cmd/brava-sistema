@@ -52,9 +52,23 @@ function SocialProof() {
         <div className="sec-header">
           <div className="eyebrow"><span className="dot"></span>Prova social</div>
           <h2 className="h2" style={{ marginTop: 18 }}>
-            +22 empresas confiam na Brava em <span className="gradient-text">11 segmentos</span> diferentes.
+            Empresas reais confiam na Brava em <span className="gradient-text">11 segmentos</span> diferentes.
           </h2>
           <p className="sec-sub">De imobiliarias a clinicas, de construtoras a estacionamentos. A Brava organiza a operacao inteira, do comercial ao financeiro.</p>
+        </div>
+
+        {/* Métricas */}
+        <div style={{ display:'flex', flexWrap:'wrap', justifyContent:'center', gap:'14px 40px', marginBottom:48 }}>
+          {[
+            { n:'+22', l:'empresas ativas' },
+            { n:'24h', l:'atendimento com IA' },
+            { n:'8',   l:'setores numa só plataforma' },
+          ].map((m, i) => (
+            <div key={i} style={{ textAlign:'center' }}>
+              <div style={{ fontFamily:'Inter', fontWeight:700, fontSize:34, letterSpacing:'-0.02em', background:'var(--brava-gradient)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', lineHeight:1 }}>{m.n}</div>
+              <div className="mono" style={{ marginTop:6, fontSize:11, letterSpacing:'.08em', textTransform:'uppercase', color:'var(--text-tertiary)' }}>{m.l}</div>
+            </div>
+          ))}
         </div>
 
         {/* Segmentos */}

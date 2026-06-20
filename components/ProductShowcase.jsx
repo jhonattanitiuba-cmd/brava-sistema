@@ -79,11 +79,11 @@ function ProductShowcase() {
             fontWeight: 700, color: '#F5F5F7', letterSpacing: '-.02em',
             lineHeight: 1.1, margin: 0,
           }}>
-            Uma operação inteira.<br/>
+            Veja a plataforma<br/>
             <span style={{
               background: 'linear-gradient(90deg,#7B3FE4,#1E90FF)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            }}>Numa única tela.</span>
+            }}>por dentro.</span>
           </h2>
         </div>
 

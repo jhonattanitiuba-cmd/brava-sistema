@@ -184,12 +184,11 @@ function Sectors() {
           Você não contrata um software. Ganha um time de tecnologia como parceiro de negócio.
         </p>
 
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginTop: 22 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 22 }}>
           <a href="#planos" className="btn btn-primary">
             Ver planos
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
           </a>
-          <a href={WA_LINK} className="btn btn-secondary">Falar com especialista</a>
         </div>
       </div>
 
