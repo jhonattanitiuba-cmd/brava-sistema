@@ -54,7 +54,7 @@ function SocialProof() {
           <h2 className="h2" style={{ marginTop: 18 }}>
             +22 empresas confiam na Brava em <span className="gradient-text">11 segmentos</span> diferentes.
           </h2>
-          <p className="sec-sub">De imobiliarias a clinicas, de construtoras a estagionamentos. A Brava funciona onde tem atendimento e venda pelo WhatsApp.</p>
+          <p className="sec-sub">De imobiliarias a clinicas, de construtoras a estacionamentos. A Brava organiza a operacao inteira, do comercial ao financeiro.</p>
         </div>
 
         {/* Segmentos */}

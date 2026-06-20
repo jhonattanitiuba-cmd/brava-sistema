@@ -12,6 +12,7 @@ const PLANS = [
     id: 'essencial',
     name: 'Essencial',
     tag: 'Pra começar a profissionalizar agora',
+    perfil: 'Profissional ou negócio que está começando a se organizar e quer vender melhor.',
     price: 'R$ 1.297',
     cycle: '/mês',
     features: [
@@ -28,6 +29,7 @@ const PLANS = [
     id: 'performance',
     name: 'Performance',
     tag: 'CRM + Site profissional integrado',
+    perfil: 'PME em crescimento que quer comercial, marca própria e os primeiros processos no lugar.',
     price: 'R$ 2.497',
     cycle: '/mês',
     badge: 'MAIS ESCOLHIDO',
@@ -48,6 +50,7 @@ const PLANS = [
     id: 'scale',
     name: 'Scale',
     tag: 'Operações grandes, multi-canal',
+    perfil: 'Operação consolidada ou multi-unidade, com tráfego, site e vários times.',
     price: 'R$ 4.697',
     cycle: '/mês',
     features: [
@@ -66,6 +69,7 @@ const PLANS = [
     id: 'enterprise',
     name: 'Enterprise',
     tag: 'Personalização total e SLA dedicado',
+    perfil: 'Grupos, franquias e redes que precisam de personalização total e SLA dedicado.',
     price: 'Sob consulta',
     cycle: '',
     features: [
@@ -217,8 +221,14 @@ function Plans() {
                 <div style={{ fontSize: 13, color: 'var(--text-tertiary)', fontFamily: 'Montserrat, Inter, sans-serif', fontWeight: 400, lineHeight: 1.4 }}>{p.tag}</div>
                 <h3 style={{
                   fontFamily: 'Inter', fontSize: 26, fontWeight: 600,
-                  margin: '8px 0 18px', letterSpacing: '-0.02em'
+                  margin: '8px 0 12px', letterSpacing: '-0.02em'
                 }}>{p.name}</h3>
+                {p.perfil && (
+                  <div style={{ marginBottom: 18 }}>
+                    <div style={{ fontSize: 10, fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-tertiary)', marginBottom: 5 }}>Para quem é</div>
+                    <div style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>{p.perfil}</div>
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 24 }}>
                   <span style={{
                     fontFamily: 'Inter', fontSize: 36, fontWeight: 700,
