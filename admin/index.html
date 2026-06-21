@@ -8004,7 +8004,12 @@ function useUsuarioLogadoId() {
 }
 function getUserPhoto() {
   try {
-    const email = _emailAtual();
+    // Usa o e-mail da sessão; se o localStorage estiver vazio, cai no e-mail
+    // padrão (mesma fonte que o perfil usa) pra foto não sumir.
+    const email = _emailAtual()
+      || (typeof SESSAO !== 'undefined' && SESSAO && SESSAO.email)
+      || (typeof DEFAULT_SESSAO !== 'undefined' && DEFAULT_SESSAO.email)
+      || '';
     if (!email) return null;
     // ✨ Centralizado: usa helper que consulta banco > localStorage > BRAVA_USERS
     const foto = (typeof getUserFoto === 'function') ? getUserFoto(email) : null;
