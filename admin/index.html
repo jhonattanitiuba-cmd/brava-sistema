@@ -27,7 +27,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>Brava Company © Admin</title>
 <link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -62,7 +62,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f-b);font-size:15px;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f-b);font-size:15px;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;overflow-x:hidden;max-width:100%;overscroll-behavior-x:none;}
 button{font:inherit;cursor:pointer;border:none;background:none;color:inherit;}
 input,select,textarea{font:inherit;color:inherit;}
 a{color:inherit;text-decoration:none;}
@@ -498,7 +498,7 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   .header__search{ width:auto; flex:1 1 auto; min-width:0; }
 
   /* Conteúdo compacto */
-  .main{ padding:16px 14px; }
+  .main{ padding:16px 14px; overflow-x:hidden; }
   .page{ max-width:100%; }
   .page-head{ flex-direction:column; align-items:stretch; gap:12px; }
   .page-head__actions{ flex-wrap:wrap; }
