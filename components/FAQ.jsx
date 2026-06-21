@@ -1,16 +1,16 @@
 /* global React, WA_LINK */
 
 const FAQS = [
-  { q: 'Quanto tempo leva pra estar rodando?',                  a: 'A configuração começa imediatamente após o fechamento, e seu agente IA está respondendo em poucas horas.' },
-  { q: 'Funciona pra qualquer tipo de negócio?',                a: 'Sim. A plataforma foi construída pra resolver a dor do atendimento, independente da vertical. Hoje atendemos + de 18 nichos.' },
-  { q: 'E se minha equipe não tem traquejo com tecnologia?',    a: 'A interface é parecida com WhatsApp Web. E entregamos o sistema configurado e pronto. Quem usa WhatsApp consegue usar a Brava.' },
-  { q: 'Como funciona o suporte?',                              a: 'Tem uma aba de Suporte direto dentro do sistema. Você abre chamado, sugere melhoria ou tira dúvida e fala diretamente com o time da Brava. Tempo de resposta varia conforme o plano: de 30 minutos (Enterprise) a 1 dia útil (Essencial).' },
-  { q: 'Posso usar com mais de um número de WhatsApp?',         a: 'Sim. Plano Essencial libera 1 número, Performance libera 2, Scale libera 5, Enterprise libera ilimitado.' },
-  { q: 'O site institucional é incluso mesmo? Tem letra miúda?', a: 'Sim, sem letra miúda. Plano Performance pra cima inclui um site profissional construído pelo nosso time, integrado direto ao CRM. Você passa o briefing (logo, cores, conteúdo), a gente entrega no ar. Sem custo extra.' },
-  { q: 'Quem é o dono do site? Se eu cancelar, perco?',         a: 'O conteúdo (textos, imagens, identidade) é seu. Se cancelar a Brava, te entregamos os arquivos pra você levar pra outro lugar. Você nunca fica refém.' },
-  { q: 'E se eu quiser cancelar?',                              a: 'Pode cancelar quando quiser, sem multa, sem fidelidade. Os primeiros 7 dias têm garantia de devolução total.' },
-  { q: 'Aceita Pix?',                                           a: 'Sim. Cartão de crédito, Pix ou boleto. Mensal ou anual (com desconto no anual).' },
-  { q: 'Vocês ficam com meus contatos se eu sair?',             a: 'Não. Você exporta tudo em CSV a qualquer momento, e quando sai leva todos os dados. Os contatos são seus.' },
+  { q: 'Quanto tempo leva pra estar rodando?',                       a: 'A configuração começa logo após o fechamento. Em poucas horas seu primeiro agente de IA já está respondendo, e nosso time entra com você para deixar cada setor pronto.' },
+  { q: 'Funciona pra qualquer tipo de negócio?',                     a: 'Sim. A plataforma se adapta à sua operação, da imobiliária à clínica, do varejo à indústria. Hoje mais de 18 nichos rodam na Brava.' },
+  { q: 'Achei que ia ser caro pro tamanho da minha operação.',       a: 'A pergunta certa não é se cabe no orçamento, é quanto você perde hoje em leads sem resposta, follow-ups esquecidos e horas refeitas. Em muitos clientes a plataforma se paga em um a dois meses. Mostramos essa conta na demonstração.' },
+  { q: 'Já tentei outro sistema e meu time não usou. Vai ser diferente?', a: 'Sistemas genéricos são feitos para todo mundo e configurados para ninguém. A Brava entra com configuração guiada: entendemos como sua empresa funciona e entregamos tudo pronto. A interface lembra o WhatsApp Web, então quem usa o celular consegue usar.' },
+  { q: 'Já uso o WhatsApp Business. Por que mudar?',                 a: 'O WhatsApp Business resolve o básico. Ele não tem CRM, funil, agentes de IA, financeiro nem a sua marca. A Brava começa onde ele para e conecta o atendimento ao resto da operação.' },
+  { q: 'O site institucional é incluso mesmo? De quem ele fica?',    a: 'Do plano Performance pra cima, sim, sem custo extra: nosso time constrói um site profissional integrado ao CRM, e cada visitante vira lead no funil. O conteúdo e a identidade são seus. Se um dia sair, leva tudo.' },
+  { q: 'Posso usar mais de um número de WhatsApp?',                  a: 'Pode. Essencial libera 1 número, Performance libera 2, Scale libera 5 e Enterprise libera ilimitado.' },
+  { q: 'Como funciona o suporte?',                                   a: 'Tem uma aba de Suporte dentro do sistema: você abre chamado, sugere melhoria ou tira dúvida e fala direto com o time da Brava. O tempo de resposta varia por plano, de 1 dia útil a 30 minutos.' },
+  { q: 'E se eu quiser cancelar? Fico preso ou perco meus dados?',   a: 'Sem fidelidade e sem multa: cancela quando quiser. Os primeiros 7 dias têm garantia de devolução total. E os contatos são seus, dá pra exportar tudo a qualquer momento.' },
+  { q: 'Quais as formas de pagamento?',                              a: 'Cartão de crédito, Pix ou boleto. Mensal ou anual, com desconto no plano anual.' },
 ];
 
 function FAQ() {
@@ -51,7 +51,7 @@ function FAQ() {
                     display:'flex', justifyContent:'space-between', gap:16, alignItems:'center',
                     textAlign:'left', color:'var(--text-primary)'
                   }}>
-                    <span style={{ fontFamily:'Inter', fontWeight:600, fontSize:16.5, letterSpacing:'-.01em' }}>{f.q}</span>
+                    <span style={{ fontFamily:'Montserrat', fontWeight:600, fontSize:16.5, letterSpacing:'-.01em' }}>{f.q}</span>
                     <span style={{
                       flex:'0 0 28px', width:28, height:28, borderRadius:999,
                       background: open ? 'var(--brava-gradient)' : 'transparent',
@@ -87,19 +87,19 @@ function FinalCTA() {
       <div className="glow-blob purple" style={{ width:600, height:600, top:-100, left:-100, opacity:0.38 }}></div>
       <div className="glow-blob blue"   style={{ width:600, height:600, bottom:-100, right:-100, opacity:0.38 }}></div>
       <div className="container" style={{ maxWidth:920, textAlign:'center' }}>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'JetBrains Mono, monospace', letterSpacing:'.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)', margin:'0 auto' }}>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:7, padding:'6px 16px', borderRadius:999, background:'#1E90FF', color:'#fff', fontSize:11, fontFamily:'Montserrat, sans-serif', letterSpacing:'.12em', fontWeight:600, textTransform:'uppercase', boxShadow:'0 4px 14px rgba(30,144,255,.35)', margin:'0 auto' }}>
           <span style={{width:6,height:6,borderRadius:'50%',background:'rgba(255,255,255,.75)'}}/>
-          Última chamada
+          Vamos conversar
         </div>
         <h2 className="h1" style={{ marginTop:24, fontSize:'clamp(36px,4.6vw,64px)' }}>
-          Sua próxima venda pode estar te esperando agora. <br/>
-          <span className="gradient-text">E ninguém respondeu.</span>
+          A operação inteira da sua empresa, <br/>
+          <span className="gradient-text">num só lugar.</span>
         </h2>
         <p className="lead" style={{ marginTop:28, maxWidth:720, marginLeft:'auto', marginRight:'auto' }}>
-          Cada minuto que sua operação roda no WhatsApp bagunçado é dinheiro escorrendo. Lead que não responderam. Cliente que esqueceu de você. Atendente sobrecarregado.
+          Comercial, financeiro, jurídico, operações e o restante da sua empresa, conectados com engenharia de dados e IA. Mostramos a plataforma funcionando e desenhamos com você o melhor ponto de partida.
         </p>
         <p className="lead" style={{ marginTop:16, fontWeight:600, color:'var(--text-primary)' }}>
-          Não precisa continuar assim.
+          Comece pela conversa, sem compromisso.
         </p>
         <div style={{ marginTop:36, display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap' }}>
           <a href={WA_LINK} className="btn btn-primary" style={{ height:64, padding:'0 32px', fontSize:18 }}>
@@ -120,26 +120,7 @@ function PSFooter() {
     <section className="section dark" id="ps" style={{ paddingTop:0 }}>
       <div className="container" style={{ maxWidth:920 }}>
         <div style={{
-          padding:'40px 0 24px', borderTop:'1px solid var(--border-dark)',
-          display:'grid', gridTemplateColumns:'auto 1fr', gap:32, alignItems:'flex-start'
-        }} className="ps-grid">
-          <div className="mono" style={{ fontSize:12, letterSpacing:'.14em', color:'var(--text-tertiary)', textTransform:'uppercase', paddingTop:4 }}>P.S.</div>
-          <div>
-            <p style={{ margin:0, fontSize:17, lineHeight:1.6, color:'var(--text-primary)' }}>
-              Se você leu até aqui, é porque algo na sua operação está pedindo socorro. A boa notícia é que a solução existe, está pronta, e mais de 22 empresas já estão rodando com ela.
-            </p>
-            <p style={{ marginTop:16, fontSize:17, lineHeight:1.6, color:'var(--text-secondary)' }}>
-              A pergunta não é se sua empresa precisa profissionalizar o atendimento. É <em>quando</em>. Quanto antes, mais rápido você para de perder venda e começa a recuperar o que está deixando na mesa.
-            </p>
-            <a href={WA_LINK} className="btn btn-primary" style={{ marginTop:24 }}>
-              Falar agora com a Brava
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-            </a>
-          </div>
-        </div>
-
-        <div style={{
-          marginTop:64, paddingTop:32, borderTop:'1px solid var(--border-dark)',
+          paddingTop:32, borderTop:'1px solid var(--border-dark)',
           display:'grid', gridTemplateColumns:'1fr auto', gap:24, alignItems:'flex-end'
         }} className="ps-grid">
           <div>

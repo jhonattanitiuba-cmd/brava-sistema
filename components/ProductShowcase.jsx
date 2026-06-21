@@ -62,6 +62,19 @@ function ProductShowcase() {
   const [active, setActive] = React.useState(1); // central = dashboard
   const [hovered, setHovered] = React.useState(null);
 
+  // Dimensões responsivas: no celular os cards encolhem para caber na tela.
+  const [vw, setVw] = React.useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
+  React.useEffect(() => {
+    const onResize = () => setVw(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const isMobile = vw < 760;
+  const CARD_W = isMobile ? Math.min(vw - 40, 560) : 820;
+  const STEP   = isMobile ? Math.round(CARD_W * 0.58) : 340;
+  const GAL_H  = isMobile ? Math.round(CARD_W * 0.66) : 460;
+  const maxOff = isMobile ? 1 : 2;
+
   return (
     <section style={{
       background: 'transparent',
@@ -75,15 +88,15 @@ function ProductShowcase() {
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 40 }}>
           <h2 style={{
-            fontFamily: 'Inter', fontSize: 'clamp(32px,4vw,52px)',
+            fontFamily: 'Montserrat', fontSize: 'clamp(32px,4vw,52px)',
             fontWeight: 700, color: '#F5F5F7', letterSpacing: '-.02em',
             lineHeight: 1.1, margin: 0,
           }}>
-            Uma operação inteira.<br/>
+            Veja a plataforma<br/>
             <span style={{
               background: 'linear-gradient(90deg,#7B3FE4,#1E90FF)',
               WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-            }}>Numa única tela.</span>
+            }}>por dentro.</span>
           </h2>
         </div>
 
@@ -97,7 +110,7 @@ function ProductShowcase() {
             return (
               <button key={i} onClick={() => { setActive(i); if (i !== active) playSwoosh(); }} style={{
                 padding: '7px 16px', borderRadius: 999, cursor: 'pointer',
-                fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Inter',
+                fontSize: 13, fontWeight: isSel ? 600 : 400, fontFamily: 'Montserrat',
                 background: isSel ? '#000' : 'transparent',
                 color: isSel ? '#fff' : 'rgba(255,255,255,.40)',
                 border: isSel ? '1.5px solid rgba(30,144,255,.55)' : '1px solid transparent',
@@ -113,17 +126,17 @@ function ProductShowcase() {
         <div className="reveal" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: 0, position: 'relative', perspective: '1200px',
-          height: 460,
+          height: GAL_H,
           animation: 'showcase-entry 1s cubic-bezier(.22,1,.36,1) both',
         }}>
           {SCREENS.map((s, i) => {
             const offset = i - active;
             const absOff = Math.abs(offset);
-            if (absOff > 2) return null; // só mostra ±2 em torno do ativo
+            if (absOff > maxOff) return null; // mostra ±2 (desktop) ou ±1 (mobile)
 
             const isActive  = offset === 0;
             const scale     = isActive ? 1 : (absOff === 1 ? 0.80 : 0.64);
-            const translateX = offset * 340;
+            const translateX = offset * STEP;
             const rotateY   = offset * -22;
             const z         = isActive ? 0 : (absOff === 1 ? -120 : -260);
             const opacity   = isActive ? 1 : (absOff === 1 ? 0.70 : 0.35);
@@ -141,7 +154,7 @@ function ProductShowcase() {
                 onMouseLeave={() => setHovered(null)}
                 style={{
                   position: 'absolute',
-                  width: 820,
+                  width: CARD_W,
                   transform: `translateX(${translateX}px) translateZ(${z}px) rotateY(${rotateY}deg) scale(${scale})`,
                   transformOrigin: 'center center',
                   transition: 'all .55s cubic-bezier(.22,1,.36,1)',
@@ -233,7 +246,7 @@ function ProductShowcase() {
         <p style={{
           margin: 0, fontSize: 16,
           color: 'rgba(255,255,255,.55)',
-          fontFamily: 'Inter', fontWeight: 400, lineHeight: 1.45,
+          fontFamily: 'Montserrat', fontWeight: 400, lineHeight: 1.45,
           animation: 'showcase-desc 0.4s cubic-bezier(.22,1,.36,1) both',
         }} key={active}>{SCREENS[active]?.desc}</p>
       </div>

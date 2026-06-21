@@ -2,65 +2,67 @@
 const { useState: useStateHero } = React;
 
 function Nav() {
+  const [open, setOpen] = useStateHero(false);
   const tema = () => document.documentElement.getAttribute('data-theme') || 'dark';
+  const close = () => setOpen(false);
+  const entrarHref = `/app/?login=1&theme=${tema()}`;
+  const sections = [
+    ['#setores', 'Plataforma'],
+    ['#planos', 'Planos'],
+    ['#prova', 'Clientes'],
+    ['#faq', 'Perguntas'],
+  ];
+  const waStyle = {
+    display:'inline-flex', alignItems:'center', justifyContent:'center',
+    height:38, padding:'0 18px', borderRadius:999,
+    background:'#25D366', color:'#fff',
+    fontSize:14, fontWeight:500, textDecoration:'none',
+    border:'none', outline:'none', lineHeight:1, flexShrink:0,
+  };
+  const entrarStyle = {
+    display:'inline-flex', alignItems:'center', justifyContent:'center',
+    height:38, padding:'0 18px', borderRadius:999,
+    background:'#1E90FF', color:'#fff',
+    fontSize:14, fontWeight:500, textDecoration:'none',
+    border:'none', outline:'none', lineHeight:1, flexShrink:0,
+    boxShadow:'0 4px 14px rgba(30,144,255,.35)',
+  };
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <a id="nav-logo" className="logo" href="#top">
+        <a id="nav-logo" className="logo" href="#top" onClick={close}>
           <img src="brava-logo-white.png" alt="Brava Company" style={{ height: 17, objectFit: 'contain' }} />
         </a>
         <div className="nav-links">
-          <a id="nav-plataforma" href="#solucao">Plataforma</a>
-          <a id="nav-planos"     href="#planos">Planos</a>
-          <a id="nav-clientes"   href="#prova">Clientes</a>
-          <a id="nav-perguntas"  href="#faq">Perguntas</a>
-          <a id="nav-whatsapp" href={WA_LINK} style={{
-            display:'inline-flex', alignItems:'center', justifyContent:'center',
-            height:38, padding:'0 18px', borderRadius:999,
-            background:'#25D366', color:'#fff',
-            fontSize:14, fontWeight:500, textDecoration:'none',
-            border:'none', outline:'none', lineHeight:1, flexShrink:0,
-          }}>WhatsApp</a>
-          <a id="nav-entrar" href={`/app/?login=1&theme=${tema()}`} style={{
-            display:'inline-flex', alignItems:'center', justifyContent:'center',
-            height:38, padding:'0 18px', borderRadius:999,
-            background:'#1E90FF', color:'#fff',
-            fontSize:14, fontWeight:500, textDecoration:'none',
-            border:'none', outline:'none', lineHeight:1, flexShrink:0,
-            boxShadow:'0 4px 14px rgba(30,144,255,.35)',
-          }}>Entrar</a>
+          {sections.map(([href, label]) => (
+            <a key={href} href={href}>{label}</a>
+          ))}
+          <a id="nav-whatsapp" href={WA_LINK} style={waStyle}>WhatsApp</a>
+          <a id="nav-entrar" href={entrarHref} style={entrarStyle}>Entrar</a>
         </div>
+        <button className="nav-burger" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(o => !o)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            {open
+              ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+              : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>}
+          </svg>
+        </button>
+      </div>
+      <div className={`nav-mobile ${open ? 'open' : ''}`}>
+        {sections.map(([href, label]) => (
+          <a key={href} href={href} onClick={close}>{label}</a>
+        ))}
+        <a href={WA_LINK} className="nav-mobile-pill nav-mobile-wa" onClick={close}>WhatsApp</a>
+        <a href={entrarHref} className="nav-mobile-pill nav-mobile-entrar" onClick={close}>Entrar</a>
       </div>
     </nav>
   );
 }
 
-const HEADLINES = {
-  A: {
-    h1: <>Pare de perder venda no <span className="gradient-text">WhatsApp bagunçado</span>.</>,
-    sub: 'Tenha agentes de IA treinados pra responder, vender e organizar tudo no seu lugar, com seu logo, suas regras e seu time no comando.'
-  },
-  B: {
-    h1: <>O WhatsApp da sua empresa virou uma <span className="gradient-text">fábrica de venda perdida</span>?</>,
-    sub: 'A Brava transforma ele num sistema com seu logo, suas regras e agentes de IA configurados pelo seu time.'
-  },
-  C: {
-    h1: <>Pare de juntar agência, CRM, automação e <span className="gradient-text">suporte</span>.</>,
-    sub: 'A Brava é o setor de tecnologia integrado da sua empresa: site, CRM, agentes de IA e suporte. Tudo num só parceiro, com seu logo.'
-  }
-};
-
-const CTAS = {
-  A: { btn: 'Falar com um especialista', meta: 'Resposta em até 30 minutos no horário comercial · Sem compromisso' },
-  B: { btn: 'Quero ver a plataforma funcionando', meta: 'Demonstração ao vivo · 30 minutos · Sem cartão de crédito' }
-};
-
 // WhatsApp oficial da Brava Company (+55 11 96334-2541)
 const WA_LINK = 'https://wa.me/5511963342541?text=Ol%C3%A1!%20Vim%20pela%20LP%20da%20Brava%20e%20quero%20conhecer%20a%20plataforma';
 
-function Hero({ headline, cta, accents }) {
-  const H = HEADLINES[headline] || HEADLINES.A;
-  const C = CTAS[cta] || CTAS.A;
+function Hero({ accents }) {
   return (
     <section className="hero section dark" id="top" style={{
       background: 'transparent',
@@ -78,14 +80,22 @@ function Hero({ headline, cta, accents }) {
       <div className="container">
         <div className="hero-grid">
           <div>
+            <span className="hero-overline" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 18,
+              fontSize: 11, fontFamily: 'Montserrat, sans-serif', letterSpacing: '.1em',
+              textTransform: 'uppercase', color: '#1E90FF',
+              background: 'rgba(30,144,255,.07)', border: '1px solid rgba(30,144,255,.28)',
+              borderRadius: 999, padding: '6px 14px',
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#1E90FF' }}></span>
+              Brava Software · Braço de tecnologia B2B
+            </span>
             <h1 className="h1">
-              <span className="h1-line" style={{ display: 'block' }}>Tenha uma plataforma</span>
-              <span className="h1-line gradient-text" style={{ display: 'block' }}>para atendimento e venda com IA</span>
+              <span className="h1-line" style={{ display: 'block' }}>A operação inteira da sua empresa,</span>
+              <span className="h1-line gradient-text" style={{ display: 'block' }}>num só lugar.</span>
             </h1>
             <p className="lead hero-sub">
-              <span className="lead-line" style={{ display: 'block' }}>Arquitetura com múltiplos funcionários de IA pra atender,</span>
-              <span className="lead-line" style={{ display: 'block' }}>vender e organizar tudo em um só lugar</span>
-              <span className="lead-line" style={{ display: 'block' }}>com sua logo, cores e equipe</span>
+              Comercial, administrativo, jurídico, operações, tráfego, marketing, financeiro e tecnologia, integrados, com a sua marca e inteligência artificial plug and play: conectou, usou.
             </p>
             <div className="hero-cta">
               <a href={WA_LINK} className="btn btn-primary cta-item">
@@ -93,28 +103,6 @@ function Hero({ headline, cta, accents }) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
               </a>
               <a href="#planos" className="btn btn-ghost cta-item">Ver planos</a>
-            </div>
-
-            <div className="hero-plans">
-              {[
-                { nome: 'Essencial', preco: 'R$ 1.297', desc: 'Comece a vender no WhatsApp com IA', destaque: false },
-                { nome: 'Performance', preco: 'R$ 2.497', desc: 'Pipeline, automações e white-label', destaque: true },
-                { nome: 'Scale', preco: 'R$ 4.697', desc: 'Site incluso, API e múltiplos times', destaque: false },
-              ].map((p) => (
-                <a key={p.nome} href="#planos" className="hero-plan-card" style={{
-                  display: 'block', padding: '16px 18px', borderRadius: 14, textDecoration: 'none',
-                  background: p.destaque ? 'rgba(30,144,255,.06)' : 'rgba(255,255,255,.03)',
-                  border: p.destaque ? '1px solid rgba(30,144,255,.35)' : '1px solid rgba(255,255,255,.08)',
-                  transition: 'transform .2s, border-color .2s',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'Inter' }}>{p.nome}</span>
-                    {p.destaque && <span style={{ fontSize: 8, fontFamily: 'JetBrains Mono', letterSpacing: '.08em', color: '#1E90FF', border: '1px solid rgba(30,144,255,.35)', borderRadius: 999, padding: '2px 7px' }}>MAIS ESCOLHIDO</span>}
-                  </div>
-                  <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'Inter', letterSpacing: '-0.02em', color: '#fff' }}>{p.preco}<span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-tertiary)' }}>/mês</span></div>
-                  <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 5, lineHeight: 1.4 }}>{p.desc}</div>
-                </a>
-              ))}
             </div>
           </div>
         </div>
@@ -126,5 +114,3 @@ function Hero({ headline, cta, accents }) {
 window.Hero = Hero;
 window.Nav = Nav;
 window.WA_LINK = WA_LINK;
-window.HEADLINES = HEADLINES;
-window.CTAS = CTAS;
