@@ -498,7 +498,7 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   .header__search{ width:auto; flex:1 1 auto; min-width:0; }
 
   /* Conteúdo compacto */
-  .main{ padding:16px 14px; overflow-x:hidden; }
+  .main{ padding:18px 16px; overflow-x:hidden; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
   .page{ max-width:100%; }
   .page-head{ flex-direction:column; align-items:stretch; gap:12px; }
   .page-head__actions{ flex-wrap:wrap; }
@@ -516,7 +516,7 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   .card{ padding:16px !important; }
   .header__search{ display:none; }
   .page-head__title{ font-size:19px !important; }
-  .main{ padding:14px 12px; }
+  .main{ padding:14px 16px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
 }
 </style>
 </head>
