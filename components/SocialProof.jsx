@@ -197,7 +197,7 @@ function SocialProof() {
             Quer ver sua empresa nessa lista?
           </p>
           <a href="#planos" className="btn btn-primary">
-            Comecar agora
+            Começar agora
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
           </a>
         </div>
