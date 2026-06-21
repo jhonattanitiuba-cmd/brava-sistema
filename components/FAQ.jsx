@@ -125,18 +125,17 @@ function PSFooter() {
         }} className="ps-grid">
           <div>
             <div className="logo">
-              <span className="mark">B</span>
-              <span>brava<span style={{ color:'var(--text-tertiary)', fontWeight:400 }}>.crm</span></span>
+              <img src="brava-logo-white.png" alt="Brava Company" style={{ height: 20, objectFit: 'contain' }} />
             </div>
-            <p style={{ marginTop:16, fontSize:13, color:'var(--text-tertiary)', lineHeight:1.6, maxWidth:520 }}>
-              Brava Company S.A. · Agência de Tecnologia B2B com IA Integrada<br/>
-              Edifício Alpha Premium · Al. Rio Negro, 503 · 23º Andar · Alphaville, Barueri/SP<br/>
-              CNPJ ativo · Atendimento que vende, com agentes de IA treinados especificamente pra sua operação.
+            <p style={{ marginTop:18, fontSize:13, color:'var(--text-tertiary)', lineHeight:1.7, maxWidth:540 }}>
+              Brava Company S.A. · Braço de tecnologia B2B<br/>
+              Edifício Alpha Premium · Al. Rio Negro, 503 · 23º andar · Alphaville, Barueri/SP<br/>
+              Uma plataforma que reúne os setores da sua empresa num só lugar, com engenharia de dados e inteligência artificial.
             </p>
           </div>
-          <div className="mono" style={{ fontSize:11, color:'var(--text-tertiary)', letterSpacing:'.08em', textAlign:'right' }}>
-            © 2026 BRAVA COMPANY<br/>
-            v1.6 · LP-PRINCIPAL
+          <div className="mono" style={{ fontSize:11, color:'var(--text-tertiary)', letterSpacing:'.08em', textAlign:'right', lineHeight:1.8 }}>
+            brava.software<br/>
+            © 2026 Brava Company
           </div>
         </div>
         <style>{`@media (max-width: 720px) { .ps-grid { grid-template-columns: 1fr !important; gap: 16px !important; } }`}</style>
