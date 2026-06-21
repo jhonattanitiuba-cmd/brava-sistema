@@ -169,6 +169,9 @@ const LoginScreen = ({ onContinue, onNav }) => {
 
       <div className="auth-page__form">
         <div className="auth-form-wrap">
+          <div className="auth-form__logo">
+            <Logo size={30} mode="white" style={{ color: '#0A0A0F' }} />
+          </div>
           {novoCadastro && (
             <div style={{
               padding:'12px 14px', marginBottom:20,
