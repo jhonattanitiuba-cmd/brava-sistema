@@ -930,15 +930,18 @@ function SidebarUserCard({ setPage }) {
       <div onClick={() => setPage && setPage('config')} title="Editar perfil"
         style={{display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0, cursor:'pointer'}}>
         <div style={{
-          width:32, height:32, borderRadius:'50%', flexShrink:0,
-          background: foto
-            ? `url('${foto}') center 25%/cover no-repeat`
-            : 'linear-gradient(135deg, var(--purple), var(--blue))',
-          color: foto ? 'transparent' : '#fff',
+          width:32, height:32, borderRadius:'50%', flexShrink:0, position:'relative', overflow:'hidden',
+          background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+          color: '#fff',
           display:'flex', alignItems:'center', justifyContent:'center',
           fontSize:11, fontWeight:700,
           border:'1px solid rgba(255,255,255,.08)',
-        }}>{iniciais}</div>
+        }}>
+          {iniciais}
+          <img src={foto || '/admin/app/jhonattan.jpg'} alt="" referrerPolicy="no-referrer"
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 25%' }}
+            onError={e=>{ if(!e.currentTarget.dataset.fb){ e.currentTarget.dataset.fb='1'; e.currentTarget.src='/admin/app/jhonattan.jpg'; } else { e.currentTarget.style.display='none'; } }}/>
+        </div>
         <div style={{flex:1, minWidth:0}}>
           <div style={{fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
           <div style={{fontSize:10.5, color:'var(--t2)', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
@@ -8069,11 +8072,15 @@ function HeaderUserAvatar() {
   const iniciais = (nome || 'JI').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
   return (
     <div className="header__avatar" style={{
-      background: foto
-        ? `url('${foto}') center 25%/cover no-repeat`
-        : 'linear-gradient(135deg, var(--purple), var(--blue))',
-      color: foto ? 'transparent' : '#fff'
-    }} title={nome}>{iniciais}</div>
+      position:'relative', overflow:'hidden',
+      background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+      color: '#fff'
+    }} title={nome}>
+      {iniciais}
+      <img src={foto || '/admin/app/jhonattan.jpg'} alt="" referrerPolicy="no-referrer"
+        style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 25%' }}
+        onError={e=>{ if(!e.currentTarget.dataset.fb){ e.currentTarget.dataset.fb='1'; e.currentTarget.src='/admin/app/jhonattan.jpg'; } else { e.currentTarget.style.display='none'; } }}/>
+    </div>
   );
 }
 
