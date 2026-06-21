@@ -518,6 +518,13 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   .page-head__title{ font-size:19px !important; }
   .main{ padding:14px 16px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
 }
+
+/* Grids de conteúdo que colapsam no mobile (vence o inline via !important) */
+@media (max-width: 760px){
+  .grid-m1{ grid-template-columns:1fr !important; }
+  .grid-m3{ grid-template-columns:repeat(3,1fr) !important; }
+  .grid-cal-m{ grid-template-columns:60px 1fr !important; }
+}
 </style>
 </head>
 <body>
@@ -5615,7 +5622,7 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
               </div>
 
               {/* Data, Hora e Recorrencia em uma linha */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 110px', gap:8 }}>
+              <div className="grid-m1" style={{ display:'grid', gridTemplateColumns:'1fr 110px', gap:8 }}>
                 <div>
                   <label style={labelBase}>Data</label>
                   <input type="date" value={data} onChange={(e) => setData(e.target.value)}
@@ -7011,7 +7018,7 @@ function ProjetoCard({ projeto: p, onClick, onImpersonate }) {
       )}
 
       {/* Métricas mini */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, fontSize:11.5}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, fontSize:11.5}}>
         <div style={{textAlign:'center', padding:6, background:'var(--bg-3)', borderRadius:6}}>
           <div style={{color:'var(--t3)', fontSize:10}}>Msgs 7d</div>
           <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)'}}>{p.wa.total}</div>
@@ -7230,7 +7237,7 @@ function Chamados() {
         ))}
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'1.2fr 1.5fr', gap:14}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1.2fr 1.5fr', gap:14}}>
         {/* Lista */}
         <div className="card" style={{padding:0, maxHeight:'calc(100vh - 240px)', overflowY:'auto'}}>
           {filtrados.map(c => (
@@ -7603,7 +7610,7 @@ function ConvidarMembroModal({ onClose }) {
 
           <div style={{marginBottom: erro ? 10 : 0}}>
             <SecaoLabel icon="UserCircle">Função no workspace</SecaoLabel>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
               {['admin','manager','agent','viewer'].map(r => (
                 <button key={r} type="button" onClick={()=>setRole(r)} style={{
                   padding:'10px 8px', borderRadius:7,
@@ -7699,7 +7706,7 @@ function EditarMembroModal({ membro, onClose }) {
         <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
           <div style={{marginBottom:18}}>
             <SecaoLabel icon="UserCircle">Função no workspace</SecaoLabel>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
               {['owner','admin','manager','agent','viewer'].map(r => (
                 <button key={r} onClick={()=>setRole(r)} style={{
                   padding:'10px 8px', borderRadius:7,
@@ -8145,7 +8152,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
             <input value={nome} onChange={e=>setNome(e.target.value)} style={inp}/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Layers">Serviço contratado</SecaoLabel>
               <input value={servico} onChange={e=>setServico(e.target.value)} style={inp}/>
@@ -8156,7 +8163,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Tag">Nicho</SecaoLabel>
               <input value={nicho} onChange={e=>setNicho(e.target.value)} style={inp}/>
@@ -9360,7 +9367,7 @@ function EditarEtiquetaModal({ etiqueta, onSalvar, onClose }) {
 
           <div style={{marginBottom:18}}>
             <SecaoLabel icon="Palette">Cor</SecaoLabel>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6}}>
+            <div className="grid-m3" style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6}}>
               {PALETA_ETIQUETAS.map(c => (
                 <button key={c} type="button" onClick={() => setCor(c)} style={{
                   width:'100%', aspectRatio:'1', padding:0, border: cor === c ? '2px solid var(--t1)' : '2px solid transparent',
@@ -11187,7 +11194,7 @@ function EvoStatusPanel() {
         </div>
       )}
 
-      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
         {[
           {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '-'},
           {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '-'},
@@ -11475,7 +11482,7 @@ function ConfigIATab() {
       </div>
 
       {/* Stats */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
         {[
           {l:'Respostas enviadas', v: stats.replied.toLocaleString('pt-BR'), c:'#1D9E75'},
           {l:'Erros', v: stats.errors.toLocaleString('pt-BR'), c: stats.errors > 0 ? '#A32D2D' : 'var(--t3)'},
@@ -11836,7 +11843,7 @@ function Config() {
         </div>
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:18}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:18}}>
         {/* Tabs */}
         <div className="card" style={{padding:8, height:'fit-content'}}>
           {abas.map(a => (
@@ -11926,7 +11933,7 @@ function Config() {
               </div>
 
               {/* Dados pessoais · inputs controlados pelo state */}
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
                 {[
                   ['nome',     'Nome completo'],
                   ['cargo',    'Cargo / Função'],
@@ -14439,7 +14446,7 @@ function ModalRec({ rec, onClose }) {
             <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Nome do cliente ou contrato" autoFocus/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Layers">Serviço</SecaoLabel>
               <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + CRM, Site, etc."/>
@@ -14450,7 +14457,7 @@ function ModalRec({ rec, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="ScrollText">Implantação (único)</SecaoLabel>
               <input style={inp} type="number" min="0" value={form.impl} onChange={e=>set('impl', e.target.value)} placeholder="R$ 0,00"/>
@@ -14461,7 +14468,7 @@ function ModalRec({ rec, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
             <div>
               <SecaoLabel icon="Calendar">Dia do vencimento</SecaoLabel>
               <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: Dia 10"/>
@@ -15816,7 +15823,7 @@ function DespesaModal({ despesa, onClose }) {
             <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Aluguel escritório" autoFocus/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Tag">Categoria</SecaoLabel>
               <select style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)}>
@@ -16594,7 +16601,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             <p style={{fontSize:13,color:'var(--t3)',margin:'0 0 18px',lineHeight:1.55}}>
               Puxa todas as transações do período direto da API BTG. Duplicatas são ignoradas automaticamente.
             </p>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
+            <div className="grid-m1" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
               <div>
                 <label style={{fontSize:11,color:'var(--t3)',marginBottom:5,display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:.3}}>De</label>
                 <input type="date" value={histStart} onChange={e=>setHistStart(e.target.value)}
@@ -16700,7 +16707,7 @@ function CaixaLancamentoModal({ lancamento, onClose }) {
             <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Venda avulsa, reembolso, ajuste de saldo..." autoFocus/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Tag">Categoria</SecaoLabel>
               <input style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)} placeholder="Ex: Venda extra"/>
@@ -17564,7 +17571,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div style={{marginBottom:22}}>
             <SecaoLabel icon="Building2">Identificação</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>{form.tipo_pessoa === 'PJ' ? 'Razão social' : 'Nome completo'} *</label>
                 <input style={inp} value={form.nome} onChange={e=>set('nome', e.target.value)} placeholder={form.tipo_pessoa === 'PJ' ? 'Ex: EstacionePark Aeroporto LTDA' : 'Ex: João da Silva'} autoFocus/>
@@ -17600,7 +17607,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
             </div>
 
             {form.tipo_pessoa === 'PJ' && (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
                 <div>
                   <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Inscrição estadual</label>
                   <input style={inp} value={form.inscricao_estadual} onChange={e=>set('inscricao_estadual', e.target.value)} placeholder="Opcional"/>
@@ -17617,7 +17624,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div style={{marginBottom:22}}>
             <SecaoLabel icon="Phone">Contato principal (email OU telefone obrigatório)</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do contato</label>
                 <input style={inp} value={form.contato_nome} onChange={e=>set('contato_nome', e.target.value)} placeholder="Quem você fala"/>
@@ -17628,7 +17635,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>E-mail *</label>
                 <input style={inp} type="email" value={form.contato_email} onChange={e=>set('contato_email', e.target.value)} placeholder="contato@empresa.com.br"/>
@@ -17649,7 +17656,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div style={{marginBottom:22}}>
             <SecaoLabel icon="MapPin">Endereço (opcional)</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'160px 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'160px 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>CEP {buscandoCep && <span style={{color:'var(--blue)'}}>buscando...</span>}</label>
                 <input style={inp} value={form.endereco_cep} onChange={e=>set('endereco_cep', e.target.value)} placeholder="00000-000" maxLength={9}/>
@@ -17660,7 +17667,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'100px 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'100px 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Número</label>
                 <input style={inp} value={form.endereco_numero} onChange={e=>set('endereco_numero', e.target.value)} placeholder="123"/>
@@ -17671,7 +17678,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 80px', gap:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 80px', gap:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Bairro</label>
                 <input style={inp} value={form.endereco_bairro} onChange={e=>set('endereco_bairro', e.target.value)}/>
@@ -17691,7 +17698,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div>
             <SecaoLabel icon="Activity">Comercial / interno</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nicho</label>
                 <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria..." list="nichos-sugestao"/>
@@ -17718,7 +17725,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'flex', alignItems:'center', gap:6}}>
                   Status
@@ -18009,7 +18016,7 @@ function ProjetosCRM() {
             const cfg = getStatusByKey(statusConfig, p.status_fase || 'lead');
             const cliente = clientesById.get(p.cliente_id);
             return (
-              <div key={p.id} onClick={()=>setEditando(p)} style={{
+              <div key={p.id} onClick={()=>setEditando(p)} className="grid-m3" style={{
                 padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)',
                 borderLeft:`3px solid ${cfg.cor}`, borderRadius:8, cursor:'pointer', transition:'background .15s',
                 display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 100px 40px', gap:12, alignItems:'center',
@@ -18272,7 +18279,7 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
           </div>
 
           {/* Status + Núcleo + Categoria */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
             <div>
               <label style={lbl}>Status</label>
               <select style={inp} value={form.status_fase} onChange={e=>set('status_fase', e.target.value)}>
@@ -18318,7 +18325,7 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
           </div>
 
           {/* Valores */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
             <div>
               <label style={lbl}>Mensal (R$)</label>
               <input style={inp} type="number" step="0.01" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="0,00"/>
@@ -18539,7 +18546,7 @@ function TrelloCardModal({ cardTipo, cardId, cardNome, cardCliente, colNome, col
           <button onClick={onClose} style={{width:30,height:30,border:'none',background:'transparent',color:'var(--t3)',cursor:'pointer',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="X" size={14}/></button>
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 220px',gap:0}}>
+        <div className="grid-m1" style={{display:'grid',gridTemplateColumns:'1fr 220px',gap:0}}>
           {/* Coluna principal */}
           <div style={{padding:'16px 20px',borderRight:'1px solid var(--border)'}}>
             {/* Checklists */}
@@ -18831,7 +18838,7 @@ function AplicarTemplateChecklistModal({ projetoId, projetoServico, dataBase, on
           <h3 style={{margin:0, fontSize:15, fontWeight:600, color:'var(--t1)', flex:1}}>Aplicar template de checklist</h3>
           <button onClick={onClose} style={{background:'transparent', border:'none', color:'var(--t3)', fontSize:18, cursor:'pointer'}}>×</button>
         </div>
-        <div style={{flex:1, overflowY:'auto', padding:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+        <div className="grid-m1" style={{flex:1, overflowY:'auto', padding:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
           <div style={{borderRight:'1px solid var(--border-soft)', paddingRight:10}}>
             <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.5, marginBottom:8, fontWeight:600}}>Templates disponiveis</div>
             {loading && <div style={{fontSize:12, color:'var(--t3)'}}>Carregando...</div>}
@@ -19319,7 +19326,7 @@ function ConfigTemplateEditorModal({ editando, onClose, onSaved }) {
         </div>
 
         <div style={{flex:1, overflowY:'auto', padding:20}}>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome *</label>
               <input style={inp} value={form.nome} onChange={e=>setF('nome', e.target.value)} placeholder="Ex: Implantacao Agente IA"/>
@@ -19340,7 +19347,7 @@ function ConfigTemplateEditorModal({ editando, onClose, onSaved }) {
           </div>
 
           {itens.map((it, i) => (
-            <div key={i} style={{display:'grid', gridTemplateColumns:'1fr 80px 1fr 28px', gap:6, marginBottom:6, alignItems:'center'}}>
+            <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 80px 1fr 28px', gap:6, marginBottom:6, alignItems:'center'}}>
               <input style={inp} value={it.texto} onChange={e=>setItem(i, 'texto', e.target.value)} placeholder={`Item ${i+1}`}/>
               <input style={inp} type="number" min="0" value={it.dias_apos_inicio} onChange={e=>setItem(i, 'dias_apos_inicio', e.target.value)} placeholder="dias"/>
               <select style={inp} value={it.responsavel_sugerido_id} onChange={e=>setItem(i, 'responsavel_sugerido_id', e.target.value)}>
@@ -19547,7 +19554,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
           </div>
 
           <SecaoLabel icon="Layers">Identificação do projeto</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do projeto *</label>
               <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Ex: EstacionePark - Campanha" autoFocus/>
@@ -19561,7 +19568,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Serviço (descrição curta)</label>
               <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + Sistema + GMB"/>
@@ -19573,7 +19580,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
           </div>
 
           {/* Núcleo + categoria (separação de unidade de negócio Brava vs Audiovisual vs Consultoria) */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Núcleo *</label>
               <select style={inp} value={form.nucleo} onChange={e=>{
@@ -19616,7 +19623,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
 
           {/* SEÇÃO 2: Valores */}
           <SecaoLabel icon="DollarSign">Valores e tipo</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Tipo de projeto</label>
               <select style={inp} value={form.tipo_projeto} onChange={e=>set('tipo_projeto', e.target.value)}>
@@ -19632,7 +19639,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Mensal (R$)</label>
               <input style={inp} type="number" step="0.01" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="0,00"/>
@@ -19646,7 +19653,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
           {form.tipo_projeto === 'parcelado' && (
             <div style={{padding:'12px 14px', background:'rgba(123,63,228,.08)', border:'1px solid rgba(123,63,228,.25)', borderRadius:9, marginBottom:12}}>
               <div style={{fontSize:11, color:'#a78bfa', fontWeight:600, marginBottom:8, textTransform:'uppercase', letterSpacing:.4}}>Projeto parcelado</div>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
                 <div>
                   <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Valor total acordado (R$)</label>
                   <input style={inp} type="number" step="0.01" value={form.valor_total_acordado} onChange={e=>set('valor_total_acordado', e.target.value)} placeholder="Ex: 5000"/>
@@ -19682,7 +19689,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
 
           {/* SEÇÃO 4: Datas e marcos */}
           <SecaoLabel icon="CalendarCheck">Datas e marcos do projeto</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data fechamento (proposta aceita)</label>
               <input style={inp} type="date" value={form.data_fechamento_proposta || ''} onChange={e=>set('data_fechamento_proposta', e.target.value)}/>
@@ -19870,7 +19877,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
   return (
     <div style={{padding:'18px 22px'}}>
       {/* KPIs */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom:18}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom:18}}>
         {kpis.map((k,i) => (
           <div key={i} style={{padding:'14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6}}>
@@ -19886,7 +19893,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
 
       {/* Identificação - TUDO editável inline */}
       <SecaoLabel icon="Building2">Identificação <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
         <InfoCardEdit label={cliente.tipo_pessoa === 'PF' ? 'CPF' : 'CNPJ'} value={cliente.cnpj_cpf} field="cnpj_cpf" clienteId={cliente.id} placeholder={cliente.tipo_pessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}/>
         <InfoCardEdit label="Nome fantasia" value={cliente.nome_fantasia} field="nome_fantasia" clienteId={cliente.id}/>
         <InfoCardEdit label="Email" value={cliente.contato_email} field="contato_email" clienteId={cliente.id} type="email" placeholder="contato@empresa.com"/>
@@ -19902,7 +19909,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
       {(cliente.endereco_cep || cliente.endereco_logradouro || cliente.endereco_cidade) && (
         <>
           <SecaoLabel icon="Globe">Endereço <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
             <InfoCardEdit label="CEP" value={cliente.endereco_cep} field="endereco_cep" clienteId={cliente.id} placeholder="00000-000"/>
             <InfoCardEdit label="Logradouro" value={cliente.endereco_logradouro} field="endereco_logradouro" clienteId={cliente.id} placeholder="Rua, Av..."/>
             <InfoCardEdit label="Número" value={cliente.endereco_numero} field="endereco_numero" clienteId={cliente.id} placeholder="123"/>
@@ -20088,7 +20095,7 @@ function Cliente360TabProjetos({ cliente, projetos, loading }) {
                 </button>
               </div>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10}}>
               <Mini label="Mensal" value={'R$ '+fmt(p.mensal_esperado)}/>
               <Mini label="Implantação" value={'R$ '+fmt(p.implantacao_esperada)}/>
               <Mini label="Recebido" value={'R$ '+fmt(p.total_recebido)} cor="#1D9E75"/>
@@ -20297,7 +20304,7 @@ function Cliente360TabAnexos({ cliente, projetos }) {
     <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:12}}>
       {/* Toolbar: escolher projeto + categoria + ação */}
       <div style={{padding:'12px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10}}>
-        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:10}}>
+        <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:10}}>
           <div>
             <label style={{fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600, marginBottom:4, display:'block'}}>Projeto destino</label>
             <select value={projetoId} onChange={e=>setProjetoId(e.target.value)} style={{
@@ -20499,7 +20506,7 @@ function ImportarExtratoModal({ onClose }) {
 
               {/* KPIs do preview */}
               <SecaoLabel icon="BarChart3" count={parsed.rows.length}>Resumo</SecaoLabel>
-              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:18}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:18}}>
                 {[
                   { label:'Lançamentos', val: parsed.rows.length, cor:'var(--blue)', icon:'FileText' },
                   { label:'Entradas',    val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`, cor:'#1D9E75', icon:'ArrowDownCircle' },
@@ -21125,7 +21132,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
               </div>
 
               {/* ATRIBUIÇÃO + VENCIMENTO */}
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
                 <div>
                   <SecaoLabel icon="UserCircle">Atribuído</SecaoLabel>
                   <select value={agenteId || ''} onChange={e=>{setAgenteId(e.target.value || null); salvarCampo('agente_id', e.target.value || null);}}
@@ -23517,7 +23524,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             <input value={form.nome} onChange={upd('nome')} placeholder="Ex: Clínica Reunidas" autoFocus style={inp}/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Palette">Cor</SecaoLabel>
               <div style={{display:'flex', gap:6, padding:'10px 8px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flexWrap:'wrap'}}>
@@ -23534,7 +23541,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Layers">Serviço contratado</SecaoLabel>
               <select value={form.servico} onChange={upd('servico')} style={inp}>
@@ -23549,7 +23556,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="ScrollText">Implantação</SecaoLabel>
               <input type="number" value={form.impl} onChange={upd('impl')} placeholder="R$ 0" style={inp}/>
