@@ -479,14 +479,14 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   .app{ grid-template-columns:1fr !important; }
   .sidebar{
     position:fixed; top:0; left:0; bottom:0;
-    width:min(240px,72vw) !important;
+    width:min(220px,66vw) !important;
     z-index:1200; opacity:1 !important;
     transform:translateX(0);
     transition:transform .32s cubic-bezier(.22,1,.36,1);
     border-right:1px solid #1F1F2A;
   }
   .sidebar.collapsed{
-    width:min(240px,72vw) !important; opacity:1 !important;
+    width:min(220px,66vw) !important; opacity:1 !important;
     transform:translateX(-106%); border-right:none;
   }
   .sidebar.collapsed > *{ pointer-events:none; }
@@ -575,8 +575,8 @@ const DEFAULT_SESSAO = { nome: 'Jhonattan Itiuba', email: 'diretoria@brava.compa
 // SEMPRE sobrescreve nome/cargo baseado no email (mesmo se URL/cache tiver outra coisa).
 // Pra adicionar mais usuarios: incluir email aqui.
 const BRAVA_USERS = {
-  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541', foto: 'app/jhonattan.jpg' },
-  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '',                  foto: 'app/priscilla.jpg' },
+  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541', foto: '/admin/app/jhonattan.jpg' },
+  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '',                  foto: '/admin/app/priscilla.jpg' },
 };
 
 // ✨ Cache global de fotos vindas do banco (usuarios.foto_url)
@@ -7297,7 +7297,7 @@ function Chamados() {
 
 /* ─── Equipe Brava ─── */
 const EQUIPE_INIT = [
-  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'app/jhonattan.jpg', tenants:'todos',    chamados:0 },
+  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'/admin/app/jhonattan.jpg', tenants:'todos',    chamados:0 },
   { id:2, nome:'Maria Eduarda',    email:'maria@bravacompany.app',    role:'CS / Suporte', status:'online', foto:null,             tenants:'todos',    chamados:5 },
   { id:3, nome:'João Silva',       email:'joao@bravacompany.app',     role:'Dev',          status:'online', foto:null,             tenants:'EstacionePark, Garcia', chamados:2 },
   { id:4, nome:'Ana Lima',         email:'ana@bravacompany.app',      role:'Comercial',    status:'away',   foto:null,             tenants:'Pipeline',  chamados:0 },
