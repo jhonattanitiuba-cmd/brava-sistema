@@ -1236,3 +1236,12 @@ body.force-dark .section.light [style*="var(--bg-light-card)"] { background: var
   .float-br { bottom: -14px; right: -10px; padding: 8px 10px; }
   .floater .val { font-size: 16px; }
 }
+
+/* Conforto em telas pequenas: densidade e respiro */
+@media (max-width: 480px) {
+  .section { padding: 56px 0; }
+  .container { padding: 0 18px; }
+  .hero-sub { font-size: 14.5px; }
+  .hero-overline { font-size: 10px !important; white-space: normal; text-align: center; }
+  .btn { height: 52px; font-size: 15px; width: 100%; max-width: 360px; }
+}

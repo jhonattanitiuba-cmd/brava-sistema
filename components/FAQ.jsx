@@ -138,7 +138,10 @@ function PSFooter() {
             © 2026 Brava Company
           </div>
         </div>
-        <style>{`@media (max-width: 720px) { .ps-grid { grid-template-columns: 1fr !important; gap: 16px !important; } }`}</style>
+        <style>{`@media (max-width: 720px) {
+          .ps-grid { grid-template-columns: 1fr !important; gap: 18px !important; align-items: flex-start !important; }
+          .ps-grid .mono { text-align: left !important; }
+        }`}</style>
       </div>
     </section>
   );
