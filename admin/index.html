@@ -27,7 +27,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
 <title>Brava Company © Admin</title>
 <link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -62,7 +62,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f-b);font-size:15px;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;}
+html,body{height:100%;background:var(--bg);color:var(--t1);font-family:var(--f-b);font-size:15px;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;overflow-x:hidden;max-width:100%;overscroll-behavior-x:none;}
 button{font:inherit;cursor:pointer;border:none;background:none;color:inherit;}
 input,select,textarea{font:inherit;color:inherit;}
 a{color:inherit;text-decoration:none;}
@@ -152,6 +152,31 @@ svg{display:block;flex-shrink:0;}
   0% { opacity: 0; transform: translateX(-20px); }
   100% { opacity: 1; transform: translateX(0); }
 }
+
+/* Cascata top→bottom dos botões do menu ao abrir o drawer */
+.sidebar:not(.collapsed) .sidebar__nav .nav-item {
+  animation: nav-cascade .42s cubic-bezier(.22,1,.36,1) both;
+}
+@keyframes nav-cascade {
+  0%   { opacity: 0; transform: translateX(-16px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(1){animation-delay:.03s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(2){animation-delay:.06s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(3){animation-delay:.09s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(4){animation-delay:.12s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(5){animation-delay:.15s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(6){animation-delay:.18s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(7){animation-delay:.21s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(8){animation-delay:.24s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(9){animation-delay:.27s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(10){animation-delay:.30s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(11){animation-delay:.33s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(12){animation-delay:.36s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(13){animation-delay:.39s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(14){animation-delay:.42s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(15){animation-delay:.45s}
+.sidebar:not(.collapsed) .sidebar__nav .nav-item:nth-child(16){animation-delay:.48s}
 
 /* ─── Animacoes de entrada do Dashboard ───
    Importante: o splash de login (#brava-loading) fica visivel por uns segundos
@@ -444,6 +469,62 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
 
 /* Fade nas mensagens do chat */
 .fade-msg{animation:fade-up .25s cubic-bezier(.22,1,.36,1);}
+
+/* ═══════════════════ MOBILE / RESPONSIVO ═══════════════════ */
+/* Backdrop do drawer (oculto no desktop) */
+.sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:1100; }
+
+@media (max-width: 900px){
+  /* App em coluna única; sidebar sai do fluxo e vira drawer sobreposto */
+  .app{ grid-template-columns:1fr !important; }
+  .sidebar{
+    position:fixed; top:0; left:0; bottom:0;
+    width:min(220px,66vw) !important;
+    z-index:1200; opacity:1 !important;
+    transform:translateX(0);
+    transition:transform .32s cubic-bezier(.22,1,.36,1);
+    border-right:1px solid #1F1F2A;
+  }
+  .sidebar.collapsed{
+    width:min(220px,66vw) !important; opacity:1 !important;
+    transform:translateX(-106%); border-right:none;
+  }
+  .sidebar.collapsed > *{ pointer-events:none; }
+  .sidebar:not(.collapsed) > *{ animation:none !important; }
+  .sidebar-backdrop{ display:block; }
+
+  /* Header compacto */
+  .header{ padding:0 12px; gap:10px; }
+  .header__search{ width:auto; flex:1 1 auto; min-width:0; }
+
+  /* Conteúdo compacto */
+  .main{ padding:18px 16px; overflow-x:hidden; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
+  .page{ max-width:100%; }
+  .page-head{ flex-direction:column; align-items:stretch; gap:12px; }
+  .page-head__actions{ flex-wrap:wrap; }
+
+  /* Grids colapsam */
+  .kpi-grid{ grid-template-columns:1fr 1fr !important; }
+  .grid-2,.grid-3,.grid-mrr,.agenda-layout{ grid-template-columns:1fr !important; }
+
+  /* Tabelas largas: scroll horizontal confortável */
+  .mrr-table{ min-width:680px; }
+}
+
+@media (max-width: 560px){
+  .kpi-grid{ grid-template-columns:1fr !important; }
+  .card{ padding:16px !important; }
+  .header__search{ display:none; }
+  .page-head__title{ font-size:19px !important; }
+  .main{ padding:14px 16px; padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right)); }
+}
+
+/* Grids de conteúdo que colapsam no mobile (vence o inline via !important) */
+@media (max-width: 760px){
+  .grid-m1{ grid-template-columns:1fr !important; }
+  .grid-m3{ grid-template-columns:repeat(3,1fr) !important; }
+  .grid-cal-m{ grid-template-columns:60px 1fr !important; }
+}
 </style>
 </head>
 <body>
@@ -501,8 +582,8 @@ const DEFAULT_SESSAO = { nome: 'Jhonattan Itiuba', email: 'diretoria@brava.compa
 // SEMPRE sobrescreve nome/cargo baseado no email (mesmo se URL/cache tiver outra coisa).
 // Pra adicionar mais usuarios: incluir email aqui.
 const BRAVA_USERS = {
-  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541', foto: 'app/jhonattan.jpg' },
-  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '',                  foto: 'app/priscilla.jpg' },
+  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541', foto: '/admin/app/jhonattan.jpg' },
+  'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '',                  foto: '/admin/app/priscilla.jpg' },
 };
 
 // ✨ Cache global de fotos vindas do banco (usuarios.foto_url)
@@ -730,7 +811,18 @@ function SidebarUnreadBadge({ fallback }) {
   return fallback ? <span className="nav-badge">{fallback}</span> : null;
 }
 
+function useIsMobile(bp = 900) {
+  const [m, setM] = React.useState(() => typeof window !== 'undefined' && window.innerWidth <= bp);
+  React.useEffect(() => {
+    const f = () => setM(window.innerWidth <= bp);
+    window.addEventListener('resize', f);
+    return () => window.removeEventListener('resize', f);
+  }, [bp]);
+  return m;
+}
+
 function Sidebar({ page, setPage, collapsed, setCollapsed }) {
+  const go = (k) => { setPage(k); if (typeof window !== 'undefined' && window.innerWidth <= 900) setCollapsed(true); };
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       {/* Faixa topo gradiente */}
@@ -781,7 +873,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
           // senao usa o badge mock pra outras abas
           const realBadge = isWA ? <SidebarUnreadBadge fallback={n.badge}/> : (n.badge ? <span className="nav-badge">{n.badge}</span> : null);
           return (
-            <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => setPage(n.key)}>
+            <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => go(n.key)}>
               <Icon name={n.icon} size={16} />
               {n.label}
               {realBadge}
@@ -802,7 +894,7 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
                   window.location.href = `/?logout=1&theme=${tema}`;
                 }
               }
-              else setPage(n.key);
+              else go(n.key);
             }}>
             <Icon name={n.icon} size={16} />
             {n.label}
@@ -845,15 +937,18 @@ function SidebarUserCard({ setPage }) {
       <div onClick={() => setPage && setPage('config')} title="Editar perfil"
         style={{display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0, cursor:'pointer'}}>
         <div style={{
-          width:32, height:32, borderRadius:'50%', flexShrink:0,
-          background: foto
-            ? `url('${foto}') center 25%/cover no-repeat`
-            : 'linear-gradient(135deg, var(--purple), var(--blue))',
-          color: foto ? 'transparent' : '#fff',
+          width:32, height:32, borderRadius:'50%', flexShrink:0, position:'relative', overflow:'hidden',
+          background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+          color: '#fff',
           display:'flex', alignItems:'center', justifyContent:'center',
           fontSize:11, fontWeight:700,
           border:'1px solid rgba(255,255,255,.08)',
-        }}>{iniciais}</div>
+        }}>
+          {iniciais}
+          <img src={foto || '/admin/app/jhonattan.jpg'} alt="" referrerPolicy="no-referrer"
+            style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 25%' }}
+            onError={e=>{ if(!e.currentTarget.dataset.fb){ e.currentTarget.dataset.fb='1'; e.currentTarget.src='/admin/app/jhonattan.jpg'; } else { e.currentTarget.style.display='none'; } }}/>
+        </div>
         <div style={{flex:1, minWidth:0}}>
           <div style={{fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
           <div style={{fontSize:10.5, color:'var(--t2)', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
@@ -2535,7 +2630,7 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
           onMouseEnter={e=>{e.currentTarget.style.color='#1E90FF'; e.currentTarget.style.transform='translateX(2px)';}}
           onMouseLeave={e=>{e.currentTarget.style.color='#A0A0AA'; e.currentTarget.style.transform='translateX(0)';}}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
       )}
       {/* Na aba WhatsApp, o breadcrumb e substituido pelo switcher de instancias.
@@ -3822,6 +3917,7 @@ function MediaDocument({ message, S }) {
 }
 
 function Conversas({ pipelineCols, moverNoPipeline }) {
+  const isMobile = useIsMobile();
   // === Instancia WhatsApp ativa (pra tela vazia mostrar nome/foto/numero corretos) ===
   const activeInstanceId = useActiveInstanceId();
   const { instances: waInstances } = useWaInstances();
@@ -4029,7 +4125,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   const [buscaMsgAberta, setBuscaMsgAberta] = useState(false);
   const [menuMaisAberto, setMenuMaisAberto] = useState(false);
   const menuMaisRef = useRef(null);
-  const [sidebarAberta, setSidebarAberta] = useState(true);
+  const [sidebarAberta, setSidebarAberta] = useState(() => typeof window === 'undefined' || window.innerWidth > 900);
 
   // Fecha menu "mais" ao clicar fora
   useEffect(() => {
@@ -4406,7 +4502,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
   };
 
   return (
-    <div style={{ display:'grid', gridTemplateColumns:`320px 1fr ${sidebarAberta?'264px':'0'}`, height:'calc(100vh - 60px)', overflow:'hidden', margin:'-28px -32px', transition:'grid-template-columns .25s cubic-bezier(.22,1,.36,1)' }}>
+    <div style={{ display:'grid', gridTemplateColumns: isMobile ? (sidebarAberta && ativo ? '0 0 1fr' : (ativo ? '0 1fr 0' : '1fr 0 0')) : `320px 1fr ${sidebarAberta?'264px':'0'}`, height:'calc(100vh - 60px)', overflow:'hidden', margin: isMobile ? '0' : '-28px -32px', transition:'grid-template-columns .25s cubic-bezier(.22,1,.36,1)' }}>
 
       {/* ── Coluna 1: Lista ── */}
       <div style={{ display:'flex', flexDirection:'column', background:S.sidebarBg, borderRight:`1px solid ${S.border}`, overflow:'hidden' }}>
@@ -4773,6 +4869,11 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         ) : (<>
         {/* Header chat */}
         <div style={{ padding:'10px 16px', background:S.headerBg, borderBottom:`1px solid ${S.border}`, display:'flex', alignItems:'center', gap:12, flexShrink:0 }}>
+          {isMobile && (
+            <button onClick={()=>setAtivo(null)} title="Voltar" style={{ width:34, height:34, borderRadius:'50%', flexShrink:0, padding:0, marginLeft:-4, display:'flex', alignItems:'center', justifyContent:'center', background:'transparent', border:'none', color:S.textSec, cursor:'pointer' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+          )}
           <div style={{ position:'relative' }}>
             {usandoReal
               ? <EvoAvatar remoteJid={contato?.id} name={contato?.name} init={contato?.init} color={contato?.color} size={40}/>
@@ -5231,6 +5332,8 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
         faseAtual={faseAtual}
         mudarFase={mudarFase}
         S={S}
+        isMobile={isMobile}
+        onClose={()=>setSidebarAberta(false)}
       />
 
       {/* ── Modal: Sincronizar histórico ── */}
@@ -5519,7 +5622,7 @@ function AgendarMensagemModal({ S, contato, activeInstance, msgInicial, agendada
               </div>
 
               {/* Data, Hora e Recorrencia em uma linha */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 110px', gap:8 }}>
+              <div className="grid-m1" style={{ display:'grid', gridTemplateColumns:'1fr 110px', gap:8 }}>
                 <div>
                   <label style={labelBase}>Data</label>
                   <input type="date" value={data} onChange={(e) => setData(e.target.value)}
@@ -6398,7 +6501,7 @@ function CatalogarContatosModal({ S, onClose }) {
   );
 }
 
-function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols, faseAtual, mudarFase, S }) {
+function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols, faseAtual, mudarFase, S, isMobile, onClose }) {
   const presence = useEvoPresence(usandoReal ? contato?.id : null);
   const grupo = useEvoGroupMeta(usandoReal && contato?.isGroup ? contato.id : null);
   const salvo = useContatoSalvo(usandoReal && !contato?.isGroup ? contato?.id : null);
@@ -6437,6 +6540,12 @@ function PainelContato({ contato, usandoReal, msgs, iaProcessando, pipelineCols,
 
   return (
     <div style={{ borderLeft:`1px solid ${S.border}`, overflowY:'auto', background:S.sidebarBg, padding:'16px 14px', display:'flex', flexDirection:'column', gap:14 }}>
+      {isMobile && (
+        <button onClick={onClose} style={{ alignSelf:'flex-start', display:'flex', alignItems:'center', gap:6, padding:'6px 10px', marginBottom:2, borderRadius:8, background:'transparent', border:`1px solid ${S.border}`, color:S.textSec, fontSize:13, cursor:'pointer' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Voltar
+        </button>
+      )}
       {/* Header avatar + nome + presenca/membros */}
       <div style={{ textAlign:'center', paddingBottom:14, borderBottom:`1px solid ${S.border}` }}>
         <div style={{margin:'0 auto 10px', display:'flex', justifyContent:'center'}}>
@@ -6729,7 +6838,7 @@ function Monitoramento({ pipelineCols, onImpersonate }) {
       </h2>
 
       {/* KPIs topo */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:14, marginBottom:24}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap:14, marginBottom:24}}>
         <KpiCard label="MRR Ativo" value={`R$ ${mrrTotal.toLocaleString('pt-BR')}`} sub={`${projetos.filter(p=>p.mrrAtivo).length} clientes pagando`} icon="DollarSign" cor="#1D9E75"/>
         <KpiCard label="Entregáveis" value={`${totalDone}/${totalCheckpoints}`} sub={totalCheckpoints ? `${Math.round((totalDone/totalCheckpoints)*100)}% concluídos` : 'Sem checkpoints'} icon="CheckCircle" cor="#1E90FF"/>
         <KpiCard label="Msgs 7 dias" value={totalMsgs.toLocaleString('pt-BR')} sub={`${percentIa}% pela IA`} icon="MessageCircle" cor="#7B3FE4"/>
@@ -6753,7 +6862,7 @@ function Monitoramento({ pipelineCols, onImpersonate }) {
       {loading && <div style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Carregando...</div>}
 
       {/* Cards de projeto */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(380px, 1fr))', gap:16}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(min(100%, 380px), 1fr))', gap:16}}>
         {projetosFiltrados.map(p => (
           <ProjetoCard key={p.nome} projeto={p} onClick={() => setDetalheCliente(p)} onImpersonate={onImpersonate}/>
         ))}
@@ -6781,6 +6890,65 @@ function _filtroBtn(active, cor) {
   };
 }
 
+// Contador animado 0 -> valor, preservando prefixo/sufixo e formato do texto.
+function CountUp({ children, duration = 900 }) {
+  const isText = typeof children === 'string' || typeof children === 'number';
+  const raw = isText ? String(children) : '';
+  const parsed = React.useMemo(() => {
+    if (!isText) return null;
+    const m = raw.match(/\d[\d.,]*/);
+    if (!m) return null;
+    const tok = m[0];
+    const prefix = raw.slice(0, m.index);
+    const suffix = raw.slice(m.index + tok.length);
+    const hasComma = tok.includes(',');
+    const dots = (tok.match(/\./g) || []).length;
+    let value, decimals = 0, decSep = ',', thouSep = '.';
+    if (hasComma) {
+      value = parseFloat(tok.replace(/\./g, '').replace(',', '.'));
+      decimals = (tok.split(',')[1] || '').length; decSep = ','; thouSep = '.';
+    } else if (dots >= 2) {
+      value = parseInt(tok.replace(/\./g, ''), 10); decimals = 0; thouSep = '.';
+    } else if (dots === 1) {
+      const frac = tok.split('.')[1] || '';
+      if (frac.length === 3) { value = parseInt(tok.replace(/\./g, ''), 10); decimals = 0; thouSep = '.'; }
+      else { value = parseFloat(tok); decimals = frac.length; decSep = '.'; thouSep = ''; }
+    } else {
+      value = parseInt(tok, 10); decimals = 0; thouSep = '';
+    }
+    if (!isFinite(value)) return null;
+    return { prefix, suffix, value, decimals, decSep, thouSep };
+  }, [raw, isText]);
+
+  const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [cur, setCur] = React.useState(() => (parsed && !reduce ? 0 : (parsed ? parsed.value : 0)));
+
+  React.useEffect(() => {
+    if (!parsed || reduce) return;
+    let raf, s = null;
+    setCur(0);
+    const step = ts => {
+      if (!s) s = ts;
+      const p = Math.min((ts - s) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setCur(parsed.value * eased);
+      if (p < 1) raf = requestAnimationFrame(step);
+      else setCur(parsed.value);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [parsed, duration, reduce]);
+
+  if (!parsed) return <>{children}</>;
+  const fmt = (n) => {
+    const s = Number(n).toFixed(parsed.decimals);
+    let [intp, frac] = s.split('.');
+    if (parsed.thouSep) intp = intp.replace(/\B(?=(\d{3})+(?!\d))/g, parsed.thouSep);
+    return frac != null ? intp + parsed.decSep + frac : intp;
+  };
+  return <>{parsed.prefix}{fmt(cur)}{parsed.suffix}</>;
+}
+
 function KpiCard({ label, value, sub, icon, cor }) {
   return (
     <div style={{
@@ -6795,7 +6963,7 @@ function KpiCard({ label, value, sub, icon, cor }) {
           <Icon name={icon} size={16} style={{color:cor}}/>
         </div>
       </div>
-      <div style={{fontSize:26, fontWeight:700, color:'var(--t1)', fontFamily:'var(--f-d)', lineHeight:1.1}}>{value}</div>
+      <div style={{fontSize:26, fontWeight:700, color:'var(--t1)', fontFamily:'var(--f-d)', lineHeight:1.1}}><CountUp>{value}</CountUp></div>
       {sub && <div style={{fontSize:11.5, color:'var(--t3)', marginTop:4}}>{sub}</div>}
     </div>
   );
@@ -6850,7 +7018,7 @@ function ProjetoCard({ projeto: p, onClick, onImpersonate }) {
       )}
 
       {/* Métricas mini */}
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, fontSize:11.5}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, fontSize:11.5}}>
         <div style={{textAlign:'center', padding:6, background:'var(--bg-3)', borderRadius:6}}>
           <div style={{color:'var(--t3)', fontSize:10}}>Msgs 7d</div>
           <div style={{color:'var(--t1)', fontWeight:600, fontFamily:'var(--f-d)'}}>{p.wa.total}</div>
@@ -7069,7 +7237,7 @@ function Chamados() {
         ))}
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'1.2fr 1.5fr', gap:14}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1.2fr 1.5fr', gap:14}}>
         {/* Lista */}
         <div className="card" style={{padding:0, maxHeight:'calc(100vh - 240px)', overflowY:'auto'}}>
           {filtrados.map(c => (
@@ -7152,7 +7320,7 @@ function Chamados() {
 
 /* ─── Equipe Brava ─── */
 const EQUIPE_INIT = [
-  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'app/jhonattan.jpg', tenants:'todos',    chamados:0 },
+  { id:1, nome:'Jhonattan Itiuba', email:'diretoria@brava.company', role:'Diretoria',    status:'online', foto:'/admin/app/jhonattan.jpg', tenants:'todos',    chamados:0 },
   { id:2, nome:'Maria Eduarda',    email:'maria@bravacompany.app',    role:'CS / Suporte', status:'online', foto:null,             tenants:'todos',    chamados:5 },
   { id:3, nome:'João Silva',       email:'joao@bravacompany.app',     role:'Dev',          status:'online', foto:null,             tenants:'EstacionePark, Garcia', chamados:2 },
   { id:4, nome:'Ana Lima',         email:'ana@bravacompany.app',      role:'Comercial',    status:'away',   foto:null,             tenants:'Pipeline',  chamados:0 },
@@ -7242,7 +7410,7 @@ function Equipe() {
           <h3 style={{fontSize:12, color:'var(--t3)', fontWeight:600, letterSpacing:'.04em', textTransform:'uppercase', margin:'0 0 10px'}}>
             Convites pendentes ({convites.length})
           </h3>
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:10}}>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap:10}}>
             {convites.map(c => (
               <ConviteCard key={c.id} convite={c} podeGerenciar={podeConvidar}/>
             ))}
@@ -7256,7 +7424,7 @@ function Equipe() {
           Membros ativos
         </h3>
       )}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:14}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap:14}}>
         {membros.map(m => (
           <div key={m.user_id} onClick={()=>podeConvidar && setEditando(m)} style={{
             background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:18,
@@ -7442,7 +7610,7 @@ function ConvidarMembroModal({ onClose }) {
 
           <div style={{marginBottom: erro ? 10 : 0}}>
             <SecaoLabel icon="UserCircle">Função no workspace</SecaoLabel>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
               {['admin','manager','agent','viewer'].map(r => (
                 <button key={r} type="button" onClick={()=>setRole(r)} style={{
                   padding:'10px 8px', borderRadius:7,
@@ -7538,7 +7706,7 @@ function EditarMembroModal({ membro, onClose }) {
         <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
           <div style={{marginBottom:18}}>
             <SecaoLabel icon="UserCircle">Função no workspace</SecaoLabel>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:6}}>
               {['owner','admin','manager','agent','viewer'].map(r => (
                 <button key={r} onClick={()=>setRole(r)} style={{
                   padding:'10px 8px', borderRadius:7,
@@ -7859,7 +8027,12 @@ function useUsuarioLogadoId() {
 }
 function getUserPhoto() {
   try {
-    const email = _emailAtual();
+    // Usa o e-mail da sessão; se o localStorage estiver vazio, cai no e-mail
+    // padrão (mesma fonte que o perfil usa) pra foto não sumir.
+    const email = _emailAtual()
+      || (typeof SESSAO !== 'undefined' && SESSAO && SESSAO.email)
+      || (typeof DEFAULT_SESSAO !== 'undefined' && DEFAULT_SESSAO.email)
+      || '';
     if (!email) return null;
     // ✨ Centralizado: usa helper que consulta banco > localStorage > BRAVA_USERS
     const foto = (typeof getUserFoto === 'function') ? getUserFoto(email) : null;
@@ -7919,11 +8092,15 @@ function HeaderUserAvatar() {
   const iniciais = (nome || 'JI').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
   return (
     <div className="header__avatar" style={{
-      background: foto
-        ? `url('${foto}') center 25%/cover no-repeat`
-        : 'linear-gradient(135deg, var(--purple), var(--blue))',
-      color: foto ? 'transparent' : '#fff'
-    }} title={nome}>{iniciais}</div>
+      position:'relative', overflow:'hidden',
+      background: 'linear-gradient(135deg, var(--purple), var(--blue))',
+      color: '#fff'
+    }} title={nome}>
+      {iniciais}
+      <img src={foto || '/admin/app/jhonattan.jpg'} alt="" referrerPolicy="no-referrer"
+        style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 25%' }}
+        onError={e=>{ if(!e.currentTarget.dataset.fb){ e.currentTarget.dataset.fb='1'; e.currentTarget.src='/admin/app/jhonattan.jpg'; } else { e.currentTarget.style.display='none'; } }}/>
+    </div>
   );
 }
 
@@ -7975,7 +8152,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
             <input value={nome} onChange={e=>setNome(e.target.value)} style={inp}/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Layers">Serviço contratado</SecaoLabel>
               <input value={servico} onChange={e=>setServico(e.target.value)} style={inp}/>
@@ -7986,7 +8163,7 @@ function ClienteEditModal({ cliente, onClose, onSalvar }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Tag">Nicho</SecaoLabel>
               <input value={nicho} onChange={e=>setNicho(e.target.value)} style={inp}/>
@@ -9190,7 +9367,7 @@ function EditarEtiquetaModal({ etiqueta, onSalvar, onClose }) {
 
           <div style={{marginBottom:18}}>
             <SecaoLabel icon="Palette">Cor</SecaoLabel>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6}}>
+            <div className="grid-m3" style={{display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:6}}>
               {PALETA_ETIQUETAS.map(c => (
                 <button key={c} type="button" onClick={() => setCor(c)} style={{
                   width:'100%', aspectRatio:'1', padding:0, border: cor === c ? '2px solid var(--t1)' : '2px solid transparent',
@@ -11017,7 +11194,7 @@ function EvoStatusPanel() {
         </div>
       )}
 
-      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
         {[
           {l:'Contatos',  v: instanceInfo?._count?.Contact ?? instanceInfo?.contactCount ?? '-'},
           {l:'Conversas', v: instanceInfo?._count?.Chat    ?? instanceInfo?.chatCount    ?? '-'},
@@ -11305,7 +11482,7 @@ function ConfigIATab() {
       </div>
 
       {/* Stats */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:10}}>
         {[
           {l:'Respostas enviadas', v: stats.replied.toLocaleString('pt-BR'), c:'#1D9E75'},
           {l:'Erros', v: stats.errors.toLocaleString('pt-BR'), c: stats.errors > 0 ? '#A32D2D' : 'var(--t3)'},
@@ -11666,7 +11843,7 @@ function Config() {
         </div>
       </div>
 
-      <div style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:18}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'200px 1fr', gap:18}}>
         {/* Tabs */}
         <div className="card" style={{padding:8, height:'fit-content'}}>
           {abas.map(a => (
@@ -11756,7 +11933,7 @@ function Config() {
               </div>
 
               {/* Dados pessoais · inputs controlados pelo state */}
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
                 {[
                   ['nome',     'Nome completo'],
                   ['cargo',    'Cargo / Função'],
@@ -14269,7 +14446,7 @@ function ModalRec({ rec, onClose }) {
             <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Nome do cliente ou contrato" autoFocus/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Layers">Serviço</SecaoLabel>
               <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + CRM, Site, etc."/>
@@ -14280,7 +14457,7 @@ function ModalRec({ rec, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="ScrollText">Implantação (único)</SecaoLabel>
               <input style={inp} type="number" min="0" value={form.impl} onChange={e=>set('impl', e.target.value)} placeholder="R$ 0,00"/>
@@ -14291,7 +14468,7 @@ function ModalRec({ rec, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14}}>
             <div>
               <SecaoLabel icon="Calendar">Dia do vencimento</SecaoLabel>
               <input style={inp} value={form.dia} onChange={e=>set('dia', e.target.value)} placeholder="Ex: Dia 10"/>
@@ -15646,7 +15823,7 @@ function DespesaModal({ despesa, onClose }) {
             <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Aluguel escritório" autoFocus/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Tag">Categoria</SecaoLabel>
               <select style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)}>
@@ -16424,7 +16601,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             <p style={{fontSize:13,color:'var(--t3)',margin:'0 0 18px',lineHeight:1.55}}>
               Puxa todas as transações do período direto da API BTG. Duplicatas são ignoradas automaticamente.
             </p>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
+            <div className="grid-m1" style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:18}}>
               <div>
                 <label style={{fontSize:11,color:'var(--t3)',marginBottom:5,display:'block',fontWeight:600,textTransform:'uppercase',letterSpacing:.3}}>De</label>
                 <input type="date" value={histStart} onChange={e=>setHistStart(e.target.value)}
@@ -16530,7 +16707,7 @@ function CaixaLancamentoModal({ lancamento, onClose }) {
             <input style={inp} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Ex: Venda avulsa, reembolso, ajuste de saldo..." autoFocus/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Tag">Categoria</SecaoLabel>
               <input style={inp} value={form.categoria} onChange={e=>set('categoria', e.target.value)} placeholder="Ex: Venda extra"/>
@@ -16916,6 +17093,7 @@ function EscolherCliente({ isEntrada, recorrencia, despesas, onCancelar, onEscol
 // CLIENTES CRM - página principal de cadastro/gestão de clientes
 // ═══════════════════════════════════════════════════════════════
 function ClientesCRM() {
+  const isMobile = useIsMobile();
   const { list: clientes, loading } = useClientes();
   const { list: statusConfig } = useStatusConfig();
   const [editando, setEditando] = React.useState(null);     // {} pra novo, cliente obj pra edição
@@ -17093,7 +17271,7 @@ function ClientesCRM() {
                 padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)',
                 borderLeft:`3px solid ${c.cor || statusCor}`,
                 borderRadius:8, cursor:'pointer', transition:'background .15s',
-                display:'grid', gridTemplateColumns:'32px 2fr 1fr 110px 110px 90px 40px', gap:12, alignItems:'center', /* ordem: avatar | nome | status | impl | recorrencia | projetos | chevron */
+                display:'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : '32px 2fr 1fr 110px 110px 90px 40px', gap:12, alignItems:'center', /* ordem: avatar | nome | status | impl | recorrencia | projetos | chevron */
               }}
                 onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
                 onMouseLeave={e=>e.currentTarget.style.background='var(--bg-2)'}>
@@ -17184,7 +17362,7 @@ function ClientesCRM() {
                   <div key={c.id} onClick={()=>setEditando(c)} style={{
                     padding:'10px 14px', background:'var(--bg-2)', border:'1px solid #A32D2D44',
                     borderLeft:'3px solid #ff8585', borderRadius:8, cursor:'pointer',
-                    display:'grid', gridTemplateColumns:'32px 2fr 1fr 110px 110px 90px 40px', gap:12, alignItems:'center',
+                    display:'grid', gridTemplateColumns: isMobile ? 'repeat(3, 1fr)' : '32px 2fr 1fr 110px 110px 90px 40px', gap:12, alignItems:'center',
                     opacity:.85,
                   }}>
                     <div style={{width:32, height:32, borderRadius:'50%', background:c.cor||'var(--blue)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:11.5}}>{iniciais}</div>
@@ -17393,7 +17571,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div style={{marginBottom:22}}>
             <SecaoLabel icon="Building2">Identificação</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>{form.tipo_pessoa === 'PJ' ? 'Razão social' : 'Nome completo'} *</label>
                 <input style={inp} value={form.nome} onChange={e=>set('nome', e.target.value)} placeholder={form.tipo_pessoa === 'PJ' ? 'Ex: EstacionePark Aeroporto LTDA' : 'Ex: João da Silva'} autoFocus/>
@@ -17429,7 +17607,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
             </div>
 
             {form.tipo_pessoa === 'PJ' && (
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
                 <div>
                   <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Inscrição estadual</label>
                   <input style={inp} value={form.inscricao_estadual} onChange={e=>set('inscricao_estadual', e.target.value)} placeholder="Opcional"/>
@@ -17446,7 +17624,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div style={{marginBottom:22}}>
             <SecaoLabel icon="Phone">Contato principal (email OU telefone obrigatório)</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do contato</label>
                 <input style={inp} value={form.contato_nome} onChange={e=>set('contato_nome', e.target.value)} placeholder="Quem você fala"/>
@@ -17457,7 +17635,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>E-mail *</label>
                 <input style={inp} type="email" value={form.contato_email} onChange={e=>set('contato_email', e.target.value)} placeholder="contato@empresa.com.br"/>
@@ -17478,7 +17656,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div style={{marginBottom:22}}>
             <SecaoLabel icon="MapPin">Endereço (opcional)</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'160px 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'160px 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>CEP {buscandoCep && <span style={{color:'var(--blue)'}}>buscando...</span>}</label>
                 <input style={inp} value={form.endereco_cep} onChange={e=>set('endereco_cep', e.target.value)} placeholder="00000-000" maxLength={9}/>
@@ -17489,7 +17667,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'100px 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'100px 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Número</label>
                 <input style={inp} value={form.endereco_numero} onChange={e=>set('endereco_numero', e.target.value)} placeholder="123"/>
@@ -17500,7 +17678,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 80px', gap:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 80px', gap:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Bairro</label>
                 <input style={inp} value={form.endereco_bairro} onChange={e=>set('endereco_bairro', e.target.value)}/>
@@ -17520,7 +17698,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
           <div>
             <SecaoLabel icon="Activity">Comercial / interno</SecaoLabel>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nicho</label>
                 <input style={inp} value={form.nicho} onChange={e=>set('nicho', e.target.value)} placeholder="Saúde, Indústria..." list="nichos-sugestao"/>
@@ -17547,7 +17725,7 @@ function ClienteCadastroModal({ cliente, onClose, embedded = false }) {
               </div>
             </div>
 
-            <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
               <div>
                 <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'flex', alignItems:'center', gap:6}}>
                   Status
@@ -17838,7 +18016,7 @@ function ProjetosCRM() {
             const cfg = getStatusByKey(statusConfig, p.status_fase || 'lead');
             const cliente = clientesById.get(p.cliente_id);
             return (
-              <div key={p.id} onClick={()=>setEditando(p)} style={{
+              <div key={p.id} onClick={()=>setEditando(p)} className="grid-m3" style={{
                 padding:'10px 14px', background:'var(--bg-2)', border:'1px solid var(--border)',
                 borderLeft:`3px solid ${cfg.cor}`, borderRadius:8, cursor:'pointer', transition:'background .15s',
                 display:'grid', gridTemplateColumns:'2fr 1fr 130px 110px 110px 90px 100px 40px', gap:12, alignItems:'center',
@@ -18101,7 +18279,7 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
           </div>
 
           {/* Status + Núcleo + Categoria */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
             <div>
               <label style={lbl}>Status</label>
               <select style={inp} value={form.status_fase} onChange={e=>set('status_fase', e.target.value)}>
@@ -18147,7 +18325,7 @@ function OrganizarProjetosWizard({ projetos, clientes, statusConfig, onClose }) 
           </div>
 
           {/* Valores */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:14}}>
             <div>
               <label style={lbl}>Mensal (R$)</label>
               <input style={inp} type="number" step="0.01" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="0,00"/>
@@ -18368,7 +18546,7 @@ function TrelloCardModal({ cardTipo, cardId, cardNome, cardCliente, colNome, col
           <button onClick={onClose} style={{width:30,height:30,border:'none',background:'transparent',color:'var(--t3)',cursor:'pointer',borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name="X" size={14}/></button>
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 220px',gap:0}}>
+        <div className="grid-m1" style={{display:'grid',gridTemplateColumns:'1fr 220px',gap:0}}>
           {/* Coluna principal */}
           <div style={{padding:'16px 20px',borderRight:'1px solid var(--border)'}}>
             {/* Checklists */}
@@ -18660,7 +18838,7 @@ function AplicarTemplateChecklistModal({ projetoId, projetoServico, dataBase, on
           <h3 style={{margin:0, fontSize:15, fontWeight:600, color:'var(--t1)', flex:1}}>Aplicar template de checklist</h3>
           <button onClick={onClose} style={{background:'transparent', border:'none', color:'var(--t3)', fontSize:18, cursor:'pointer'}}>×</button>
         </div>
-        <div style={{flex:1, overflowY:'auto', padding:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+        <div className="grid-m1" style={{flex:1, overflowY:'auto', padding:14, display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
           <div style={{borderRight:'1px solid var(--border-soft)', paddingRight:10}}>
             <div style={{fontSize:10.5, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.5, marginBottom:8, fontWeight:600}}>Templates disponiveis</div>
             {loading && <div style={{fontSize:12, color:'var(--t3)'}}>Carregando...</div>}
@@ -19055,7 +19233,7 @@ function ConfigTemplatesChecklistTab() {
         </div>
       )}
 
-      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:12}}>
+      <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap:12}}>
         {templates.map(t => (
           <div key={t.id} onClick={()=>abrirParaEditar(t)} style={{
             padding:14, borderRadius:9, border:'1px solid var(--border)', background:'var(--bg-2)',
@@ -19148,7 +19326,7 @@ function ConfigTemplateEditorModal({ editando, onClose, onSaved }) {
         </div>
 
         <div style={{flex:1, overflowY:'auto', padding:20}}>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:14}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome *</label>
               <input style={inp} value={form.nome} onChange={e=>setF('nome', e.target.value)} placeholder="Ex: Implantacao Agente IA"/>
@@ -19169,7 +19347,7 @@ function ConfigTemplateEditorModal({ editando, onClose, onSaved }) {
           </div>
 
           {itens.map((it, i) => (
-            <div key={i} style={{display:'grid', gridTemplateColumns:'1fr 80px 1fr 28px', gap:6, marginBottom:6, alignItems:'center'}}>
+            <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 80px 1fr 28px', gap:6, marginBottom:6, alignItems:'center'}}>
               <input style={inp} value={it.texto} onChange={e=>setItem(i, 'texto', e.target.value)} placeholder={`Item ${i+1}`}/>
               <input style={inp} type="number" min="0" value={it.dias_apos_inicio} onChange={e=>setItem(i, 'dias_apos_inicio', e.target.value)} placeholder="dias"/>
               <select style={inp} value={it.responsavel_sugerido_id} onChange={e=>setItem(i, 'responsavel_sugerido_id', e.target.value)}>
@@ -19376,7 +19554,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
           </div>
 
           <SecaoLabel icon="Layers">Identificação do projeto</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Nome do projeto *</label>
               <input style={inp} value={form.cliente} onChange={e=>set('cliente', e.target.value)} placeholder="Ex: EstacionePark - Campanha" autoFocus/>
@@ -19390,7 +19568,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Serviço (descrição curta)</label>
               <input style={inp} value={form.servico} onChange={e=>set('servico', e.target.value)} placeholder="IA + Sistema + GMB"/>
@@ -19402,7 +19580,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
           </div>
 
           {/* Núcleo + categoria (separação de unidade de negócio Brava vs Audiovisual vs Consultoria) */}
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:18}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Núcleo *</label>
               <select style={inp} value={form.nucleo} onChange={e=>{
@@ -19445,7 +19623,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
 
           {/* SEÇÃO 2: Valores */}
           <SecaoLabel icon="DollarSign">Valores e tipo</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Tipo de projeto</label>
               <select style={inp} value={form.tipo_projeto} onChange={e=>set('tipo_projeto', e.target.value)}>
@@ -19461,7 +19639,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Mensal (R$)</label>
               <input style={inp} type="number" step="0.01" value={form.mensal} onChange={e=>set('mensal', e.target.value)} placeholder="0,00"/>
@@ -19475,7 +19653,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
           {form.tipo_projeto === 'parcelado' && (
             <div style={{padding:'12px 14px', background:'rgba(123,63,228,.08)', border:'1px solid rgba(123,63,228,.25)', borderRadius:9, marginBottom:12}}>
               <div style={{fontSize:11, color:'#a78bfa', fontWeight:600, marginBottom:8, textTransform:'uppercase', letterSpacing:.4}}>Projeto parcelado</div>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
                 <div>
                   <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Valor total acordado (R$)</label>
                   <input style={inp} type="number" step="0.01" value={form.valor_total_acordado} onChange={e=>set('valor_total_acordado', e.target.value)} placeholder="Ex: 5000"/>
@@ -19511,7 +19689,7 @@ function ProjetoCadastroModal({ projeto, clientes, statusConfig, onClose }) {
 
           {/* SEÇÃO 4: Datas e marcos */}
           <SecaoLabel icon="CalendarCheck">Datas e marcos do projeto</SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12}}>
             <div>
               <label style={{fontSize:11, color:'var(--t3)', marginBottom:5, display:'block'}}>Data fechamento (proposta aceita)</label>
               <input style={inp} type="date" value={form.data_fechamento_proposta || ''} onChange={e=>set('data_fechamento_proposta', e.target.value)}/>
@@ -19699,7 +19877,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
   return (
     <div style={{padding:'18px 22px'}}>
       {/* KPIs */}
-      <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom:18}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginBottom:18}}>
         {kpis.map((k,i) => (
           <div key={i} style={{padding:'14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:6}}>
@@ -19715,7 +19893,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
 
       {/* Identificação - TUDO editável inline */}
       <SecaoLabel icon="Building2">Identificação <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
-      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
         <InfoCardEdit label={cliente.tipo_pessoa === 'PF' ? 'CPF' : 'CNPJ'} value={cliente.cnpj_cpf} field="cnpj_cpf" clienteId={cliente.id} placeholder={cliente.tipo_pessoa === 'PF' ? '000.000.000-00' : '00.000.000/0000-00'}/>
         <InfoCardEdit label="Nome fantasia" value={cliente.nome_fantasia} field="nome_fantasia" clienteId={cliente.id}/>
         <InfoCardEdit label="Email" value={cliente.contato_email} field="contato_email" clienteId={cliente.id} type="email" placeholder="contato@empresa.com"/>
@@ -19731,7 +19909,7 @@ function Cliente360TabResumo({ cliente, projetos, stats, extrato }) {
       {(cliente.endereco_cep || cliente.endereco_logradouro || cliente.endereco_cidade) && (
         <>
           <SecaoLabel icon="Globe">Endereço <span style={{fontSize:10, color:'var(--t3)', fontWeight:400}}>· clique em qualquer campo pra editar</span></SecaoLabel>
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:18}}>
             <InfoCardEdit label="CEP" value={cliente.endereco_cep} field="endereco_cep" clienteId={cliente.id} placeholder="00000-000"/>
             <InfoCardEdit label="Logradouro" value={cliente.endereco_logradouro} field="endereco_logradouro" clienteId={cliente.id} placeholder="Rua, Av..."/>
             <InfoCardEdit label="Número" value={cliente.endereco_numero} field="endereco_numero" clienteId={cliente.id} placeholder="123"/>
@@ -19917,7 +20095,7 @@ function Cliente360TabProjetos({ cliente, projetos, loading }) {
                 </button>
               </div>
             </div>
-            <div style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:10, marginTop:10}}>
               <Mini label="Mensal" value={'R$ '+fmt(p.mensal_esperado)}/>
               <Mini label="Implantação" value={'R$ '+fmt(p.implantacao_esperada)}/>
               <Mini label="Recebido" value={'R$ '+fmt(p.total_recebido)} cor="#1D9E75"/>
@@ -20126,7 +20304,7 @@ function Cliente360TabAnexos({ cliente, projetos }) {
     <div style={{padding:'18px 22px', display:'flex', flexDirection:'column', gap:12}}>
       {/* Toolbar: escolher projeto + categoria + ação */}
       <div style={{padding:'12px 14px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10}}>
-        <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:10}}>
+        <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:10, marginBottom:10}}>
           <div>
             <label style={{fontSize:10, color:'var(--t3)', textTransform:'uppercase', letterSpacing:.4, fontWeight:600, marginBottom:4, display:'block'}}>Projeto destino</label>
             <select value={projetoId} onChange={e=>setProjetoId(e.target.value)} style={{
@@ -20328,7 +20506,7 @@ function ImportarExtratoModal({ onClose }) {
 
               {/* KPIs do preview */}
               <SecaoLabel icon="BarChart3" count={parsed.rows.length}>Resumo</SecaoLabel>
-              <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:18}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:18}}>
                 {[
                   { label:'Lançamentos', val: parsed.rows.length, cor:'var(--blue)', icon:'FileText' },
                   { label:'Entradas',    val:`R$ ${totalEntradas.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}`, cor:'#1D9E75', icon:'ArrowDownCircle' },
@@ -20954,7 +21132,7 @@ function PipelineCardDetalheModal({ card, colNome, colCor, onClose, onArchive })
               </div>
 
               {/* ATRIBUIÇÃO + VENCIMENTO */}
-              <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:20}}>
                 <div>
                   <SecaoLabel icon="UserCircle">Atribuído</SecaoLabel>
                   <select value={agenteId || ''} onChange={e=>{setAgenteId(e.target.value || null); salvarCampo('agente_id', e.target.value || null);}}
@@ -23346,7 +23524,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             <input value={form.nome} onChange={upd('nome')} placeholder="Ex: Clínica Reunidas" autoFocus style={inp}/>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Palette">Cor</SecaoLabel>
               <div style={{display:'flex', gap:6, padding:'10px 8px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, flexWrap:'wrap'}}>
@@ -23363,7 +23541,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="Layers">Serviço contratado</SecaoLabel>
               <select value={form.servico} onChange={upd('servico')} style={inp}>
@@ -23378,7 +23556,7 @@ function NovoClienteModal({ onClose, onSalvar }) {
             </div>
           </div>
 
-          <div style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
+          <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:18}}>
             <div>
               <SecaoLabel icon="ScrollText">Implantação</SecaoLabel>
               <input type="number" value={form.impl} onChange={upd('impl')} placeholder="R$ 0" style={inp}/>
@@ -24179,7 +24357,7 @@ function App() {
   // Persistência via localStorage
   // Sempre comeca em Dashboard ao logar (ignora ultima pagina salva)
   const [page, setPage] = useState('dashboard');
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('brava_collapsed') === '1');
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('brava_collapsed') === '1' || (typeof window !== 'undefined' && window.innerWidth <= 900));
   const [impersonate, setImpersonate] = useState(null);
   const [pipelineCols, setPipelineCols] = useState(() => {
     try { const s = localStorage.getItem('brava_pipeline'); if (s) return JSON.parse(s); } catch(e){}
@@ -24291,6 +24469,7 @@ function App() {
     <div className="app">
       {/* Toggle de tema agora vive no SidebarUserCard */}
       <Sidebar page={page} setPage={setPage} collapsed={collapsed} setCollapsed={setCollapsed}/>
+      {!collapsed && <div className="sidebar-backdrop" onClick={() => setCollapsed(true)}/>}
       <Header page={page} collapsed={collapsed} setCollapsed={setCollapsed} setPage={setPage} busca={busca} setBusca={setBusca} notifAberta={notifAberta} setNotifAberta={setNotifAberta}/>
       <main className="main">
         {page === 'dashboard' ? <Dashboard onImpersonate={setImpersonate} pipelineCols={pipelineCols} setPage={setPage} onNovoCliente={()=>setNovoClienteAberto(true)} onExportar={exportarCSV} busca={busca}/>
