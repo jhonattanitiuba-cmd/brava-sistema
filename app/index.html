@@ -2094,6 +2094,15 @@ function App() {
                                   // SALVA no Supabase antes de redirecionar
                                   try {
                                     if (!onboardingData) throw new Error('Sem dados do onboarding.');
+                                    // Se entrou anônimo (veio do checkout): converte em conta permanente
+                                    // com o e-mail/senha do passo "Acesso", pra logar de qualquer lugar.
+                                    try {
+                                      const { data: { user: uAtual } } = await window.supabase.auth.getUser();
+                                      if (uAtual?.is_anonymous && onboardingData.email && onboardingData.password) {
+                                        const { error: upErr } = await window.supabase.auth.updateUser({ email: onboardingData.email, password: onboardingData.password });
+                                        if (upErr) { alert('Não consegui criar seu acesso: ' + (upErr.message || 'tente outro e-mail.')); return; }
+                                      }
+                                    } catch (convErr) { console.warn('[Brava] conversão de conta anônima falhou:', convErr); }
                                     const workspace = await window.saveOnboarding(onboardingData);
 
                                     const tema = document.documentElement.getAttribute('data-theme') || 'dark';
