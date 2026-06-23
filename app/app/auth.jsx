@@ -79,36 +79,37 @@ const LoginScreen = ({ onContinue, onNav }) => {
     }
   }, [lastEmail]);
 
-  // Retorno do "Entrar com o Google": detecta a sessao que o Supabase estabelece
-  // ao voltar do OAuth e roteia. Para e-mails da allowlist (ex: o Google do dono),
+  // So roteia automaticamente no RETORNO do login com Google (flag setada no clique
+  // do botao, antes do redirect). Em visita normal com sessao salva, NAO auto-roteia:
+  // a tela de login aparece normalmente. Para e-mails da allowlist (Google do dono),
   // garante o workspace via auth-bootstrap antes de cair no onboarding.
-  // skipAutoRef evita interferir no login por senha (que roteia no submit).
-  const skipAutoRef = React.useRef(false);
   React.useEffect(() => {
-    let cancelado = false;
+    let pendente = false;
+    try { pendente = sessionStorage.getItem('brava_oauth_pending') === '1'; } catch {}
+    if (!pendente) return;
+    try { sessionStorage.removeItem('brava_oauth_pending'); } catch {}
+    let cancelado = false, feito = false;
     const rotear = async (sessionUser) => {
+      if (feito) return; feito = true;
       try {
         const { data: members } = await window.supabase
           .from('workspace_members')
           .select('role, workspaces(id, slug, name, plan)')
           .eq('user_id', sessionUser.id).limit(1);
-        if (members && members.length > 0 && members[0].workspaces) { irParaAdmin(sessionUser, members[0].workspaces, members[0]); return true; }
+        if (members && members.length > 0 && members[0].workspaces) { irParaAdmin(sessionUser, members[0].workspaces, members[0]); return; }
         const { data: bs } = await window.supabase.functions.invoke('auth-bootstrap');
-        if (bs && bs.ok && bs.workspace) { irParaAdmin(sessionUser, bs.workspace, bs.member); return true; }
-        onContinue && onContinue('onboarding'); return true;
-      } catch (_e) { return false; }
+        if (bs && bs.ok && bs.workspace) { irParaAdmin(sessionUser, bs.workspace, bs.member); return; }
+        onContinue && onContinue('onboarding');
+      } catch (_e) { feito = false; }
     };
+    const { data: sub } = window.supabase.auth.onAuthStateChange((_evt, session) => { if (session?.user) rotear(session.user); });
     (async () => {
-      for (let i = 0; i < 8 && !cancelado; i++) {
-        if (skipAutoRef.current) return; // login por senha cuida do roteamento
-        try {
-          const { data } = await window.supabase.auth.getSession();
-          if (data?.session?.user) { if (await rotear(data.session.user)) return; }
-        } catch (_e) {}
+      for (let i = 0; i < 8 && !cancelado && !feito; i++) {
+        try { const { data } = await window.supabase.auth.getSession(); if (data?.session?.user) { rotear(data.session.user); break; } } catch (_e) {}
         await new Promise(r => setTimeout(r, 400));
       }
     })();
-    return () => { cancelado = true; };
+    return () => { cancelado = true; try { sub?.subscription?.unsubscribe(); } catch {} };
   }, []);
 
   const submit = async (e) => {
@@ -116,7 +117,6 @@ const LoginScreen = ({ onContinue, onNav }) => {
     if (!email.includes('@'))   { setError('Informe um e-mail válido.'); return; }
     if (password.length < 8)    { setError('Senha precisa ter no mínimo 8 caracteres.'); return; }
     setError(''); setInfo(''); setSubmitting(true);
-    skipAutoRef.current = true; // login por senha: o submit roteia, nao o detector OAuth
 
     try {
       if (!window.supabase) throw new Error('Supabase não carregado.');
@@ -180,6 +180,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
   // ─── Entrar com o Google (Supabase Auth, provedor Google) ───
   const entrarComGoogle = async () => {
     setError('');
+    try { sessionStorage.setItem('brava_oauth_pending', '1'); } catch {}
     try {
       const { error: eg } = await window.supabase.auth.signInWithOAuth({
         provider: 'google',
