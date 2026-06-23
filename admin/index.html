@@ -801,6 +801,7 @@ const NAV = [
   { key:'pipeline',     label:'Pipeline',        icon:'KanbanSquare',    grupo:'Comercial', badge:5 },
   { key:'onboarding',   label:'Novos cadastros', icon:'UserPlus',        grupo:'Comercial', badge:null },
   { key:'agenda',       label:'Agenda',          icon:'CalendarCheck',   grupo:'Administrativo', badge:null },
+  { key:'tarefas',      label:'Tarefas',         icon:'CheckCircle2',    grupo:'Administrativo', badge:null },
   { key:'orcamentos',   label:'Orçamentos',      icon:'FileText',        grupo:'Administrativo', badge:null },
   { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
@@ -23681,6 +23682,183 @@ function updateAgendaEvent(id, patch) {
 function deleteAgendaEvent(id) {
   _writeAgenda(_readAgenda().filter(e => e.id !== id));
 }
+
+// ── Conexao Google (Workspace) centralizada ──
+// Escopo unico que cobre Agenda + Tarefas + Gmail + Drive + Docs + Slides.
+// Uma re-autorizacao libera tudo; cada modulo (Agenda, Tarefas, ...) usa o mesmo token.
+const GOOGLE_OAUTH_CID = '191092064837-09r0hj706b1k0viui6n1rfngdklkghu3.apps.googleusercontent.com';
+const GOOGLE_OAUTH_REDIR = 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback';
+// Escopo cresce por modulo (cada novo modulo do Workspace adiciona o seu e pede
+// uma reconexao de um clique). Manter restrito ao que ja esta construido evita
+// fricao de escopos "restritos" (Gmail/Drive) num app ainda nao verificado.
+const GOOGLE_OAUTH_SCOPES = [
+  'openid', 'email',
+  'https://www.googleapis.com/auth/calendar.events',
+  'https://www.googleapis.com/auth/tasks',
+].join(' ');
+function iniciarConexaoGoogle() {
+  const state = encodeURIComponent(window.location.origin);
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=' + GOOGLE_OAUTH_CID +
+    '&redirect_uri=' + encodeURIComponent(GOOGLE_OAUTH_REDIR) +
+    '&response_type=code&scope=' + encodeURIComponent(GOOGLE_OAUTH_SCOPES) +
+    '&access_type=offline&prompt=consent&include_granted_scopes=true&state=' + state;
+}
+
+// ── Tarefas (Google Tasks) ──
+function Tarefas() {
+  const [status, setStatus] = React.useState('checando'); // checando | conectado | desconectado | sem_escopo | erro
+  const [tarefas, setTarefas] = React.useState([]);
+  const [nova, setNova] = React.useState('');
+  const [salvando, setSalvando] = React.useState(false);
+  const [filtro, setFiltro] = React.useState('abertas'); // abertas | todas | concluidas
+
+  const call = React.useCallback(async (body) => {
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) return { ok:false, error:'sem_cliente' };
+    try { const { data } = await cli.functions.invoke('google-tasks', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    catch (_e) { return { ok:false, error:'excecao' }; }
+  }, []);
+
+  const carregar = React.useCallback(async () => {
+    const d = await call({ action:'list' });
+    if (d.ok) { setStatus('conectado'); setTarefas(d.tarefas || []); }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
+    else setStatus('erro');
+  }, [call]);
+
+  React.useEffect(() => { carregar(); }, [carregar]);
+
+  const adicionar = async () => {
+    const t = nova.trim(); if (!t) return;
+    setSalvando(true);
+    const d = await call({ action:'create', titulo:t });
+    setSalvando(false);
+    if (d.ok) { setNova(''); showToast?.('Tarefa criada', 'success'); carregar(); }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else showToast?.('Erro ao criar tarefa', 'erro');
+  };
+
+  const toggle = async (tf) => {
+    setTarefas(prev => prev.map(x => x.id === tf.id ? { ...x, concluida: !x.concluida } : x));
+    const d = await call({ action:'update', id: tf.id, concluida: !tf.concluida });
+    if (!d.ok) { showToast?.('Erro ao atualizar', 'erro'); carregar(); }
+  };
+
+  const remover = async (tf) => {
+    if (!confirm('Excluir "' + tf.titulo + '"?')) return;
+    setTarefas(prev => prev.filter(x => x.id !== tf.id));
+    const d = await call({ action:'delete', id: tf.id });
+    if (!d.ok) { showToast?.('Erro ao excluir', 'erro'); carregar(); }
+  };
+
+  const visiveis = tarefas.filter(t => filtro === 'todas' ? true : filtro === 'concluidas' ? t.concluida : !t.concluida);
+  const abertas = tarefas.filter(t => !t.concluida).length;
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Tarefas</div>
+          <div className="page-head__sub">Suas tarefas do Google, dentro do sistema · {abertas} {abertas === 1 ? 'aberta' : 'abertas'}</div>
+        </div>
+        {status === 'conectado' && <div className="page-head__actions"><span style={{fontSize:12, color:'#1D9E75'}}>● Google conectado</span></div>}
+      </div>
+
+      {(status === 'desconectado' || status === 'sem_escopo') && (
+        <div className="card" style={{padding:32, textAlign:'center', maxWidth:520, margin:'0 auto'}}>
+          <Icon name="CheckCircle2" size={34} style={{color:'var(--blue)', marginBottom:10}}/>
+          <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>
+            {status === 'sem_escopo' ? 'Libere o acesso às Tarefas' : 'Conecte seu Google'}
+          </div>
+          <div style={{fontSize:13, color:'var(--t2)', marginBottom:18, lineHeight:1.6}}>
+            {status === 'sem_escopo'
+              ? 'Sua conexão atual cobre a Agenda. Reconecte uma vez para liberar também as Tarefas (e o restante do Workspace).'
+              : 'Autorize o acesso para ver e gerenciar suas tarefas do Google aqui dentro.'}
+          </div>
+          <button onClick={iniciarConexaoGoogle} className="btn btn-primary" style={{margin:'0 auto'}}>
+            <Icon name="CalendarCheck" size={14}/>{status === 'sem_escopo' ? 'Reconectar Google' : 'Conectar Google'}
+          </button>
+        </div>
+      )}
+
+      {status === 'erro' && (
+        <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="AlertCircle" size={28} style={{opacity:.5, marginBottom:8}}/>
+          <div style={{fontSize:13}}>Não foi possível carregar as tarefas agora. <button onClick={carregar} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', fontWeight:600}}>Tentar de novo</button></div>
+        </div>
+      )}
+
+      {status === 'checando' && (
+        <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Carregando…</div>
+      )}
+
+      {status === 'conectado' && (
+        <div style={{maxWidth:680}}>
+          {/* Adicionar */}
+          <div className="card" style={{padding:12, marginBottom:14, display:'flex', gap:10, alignItems:'center'}}>
+            <Icon name="Plus" size={16} style={{color:'var(--t3)', flexShrink:0}}/>
+            <input
+              value={nova}
+              onChange={e => setNova(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') adicionar(); }}
+              placeholder="Adicionar uma tarefa e pressionar Enter…"
+              style={{flex:1, height:38, border:'none', background:'transparent', color:'var(--t1)', fontSize:14, outline:'none'}}
+            />
+            <button onClick={adicionar} disabled={salvando || !nova.trim()} className="btn btn-primary" style={{flexShrink:0}}>
+              {salvando ? '…' : 'Adicionar'}
+            </button>
+          </div>
+
+          {/* Filtros */}
+          <div style={{display:'flex', gap:6, marginBottom:12}}>
+            {[['abertas','Abertas'],['todas','Todas'],['concluidas','Concluídas']].map(([k,l]) => (
+              <button key={k} onClick={()=>setFiltro(k)} style={{
+                padding:'6px 12px', borderRadius:7, fontSize:12, fontWeight:600, cursor:'pointer',
+                background: filtro===k ? 'rgba(30,144,255,.15)' : 'transparent',
+                color: filtro===k ? 'var(--blue)' : 'var(--t3)',
+                border:`1px solid ${filtro===k ? 'var(--blue)' : 'transparent'}`,
+              }}>{l}</button>
+            ))}
+          </div>
+
+          {/* Lista */}
+          {visiveis.length === 0 ? (
+            <div className="card" style={{padding:36, textAlign:'center', color:'var(--t3)'}}>
+              <Icon name="CheckCircle2" size={30} style={{opacity:.4, marginBottom:8}}/>
+              <div style={{fontSize:13}}>{filtro === 'concluidas' ? 'Nenhuma tarefa concluída.' : 'Nenhuma tarefa por aqui. Adicione a primeira acima.'}</div>
+            </div>
+          ) : (
+            <div className="card" style={{padding:0, overflow:'hidden'}}>
+              {visiveis.map((tf, i) => (
+                <div key={tf.id} style={{
+                  padding:'12px 16px', display:'flex', alignItems:'flex-start', gap:12,
+                  borderBottom: i < visiveis.length-1 ? '1px solid var(--border-soft)' : 'none',
+                }}>
+                  <button onClick={()=>toggle(tf)} title={tf.concluida ? 'Reabrir' : 'Concluir'} style={{
+                    width:20, height:20, borderRadius:'50%', flexShrink:0, marginTop:1, cursor:'pointer',
+                    border: tf.concluida ? 'none' : '2px solid var(--border)',
+                    background: tf.concluida ? '#1D9E75' : 'transparent',
+                    display:'flex', alignItems:'center', justifyContent:'center', padding:0,
+                  }}>{tf.concluida && <Icon name="Check" size={12} style={{color:'#fff'}}/>}</button>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:14, color: tf.concluida ? 'var(--t3)' : 'var(--t1)', textDecoration: tf.concluida ? 'line-through' : 'none'}}>{tf.titulo}</div>
+                    {tf.notas && <div style={{fontSize:12, color:'var(--t3)', marginTop:2, whiteSpace:'pre-wrap'}}>{tf.notas}</div>}
+                    {tf.due && <div style={{fontSize:11, color:'var(--t3)', marginTop:3}}>📅 {new Date(tf.due).toLocaleDateString('pt-BR')}</div>}
+                  </div>
+                  <button onClick={()=>remover(tf)} title="Excluir" style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer', padding:4, flexShrink:0, opacity:.6}}>
+                    <Icon name="Trash2" size={14}/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function useAgenda() {
   const [list, setList] = React.useState(() => _readAgenda());
   React.useEffect(() => {
@@ -24199,13 +24377,7 @@ function Agenda() {
     carregarGoogle();
     try { const u = new URL(window.location.href); if (u.searchParams.get('google')==='ok') { showToast?.('Google Agenda conectado!', 'success'); u.searchParams.delete('google'); window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash); } } catch (_e) {}
   }, []);
-  const conectarGoogle = () => {
-    const CID = '191092064837-09r0hj706b1k0viui6n1rfngdklkghu3.apps.googleusercontent.com';
-    const REDIR = 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback';
-    const scope = encodeURIComponent('openid email https://www.googleapis.com/auth/calendar.events');
-    const state = encodeURIComponent(window.location.origin);
-    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=' + CID + '&redirect_uri=' + encodeURIComponent(REDIR) + '&response_type=code&scope=' + scope + '&access_type=offline&prompt=consent&state=' + state;
-  };
+  const conectarGoogle = () => iniciarConexaoGoogle();
   const events = React.useMemo(() => [...localEvents, ...gEvents], [localEvents, gEvents]);
 
   React.useEffect(() => { localStorage.setItem('brava_agenda_vista', vista); }, [vista]);
@@ -25420,6 +25592,7 @@ function App() {
           : page === 'clientes_crm' ? <ClientesCRM/>
           : page === 'projetos' ? <ProjetosCRM/>
           : page === 'agenda'   ? <Agenda/>
+          : page === 'tarefas'  ? <Tarefas/>
           : page === 'orcamentos'? <OrcamentosAdmin/>
           : page === 'atas'     ? <AtasAdmin/>
           : page === 'analytics'? <Analytics/>
