@@ -22,8 +22,8 @@ const COLOR_PRESETS = [
 const OnboardingWizard = ({ onContinue, onDataChange }) => {
   const [step, setStep] = React.useState(0);
   const [data, setData] = React.useState({
-    workspaceName: 'Sua Marca',
-    slug: 'suamarca',
+    workspaceName: '',
+    slug: '',
     primaryColor: '#7B3FE4',
     secondaryColor: '',
     darkMode: false,
@@ -32,36 +32,37 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
     logoFileName: null,
     channelMode: 'evolution',
     qrScanned: false,
+    connectLater: false,
     invites: [
-      { email: 'maria.eduarda@suamarca.com.br', role: 'admin' },
+      { email: '', role: 'admin' },
       { email: '', role: 'agent' },
       { email: '', role: 'agent' },
     ],
-    bizName: 'Sua Marca',
-    bizDoes: 'Estacionamento privativo coberto próximo ao Aeroporto de Congonhas, com transfer gratuito ida e volta, lavagem completa opcional e diárias a partir de R$ 49.',
-    bizHours: 'Atendimento humano 24h. Reservas pelo WhatsApp e site.',
-    bizFaq: 'Diárias incluem transfer? Sim. Lavagem é cobrada à parte? Sim, R$ 35. Tem cobertura? Todas as vagas são cobertas.',
+    bizName: '',
+    bizDoes: '',
+    bizHours: '',
+    bizFaq: '',
     bizTone: 'profissional-amigavel',
     bizModel: 'gpt-4o-mini',
-    // Contexto adicional pro agente
-    bizPublico: 'b2c',
-    bizLocalizacao: 'Av. Washington Luís, 7059 - Congonhas, São Paulo/SP',
-    bizTicketMedio: 'R$ 200',
-    bizProdutos: 'Diárias de R$ 49 (sem teto) e R$ 65 (cobertas). Lavagem completa R$ 35. Lavagem premium R$ 75. Pacotes semanais com 10% de desconto.',
-    bizDiferenciais: 'Único da região com transfer gratuito 24h, câmeras IP em todas as vagas, seguro contra furto incluso, app de acompanhamento.',
-    bizConcorrentes: 'EstacionaJá, ParkBuddy, GoldenPark.',
-    bizPolitica: 'Cancelamento gratuito até 12h antes. Após isso, 50% de multa. Não atendido = cobrança integral.',
-    bizPagamento: 'Pix, cartão de crédito (até 3x sem juros), débito, dinheiro na entrega.',
-    bizPrazo: 'Reservas confirmadas em até 5 minutos. Transfer disponível 24h, espera máxima de 10 minutos.',
-    bizCanais: 'Instagram @suamarca, site suamarca.com.br, Reservas Anywhere.',
-    bizEscalonamento: 'Reclamações sobre danos no veículo, acidentes, problemas com cobrança ou pedidos especiais.',
-    bizBoasVindas: 'Olá! 👋 Aqui é o atendimento da Sua Marca. Posso te ajudar com reservas, valores ou dúvidas sobre o serviço?',
+    // Contexto adicional pro agente (cliente preenche)
+    bizPublico: '',
+    bizLocalizacao: '',
+    bizTicketMedio: '',
+    bizProdutos: '',
+    bizDiferenciais: '',
+    bizConcorrentes: '',
+    bizPolitica: '',
+    bizPagamento: '',
+    bizPrazo: '',
+    bizCanais: '',
+    bizEscalonamento: '',
+    bizBoasVindas: '',
     bizForaHorario: '',
-    bizLimitacoes: 'Não confirmar reservas sem disponibilidade. Não oferecer descontos não autorizados. Não falar mal de concorrentes. Não dar conselhos jurídicos sobre acidentes.',
-    bizPersona: 'Atendente experiente, prestativo e direto. Conhece bem a operação e fala como quem trabalha lá há anos. Evita robotismo.',
-    bizGatilhos: 'Sempre confirmar placa do veículo. Oferecer lavagem em reservas de 3+ dias. Mencionar pacote semanal se cliente vai ficar 7+ dias.',
-    bizFollowUp: 'Lembrete 1h antes da chegada. Confirmação após retirada. Pesquisa de NPS 2 dias depois.',
-    bizPalavrasEvitar: 'Promessa, garantia, melhor do mercado, único, exclusivo (a menos que seja verdade comprovável).',
+    bizLimitacoes: '',
+    bizPersona: '',
+    bizGatilhos: '',
+    bizFollowUp: '',
+    bizPalavrasEvitar: '',
   });
   const update = patch => setData(d => {
     const next = { ...d, ...patch };
@@ -75,8 +76,8 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
   const valid = (() => {
     if (!data) return false;
     if (step === 0) return (data.workspaceName || '').length >= 3 && (data.slug || '').length >= 3;
-    if (step === 1) return !!data.qrScanned;
-    if (step === 2) return (data.invites || []).some(i => (i?.email || '').includes('@'));
+    if (step === 1) return !!data.qrScanned || !!data.connectLater;
+    if (step === 2) return true; // equipe é opcional — o dono já entra como owner
     if (step === 3) return (data.bizDoes || '').length > 30;
     return true;
   })();
@@ -147,6 +148,11 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
             </div>
             <div className="onb-footer__actions">
               <Button variant="ghost" icon="ArrowLeft" onClick={prev}>{step === 0 ? 'Sair' : 'Voltar'}</Button>
+              {step === 1 && !data.qrScanned && (
+                <Button variant="ghost" icon="Clock" onClick={() => { update({ connectLater: true }); next(); }}>
+                  Conectar depois
+                </Button>
+              )}
               <Button variant="primary" iconRight={step === 3 ? 'Check' : 'ArrowRight'} disabled={!valid} onClick={next}>
                 {step === 3 ? 'Concluir e abrir Dashboard' : 'Continuar'}
               </Button>
