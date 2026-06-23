@@ -24699,6 +24699,177 @@ function FrenteEmBreve({ nome, desc }) {
 }
 
 // ── Administrativo: Orçamentos / Propostas ───────────────────────────
+// ── Editor de Proposta em A4 (editavel direto, plug and play) ───────────────
+// Abre depois de gerar o orcamento. Documento A4 editavel no proprio papel,
+// vincula cliente + projeto real (cria se nao tiver), Salvar (Supabase: tabela
+// propostas) e Salvar PDF (reusa bravaPrintDoc, padrao Master).
+function PropostaEditor({ orcamento, onClose }) {
+  const { list: clientes } = useClientes();
+  const o = orcamento || {};
+  const [propId, setPropId] = React.useState(null);
+  const [clienteNome, setClienteNome] = React.useState(o.cliente || '');
+  const [clienteId, setClienteId] = React.useState('');
+  const [projetos, setProjetos] = React.useState([]);
+  const [projetoId, setProjetoId] = React.useState('');
+  const [criandoProj, setCriandoProj] = React.useState(false);
+  const [novoProj, setNovoProj] = React.useState({ servico:'', mensal:'' });
+  const [titulo, setTitulo] = React.useState('Proposta Comercial');
+  const [itens, setItens] = React.useState((o.itens && o.itens.length) ? o.itens.map(x=>({descricao:x.descricao||'',qtd:x.qtd||1,valorUnit:x.valorUnit||''})) : [{ descricao:'', qtd:1, valorUnit:'' }]);
+  const [desconto, setDesconto] = React.useState(o.desconto || 0);
+  const [validade, setValidade] = React.useState(o.validade || '');
+  const [obs, setObs] = React.useState(o.observacoes || '');
+  const [salvando, setSalvando] = React.useState(false);
+
+  const brl = (n)=> 'R$ ' + Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const bruto = itens.reduce((s,i)=> s + (Number(i.qtd||0)*Number(i.valorUnit||0)), 0);
+  const total = Math.max(0, bruto - Number(desconto||0));
+
+  React.useEffect(()=>{ if(!clienteId && clienteNome && clientes){ const c=clientes.find(x=>x.nome===clienteNome); if(c) setClienteId(c.id); } }, [clienteNome, clientes]);
+  React.useEffect(()=>{ let on=true; (async()=>{ const cli=getSupa(); if(!cli||!clienteId){ setProjetos([]); return; } const {data}=await cli.from('projetos').select('id, servico, mensal, status_fase').eq('cliente_id', clienteId); if(on) setProjetos(data||[]); })(); return ()=>{on=false;}; }, [clienteId]);
+
+  const upItem=(i,c,v)=> setItens(itens.map((it,idx)=> idx===i?{...it,[c]:v}:it));
+  const addItem=()=> setItens([...itens,{descricao:'',qtd:1,valorUnit:''}]);
+  const delItem=(i)=> setItens(itens.length>1?itens.filter((_,idx)=>idx!==i):itens);
+
+  const criarProjeto=async()=>{
+    const cli=getSupa(); if(!cli||!clienteId){ showToast('Selecione um cliente primeiro.','erro'); return; }
+    const {data,error}=await cli.from('projetos').insert({ cliente_id:clienteId, cliente:clienteNome, servico:novoProj.servico||'Servico', mensal:Number(novoProj.mensal||0), status_fase:'proposta_enviada' }).select('id, servico, mensal').single();
+    if(error){ showToast('Erro ao criar projeto.','erro'); return; }
+    setProjetos([...(projetos||[]),data]); setProjetoId(data.id); setCriandoProj(false); setNovoProj({servico:'',mensal:''}); showToast('Projeto criado e vinculado.','success');
+  };
+
+  const salvar=async()=>{
+    const cli=getSupa(); if(!cli){ showToast('Sem conexao com o banco.','erro'); return; }
+    setSalvando(true);
+    const payload={ cliente_id:clienteId||null, cliente_nome:clienteNome||null, projeto_id:projetoId||null, titulo, conteudo:{itens,desconto:Number(desconto||0),observacoes:obs,validade,total,bruto}, status:'rascunho', updated_at:new Date().toISOString() };
+    let res; if(propId) res=await cli.from('propostas').update(payload).eq('id',propId).select('id').single(); else res=await cli.from('propostas').insert(payload).select('id').single();
+    setSalvando(false);
+    if(res.error){ showToast('Erro ao salvar a proposta.','erro'); return; }
+    if(res.data&&res.data.id) setPropId(res.data.id);
+    showToast('Proposta salva no sistema.','success');
+  };
+
+  const salvarPDF=()=>{
+    const e=_pdfEsc; const dt=new Date().toLocaleDateString('pt-BR');
+    const capa={ tag:'Proposta Comercial', titulo:'Proposta\nComercial', sub:(clienteNome||''), meta:[{lbl:'Cliente',val:(clienteNome||'-')},{lbl:'Data',val:dt},{lbl:'Validade',val:(validade||'-')},{lbl:'Total',val:brl(total)}] };
+    let body='<div class="box"><div class="bl2">Valor total</div><div class="bv">'+brl(total)+'</div></div><h2>Itens</h2><table><tr><th>Descrição</th><th class="ctr">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th></tr>';
+    itens.forEach(function(i){ body+='<tr><td>'+e(i.descricao)+'</td><td class="ctr">'+e(i.qtd)+'</td><td class="num">'+brl(i.valorUnit)+'</td><td class="num">'+brl(Number(i.qtd)*Number(i.valorUnit))+'</td></tr>'; });
+    body+='</table><table><tr><td class="num">Subtotal</td><td class="num">'+brl(bruto)+'</td></tr>';
+    if(Number(desconto)>0) body+='<tr><td class="num">Desconto</td><td class="num">- '+brl(desconto)+'</td></tr>';
+    body+='<tr><td class="num"><b>Total</b></td><td class="num"><b>'+brl(total)+'</b></td></tr></table>';
+    if(obs) body+='<h2>Observações</h2><p>'+e(obs)+'</p>';
+    body+='<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">Jhonattan Itiuba</div></div><div><div class="sn">'+e(clienteNome||'Cliente')+'</div><div class="sr">Aceite</div></div></div>';
+    bravaPrintDoc({ capa:capa, bodyHTML:body });
+  };
+
+  const blk={ background:'#000', color:'#fff', border:'none', padding:'10px 18px', borderRadius:8, fontWeight:600, cursor:'pointer', fontFamily:'var(--f-m)' };
+  const cell={ border:'1px solid transparent', background:'transparent', font:'inherit', color:'inherit', outline:'none', padding:'2px 4px', borderRadius:4, width:'100%' };
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:1500, background:'rgba(10,10,14,.78)', overflowY:'auto', padding:'24px 0' }}>
+      <div style={{ maxWidth:920, margin:'0 auto', padding:'0 16px' }}>
+        <div className="grid-m1" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:12, flexWrap:'wrap' }}>
+          <div style={{ color:'#fff', fontFamily:'var(--f-d)', fontWeight:700, fontSize:18 }}>Editor de Proposta (A4)</div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <button onClick={salvar} disabled={salvando} style={blk}>{salvando?'Salvando...':'Salvar'}</button>
+            <button onClick={salvarPDF} style={blk}>Salvar PDF</button>
+            <button onClick={onClose} style={{ ...blk, background:'#444' }}>Fechar</button>
+          </div>
+        </div>
+
+        <div style={{ background:'#fff', borderRadius:10, padding:16, marginBottom:14 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'#888', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Conexões do cliente</div>
+          <div className="grid-m1" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            <div>
+              <div style={{ fontSize:12, color:'#666', marginBottom:4 }}>Cliente</div>
+              <select value={clienteNome} onChange={e=>{ setClienteNome(e.target.value); const c=(clientes||[]).find(x=>x.nome===e.target.value); setClienteId(c?c.id:''); setProjetoId(''); }} style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}>
+                <option value="">Selecione...</option>
+                {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize:12, color:'#666', marginBottom:4 }}>Projeto vinculado</div>
+              {!criandoProj ? (
+                <div style={{ display:'flex', gap:6 }}>
+                  <select value={projetoId} onChange={e=>setProjetoId(e.target.value)} disabled={!clienteId} style={{ flex:1, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}>
+                    <option value="">{clienteId? (projetos.length?'Selecione um projeto...':'Nenhum projeto, crie um'):'Escolha o cliente'}</option>
+                    {projetos.map(p=><option key={p.id} value={p.id}>{(p.servico||'Projeto')+(p.mensal?(' - R$ '+Number(p.mensal).toLocaleString('pt-BR')):'')}</option>)}
+                  </select>
+                  <button onClick={()=>setCriandoProj(true)} disabled={!clienteId} style={{ ...blk, padding:'8px 12px' }}>+ Criar</button>
+                </div>
+              ) : (
+                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  <input value={novoProj.servico} onChange={e=>setNovoProj({...novoProj,servico:e.target.value})} placeholder="Serviço" style={{ flex:2, minWidth:110, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}/>
+                  <input value={novoProj.mensal} onChange={e=>setNovoProj({...novoProj,mensal:e.target.value})} placeholder="Mensal R$" style={{ width:96, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}/>
+                  <button onClick={criarProjeto} style={{ ...blk, padding:'8px 12px' }}>Criar</button>
+                  <button onClick={()=>setCriandoProj(false)} style={{ ...blk, background:'#999', padding:'8px 12px' }}>×</button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{ marginTop:10 }}>
+            <div style={{ fontSize:12, color:'#666', marginBottom:4 }}>Validade</div>
+            <input value={validade} onChange={e=>setValidade(e.target.value)} placeholder="Ex.: 15 dias ou 30/06/2026" style={{ width:'100%', maxWidth:260, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}/>
+          </div>
+        </div>
+
+        <div style={{ background:'#fff', width:'100%', maxWidth:794, margin:'0 auto', minHeight:1000, padding:'44px 52px', boxShadow:'0 8px 40px rgba(0,0,0,.35)', fontFamily:"'Montserrat',var(--f-m),sans-serif", color:'#111' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'.5px solid #ccc', paddingBottom:10, marginBottom:14 }}>
+            <span style={{ fontWeight:800, fontSize:18, letterSpacing:1 }}>BRAVA</span>
+            <span style={{ fontSize:8, fontWeight:700, textTransform:'uppercase', letterSpacing:1, color:'#888' }}>Proposta Comercial</span>
+          </div>
+          <input value={titulo} onChange={e=>setTitulo(e.target.value)} style={{ ...cell, fontSize:24, fontWeight:800, marginBottom:2 }}/>
+          <div style={{ color:'#666', fontSize:11, marginBottom:14 }}>{clienteNome||'Cliente'}{validade?(' · Validade: '+validade):''}</div>
+
+          <div style={{ background:'#000', color:'#fff', padding:'12px 16px', margin:'6px 0 14px' }}>
+            <div style={{ fontSize:8, textTransform:'uppercase', letterSpacing:1, color:'#888' }}>Valor total</div>
+            <div style={{ fontSize:22, fontWeight:800 }}>{brl(total)}</div>
+          </div>
+
+          <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:8 }}>
+            <thead><tr>
+              <th style={{ background:'#000', color:'#fff', fontSize:9, textTransform:'uppercase', padding:'6px 8px', textAlign:'left' }}>Descrição</th>
+              <th style={{ background:'#000', color:'#fff', fontSize:9, padding:'6px 8px', width:50 }}>Qtd</th>
+              <th style={{ background:'#000', color:'#fff', fontSize:9, padding:'6px 8px', width:104, textAlign:'right' }}>Valor unit.</th>
+              <th style={{ background:'#000', color:'#fff', fontSize:9, padding:'6px 8px', width:104, textAlign:'right' }}>Subtotal</th>
+              <th style={{ background:'#000', width:28 }}></th>
+            </tr></thead>
+            <tbody>
+              {itens.map((it,i)=>(
+                <tr key={i} style={{ borderBottom:'1px solid #eee' }}>
+                  <td style={{ padding:'2px 4px' }}><input value={it.descricao} onChange={e=>upItem(i,'descricao',e.target.value)} placeholder="Item" style={cell}/></td>
+                  <td style={{ padding:'2px 4px' }}><input value={it.qtd} onChange={e=>upItem(i,'qtd',e.target.value)} style={{ ...cell, textAlign:'center' }}/></td>
+                  <td style={{ padding:'2px 4px' }}><input value={it.valorUnit} onChange={e=>upItem(i,'valorUnit',e.target.value)} placeholder="0" style={{ ...cell, textAlign:'right' }}/></td>
+                  <td style={{ padding:'2px 8px', textAlign:'right', fontSize:13, whiteSpace:'nowrap' }}>{brl(Number(it.qtd||0)*Number(it.valorUnit||0))}</td>
+                  <td style={{ textAlign:'center' }}><button onClick={()=>delItem(i)} title="Remover" style={{ border:'none', background:'transparent', color:'#c00', cursor:'pointer', fontSize:15 }}>×</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={addItem} style={{ border:'1px dashed #bbb', background:'transparent', padding:'5px 10px', borderRadius:6, cursor:'pointer', fontSize:12, marginBottom:14 }}>+ Adicionar item</button>
+
+          <div style={{ display:'flex', justifyContent:'flex-end', marginBottom:8 }}>
+            <div style={{ textAlign:'right', fontSize:13 }}>
+              <div style={{ color:'#666' }}>Subtotal: {brl(bruto)}</div>
+              <div style={{ color:'#666', display:'flex', gap:6, alignItems:'center', justifyContent:'flex-end', marginTop:2 }}>Desconto: <input value={desconto} onChange={e=>setDesconto(e.target.value)} style={{ width:90, textAlign:'right', border:'1px solid #ddd', borderRadius:4, padding:'2px 6px', font:'inherit' }}/></div>
+              <div style={{ fontWeight:800, fontSize:16, marginTop:5 }}>Total: {brl(total)}</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize:12, fontWeight:700, marginTop:14, marginBottom:4 }}>Observações</div>
+          <textarea value={obs} onChange={e=>setObs(e.target.value)} placeholder="Observações da proposta (clica e escreve)..." style={{ width:'100%', minHeight:60, border:'1px solid #eee', borderRadius:6, padding:8, font:'inherit', fontSize:12, resize:'vertical' }}/>
+
+          <div style={{ display:'flex', gap:32, marginTop:48 }}>
+            <div style={{ flex:1, borderTop:'.5px solid #111', paddingTop:6, fontSize:11 }}><b>Brava Company</b><br/>Jhonattan Itiuba</div>
+            <div style={{ flex:1, borderTop:'.5px solid #111', paddingTop:6, fontSize:11 }}><b>{clienteNome||'Cliente'}</b><br/>Aceite</div>
+          </div>
+        </div>
+        <div style={{ height:30 }}/>
+      </div>
+    </div>
+  );
+}
+
 const ORCAMENTOS_KEY = 'brava_orcamentos';
 function loadOrcamentos(){ try{ return JSON.parse(localStorage.getItem(ORCAMENTOS_KEY)||'[]'); }catch{ return []; } }
 function saveOrcamentos(l){ localStorage.setItem(ORCAMENTOS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_orcamentos_changed')); }
@@ -24711,6 +24882,7 @@ function OrcamentosAdmin() {
   const [orcs, setOrcs] = React.useState(loadOrcamentos);
   const [novo, setNovo] = React.useState(false);
   const [ver, setVer] = React.useState(null);
+  const [editor, setEditor] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setOrcs(loadOrcamentos()); window.addEventListener('brava_orcamentos_changed',h); return ()=>window.removeEventListener('brava_orcamentos_changed',h); },[]);
   const total = orcs.length;
   const enviados = orcs.filter(o=>o.status==='enviado').length;
@@ -24726,7 +24898,7 @@ function OrcamentosAdmin() {
           <div className="page-head__title">Orçamentos</div>
           <div className="page-head__sub">Administrativo · proposta comercial pronta para enviar, com a sua marca, em minutos.</div>
         </div>
-        <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
+        <div className="page-head__actions" style={{display:'flex', gap:8}}><button onClick={()=>setEditor({})} style={_fBtnGhost}>Editor A4</button><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
       </div>
       <div className="kpi-grid" style={{marginBottom:18}}>
         <KpiCard label="Orçamentos" value={String(total)} icon="FileText" cor="#1E90FF"/>
@@ -24749,6 +24921,7 @@ function OrcamentosAdmin() {
                 <option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option>
               </select>
               <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+                <button onClick={()=>setEditor(o)} style={_fBtnPrimary}>Editar em A4</button>
                 <button onClick={()=>setVer(o)} style={_fBtnGhost}>Ver / Imprimir</button>
                 <button onClick={()=>apagar(o.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
               </div>
@@ -24758,6 +24931,7 @@ function OrcamentosAdmin() {
       )}
       {novo && <NovoOrcamentoModal clientes={clientes} onClose={()=>setNovo(false)} onSalvar={criar}/>}
       {ver && <OrcamentoPrintModal orcamento={ver} onClose={()=>setVer(null)}/>}
+      {editor && <PropostaEditor orcamento={editor} onClose={()=>setEditor(null)}/>}
     </div>
   );
 }
