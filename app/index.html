@@ -1859,9 +1859,21 @@ a { color: inherit; text-decoration: none; }
   .onb-top{ padding-left:18px !important; padding-right:18px !important; }
   .bp-lockup__stage{ min-width:0 !important; }
   .bp-pal__hero{ grid-template-columns:1fr !important; }
+  /* Empilha os grids internos do onboarding no celular (antes ficavam apertados) */
+  .onb-grid-2,
+  .onb-qr,
+  .onb-ai,
+  .onb-tone,
+  .onb-roles,
+  .onb-team__row,
+  .onb-team__limit{ grid-template-columns:1fr !important; }
+  .onb-colors{ grid-template-columns:repeat(3,1fr) !important; }
+  .onb-qr__panel{ width:100% !important; max-width:280px; margin:0 auto; }
+  .onb-stage{ padding:24px 16px !important; }
 }
 @media (max-width: 520px){
   .onb-card{ padding:22px 14px 24px !important; }
+  .onb-colors{ grid-template-columns:repeat(2,1fr) !important; }
 }
 </style>
 </head>
