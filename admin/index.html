@@ -23723,6 +23723,8 @@ function AgendaEventoModal({ ev, onClose, gConectado, recarregarGoogle }) {
     cor:       ev.cor || 'roxo',
     descricao: ev.descricao || '',
     local:     ev.local || '',
+    convidados:(ev.convidados || []).join(', '),
+    criarMeet: false,
   });
   const set = (k,v) => setForm(f => ({...f, [k]:v}));
 
@@ -23739,6 +23741,9 @@ function AgendaEventoModal({ ev, onClose, gConectado, recarregarGoogle }) {
         const payload = form.diaTodo
           ? { action: ehGoogle?'update':'create', id: ev.gid, titulo: form.titulo, descricao: form.descricao, local: form.local, diaInteiro: true, inicio: form.data, fim: proxDia(form.data) }
           : { action: ehGoogle?'update':'create', id: ev.gid, titulo: form.titulo, descricao: form.descricao, local: form.local, diaInteiro: false, inicio: form.data+'T'+form.inicio+':00', fim: form.data+'T'+form.fim+':00', timeZone: tz };
+        const convs = String(form.convidados||'').split(/[,;\s]+/).map(s=>s.trim()).filter(s=>s.includes('@'));
+        if (convs.length) payload.convidados = convs;
+        if (form.criarMeet) payload.criarMeet = true;
         const { data } = await getSupa().functions.invoke('google-calendar', { body: payload });
         if (!data || !data.ok) { showToast?.('Erro ao salvar no Google', 'erro'); return; }
         showToast?.(novo ? 'Evento criado no Google' : 'Evento atualizado no Google', 'success');
@@ -23836,6 +23841,19 @@ function AgendaEventoModal({ ev, onClose, gConectado, recarregarGoogle }) {
             <SecaoLabel icon="MessageCircle">Descrição (opcional)</SecaoLabel>
             <textarea style={{...inp, minHeight:80, resize:'vertical', fontFamily:'inherit'}} value={form.descricao} onChange={e=>set('descricao', e.target.value)} placeholder="Notas, pauta, links..."/>
           </div>
+
+          <div style={{marginTop:18}}>
+            <SecaoLabel icon="UsersRound">Convidados (opcional)</SecaoLabel>
+            <input style={inp} value={form.convidados} onChange={e=>set('convidados', e.target.value)} placeholder="email1@dominio.com, email2@dominio.com"/>
+            <div style={{fontSize:11, color:'var(--t3)', marginTop:4}}>Separe por vírgula. Cada um recebe o convite por e-mail.</div>
+          </div>
+
+          <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', marginTop:14}}>
+            <input type="checkbox" checked={form.criarMeet} onChange={e=>set('criarMeet', e.target.checked)} style={{accentColor:'var(--blue)', width:16, height:16, cursor:'pointer'}}/>
+            <div style={{flex:1, fontSize:13, color:'var(--t1)'}}>Criar reunião no Google Meet <span style={{color:'var(--t3)', fontSize:11}}>(gera link de vídeo)</span></div>
+          </label>
+
+          {ev.meet && <a href={ev.meet} target="_blank" rel="noopener noreferrer" style={{display:'inline-block', marginTop:14, fontSize:13, color:'var(--blue)', textDecoration:'none', fontWeight:600}}>🎥 Entrar na reunião (Meet) ↗</a>}
         </div>
 
         {/* Footer */}
@@ -24161,7 +24179,7 @@ function Agenda() {
         const pad = n => String(n).padStart(2,'0');
         setGEvents((data.eventos||[]).map(e => {
           const di = new Date(e.inicio), df = new Date(e.fim || e.inicio);
-          return { id:'g_'+e.id, gid:e.id, fonte:'google', titulo:e.titulo, descricao:e.descricao||'', local:e.local||'', diaTodo:!!e.diaInteiro, cor:'azul', data:String(e.inicio||'').slice(0,10), inicio: e.diaInteiro?'00:00':(pad(di.getHours())+':'+pad(di.getMinutes())), fim: e.diaInteiro?'23:59':(pad(df.getHours())+':'+pad(df.getMinutes())) };
+          return { id:'g_'+e.id, gid:e.id, fonte:'google', titulo:e.titulo, descricao:e.descricao||'', local:e.local||'', diaTodo:!!e.diaInteiro, cor:'azul', data:String(e.inicio||'').slice(0,10), inicio: e.diaInteiro?'00:00':(pad(di.getHours())+':'+pad(di.getMinutes())), fim: e.diaInteiro?'23:59':(pad(df.getHours())+':'+pad(df.getMinutes())), convidados: e.convidados||[], meet: e.meet||'' };
         }));
       } else if (data && (data.error==='nao_conectado' || data.error==='sem_refresh')) { setGStatus('desconectado'); }
       else { setGStatus('erro'); }
