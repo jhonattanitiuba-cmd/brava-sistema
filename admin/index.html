@@ -2701,6 +2701,140 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
   );
 }
 
+/* ─── Gerar Onboarding (cria/vincula cliente + workspace + sublink) ─── */
+function _slugifyBrava(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+function GerarOnboardingModal({ clientes, onClose }) {
+  const [modoCliente, setModoCliente] = React.useState('existente'); // existente | novo
+  const [clienteId, setClienteId] = React.useState('');
+  const [clienteNome, setClienteNome] = React.useState('');
+  const [slug, setSlug] = React.useState('');
+  const [slugTocado, setSlugTocado] = React.useState(false);
+  const [plano, setPlano] = React.useState('performance');
+  const [modo, setModo] = React.useState('precriar'); // precriar | convite
+  const [gerando, setGerando] = React.useState(false);
+  const [resultado, setResultado] = React.useState(null);
+
+  const listaCli = (clientes || []).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+  const nomeBase = modoCliente === 'existente' ? (listaCli.find(c=>c.id===clienteId)?.nome || '') : clienteNome;
+  React.useEffect(() => { if (!slugTocado) setSlug(_slugifyBrava(nomeBase)); }, [nomeBase, slugTocado]);
+
+  const inp = { width:'100%', height:40, padding:'0 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t1)', fontSize:14, outline:'none' };
+  const lbl = { fontSize:11.5, color:'var(--t3)', marginBottom:5, display:'block' };
+
+  const gerar = async () => {
+    if (modoCliente === 'existente' && !clienteId) { showToast?.('Escolha um cliente', 'warn'); return; }
+    if (modoCliente === 'novo' && !clienteNome.trim()) { showToast?.('Informe o nome do cliente', 'warn'); return; }
+    const sl = _slugifyBrava(slug || nomeBase);
+    if (sl.length < 3) { showToast?.('O slug precisa ter ao menos 3 letras', 'warn'); return; }
+    setGerando(true);
+    const body = { modo, plano, slug: sl };
+    if (modoCliente === 'existente') body.cliente_id = clienteId; else body.cliente_nome = clienteNome.trim();
+    try {
+      const { data } = await getSupa().functions.invoke('gerar-onboarding', { body });
+      setGerando(false);
+      if (data && data.ok) { setResultado(data); showToast?.('Onboarding gerado', 'success'); window.dispatchEvent(new Event('brava:cliente_changed')); }
+      else if (data?.error === 'slug_em_uso') showToast?.('Esse slug já está em uso, escolha outro', 'erro');
+      else if (data?.error === 'slug_invalido') showToast?.('Slug inválido', 'erro');
+      else showToast?.('Não foi possível gerar o onboarding', 'erro');
+    } catch (_e) { setGerando(false); showToast?.('Erro ao gerar', 'erro'); }
+  };
+  const copiar = (txt) => { try { navigator.clipboard.writeText(txt); showToast?.('Copiado', 'success'); } catch {} };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:1001, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, width:'min(560px, 96vw)', maxHeight:'92vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        <div style={{padding:'14px 20px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+          <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', fontFamily:'var(--f-d)'}}>{resultado ? 'Onboarding gerado' : 'Gerar Onboarding'}</div>
+          <button onClick={onClose} style={{width:30, height:30, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {!resultado ? (
+          <div style={{padding:'16px 20px', display:'flex', flexDirection:'column', gap:14, overflow:'auto'}}>
+            <div>
+              <label style={lbl}>Cliente</label>
+              <div style={{display:'flex', gap:8, marginBottom:8}}>
+                {[['existente','Existente'],['novo','Novo']].map(([k,l]) => (
+                  <button key={k} onClick={()=>setModoCliente(k)} style={{flex:1, padding:'7px', borderRadius:7, fontSize:12.5, fontWeight:600, cursor:'pointer', background: modoCliente===k ? 'rgba(30,144,255,.15)' : 'transparent', color: modoCliente===k ? 'var(--blue)' : 'var(--t3)', border:`1px solid ${modoCliente===k ? 'var(--blue)' : 'var(--border)'}`}}>{l}</button>
+                ))}
+              </div>
+              {modoCliente === 'existente'
+                ? <select value={clienteId} onChange={e=>setClienteId(e.target.value)} style={{...inp, appearance:'auto'}}><option value="">Selecione…</option>{listaCli.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}</select>
+                : <input value={clienteNome} onChange={e=>setClienteNome(e.target.value)} placeholder="Nome do cliente" style={inp} autoFocus/>}
+            </div>
+
+            <div>
+              <label style={lbl}>Subdomínio (sublink)</label>
+              <div style={{display:'flex', alignItems:'center', gap:0, border:'1px solid var(--border)', borderRadius:8, background:'var(--bg-3)', overflow:'hidden'}}>
+                <input value={slug} onChange={e=>{ setSlugTocado(true); setSlug(_slugifyBrava(e.target.value)); }} placeholder="slug" style={{...inp, border:'none', borderRadius:0, flex:1}}/>
+                <span style={{padding:'0 12px', fontSize:13, color:'var(--t3)', whiteSpace:'nowrap'}}>.brava.software</span>
+              </div>
+            </div>
+
+            <div style={{display:'flex', gap:12}}>
+              <div style={{flex:1}}>
+                <label style={lbl}>Plano</label>
+                <select value={plano} onChange={e=>setPlano(e.target.value)} style={{...inp, appearance:'auto'}}>
+                  <option value="essencial">Essencial</option>
+                  <option value="performance">Performance</option>
+                  <option value="scale">Scale</option>
+                  <option value="enterprise">Enterprise</option>
+                </select>
+              </div>
+              <div style={{flex:1.3}}>
+                <label style={lbl}>Modo</label>
+                <div style={{display:'flex', gap:6}}>
+                  {[['precriar','Pré-criar agora'],['convite','Só link de convite']].map(([k,l]) => (
+                    <button key={k} onClick={()=>setModo(k)} title={k==='precriar'?'Cria o workspace já pronto':'Só gera o link, o cliente cria no wizard'} style={{flex:1, padding:'8px 6px', borderRadius:7, fontSize:11.5, fontWeight:600, cursor:'pointer', background: modo===k ? 'rgba(123,63,228,.15)' : 'transparent', color: modo===k ? '#9d6bff' : 'var(--t3)', border:`1px solid ${modo===k ? '#7B3FE4' : 'var(--border)'}`}}>{l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{fontSize:11.5, color:'var(--t3)', lineHeight:1.5, background:'var(--bg-3)', padding:'10px 12px', borderRadius:8}}>
+              {modo === 'precriar'
+                ? 'Pré-criar: o workspace é criado já pronto (status trial). Você vira owner pra configurar/impersonar; o cliente recebe o link e completa o cadastro dele.'
+                : 'Convite: nada é criado agora; o cliente abre o link, faz o cadastro e o wizard cria o workspace (fluxo atual).'}
+            </div>
+
+            <button onClick={gerar} disabled={gerando} className="btn btn-primary" style={{width:'100%', justifyContent:'center'}}>
+              {gerando ? 'Gerando…' : 'Gerar Onboarding'}
+            </button>
+          </div>
+        ) : (
+          <div style={{padding:'18px 20px', display:'flex', flexDirection:'column', gap:14, overflow:'auto'}}>
+            <div style={{fontSize:13, color:'var(--t2)'}}>Pronto para <strong style={{color:'var(--t1)'}}>{resultado.cliente_nome}</strong>{resultado.modo==='precriar' ? ' · workspace criado (trial)' : ' · link de convite'}.</div>
+
+            <div>
+              <label style={lbl}>Sublink (sistema do cliente)</label>
+              <div style={{display:'flex', gap:8}}>
+                <input readOnly value={resultado.sublink} style={inp} onFocus={e=>e.target.select()}/>
+                <button onClick={()=>copiar(resultado.sublink)} className="btn btn-outline" style={{flexShrink:0}}><Icon name="Copy" size={13}/>Copiar</button>
+              </div>
+            </div>
+
+            <div>
+              <label style={lbl}>Link de onboarding (enviar pro cliente)</label>
+              <div style={{display:'flex', gap:8}}>
+                <input readOnly value={resultado.onboarding_link} style={inp} onFocus={e=>e.target.select()}/>
+                <button onClick={()=>copiar(resultado.onboarding_link)} className="btn btn-outline" style={{flexShrink:0}}><Icon name="Copy" size={13}/>Copiar</button>
+              </div>
+              <a href={'https://wa.me/?text=' + encodeURIComponent('Olá! Seu acesso à plataforma está pronto. Para começar, acesse: ' + resultado.onboarding_link)} target="_blank" rel="noopener noreferrer" style={{display:'inline-flex', alignItems:'center', gap:6, marginTop:8, fontSize:13, color:'#1D9E75', fontWeight:600, textDecoration:'none'}}><Icon name="WhatsApp" size={14}/>Enviar no WhatsApp</a>
+            </div>
+
+            <div style={{display:'flex', gap:10, justifyContent:'flex-end', paddingTop:6, borderTop:'1px solid var(--border-soft)'}}>
+              <button onClick={()=>{ setResultado(null); setSlugTocado(false); }} className="btn btn-ghost">Gerar outro</button>
+              <button onClick={onClose} className="btn btn-primary">Concluir</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Acesso Rápido aos sistemas dos clientes (plug and play, data-driven) ─── */
 function AcessoRapidoSistemas({ clientes, setEditandoCliente }) {
   const todos = clientes || [];
@@ -2710,6 +2844,7 @@ function AcessoRapidoSistemas({ clientes, setEditandoCliente }) {
   const [buscaVinc, setBuscaVinc] = React.useState('');
   const [integrando, setIntegrando] = React.useState(null);
   const [urlTmp, setUrlTmp] = React.useState('');
+  const [gerarAberto, setGerarAberto] = React.useState(false);
 
   const atualizar = async (id, patch) => {
     const cli = (typeof getSupa === 'function') ? getSupa() : null; if (!cli) return;
@@ -2734,8 +2869,12 @@ function AcessoRapidoSistemas({ clientes, setEditandoCliente }) {
     <div className="card">
       <div className="card__head">
         <div className="card__title">Acesso Rápido aos sistemas</div>
-        <button onClick={()=>setVincularAberto(v=>!v)} className="card__action" style={{display:'inline-flex', alignItems:'center', gap:4}}><Icon name="Plus" size={12}/>Vincular</button>
+        <div style={{display:'flex', alignItems:'center', gap:8}}>
+          <button onClick={()=>setGerarAberto(true)} className="card__action" style={{display:'inline-flex', alignItems:'center', gap:4}}><Icon name="Sparkles" size={12}/>Gerar Onboarding</button>
+          <button onClick={()=>setVincularAberto(v=>!v)} className="card__action" style={{display:'inline-flex', alignItems:'center', gap:4}}><Icon name="Plus" size={12}/>Vincular</button>
+        </div>
       </div>
+      {gerarAberto && <GerarOnboardingModal clientes={todos} onClose={()=>setGerarAberto(false)}/>}
 
       {vincularAberto && (
         <div style={{padding:'10px 12px', border:'1px solid var(--border)', borderRadius:10, marginBottom:10, background:'var(--bg-3)'}}>
