@@ -24459,9 +24459,55 @@ function NovoContratoModal({ clientes, onClose, onSalvar }) {
     </_FModal>
   );
 }
+// ── Gerador de PDF no padrão de marca Brava (Montserrat, preto, linhas finas) ──
+// Plug and play: 1 clique gera o documento já no padrão aprovado.
+// Usado por Contrato, Orçamento/Proposta e Ata.
+function _pdfEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function bravaPrintDoc({ titulo, label, bodyHTML }) {
+  const w = window.open('', '_blank');
+  if (!w) { try{ showToast('Permita pop-ups para gerar o PDF.','erro'); }catch(e){} return; }
+  const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
+    + "*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
+    + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10.5pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
+    + ".bd{max-width:780px;margin:0 auto;padding:20mm 18mm}"
+    + ".bd-hd{display:flex;align-items:center;justify-content:space-between;border-bottom:.5px solid #ccc;padding-bottom:10px;margin-bottom:4px}"
+    + ".bd-hd .bm{font-weight:800;font-size:15pt;letter-spacing:1px}"
+    + ".bd-hd .bl{font-size:7.5pt;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#888;text-align:right}"
+    + "h1{font-size:18pt;font-weight:800;margin:14px 0 2px}.sub{color:#666;font-size:9pt;margin:0 0 14px}"
+    + "h2{font-size:12pt;font-weight:700;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc}"
+    + "p{margin:5px 0}b{font-weight:700}"
+    + "table{border-collapse:collapse;width:100%;margin:8px 0}"
+    + "th,td{border:1px solid #ddd;padding:6px 8px;font-size:9.5pt;text-align:left;vertical-align:top}"
+    + "th{background:#000;color:#fff;font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.4px}"
+    + "tr:nth-child(even) td{background:#f7f7f7}.num{text-align:right;white-space:nowrap}.ctr{text-align:center}"
+    + ".box{background:#000;color:#fff;padding:12px 16px;margin:10px 0;display:flex;justify-content:space-between;align-items:center}"
+    + ".box .bl2{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#888}.box .bv{font-size:18pt;font-weight:800}"
+    + ".sign{display:flex;gap:32px;margin-top:26mm}.sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}"
+    + ".sn{font-weight:700}.sr{color:#555}"
+    + ".bd-ft{margin-top:26px;border-top:.5px solid #ccc;padding-top:8px;font-size:7.5pt;color:#888;text-align:center}"
+    + "@media print{.bd{padding:14mm 16mm}}";
+  const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc(titulo)+'</title><style>'+css+'</style></head><body><div class="bd">'
+    + '<div class="bd-hd"><span class="bm">BRAVA</span><span class="bl">'+_pdfEsc(label)+'</span></div>'
+    + bodyHTML
+    + '<div class="bd-ft">Brava Company LTDA &copy; 2026 - Todos os direitos reservados &middot; brava.software</div>'
+    + '</div></body></html>';
+  w.document.write(html); w.document.close(); w.focus();
+  setTimeout(function(){ try{ w.print(); }catch(e){} }, 400);
+}
+
 function ContratoPrintModal({ contrato, onClose }) {
   const t = CONTRATO_TEMPLATES.find(x=>x.id===contrato.templateId) || {};
-  const imprimir = ()=>{ const el=document.getElementById('contrato-print'); const w=window.open('','_blank'); if(!w)return; w.document.write('<html><head><title>Contrato — '+(contrato.cliente||'')+'</title><style>body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px;line-height:1.6}</style></head><body>'+el.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); };
+  const imprimir = ()=>{
+    const e=_pdfEsc;
+    let body = '<h1>Contrato de Prestação de Serviços</h1>'
+      + '<div class="sub">'+e(t.nome||'')+' &middot; Brava Company LTDA &middot; CNPJ 34.454.770/0001-26</div>'
+      + '<p><b>Contratante:</b> '+e(contrato.cliente||'')+'</p>'
+      + '<p><b>Objeto:</b> '+e(t.resumo||'')+'</p>';
+    if(contrato.valor) body += '<div class="box"><div><div class="bl2">Valor do contrato</div><div class="bv">R$ '+Number(contrato.valor).toLocaleString('pt-BR')+'</div></div></div>';
+    body += '<p style="color:#888;font-style:italic">[Cláusulas completas do modelo "'+e(t.nome||'')+'" a serem inseridas. O texto jurídico real por vertical será fornecido pela Brava.]</p>'
+      + '<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">Jhonattan Itiuba</div></div><div><div class="sn">'+e(contrato.cliente||'Contratante')+'</div><div class="sr">Representante legal</div></div></div>';
+    bravaPrintDoc({ titulo:'Contrato - '+(contrato.cliente||''), label:'Contrato · '+(contrato.cliente||''), bodyHTML: body });
+  };
   return (
     <_FModal title="Contrato" onClose={onClose} wide>
       <div id="contrato-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
@@ -24752,7 +24798,20 @@ function NovoOrcamentoModal({ clientes, onClose, onSalvar }) {
 function OrcamentoPrintModal({ orcamento, onClose }) {
   const o = orcamento; const total = orcTotal(o);
   const bruto = (o.itens||[]).reduce((s,i)=>s+(Number(i.qtd||0)*Number(i.valorUnit||0)),0);
-  const imprimir = ()=>{ const el=document.getElementById('orc-print'); const w=window.open('','_blank'); if(!w)return; w.document.write('<html><head><title>Proposta — '+(o.cliente||'')+'</title><style>body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px;line-height:1.6}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #ddd;font-size:13px}th{color:#666;font-weight:600}</style></head><body>'+el.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); };
+  const imprimir = ()=>{
+    const e=_pdfEsc; const data=new Date(o.criadoEm).toLocaleDateString('pt-BR');
+    let body = '<h1>Proposta Comercial</h1>'
+      + '<div class="sub">'+e(o.cliente||'')+' &middot; '+e(data)+(o.validade?(' &middot; Validade: '+e(o.validade)):'')+'</div>'
+      + '<div class="box"><div><div class="bl2">Valor total</div><div class="bv">'+_orcBRL(total)+'</div></div></div>'
+      + '<table><tr><th>Descrição</th><th class="ctr">Qtd</th><th class="num">Valor unit.</th><th class="num">Subtotal</th></tr>';
+    (o.itens||[]).forEach(function(i){ body += '<tr><td>'+e(i.descricao)+'</td><td class="ctr">'+e(i.qtd)+'</td><td class="num">'+_orcBRL(i.valorUnit)+'</td><td class="num">'+_orcBRL(Number(i.qtd)*Number(i.valorUnit))+'</td></tr>'; });
+    body += '</table><table><tr><td class="num">Subtotal</td><td class="num">'+_orcBRL(bruto)+'</td></tr>';
+    if(Number(o.desconto)>0) body += '<tr><td class="num">Desconto</td><td class="num">- '+_orcBRL(o.desconto)+'</td></tr>';
+    body += '<tr><td class="num"><b>Total</b></td><td class="num"><b>'+_orcBRL(total)+'</b></td></tr></table>';
+    if(o.observacoes) body += '<h2>Observações</h2><p>'+e(o.observacoes)+'</p>';
+    body += '<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">Jhonattan Itiuba</div></div><div><div class="sn">'+e(o.cliente||'Cliente')+'</div><div class="sr">Aceite</div></div></div>';
+    bravaPrintDoc({ titulo:'Proposta - '+(o.cliente||''), label:'Proposta Comercial · '+(o.cliente||'')+' · '+data, bodyHTML: body });
+  };
   return (
     <_FModal title="Proposta comercial" onClose={onClose} wide>
       <div id="orc-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
@@ -24893,7 +24952,17 @@ function NovaAtaModal({ clientes, onClose, onSalvar }) {
 }
 function AtaPrintModal({ ata, onClose }) {
   const a = ata;
-  const imprimir = ()=>{ const el=document.getElementById('ata-print'); const w=window.open('','_blank'); if(!w)return; w.document.write('<html><head><title>Ata — '+(a.titulo||'')+'</title><style>body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px;line-height:1.6}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #ddd;font-size:13px}th{color:#666;font-weight:600}</style></head><body>'+el.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); };
+  const imprimir = ()=>{
+    const e=_pdfEsc; const data=a.data||new Date(a.criadoEm).toLocaleDateString('pt-BR');
+    let body = '<h1>'+e(a.titulo||'Ata de Reunião')+'</h1>'
+      + '<div class="sub">'+e(a.cliente||'Interno')+' &middot; '+e(data)+'</div>';
+    if(a.participantes) body += '<p><b>Participantes:</b> '+e(a.participantes)+'</p>';
+    if(a.pauta) body += '<h2>Pauta</h2><p style="white-space:pre-wrap">'+e(a.pauta)+'</p>';
+    if(a.decisoes) body += '<h2>Decisões</h2><p style="white-space:pre-wrap">'+e(a.decisoes)+'</p>';
+    if((a.proximosPassos||[]).length){ body += '<h2>Próximos Passos</h2><table><tr><th>Tarefa</th><th>Responsável</th><th>Prazo</th></tr>'; a.proximosPassos.forEach(function(p){ body += '<tr><td>'+e(p.tarefa)+'</td><td>'+e(p.responsavel||'-')+'</td><td>'+e(p.prazo||'-')+'</td></tr>'; }); body += '</table>'; }
+    body += '<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">Jhonattan Itiuba</div></div><div><div class="sn">'+e(a.cliente||'Participante')+'</div><div class="sr">Ciente</div></div></div>';
+    bravaPrintDoc({ titulo:'Ata - '+(a.titulo||''), label:'Ata de Reunião · '+(a.cliente||'Interno')+' · '+data, bodyHTML: body });
+  };
   return (
     <_FModal title="Ata de reunião" onClose={onClose} wide>
       <div id="ata-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
