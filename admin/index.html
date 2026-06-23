@@ -235,6 +235,9 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
   display:flex;align-items:center;justify-content:center;
 }
 .nav-divider{height:1px;background:#1F1F2A;margin:8px 10px;}
+.nav-group{font-family:var(--f-m);font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--t3);opacity:.65;padding:13px 12px 5px;}
+.nav-soon{opacity:.6;}
+.nav-soon-tag{margin-left:auto;font-family:var(--f-m);font-size:8px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#BA7517;background:rgba(186,117,23,.14);border-radius:999px;padding:2px 7px;}
 .nav-item.danger:hover{background:rgba(163,45,45,.18);color:#fca5a5;}
 
 /* ─── Header ─── */
@@ -777,19 +780,23 @@ function useCount(target, duration = 1200, delay = 0) {
 
 /* ─── Nav items ─── */
 const NAV = [
-  { key:'dashboard',  label:'Dashboard',   icon:'LayoutDashboard', badge:null },
-  { key:'clientes',   label:'WhatsApp',    icon:'WhatsApp',        badge:23 },
-  { key:'pipeline',   label:'Pipeline',    icon:'KanbanSquare',    badge:5 },
-  { key:'clientes_crm', label:'Clientes',  icon:'UsersRound',      badge:null },
-  { key:'projetos',   label:'Projetos',    icon:'Layers',          badge:null },
-  { key:'agenda',     label:'Agenda',      icon:'CalendarCheck',   badge:null },
-  { key:'mrr',        label:'Financeiro',  icon:'DollarSign',      badge:null },
-  { key:'analytics',  label:'Analytics',   icon:'BarChart3',       badge:null },
-  { key:'onboarding', label:'Novos cadastros', icon:'UserPlus',    badge:null },
-  { key:'chamados',   label:'Chamados',    icon:'LifeBuoy',        badge:3 },
-  { key:'equipe',     label:'Equipe',      icon:'UsersRound',      badge:null },
-  { key:'etiquetas',  label:'Etiquetas',   icon:'Tag',             badge:null },
-  { key:'logs',       label:'Logs',        icon:'ScrollText',      badge:null },
+  { key:'dashboard',    label:'Dashboard',       icon:'LayoutDashboard', grupo:'', badge:null },
+  { key:'clientes',     label:'WhatsApp',        icon:'WhatsApp',        grupo:'Comercial', badge:23 },
+  { key:'clientes_crm', label:'Clientes',        icon:'UsersRound',      grupo:'Comercial', badge:null },
+  { key:'pipeline',     label:'Pipeline',        icon:'KanbanSquare',    grupo:'Comercial', badge:5 },
+  { key:'onboarding',   label:'Novos cadastros', icon:'UserPlus',        grupo:'Comercial', badge:null },
+  { key:'agenda',       label:'Agenda',          icon:'CalendarCheck',   grupo:'Administrativo', badge:null },
+  { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
+  { key:'projetos',     label:'Projetos',        icon:'Layers',          grupo:'Operações', badge:null },
+  { key:'equipe',       label:'Equipe',          icon:'UsersRound',      grupo:'Operações', badge:null },
+  { key:'etiquetas',    label:'Etiquetas',       icon:'Tag',             grupo:'Operações', badge:null },
+  { key:'trafego',      label:'Campanhas',       icon:'TrendingUp',      grupo:'Tráfego', badge:null },
+  { key:'marketing',    label:'Marketing',       icon:'Lightbulb',       grupo:'Marketing', badge:null, soon:true },
+  { key:'mrr',          label:'Financeiro',      icon:'DollarSign',      grupo:'Financeiro', badge:null },
+  { key:'analytics',    label:'Analytics',       icon:'BarChart3',       grupo:'Tecnologia', badge:null },
+  { key:'chamados',     label:'Suporte',         icon:'LifeBuoy',        grupo:'Tecnologia', badge:3 },
+  { key:'logs',         label:'Atualizações',    icon:'ScrollText',      grupo:'Tecnologia', badge:null },
+  { key:'sobre',        label:'Sobre a Brava',   icon:'Sparkles',        grupo:'Tecnologia', badge:null },
 ];
 const NAV_BOTTOM = [
   { key:'config',     label:'Configurações', icon:'Settings',      badge:null },
@@ -867,19 +874,25 @@ function Sidebar({ page, setPage, collapsed, setCollapsed }) {
       </div>
 
       <nav className="sidebar__nav">
-        {NAV.map(n => {
+        {(() => { let _g = null; return NAV.map(n => {
           const isWA = n.key === 'clientes';
           // badge real: total de nao-lidas do WhatsApp quando Evolution configurada;
           // senao usa o badge mock pra outras abas
           const realBadge = isWA ? <SidebarUnreadBadge fallback={n.badge}/> : (n.badge ? <span className="nav-badge">{n.badge}</span> : null);
+          const header = (n.grupo && n.grupo !== _g) ? <div className="nav-group" key={'g_'+n.grupo}>{n.grupo}</div> : null;
+          if (n.grupo) _g = n.grupo;
           return (
-            <div key={n.key} className={`nav-item${page === n.key ? ' active' : ''}`} onClick={() => go(n.key)}>
-              <Icon name={n.icon} size={16} />
-              {n.label}
-              {realBadge}
-            </div>
+            <React.Fragment key={n.key}>
+              {header}
+              <div className={`nav-item${page === n.key ? ' active' : ''}${n.soon ? ' nav-soon' : ''}`} onClick={() => go(n.key)}>
+                <Icon name={n.icon} size={16} />
+                {n.label}
+                {n.soon && <span className="nav-soon-tag">em breve</span>}
+                {realBadge}
+              </div>
+            </React.Fragment>
           );
-        })}
+        }); })()}
 
         <div className="nav-divider" />
 
@@ -24333,6 +24346,292 @@ function useSyncEvoConfig() {
   }, [instances, activeId, loading]);
 }
 
+// ═══════════════════ Frentes novas: Jurídico, Tráfego, Sobre a Brava ═══════════════════
+const _fBtnPrimary = { height:38, padding:'0 16px', borderRadius:8, background:'#1E90FF', color:'#fff', border:'none', fontSize:13.5, fontWeight:600, cursor:'pointer' };
+const _fBtnGhost = { height:34, padding:'0 12px', borderRadius:8, background:'transparent', color:'var(--t2)', border:'1px solid var(--border)', fontSize:13, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6 };
+const _fSel = { width:'100%', height:40, padding:'0 12px', borderRadius:8, background:'var(--bg-2)', color:'var(--t1)', border:'1px solid var(--border)', fontSize:14, fontFamily:'var(--f-b)', boxSizing:'border-box' };
+const _fInp = { width:'100%', height:40, padding:'0 12px', borderRadius:8, background:'var(--bg-2)', color:'var(--t1)', border:'1px solid var(--border)', fontSize:14, fontFamily:'var(--f-b)', boxSizing:'border-box' };
+function _FCampo({ label, children }) {
+  return <div style={{marginBottom:12}}><div style={{fontSize:12, color:'var(--t3)', marginBottom:5}}>{label}</div>{children}</div>;
+}
+function _FModal({ title, onClose, wide, children }) {
+  return (
+    <div onClick={e=>{ if(e.target===e.currentTarget) onClose(); }} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.6)', backdropFilter:'blur(4px)', zIndex:10000, display:'flex', alignItems:'center', justifyContent:'center', padding:16}}>
+      <div style={{background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, padding:22, width: wide?'min(720px,95vw)':'min(460px,95vw)', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 24px 60px rgba(0,0,0,.5)'}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16}}>
+          <div style={{fontFamily:'var(--f-d)', fontSize:17, fontWeight:600, color:'var(--t1)'}}>{title}</div>
+          <button onClick={onClose} style={{background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', fontSize:22, lineHeight:1}}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ── Jurídico: Contratos ──────────────────────────────────────────────
+const CONTRATO_TEMPLATES = [
+  { id:'software',    nome:'Software / SaaS', resumo:'Licença de uso da plataforma, mensalidade, SLA de disponibilidade e proteção de dados (LGPD).' },
+  { id:'audiovisual', nome:'Audiovisual',     resumo:'Produção audiovisual, direitos de imagem e uso, entregáveis e cronograma de execução.' },
+  { id:'consultoria', nome:'Consultoria',     resumo:'Prestação de serviços de consultoria, escopo, honorários, confidencialidade e prazos.' },
+];
+const CONTRATOS_KEY = 'brava_contratos';
+function loadContratos(){ try{ return JSON.parse(localStorage.getItem(CONTRATOS_KEY)||'[]'); }catch{ return []; } }
+function saveContratos(l){ localStorage.setItem(CONTRATOS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_contratos_changed')); }
+
+function ContratosJuridico() {
+  const { list: clientes } = useClientes();
+  const [contratos, setContratos] = React.useState(loadContratos);
+  const [novo, setNovo] = React.useState(false);
+  const [ver, setVer] = React.useState(null);
+  React.useEffect(()=>{ const h=()=>setContratos(loadContratos()); window.addEventListener('brava_contratos_changed',h); return ()=>window.removeEventListener('brava_contratos_changed',h); },[]);
+  const total = contratos.length;
+  const rascunhos = contratos.filter(c=>c.status==='rascunho').length;
+  const assinados = contratos.filter(c=>c.status==='assinado').length;
+  const criar = (d)=>{ const c={ id:'ct_'+Date.now(), criadoEm:new Date().toISOString(), status:'rascunho', ...d }; const l=[c,...contratos]; saveContratos(l); setContratos(l); setNovo(false); showToast('Contrato criado.','success'); };
+  const mudar = (id,status)=>{ const l=contratos.map(c=>c.id===id?{...c,status}:c); saveContratos(l); setContratos(l); };
+  const apagar = (id)=>{ if(!confirm('Apagar contrato?'))return; const l=contratos.filter(c=>c.id!==id); saveContratos(l); setContratos(l); };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Contratos</div>
+          <div className="page-head__sub">Jurídico · modelos por vertical, emissão e status. A venda fechada já nasce protegida.</div>
+        </div>
+        <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo contrato</button></div>
+      </div>
+      <div className="kpi-grid" style={{marginBottom:18}}>
+        <KpiCard label="Contratos" value={String(total)} icon="FileText" cor="#1E90FF"/>
+        <KpiCard label="Rascunhos" value={String(rascunhos)} icon="Pencil" cor="#BA7517"/>
+        <KpiCard label="Assinados" value={String(assinados)} icon="CheckCircle2" cor="#1D9E75"/>
+      </div>
+      {total===0 ? (
+        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhum contrato ainda. Clique em "Novo contrato" para emitir o primeiro.</div>
+      ) : (
+        <div style={{display:'grid', gap:8}}>
+          {contratos.map(c=>(
+            <div key={c.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 150px 150px auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
+              <div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{c.cliente||'Cliente'}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{c.templateNome}{c.valor?(' · R$ '+Number(c.valor).toLocaleString('pt-BR')):''}</div>
+              </div>
+              <div style={{fontSize:12.5, color:'var(--t2)'}}>{new Date(c.criadoEm).toLocaleDateString('pt-BR')}</div>
+              <select value={c.status} onChange={e=>mudar(c.id,e.target.value)} style={{..._fSel, height:34, fontSize:13}}>
+                <option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="assinado">Assinado</option>
+              </select>
+              <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+                <button onClick={()=>setVer(c)} style={_fBtnGhost}>Ver / Imprimir</button>
+                <button onClick={()=>apagar(c.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {novo && <NovoContratoModal clientes={clientes} onClose={()=>setNovo(false)} onSalvar={criar}/>}
+      {ver && <ContratoPrintModal contrato={ver} onClose={()=>setVer(null)}/>}
+    </div>
+  );
+}
+function NovoContratoModal({ clientes, onClose, onSalvar }) {
+  const [cliente, setCliente] = React.useState('');
+  const [tpl, setTpl] = React.useState(CONTRATO_TEMPLATES[0].id);
+  const [valor, setValor] = React.useState('');
+  const salvar = ()=>{ if(!cliente){ showToast('Selecione o cliente.','erro'); return; } const t=CONTRATO_TEMPLATES.find(x=>x.id===tpl); onSalvar({ cliente, templateId:tpl, templateNome:t.nome, valor }); };
+  return (
+    <_FModal title="Novo contrato" onClose={onClose}>
+      <_FCampo label="Cliente">
+        <select value={cliente} onChange={e=>setCliente(e.target.value)} style={_fSel}>
+          <option value="">Selecione…</option>
+          {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+        </select>
+      </_FCampo>
+      <_FCampo label="Modelo por vertical">
+        <select value={tpl} onChange={e=>setTpl(e.target.value)} style={_fSel}>
+          {CONTRATO_TEMPLATES.map(t=><option key={t.id} value={t.id}>{t.nome}</option>)}
+        </select>
+      </_FCampo>
+      <_FCampo label="Valor (R$, opcional)"><input value={valor} onChange={e=>setValor(e.target.value.replace(/[^\d]/g,''))} placeholder="0" style={_fInp}/></_FCampo>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:8}}>
+        <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
+        <button onClick={salvar} style={_fBtnPrimary}>Criar contrato</button>
+      </div>
+    </_FModal>
+  );
+}
+function ContratoPrintModal({ contrato, onClose }) {
+  const t = CONTRATO_TEMPLATES.find(x=>x.id===contrato.templateId) || {};
+  const imprimir = ()=>{ const el=document.getElementById('contrato-print'); const w=window.open('','_blank'); if(!w)return; w.document.write('<html><head><title>Contrato — '+(contrato.cliente||'')+'</title><style>body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px;line-height:1.6}</style></head><body>'+el.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); };
+  return (
+    <_FModal title="Contrato" onClose={onClose} wide>
+      <div id="contrato-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
+        <h2 style={{margin:'0 0 4px'}}>Contrato de Prestação de Serviços — {t.nome}</h2>
+        <div style={{fontSize:12, color:'#666', marginBottom:18}}>Brava Company S.A. · CNPJ 34.454.770/0001-26</div>
+        <p><b>Contratante:</b> {contrato.cliente}</p>
+        <p><b>Objeto:</b> {t.resumo}</p>
+        {contrato.valor ? <p><b>Valor:</b> R$ {Number(contrato.valor).toLocaleString('pt-BR')}</p> : null}
+        <p style={{marginTop:16, color:'#999', fontStyle:'italic'}}>[Cláusulas completas do modelo "{t.nome}" a serem inseridas. O texto jurídico real por vertical será fornecido pela Brava.]</p>
+        <div style={{marginTop:48, display:'flex', justifyContent:'space-between', gap:24}}>
+          <div style={{flex:1, borderTop:'1px solid #111', paddingTop:6}}>Brava Company</div>
+          <div style={{flex:1, borderTop:'1px solid #111', paddingTop:6}}>{contrato.cliente}</div>
+        </div>
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
+        <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
+        <button onClick={imprimir} style={_fBtnPrimary}>Imprimir / PDF</button>
+      </div>
+    </_FModal>
+  );
+}
+
+// ── Tráfego: Campanhas & Atribuição ──────────────────────────────────
+const CAMPANHAS_KEY = 'brava_campanhas';
+function loadCampanhas(){ try{ return JSON.parse(localStorage.getItem(CAMPANHAS_KEY)||'[]'); }catch{ return []; } }
+function saveCampanhas(l){ localStorage.setItem(CAMPANHAS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_campanhas_changed')); }
+function TrafegoCampanhas() {
+  const [camps, setCamps] = React.useState(loadCampanhas);
+  const [novo, setNovo] = React.useState(false);
+  React.useEffect(()=>{ const h=()=>setCamps(loadCampanhas()); window.addEventListener('brava_campanhas_changed',h); return ()=>window.removeEventListener('brava_campanhas_changed',h); },[]);
+  const fmt = (n)=>'R$ '+(Math.round(n||0)).toLocaleString('pt-BR');
+  const investido = camps.reduce((s,c)=>s+Number(c.investido||0),0);
+  const leads = camps.reduce((s,c)=>s+Number(c.leads||0),0);
+  const conv = camps.reduce((s,c)=>s+Number(c.conversoes||0),0);
+  const cpl = leads ? investido/leads : 0;
+  const taxa = leads ? conv/leads*100 : 0;
+  const criar = (d)=>{ const c={ id:'cp_'+Date.now(), ...d }; const l=[c,...camps]; saveCampanhas(l); setCamps(l); setNovo(false); showToast('Campanha criada.','success'); };
+  const apagar = (id)=>{ const l=camps.filter(c=>c.id!==id); saveCampanhas(l); setCamps(l); };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Campanhas</div>
+          <div className="page-head__sub">Tráfego · cada real investido vira lead rastreável dentro da plataforma.</div>
+        </div>
+        <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Nova campanha</button></div>
+      </div>
+      <div className="kpi-grid" style={{marginBottom:18}}>
+        <KpiCard label="Investido" value={fmt(investido)} icon="Wallet" cor="#1E90FF"/>
+        <KpiCard label="Leads" value={String(leads)} icon="UserPlus" cor="#7B3FE4"/>
+        <KpiCard label="Custo por lead" value={fmt(cpl)} icon="TrendingUp" cor="#BA7517"/>
+        <KpiCard label="Conversão" value={taxa.toFixed(0)+'%'} icon="CheckCircle2" cor="#1D9E75"/>
+      </div>
+      {camps.length===0 ? (
+        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhuma campanha ainda. Cadastre a primeira para rastrear origem, leads e custo por lead.</div>
+      ) : (
+        <div style={{display:'grid', gap:8}}>
+          {camps.map(c=>{ const cplC = c.leads ? Number(c.investido)/Number(c.leads) : 0; return (
+            <div key={c.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr 1fr auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
+              <div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{c.nome}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{c.canal}{c.cliente?(' · '+c.cliente):''}</div>
+              </div>
+              <div style={{fontSize:13}}><span style={{color:'var(--t3)'}}>Invest. </span>{fmt(c.investido)}</div>
+              <div style={{fontSize:13}}><span style={{color:'var(--t3)'}}>Leads </span>{c.leads||0}</div>
+              <div style={{fontSize:13}}><span style={{color:'var(--t3)'}}>CPL </span>{fmt(cplC)}</div>
+              <button onClick={()=>apagar(c.id)} style={{..._fBtnGhost, color:'#E5544D', justifySelf:'end'}}><Icon name="Trash2" size={14}/></button>
+            </div>
+          ); })}
+        </div>
+      )}
+      {novo && <NovaCampanhaModal onClose={()=>setNovo(false)} onSalvar={criar}/>}
+    </div>
+  );
+}
+function NovaCampanhaModal({ onClose, onSalvar }) {
+  const [f, setF] = React.useState({ nome:'', canal:'Meta Ads', cliente:'', investido:'', leads:'', conversoes:'' });
+  const up = (k,v)=>setF(s=>({...s,[k]:v}));
+  const salvar = ()=>{ if(!f.nome){ showToast('Dê um nome à campanha.','erro'); return; } onSalvar(f); };
+  return (
+    <_FModal title="Nova campanha" onClose={onClose}>
+      <_FCampo label="Nome"><input value={f.nome} onChange={e=>up('nome',e.target.value)} style={_fInp}/></_FCampo>
+      <_FCampo label="Canal">
+        <select value={f.canal} onChange={e=>up('canal',e.target.value)} style={_fSel}>
+          <option>Meta Ads</option><option>Google Ads</option><option>TikTok Ads</option><option>Outro</option>
+        </select>
+      </_FCampo>
+      <_FCampo label="Cliente (opcional)"><input value={f.cliente} onChange={e=>up('cliente',e.target.value)} style={_fInp}/></_FCampo>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10}}>
+        <_FCampo label="Investido (R$)"><input value={f.investido} onChange={e=>up('investido',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+        <_FCampo label="Leads"><input value={f.leads} onChange={e=>up('leads',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+        <_FCampo label="Conversões"><input value={f.conversoes} onChange={e=>up('conversoes',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:10}}>
+        <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
+        <button onClick={salvar} style={_fBtnPrimary}>Criar</button>
+      </div>
+    </_FModal>
+  );
+}
+
+// ── Tecnologia: Sobre a Brava (prova social / dogfooding) ─────────────
+function SobreBrava() {
+  const { list: clientesMestre } = useClientes();
+  const recorrencia = useRecorrencia();
+  const { instances } = useWaInstances();
+  const stats = useSupaGlobalStats();
+  const ativos = (clientesMestre||[]).filter(c=>c.status==='ativo').length;
+  const mrr = (recorrencia||[]).filter(r=>r.status_fase==='ativo').reduce((s,r)=>s+(r.mensal||0),0);
+  const instCount = (instances||[]).length;
+  const fmtBRL = (n)=>'R$ '+(n||0).toLocaleString('pt-BR');
+  const frentes = [['Comercial','ok'],['Administrativo','ok'],['Jurídico','ok'],['Operações','ok'],['Tráfego','ok'],['Marketing','soon'],['Financeiro','ok'],['Tecnologia','ok']];
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Sobre a Brava</div>
+          <div className="page-head__sub">A Brava roda a própria operação aqui dentro. Esta é a prova.</div>
+        </div>
+      </div>
+      <div className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:24, alignItems:'center', marginBottom:18}}>
+        <div>
+          <div style={{fontFamily:'var(--f-m)', fontSize:11, letterSpacing:'.12em', textTransform:'uppercase', color:'#1E90FF', marginBottom:10}}>Brava Software · Braço de tecnologia B2B</div>
+          <div style={{fontFamily:'var(--f-d)', fontSize:'clamp(20px,2.4vw,28px)', fontWeight:700, letterSpacing:'-.02em', lineHeight:1.2, marginBottom:10, color:'var(--t1)'}}>A operação inteira da empresa, num só lugar.</div>
+          <p style={{color:'var(--t2)', fontSize:14, lineHeight:1.6, margin:0, maxWidth:560}}>Uma plataforma que reúne comercial, administrativo, jurídico, operações, tráfego, marketing, financeiro e tecnologia, com engenharia de dados e inteligência artificial. A informação entra organizada e segura, a um toque de distância pelo Copilot no WhatsApp.</p>
+        </div>
+        <div style={{display:'flex', justifyContent:'center'}}>
+          <img src="/admin/app/brava-logo-white.png" alt="Brava" style={{height:44, objectFit:'contain', opacity:.95}} onError={e=>{e.currentTarget.style.display='none';}}/>
+        </div>
+      </div>
+      <div style={{fontFamily:'var(--f-m)', fontSize:11, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--t3)', margin:'6px 2px 10px'}}>Nossa operação, em tempo real</div>
+      <div className="kpi-grid" style={{marginBottom:18}}>
+        <KpiCard label="Clientes ativos" value={String(ativos)} icon="UsersRound" cor="#1E90FF"/>
+        <KpiCard label="Receita recorrente" value={fmtBRL(mrr)} icon="DollarSign" cor="#1D9E75"/>
+        <KpiCard label="Mensagens processadas" value={String(stats.msgsTotal||0)} icon="WhatsApp" cor="#25D366"/>
+        <KpiCard label="Instâncias WhatsApp" value={String(instCount)} icon="Smartphone" cor="#7B3FE4"/>
+      </div>
+      <div className="card" style={{marginBottom:18, display:'flex', gap:14, alignItems:'flex-start'}}>
+        <div style={{width:40,height:40,borderRadius:10,background:'rgba(123,63,228,.14)',display:'grid',placeItems:'center',flexShrink:0}}><Icon name="Bot" size={20} style={{color:'#7B3FE4'}}/></div>
+        <div>
+          <div style={{fontWeight:600, fontSize:15, color:'var(--t1)', marginBottom:4}}>Copilot incluso no plano</div>
+          <p style={{color:'var(--t2)', fontSize:13.5, lineHeight:1.6, margin:0}}>Assistente de IA no WhatsApp que consulta toda a informação da empresa e executa ações em linguagem natural. É o que usamos para operar a Brava.</p>
+        </div>
+      </div>
+      <div style={{fontFamily:'var(--f-m)', fontSize:11, letterSpacing:'.1em', textTransform:'uppercase', color:'var(--t3)', margin:'6px 2px 10px'}}>As 8 frentes</div>
+      <div className="grid-m3" style={{display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10}}>
+        {frentes.map(([nome,st])=>(
+          <div key={nome} className="card" style={{padding:'14px 16px'}}>
+            <div style={{fontWeight:600, fontSize:14, color:'var(--t1)'}}>{nome}</div>
+            <div style={{marginTop:6, display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:600, color: st==='ok'?'#1D9E75':'#BA7517'}}>
+              <span style={{width:6,height:6,borderRadius:'50%', background: st==='ok'?'#1D9E75':'#BA7517'}}/>{st==='ok'?'Disponível':'Em breve'}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FrenteEmBreve({ nome, desc }) {
+  return (
+    <div className="page">
+      <div className="placeholder" style={{marginTop:80}}>
+        <Icon name="Lightbulb" size={52} color="var(--t3)"/>
+        <div style={{fontFamily:'var(--f-d)',fontSize:20,fontWeight:600,color:'var(--t2)'}}>{nome}</div>
+        <p>{desc}</p>
+        <span style={{fontFamily:'var(--f-m)',fontSize:11,padding:'4px 12px',borderRadius:999,background:'rgba(186,117,23,.14)',color:'#e0a955',letterSpacing:'.06em'}}>EM BREVE</span>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   // ✨ Auth gate: se nao houver sessao Supabase Auth, mostra modal de login
   //    (necessario pra JWT chegar nas queries e RLS funcionar)
@@ -24486,6 +24785,10 @@ function App() {
           : page === 'onboarding'? <OnboardingAdmin/>
           : page === 'logs'     ? <Logs/>
           : page === 'config'   ? <Config/>
+          : page === 'contratos'? <ContratosJuridico/>
+          : page === 'trafego'  ? <TrafegoCampanhas/>
+          : page === 'sobre'    ? <SobreBrava/>
+          : page === 'marketing'? <FrenteEmBreve nome="Marketing" desc="Marca, conteúdo e presença que alimentam o topo do funil e dão voz ao seu negócio. Em construção."/>
           : <Placeholder page={page}/>}
       </main>
       {novoClienteAberto && <NovoClienteModal onClose={()=>setNovoClienteAberto(false)} onSalvar={cadastrarCliente}/>}
