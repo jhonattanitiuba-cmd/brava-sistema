@@ -24773,55 +24773,42 @@ function PropostaEditor({ orcamento, onClose }) {
   const blk={ background:'#000', color:'#fff', border:'none', padding:'10px 18px', borderRadius:8, fontWeight:600, cursor:'pointer', fontFamily:'var(--f-m)' };
   const cell={ border:'1px solid transparent', background:'transparent', font:'inherit', color:'inherit', outline:'none', padding:'2px 4px', borderRadius:4, width:'100%' };
 
+  const dk = { background:'rgba(255,255,255,.06)', color:'#fff', border:'1px solid rgba(255,255,255,.16)', borderRadius:8, padding:'8px 10px', fontFamily:'var(--f-m)', fontSize:13, outline:'none' };
   return (
-    <div style={{ position:'fixed', inset:0, zIndex:1500, background:'rgba(10,10,14,.78)', overflowY:'auto', padding:'24px 0' }}>
-      <div style={{ maxWidth:920, margin:'0 auto', padding:'0 16px' }}>
-        <div className="grid-m1" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:12, flexWrap:'wrap' }}>
-          <div style={{ color:'#fff', fontFamily:'var(--f-d)', fontWeight:700, fontSize:18 }}>Editor de Proposta (A4)</div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <button onClick={salvar} disabled={salvando} style={blk}>{salvando?'Salvando...':'Salvar'}</button>
-            <button onClick={salvarPDF} style={blk}>Salvar PDF</button>
-            <button onClick={onClose} style={{ ...blk, background:'#444' }}>Fechar</button>
-          </div>
-        </div>
-
-        <div style={{ background:'#fff', borderRadius:10, padding:16, marginBottom:14 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'#888', textTransform:'uppercase', letterSpacing:.5, marginBottom:8 }}>Conexões do cliente</div>
-          <div className="grid-m1" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-            <div>
-              <div style={{ fontSize:12, color:'#666', marginBottom:4 }}>Cliente</div>
-              <select value={clienteNome} onChange={e=>{ setClienteNome(e.target.value); const c=(clientes||[]).find(x=>x.nome===e.target.value); setClienteId(c?c.id:''); setProjetoId(''); }} style={{ width:'100%', padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}>
-                <option value="">Selecione...</option>
-                {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+    <div style={{ position:'fixed', inset:0, zIndex:1500, background:'#08080c', overflowY:'auto' }}>
+      <div style={{ position:'fixed', inset:0, pointerEvents:'none', background:'radial-gradient(620px 420px at 16% 10%, rgba(123,63,228,.22), transparent 60%), radial-gradient(620px 420px at 86% 6%, rgba(30,144,255,.18), transparent 60%), radial-gradient(720px 520px at 72% 96%, rgba(123,63,228,.13), transparent 62%)' }}/>
+      <div style={{ position:'sticky', top:0, zIndex:3, background:'rgba(8,8,12,.86)', backdropFilter:'blur(8px)', WebkitBackdropFilter:'blur(8px)', borderBottom:'1px solid rgba(255,255,255,.08)', padding:'12px 16px' }}>
+        <div className="grid-m1" style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', maxWidth:1040, margin:'0 auto' }}>
+          <div style={{ color:'#fff', fontFamily:'var(--f-d)', fontWeight:700, fontSize:15, marginRight:'auto' }}>Editar Proposta</div>
+          <select value={clienteNome} onChange={e=>{ setClienteNome(e.target.value); const c=(clientes||[]).find(x=>x.nome===e.target.value); setClienteId(c?c.id:''); setProjetoId(''); }} style={{ ...dk, maxWidth:170 }}>
+            <option value="" style={{color:'#111'}}>Cliente...</option>
+            {(clientes||[]).map(c=><option key={c.id} value={c.nome} style={{color:'#111'}}>{c.nome}</option>)}
+          </select>
+          {!criandoProj ? (
+            <div style={{ display:'flex', gap:6 }}>
+              <select value={projetoId} onChange={e=>setProjetoId(e.target.value)} disabled={!clienteId} style={{ ...dk, maxWidth:190 }}>
+                <option value="" style={{color:'#111'}}>{clienteId? (projetos.length?'Projeto...':'Sem projeto'):'Projeto'}</option>
+                {projetos.map(p=><option key={p.id} value={p.id} style={{color:'#111'}}>{(p.servico||'Projeto')+(p.mensal?(' - R$ '+Number(p.mensal).toLocaleString('pt-BR')):'')}</option>)}
               </select>
+              <button onClick={()=>setCriandoProj(true)} disabled={!clienteId} style={{ ...blk, padding:'8px 12px' }}>+ Projeto</button>
             </div>
-            <div>
-              <div style={{ fontSize:12, color:'#666', marginBottom:4 }}>Projeto vinculado</div>
-              {!criandoProj ? (
-                <div style={{ display:'flex', gap:6 }}>
-                  <select value={projetoId} onChange={e=>setProjetoId(e.target.value)} disabled={!clienteId} style={{ flex:1, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}>
-                    <option value="">{clienteId? (projetos.length?'Selecione um projeto...':'Nenhum projeto, crie um'):'Escolha o cliente'}</option>
-                    {projetos.map(p=><option key={p.id} value={p.id}>{(p.servico||'Projeto')+(p.mensal?(' - R$ '+Number(p.mensal).toLocaleString('pt-BR')):'')}</option>)}
-                  </select>
-                  <button onClick={()=>setCriandoProj(true)} disabled={!clienteId} style={{ ...blk, padding:'8px 12px' }}>+ Criar</button>
-                </div>
-              ) : (
-                <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                  <input value={novoProj.servico} onChange={e=>setNovoProj({...novoProj,servico:e.target.value})} placeholder="Serviço" style={{ flex:2, minWidth:110, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}/>
-                  <input value={novoProj.mensal} onChange={e=>setNovoProj({...novoProj,mensal:e.target.value})} placeholder="Mensal R$" style={{ width:96, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}/>
-                  <button onClick={criarProjeto} style={{ ...blk, padding:'8px 12px' }}>Criar</button>
-                  <button onClick={()=>setCriandoProj(false)} style={{ ...blk, background:'#999', padding:'8px 12px' }}>×</button>
-                </div>
-              )}
+          ) : (
+            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+              <input value={novoProj.servico} onChange={e=>setNovoProj({...novoProj,servico:e.target.value})} placeholder="Serviço" style={{ ...dk, width:130 }}/>
+              <input value={novoProj.mensal} onChange={e=>setNovoProj({...novoProj,mensal:e.target.value})} placeholder="Mensal R$" style={{ ...dk, width:92 }}/>
+              <button onClick={criarProjeto} style={{ ...blk, padding:'8px 12px' }}>Criar</button>
+              <button onClick={()=>setCriandoProj(false)} style={{ ...blk, background:'#555', padding:'8px 12px' }}>×</button>
             </div>
-          </div>
-          <div style={{ marginTop:10 }}>
-            <div style={{ fontSize:12, color:'#666', marginBottom:4 }}>Validade</div>
-            <input value={validade} onChange={e=>setValidade(e.target.value)} placeholder="Ex.: 15 dias ou 30/06/2026" style={{ width:'100%', maxWidth:260, padding:'8px 10px', borderRadius:8, border:'1px solid #ddd' }}/>
-          </div>
+          )}
+          <input value={validade} onChange={e=>setValidade(e.target.value)} placeholder="Validade" style={{ ...dk, width:120 }}/>
+          <button onClick={salvar} disabled={salvando} style={blk}>{salvando?'Salvando...':'Salvar'}</button>
+          <button onClick={salvarPDF} style={blk}>Imprimir / PDF</button>
+          <button onClick={onClose} style={{ ...blk, background:'#2a2a33' }}>Voltar</button>
         </div>
+      </div>
 
-        <div style={{ background:'#fff', width:'100%', maxWidth:794, margin:'0 auto', minHeight:1000, padding:'44px 52px', boxShadow:'0 8px 40px rgba(0,0,0,.35)', fontFamily:"'Montserrat',var(--f-m),sans-serif", color:'#111' }}>
+      <div style={{ position:'relative', zIndex:1, padding:'28px 14px 56px', display:'flex', justifyContent:'center' }}>
+        <div style={{ background:'#fff', width:'100%', maxWidth:794, minHeight:1000, padding:'44px 52px', boxShadow:'0 16px 80px rgba(0,0,0,.65)', fontFamily:"'Montserrat',var(--f-m),sans-serif", color:'#111' }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'.5px solid #ccc', paddingBottom:10, marginBottom:14 }}>
             <span style={{ fontWeight:800, fontSize:18, letterSpacing:1 }}>BRAVA</span>
             <span style={{ fontSize:8, fontWeight:700, textTransform:'uppercase', letterSpacing:1, color:'#888' }}>Proposta Comercial</span>
@@ -24872,7 +24859,6 @@ function PropostaEditor({ orcamento, onClose }) {
             <div style={{ flex:1, borderTop:'.5px solid #111', paddingTop:6, fontSize:11 }}><b>{clienteNome||'Cliente'}</b><br/>Aceite</div>
           </div>
         </div>
-        <div style={{ height:30 }}/>
       </div>
     </div>
   );
@@ -24890,7 +24876,6 @@ function OrcamentosAdmin() {
   const [orcs, setOrcs] = React.useState(loadOrcamentos);
   const [novo, setNovo] = React.useState(false);
   const [ver, setVer] = React.useState(null);
-  const [editor, setEditor] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setOrcs(loadOrcamentos()); window.addEventListener('brava_orcamentos_changed',h); return ()=>window.removeEventListener('brava_orcamentos_changed',h); },[]);
   const total = orcs.length;
   const enviados = orcs.filter(o=>o.status==='enviado').length;
@@ -24906,7 +24891,7 @@ function OrcamentosAdmin() {
           <div className="page-head__title">Orçamentos</div>
           <div className="page-head__sub">Administrativo · proposta comercial pronta para enviar, com a sua marca, em minutos.</div>
         </div>
-        <div className="page-head__actions" style={{display:'flex', gap:8}}><button onClick={()=>setEditor({})} style={_fBtnGhost}>Editor A4</button><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
+        <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
       </div>
       <div className="kpi-grid" style={{marginBottom:18}}>
         <KpiCard label="Orçamentos" value={String(total)} icon="FileText" cor="#1E90FF"/>
@@ -24929,7 +24914,6 @@ function OrcamentosAdmin() {
                 <option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option>
               </select>
               <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
-                <button onClick={()=>setEditor(o)} style={_fBtnPrimary}>Editar em A4</button>
                 <button onClick={()=>setVer(o)} style={_fBtnGhost}>Ver / Imprimir</button>
                 <button onClick={()=>apagar(o.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
               </div>
@@ -24939,7 +24923,6 @@ function OrcamentosAdmin() {
       )}
       {novo && <NovoOrcamentoModal clientes={clientes} onClose={()=>setNovo(false)} onSalvar={criar}/>}
       {ver && <OrcamentoPrintModal orcamento={ver} onClose={()=>setVer(null)}/>}
-      {editor && <PropostaEditor orcamento={editor} onClose={()=>setEditor(null)}/>}
     </div>
   );
 }
@@ -24997,6 +24980,7 @@ function NovoOrcamentoModal({ clientes, onClose, onSalvar }) {
 }
 function OrcamentoPrintModal({ orcamento, onClose }) {
   const o = orcamento; const total = orcTotal(o);
+  const [editar, setEditar] = React.useState(false);
   const bruto = (o.itens||[]).reduce((s,i)=>s+(Number(i.qtd||0)*Number(i.valorUnit||0)),0);
   const imprimir = ()=>{
     const e=_pdfEsc; const data=new Date(o.criadoEm).toLocaleDateString('pt-BR');
@@ -25041,8 +25025,10 @@ function OrcamentoPrintModal({ orcamento, onClose }) {
       </div>
       <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
         <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
+        <button onClick={()=>setEditar(true)} style={_fBtnPrimary}>Editar Proposta</button>
         <button onClick={imprimir} style={_fBtnPrimary}>Imprimir / PDF</button>
       </div>
+      {editar && <PropostaEditor orcamento={o} onClose={()=>setEditar(false)}/>}
     </_FModal>
   );
 }
