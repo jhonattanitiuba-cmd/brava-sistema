@@ -21,6 +21,16 @@ const COLOR_PRESETS = [
 
 const OnboardingWizard = ({ onContinue, onDataChange }) => {
   const [step, setStep] = React.useState(0);
+  // Detecta sessão anônima (veio do checkout sem login): pede e-mail/senha no fim
+  const [isAnon, setIsAnon] = React.useState(false);
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data: { user } } = await window.supabase.auth.getUser();
+        if (user?.is_anonymous) setIsAnon(true);
+      } catch (e) {}
+    })();
+  }, []);
   const [data, setData] = React.useState({
     workspaceName: '',
     slug: '',
@@ -63,6 +73,8 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
     bizGatilhos: '',
     bizFollowUp: '',
     bizPalavrasEvitar: '',
+    email: '',
+    password: '',
   });
   const update = patch => setData(d => {
     const next = { ...d, ...patch };
@@ -70,15 +82,22 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
     return next;
   });
 
-  const next = () => step < 3 ? setStep(step + 1) : onContinue('done');
+  const STEPS = isAnon
+    ? [...ONB_STEPS, { key: 'acesso', label: 'Acesso', icon: 'Lock', sub: 'Crie sua senha de acesso' }]
+    : ONB_STEPS;
+  const lastStep = STEPS.length - 1;
+
+  const next = () => step < lastStep ? setStep(step + 1) : onContinue('done');
   const prev = () => step > 0 ? setStep(step - 1) : onContinue('login');
 
   const valid = (() => {
     if (!data) return false;
-    if (step === 0) return (data.workspaceName || '').length >= 3 && (data.slug || '').length >= 3;
-    if (step === 1) return !!data.qrScanned || !!data.connectLater;
-    if (step === 2) return true; // equipe é opcional — o dono já entra como owner
-    if (step === 3) return (data.bizDoes || '').length > 30;
+    const key = STEPS[step]?.key;
+    if (key === 'workspace') return (data.workspaceName || '').length >= 3 && (data.slug || '').length >= 3;
+    if (key === 'channel') return !!data.qrScanned || !!data.connectLater;
+    if (key === 'team') return true; // equipe é opcional — o dono já entra como owner
+    if (key === 'ai') return (data.bizDoes || '').length > 30;
+    if (key === 'acesso') return /.+@.+\..+/.test(data.email || '') && (data.password || '').length >= 6;
     return true;
   })();
 
@@ -91,8 +110,8 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
         </div>
         <div className="onb-top__progress">
           <span>Configuração inicial</span>
-          <div className="onb-top__bar"><div style={{ width: `${((step + 1) / 4) * 100}%` }} /></div>
-          <span className="onb-top__count">{step + 1} de 4</span>
+          <div className="onb-top__bar"><div style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} /></div>
+          <span className="onb-top__count">{step + 1} de {STEPS.length}</span>
         </div>
         <button className="onb-top__exit" onClick={() => onContinue('login')}>
           Sair <Icon name="X" size={16} />
@@ -109,7 +128,7 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
           </div>
 
           <ol className="onb-rail__steps">
-            {ONB_STEPS.map((s, i) => {
+            {STEPS.map((s, i) => {
               const state = i < step ? 'done' : i === step ? 'active' : 'pending';
               return (
                 <li key={s.key} className={`onb-step onb-step--${state}`}>
@@ -141,6 +160,7 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
           {step === 1 && <StepChannel data={data} update={update} />}
           {step === 2 && <StepTeam data={data} update={update} />}
           {step === 3 && <StepAI data={data} update={update} />}
+          {STEPS[step] && STEPS[step].key === 'acesso' && <StepAcesso data={data} update={update} />}
 
           <footer className="onb-footer">
             <div className="onb-footer__hint">
@@ -153,8 +173,8 @@ const OnboardingWizard = ({ onContinue, onDataChange }) => {
                   Conectar depois
                 </Button>
               )}
-              <Button variant="primary" iconRight={step === 3 ? 'Check' : 'ArrowRight'} disabled={!valid} onClick={next}>
-                {step === 3 ? 'Concluir e abrir Dashboard' : 'Continuar'}
+              <Button variant="primary" iconRight={step === lastStep ? 'Check' : 'ArrowRight'} disabled={!valid} onClick={next}>
+                {step === lastStep ? 'Concluir e abrir Dashboard' : 'Continuar'}
               </Button>
             </div>
           </footer>
@@ -1117,5 +1137,22 @@ const StepAI = ({ data, update }) => {
     </div>
   );
 };
+
+// Último passo (só pra quem entrou anônimo): cria e-mail+senha pra acessar de qualquer lugar
+const StepAcesso = ({ data, update }) => (
+  <div className="onb-card">
+    <div className="onb-card__head">
+      <span className="onb-card__step">Último passo · Acesso</span>
+      <h1>Crie seu acesso</h1>
+      <p>Defina e-mail e senha pra entrar no seu sistema de qualquer aparelho, quando quiser.</p>
+    </div>
+    <div className="onb-card__body">
+      <div className="onb-block">
+        <Input label="Seu e-mail" type="email" placeholder="voce@suaempresa.com.br" value={data.email} onChange={e => update({ email: e.target.value })} hint="Vai ser o seu login." />
+        <Input label="Senha" type="password" placeholder="mínimo 6 caracteres" value={data.password} onChange={e => update({ password: e.target.value })} hint="Use uma senha forte." />
+      </div>
+    </div>
+  </div>
+);
 
 window.OnboardingWizard = OnboardingWizard;
