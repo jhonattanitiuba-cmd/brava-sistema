@@ -798,6 +798,7 @@ const NAV = [
   { key:'dashboard',    label:'Dashboard',       icon:'LayoutDashboard', grupo:'', badge:null },
   { key:'clientes',     label:'WhatsApp',        icon:'WhatsApp',        grupo:'Comercial', badge:23 },
   { key:'clientes_crm', label:'Clientes',        icon:'UsersRound',      grupo:'Comercial', badge:null },
+  { key:'contatos',     label:'Contatos',        icon:'UserCircle',      grupo:'Comercial', badge:null },
   { key:'pipeline',     label:'Pipeline',        icon:'KanbanSquare',    grupo:'Comercial', badge:5 },
   { key:'onboarding',   label:'Novos cadastros', icon:'UserPlus',        grupo:'Comercial', badge:null },
   { key:'agenda',       label:'Agenda',          icon:'CalendarCheck',   grupo:'Administrativo', badge:null },
@@ -23796,6 +23797,7 @@ const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/tasks',
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/contacts.readonly',
 ].join(' ');
 function iniciarConexaoGoogle() {
   const state = encodeURIComponent(window.location.origin);
@@ -23903,6 +23905,138 @@ function ComposeEmail({ inicial, onClose, onEnviar }) {
           <button onClick={enviar} disabled={enviando || !para.trim()} className="btn btn-primary"><Icon name="Send" size={13}/>{enviando ? 'Enviando…' : 'Enviar'}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Contatos (Google People API + conciliacao WhatsApp/clientes) ──
+function Contatos() {
+  const [status, setStatus] = React.useState('checando');
+  const [contatos, setContatos] = React.useState([]);
+  const [resumo, setResumo] = React.useState(null);
+  const [filtro, setFiltro] = React.useState('todos'); // todos | whatsapp | clientes | novos
+  const [busca, setBusca] = React.useState('');
+
+  const call = React.useCallback(async (body) => {
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) return { ok:false, error:'sem_cliente' };
+    try { const { data } = await cli.functions.invoke('google-contacts', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    catch (_e) { return { ok:false, error:'excecao' }; }
+  }, []);
+
+  const carregar = React.useCallback(async () => {
+    setStatus('checando');
+    const d = await call({ action:'list' });
+    if (d.ok) { setStatus('conectado'); setContatos(d.contatos || []); setResumo(d.resumo || null); }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
+    else setStatus('erro');
+  }, [call]);
+  React.useEffect(() => { carregar(); }, [carregar]);
+
+  const q = busca.trim().toLowerCase();
+  const visiveis = contatos.filter(c => {
+    if (filtro === 'whatsapp' && !c.noWhatsapp) return false;
+    if (filtro === 'clientes' && !c.cliente) return false;
+    if (filtro === 'novos' && (c.noWhatsapp || c.cliente)) return false;
+    if (q && !((c.nome || '').toLowerCase().includes(q) || (c.telefone || '').includes(busca.trim()) || (c.email || '').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const chips = resumo ? [
+    ['todos', 'Todos', resumo.total, 'var(--blue)'],
+    ['whatsapp', 'No WhatsApp', resumo.comWhatsapp, '#1D9E75'],
+    ['clientes', 'Já são clientes', resumo.clientes, '#7B3FE4'],
+    ['novos', 'Novos (sem vínculo)', resumo.novos, '#BA7517'],
+  ] : [];
+
+  const iniciais = (n) => (n || '?').split(' ').slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Contatos</div>
+          <div className="page-head__sub">Seus contatos do Google, conciliados com WhatsApp e clientes</div>
+        </div>
+        {status === 'conectado' && (
+          <div className="page-head__actions" style={{display:'flex', gap:10, alignItems:'center'}}>
+            <span style={{fontSize:12, color:'#1D9E75'}}>● Contatos conectados</span>
+            <button onClick={carregar} className="btn btn-outline"><Icon name="RefreshCw" size={13}/>Atualizar</button>
+          </div>
+        )}
+      </div>
+
+      {(status === 'desconectado' || status === 'sem_escopo') && (
+        <div className="card" style={{padding:32, textAlign:'center', maxWidth:540, margin:'0 auto'}}>
+          <Icon name="UserCircle" size={34} style={{color:'var(--blue)', marginBottom:10}}/>
+          <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>{status === 'sem_escopo' ? 'Libere o acesso aos Contatos' : 'Conecte seu Google'}</div>
+          <div style={{fontSize:13, color:'var(--t2)', marginBottom:18, lineHeight:1.6}}>{status === 'sem_escopo' ? 'Reconecte uma vez para liberar a leitura dos seus contatos do Google e cruzar com seu WhatsApp e clientes.' : 'Autorize para trazer seus contatos do Google e conciliar aqui.'}</div>
+          <button onClick={iniciarConexaoGoogle} className="btn btn-primary" style={{margin:'0 auto'}}><Icon name="UserCircle" size={14}/>{status === 'sem_escopo' ? 'Reconectar Google' : 'Conectar Google'}</button>
+        </div>
+      )}
+
+      {status === 'erro' && (
+        <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="AlertCircle" size={28} style={{opacity:.5, marginBottom:8}}/>
+          <div style={{fontSize:13}}>Não foi possível carregar os contatos. <button onClick={carregar} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', fontWeight:600}}>Tentar de novo</button></div>
+        </div>
+      )}
+
+      {status === 'checando' && <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Lendo seus contatos e conciliando…</div>}
+
+      {status === 'conectado' && (
+        <>
+          {/* Resumo + filtros */}
+          <div style={{display:'flex', gap:10, marginBottom:14, flexWrap:'wrap'}}>
+            {chips.map(([k, label, n, cor]) => (
+              <button key={k} onClick={()=>setFiltro(k)} style={{
+                flex:'1 1 160px', minWidth:140, textAlign:'left', padding:'12px 14px', borderRadius:10, cursor:'pointer',
+                background: filtro===k ? cor+'1A' : 'var(--bg-2)',
+                border:`1px solid ${filtro===k ? cor : 'var(--border)'}`,
+              }}>
+                <div style={{fontSize:22, fontWeight:700, color: filtro===k ? cor : 'var(--t1)', fontFamily:'var(--f-d)'}}>{n}</div>
+                <div style={{fontSize:11.5, color:'var(--t2)', marginTop:2}}>{label}</div>
+              </button>
+            ))}
+          </div>
+
+          {/* Busca */}
+          <div style={{display:'flex', alignItems:'center', gap:8, padding:'0 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, height:40, marginBottom:12}}>
+            <Icon name="Search" size={14} style={{color:'var(--t3)'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, telefone ou e-mail…" style={{flex:1, border:'none', background:'transparent', color:'var(--t1)', fontSize:14, outline:'none'}}/>
+            {busca && <button onClick={()=>setBusca('')} style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer'}}>×</button>}
+          </div>
+
+          {/* Lista */}
+          {visiveis.length === 0 ? (
+            <div className="card" style={{padding:36, textAlign:'center', color:'var(--t3)', fontSize:13}}>Nenhum contato neste filtro.</div>
+          ) : (
+            <div className="card" style={{padding:0, overflow:'hidden'}}>
+              {visiveis.slice(0, 400).map((c, i) => {
+                const foto = c.foto || c.waFoto || null;
+                return (
+                  <div key={i} style={{padding:'11px 16px', display:'flex', gap:12, alignItems:'center', borderBottom: i < Math.min(visiveis.length,400)-1 ? '1px solid var(--border-soft)' : 'none'}}>
+                    <div style={{width:38, height:38, borderRadius:'50%', flexShrink:0, overflow:'hidden', background:'linear-gradient(135deg, var(--purple), var(--blue))', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700}}>
+                      {foto ? <img src={foto} alt="" referrerPolicy="no-referrer" style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>{e.currentTarget.style.display='none';}}/> : iniciais(c.nome)}
+                    </div>
+                    <div style={{flex:1, minWidth:0}}>
+                      <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{c.nome}</div>
+                      <div style={{fontSize:11.5, color:'var(--t3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{[c.telefone, c.email].filter(Boolean).join(' · ')}</div>
+                    </div>
+                    <div style={{display:'flex', gap:6, flexShrink:0, alignItems:'center'}}>
+                      {c.cliente && <span title={c.cliente.nome} style={{fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:5, background:'rgba(123,63,228,.15)', color:'#9d6bff', textTransform:'uppercase', letterSpacing:.3}}>Cliente</span>}
+                      {c.noWhatsapp && <span style={{fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:5, background:'rgba(29,158,117,.15)', color:'#1D9E75', textTransform:'uppercase', letterSpacing:.3}}>WhatsApp</span>}
+                      {!c.cliente && !c.noWhatsapp && <span style={{fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:5, background:'rgba(186,117,23,.12)', color:'#BA7517', textTransform:'uppercase', letterSpacing:.3}}>Novo</span>}
+                    </div>
+                  </div>
+                );
+              })}
+              {visiveis.length > 400 && <div style={{padding:'12px 16px', textAlign:'center', fontSize:12, color:'var(--t3)'}}>Mostrando 400 de {visiveis.length}. Use a busca ou os filtros para refinar.</div>}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -26106,6 +26240,7 @@ function App() {
           : page === 'tarefas'  ? <Tarefas/>
           : page === 'email'    ? <Email/>
           : page === 'drive'    ? <Drive/>
+          : page === 'contatos' ? <Contatos/>
           : page === 'orcamentos'? <OrcamentosAdmin/>
           : page === 'atas'     ? <AtasAdmin/>
           : page === 'analytics'? <Analytics/>
