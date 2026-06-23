@@ -2910,35 +2910,7 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
 
       {/* Gráfico MRR + Clientes recentes */}
       <div className="grid-2">
-        <div className="card">
-          <div className="card__head">
-            <div className="card__title">Evolução da Recorrência</div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              {[['7d','7 dias'],['15d','15 dias'],['30d','30 dias'],['jan','Desde jan']].map(([v,l]) => (
-                <button key={v} onClick={()=>setPeriodoGrafico(v)} style={{
-                  fontSize:11, padding:'2px 8px', borderRadius:999, border:'1px solid',
-                  cursor:'pointer', fontFamily:'var(--f-m)', fontWeight:500,
-                  background: periodoGrafico===v ? 'var(--blue)' : 'transparent',
-                  color: periodoGrafico===v ? '#fff' : 'var(--t3)',
-                  borderColor: periodoGrafico===v ? 'var(--blue)' : 'var(--border)',
-                }}>{l}</button>
-              ))}
-              <div className="card__action" onClick={()=>setPage&&setPage('mrr')}>Financeiro →</div>
-            </div>
-          </div>
-          <div className="chart">
-            {chartData.map((d,i) => (
-              <div key={i} className="chart-bar-wrap">
-                <div
-                  className={`chart-bar ${d.today ? 'today' : 'past'}`}
-                  style={{height:`${(d.v/maxV)*100}%`}}
-                  title={`R$ ${d.v.toLocaleString('pt-BR')}`}
-                />
-                <div className="chart-label" style={{fontSize: chartData.length > 10 ? 9 : 11}}>{d.day}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <AgendaHojeCard setPage={setPage}/>
 
         <div className="card">
           <div className="card__head">
@@ -19154,72 +19126,181 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
   );
 }
 
-// ─── Card do Dashboard: minhas tarefas pendentes ───
+// Helper compartilhado: chama uma edge function do Google e devolve o JSON.
+function _gcall(fn, body) {
+  const cli = (typeof getSupa === 'function') ? getSupa() : null;
+  if (!cli) return Promise.resolve({ ok:false, error:'sem_cliente' });
+  return cli.functions.invoke(fn, { body }).then(r => r?.data || { ok:false, error:'sem_resposta' }).catch(() => ({ ok:false, error:'excecao' }));
+}
+// Recarrega quando o usuario volta pra aba/janela (mantem "ao vivo" sem polling pesado).
+function useRefocus(cb) {
+  React.useEffect(() => {
+    const fn = () => { if (!document.hidden) cb(); };
+    window.addEventListener('focus', fn);
+    document.addEventListener('visibilitychange', fn);
+    return () => { window.removeEventListener('focus', fn); document.removeEventListener('visibilitychange', fn); };
+  }, [cb]);
+}
+
+// ─── Card do Dashboard: minhas tarefas (Google Tasks, ao vivo) ───
 function MinhasTarefasCard({ setPage }) {
-  const meuId = useUsuarioLogadoId();
-  const itens = useMeusChecklistItens(meuId);
+  const [status, setStatus] = React.useState('checando'); // checando | conectado | desconectado | sem_escopo | erro
+  const [tarefas, setTarefas] = React.useState([]);
 
-  const hoje = new Date().toISOString().slice(0,10);
-  const vencidos = itens.filter(i => i.data_prazo && i.data_prazo < hoje);
-  const hojeItens = itens.filter(i => i.data_prazo === hoje);
-  const proximos = itens.filter(i => !i.data_prazo || i.data_prazo > hoje);
+  const carregar = React.useCallback(async () => {
+    const d = await _gcall('google-tasks', { action:'list' });
+    if (d.ok) { setStatus('conectado'); setTarefas((d.tarefas || []).filter(t => !t.concluida)); }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
+    else setStatus('erro');
+  }, []);
+  React.useEffect(() => { carregar(); }, [carregar]);
+  useRefocus(carregar);
 
-  const fmtData = (d) => d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}) : null;
+  const concluir = async (t) => {
+    setTarefas(prev => prev.filter(x => x.id !== t.id));
+    const d = await _gcall('google-tasks', { action:'update', id:t.id, concluida:true });
+    if (!d.ok) carregar();
+  };
+
+  const fmtDue = (iso) => { if (!iso) return null; const d = new Date(iso); return isNaN(d.getTime()) ? null : d.toLocaleDateString('pt-BR', {day:'2-digit', month:'short'}); };
+  const hojeISO = new Date().toISOString().slice(0,10);
 
   return (
     <div className="card" style={{padding:18}}>
       <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:14}}>
         <Icon name="CheckCircle2" size={17} style={{color:'var(--blue)'}}/>
-        <h3 style={{margin:0, fontSize:14, fontWeight:600, color:'var(--t1)', flex:1}}>Minhas tarefas</h3>
-        <span style={{fontSize:11, color:'var(--t3)'}}>
-          {itens.length} pendente{itens.length===1?'':'s'}
-          {vencidos.length > 0 && <span style={{color:'#E5544D', fontWeight:600}}> · {vencidos.length} vencida{vencidos.length===1?'':'s'}</span>}
-        </span>
+        <h3 style={{margin:0, fontSize:14, fontWeight:600, color:'var(--t1)', flex:1}}>Minhas tarefas <span style={{fontSize:10, color:'var(--t3)', fontWeight:500}}>· Google</span></h3>
+        <span style={{fontSize:11, color:'var(--t3)'}}>{status === 'conectado' ? `${tarefas.length} aberta${tarefas.length===1?'':'s'}` : ''}</span>
       </div>
 
-      {itens.length === 0 && (
-        <div style={{padding:'30px 14px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
-          Nenhuma tarefa atribuida a voce. <Icon name="Coffee" size={13} style={{verticalAlign:'middle'}}/>
+      {status === 'checando' && <div style={{padding:'24px 14px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>Carregando…</div>}
+
+      {(status === 'desconectado' || status === 'sem_escopo' || status === 'erro') && (
+        <div style={{padding:'22px 14px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
+          {status === 'erro' ? 'Não foi possível carregar as tarefas agora.' : 'Conecte o Google para ver suas tarefas aqui.'}
+          <div style={{marginTop:10}}>
+            <button onClick={()=>setPage && setPage('tarefas')} style={{padding:'6px 12px', borderRadius:6, border:'1px solid var(--border-soft)', background:'transparent', color:'var(--blue)', fontSize:12, fontWeight:600, cursor:'pointer'}}>Abrir Tarefas →</button>
+          </div>
         </div>
       )}
 
-      {[...vencidos, ...hojeItens, ...proximos].slice(0, 8).map(it => {
-        const venc = it.data_prazo && it.data_prazo < hoje;
-        const proj = it.checklist?.projeto;
+      {status === 'conectado' && tarefas.length === 0 && (
+        <div style={{padding:'30px 14px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
+          Tudo em dia, nenhuma tarefa aberta. <Icon name="Coffee" size={13} style={{verticalAlign:'middle'}}/>
+        </div>
+      )}
+
+      {status === 'conectado' && tarefas.slice(0, 8).map(t => {
+        const due = t.due ? String(t.due).slice(0,10) : null;
+        const venc = due && due < hojeISO;
+        const ehHoje = due === hojeISO;
         return (
-          <div key={it.id} style={{
+          <div key={t.id} style={{
             display:'flex', alignItems:'center', gap:8, padding:'8px 6px', borderRadius:6,
             background: venc ? 'rgba(229,84,77,.06)' : 'transparent',
             borderBottom:'1px solid var(--border-soft)',
           }}>
-            <input type="checkbox" checked={false} onChange={()=>toggleItemChecklist(it.id, true, meuId)}
+            <input type="checkbox" checked={false} onChange={()=>concluir(t)}
               style={{accentColor:'var(--blue)', width:14, height:14, cursor:'pointer'}}/>
             <div style={{flex:1, minWidth:0}}>
-              <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{it.texto}</div>
-              {proj && (
-                <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1}}>
-                  {proj.servico || proj.cliente} · {it.checklist?.titulo}
-                </div>
-              )}
+              <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.titulo}</div>
+              {t.notas && <div style={{fontSize:10.5, color:'var(--t3)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.notas}</div>}
             </div>
-            {it.data_prazo && (
+            {due && (
               <span style={{
                 fontSize:10.5, padding:'2px 6px', borderRadius:4, fontWeight:600, flexShrink:0,
-                background: venc ? 'rgba(229,84,77,.18)' : (it.data_prazo === hoje ? 'rgba(186,117,23,.18)' : 'rgba(30,144,255,.10)'),
-                color: venc ? '#E5544D' : (it.data_prazo === hoje ? '#BA7517' : 'var(--blue)'),
-              }}>{venc ? 'atrasada' : (it.data_prazo === hoje ? 'hoje' : fmtData(it.data_prazo))}</span>
+                background: venc ? 'rgba(229,84,77,.18)' : (ehHoje ? 'rgba(186,117,23,.18)' : 'rgba(30,144,255,.10)'),
+                color: venc ? '#E5544D' : (ehHoje ? '#BA7517' : 'var(--blue)'),
+              }}>{venc ? 'atrasada' : (ehHoje ? 'hoje' : fmtDue(t.due))}</span>
             )}
           </div>
         );
       })}
 
-      {itens.length > 8 && (
-        <button onClick={()=>setPage && setPage('projetos')} style={{
+      {status === 'conectado' && tarefas.length > 0 && (
+        <button onClick={()=>setPage && setPage('tarefas')} style={{
           marginTop:10, width:'100%', padding:'7px', borderRadius:6,
           border:'1px solid var(--border-soft)', background:'transparent',
           color:'var(--t2)', fontSize:11.5, cursor:'pointer',
-        }}>Ver todas ({itens.length})</button>
+        }}>Abrir Tarefas{tarefas.length > 8 ? ` (${tarefas.length})` : ''} →</button>
       )}
+    </div>
+  );
+}
+
+// ─── Card do Dashboard: Agenda de hoje (Google Calendar) ───
+function AgendaHojeCard({ setPage }) {
+  const [status, setStatus] = React.useState('checando');
+  const [eventos, setEventos] = React.useState([]);
+
+  const carregar = React.useCallback(async () => {
+    const now = new Date();
+    const ini = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const fim = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const d = await _gcall('google-calendar', { action:'list', timeMin: ini.toISOString(), timeMax: fim.toISOString(), maxResults: 40 });
+    if (d.ok) {
+      setStatus('conectado');
+      const evs = (d.eventos || []).map(e => ({ id:e.id, titulo:e.titulo, inicio:e.inicio, fim:e.fim, diaInteiro:!!e.diaInteiro, local:e.local, meet:e.meet }))
+        .sort((a,b) => String(a.inicio||'').localeCompare(String(b.inicio||'')));
+      setEventos(evs);
+    }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
+    else setStatus('erro');
+  }, []);
+  React.useEffect(() => { carregar(); }, [carregar]);
+  useRefocus(carregar);
+
+  const hhmm = (iso) => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}); };
+  const hojeLabel = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' });
+
+  return (
+    <div className="card">
+      <div className="card__head">
+        <div className="card__title">Agenda de hoje</div>
+        <div style={{display:'flex', alignItems:'center', gap:8}}>
+          <span style={{fontSize:11, color:'var(--t3)', textTransform:'capitalize'}}>{hojeLabel}</span>
+          <div className="card__action" onClick={()=>setPage && setPage('agenda')}>Abrir Agenda →</div>
+        </div>
+      </div>
+
+      <div style={{maxHeight:300, overflowY:'auto'}}>
+        {status === 'checando' && <div style={{padding:'24px 4px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>Carregando…</div>}
+
+        {(status === 'desconectado' || status === 'sem_escopo' || status === 'erro') && (
+          <div style={{padding:'26px 8px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
+            {status === 'erro' ? 'Não foi possível carregar a agenda agora.' : 'Conecte o Google para ver sua agenda de hoje aqui.'}
+            <div style={{marginTop:10}}>
+              <button onClick={()=>setPage && setPage('agenda')} style={{padding:'6px 12px', borderRadius:6, border:'1px solid var(--border-soft)', background:'transparent', color:'var(--blue)', fontSize:12, fontWeight:600, cursor:'pointer'}}>Abrir Agenda →</button>
+            </div>
+          </div>
+        )}
+
+        {status === 'conectado' && eventos.length === 0 && (
+          <div style={{padding:'30px 8px', textAlign:'center', color:'var(--t3)', fontSize:12.5}}>
+            <Icon name="CalendarCheck" size={26} style={{opacity:.4, display:'block', margin:'0 auto 8px'}}/>
+            Nada na agenda hoje.
+          </div>
+        )}
+
+        {status === 'conectado' && eventos.map(ev => (
+          <div key={ev.id} style={{display:'flex', gap:12, alignItems:'flex-start', padding:'10px 4px', borderBottom:'1px solid var(--border-soft)'}}>
+            <div style={{width:54, flexShrink:0, textAlign:'right', fontSize:11.5, color:'var(--t2)', fontFamily:'var(--f-m)', paddingTop:1}}>
+              {ev.diaInteiro ? 'dia todo' : hhmm(ev.inicio)}
+            </div>
+            <div style={{width:6, flexShrink:0, alignSelf:'stretch', borderRadius:3, background:'var(--blue)', minHeight:18}}/>
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{fontSize:13, color:'var(--t1)', fontWeight:500, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{ev.titulo}</div>
+              {(ev.local || ev.meet) && (
+                <div style={{fontSize:11, color:'var(--t3)', marginTop:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+                  {ev.meet ? '🎥 Google Meet' : ev.local}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
