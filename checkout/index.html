@@ -303,7 +303,7 @@ const BravaLoading = ({ texto }) => (
 /* ─── App ─── */
 /* ─── Tela de Confirmação ─── */
 const Confirmacao = ({ plano }) => {
-  const [contagem, setContagem] = React.useState(15);
+  const [contagem, setContagem] = React.useState(4);
   const [carregando, setCarregando] = React.useState(false);
 
   // Salva o estado do checkout em localStorage compartilhado (window.name) e na URL
@@ -320,8 +320,6 @@ const Confirmacao = ({ plano }) => {
     }, 1500);
   };
 
-  if (carregando) return <BravaLoading texto="Preparando seu workspace..." />;
-
   React.useEffect(() => {
     const timer = setInterval(() => {
       setContagem(n => {
@@ -333,6 +331,10 @@ const Confirmacao = ({ plano }) => {
   }, []);
 
   const irAgora = irPara;
+
+  // IMPORTANTE: early return só DEPOIS de todos os hooks (senão o React quebra com
+  // "Rendered fewer hooks than expected" e o redirect nunca acontece).
+  if (carregando) return <BravaLoading texto="Preparando seu workspace..." />;
 
   return (
     <div className="page" style={{minHeight:'100vh', display:'flex', flexDirection:'column'}}>
