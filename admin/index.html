@@ -786,6 +786,8 @@ const NAV = [
   { key:'pipeline',     label:'Pipeline',        icon:'KanbanSquare',    grupo:'Comercial', badge:5 },
   { key:'onboarding',   label:'Novos cadastros', icon:'UserPlus',        grupo:'Comercial', badge:null },
   { key:'agenda',       label:'Agenda',          icon:'CalendarCheck',   grupo:'Administrativo', badge:null },
+  { key:'orcamentos',   label:'Orçamentos',      icon:'FileText',        grupo:'Administrativo', badge:null },
+  { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
   { key:'projetos',     label:'Projetos',        icon:'Layers',          grupo:'Operações', badge:null },
   { key:'equipe',       label:'Equipe',          icon:'UsersRound',      grupo:'Operações', badge:null },
@@ -24632,6 +24634,291 @@ function FrenteEmBreve({ nome, desc }) {
   );
 }
 
+// ── Administrativo: Orçamentos / Propostas ───────────────────────────
+const ORCAMENTOS_KEY = 'brava_orcamentos';
+function loadOrcamentos(){ try{ return JSON.parse(localStorage.getItem(ORCAMENTOS_KEY)||'[]'); }catch{ return []; } }
+function saveOrcamentos(l){ localStorage.setItem(ORCAMENTOS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_orcamentos_changed')); }
+const _orcBRL = (n)=>'R$ '+Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
+function orcTotal(o){ const bruto=(o.itens||[]).reduce((s,i)=>s+(Number(i.qtd||0)*Number(i.valorUnit||0)),0); return Math.max(0, bruto-Number(o.desconto||0)); }
+const ORC_STATUS = { rascunho:{label:'Rascunho',cor:'#BA7517'}, enviado:{label:'Enviado',cor:'#1E90FF'}, aprovado:{label:'Aprovado',cor:'#1D9E75'}, recusado:{label:'Recusado',cor:'#E5544D'} };
+
+function OrcamentosAdmin() {
+  const { list: clientes } = useClientes();
+  const [orcs, setOrcs] = React.useState(loadOrcamentos);
+  const [novo, setNovo] = React.useState(false);
+  const [ver, setVer] = React.useState(null);
+  React.useEffect(()=>{ const h=()=>setOrcs(loadOrcamentos()); window.addEventListener('brava_orcamentos_changed',h); return ()=>window.removeEventListener('brava_orcamentos_changed',h); },[]);
+  const total = orcs.length;
+  const enviados = orcs.filter(o=>o.status==='enviado').length;
+  const aprovados = orcs.filter(o=>o.status==='aprovado').length;
+  const valorAprovado = orcs.filter(o=>o.status==='aprovado').reduce((s,o)=>s+orcTotal(o),0);
+  const criar = (d)=>{ const o={ id:'orc_'+Date.now(), criadoEm:new Date().toISOString(), status:'rascunho', ...d }; const l=[o,...orcs]; saveOrcamentos(l); setOrcs(l); setNovo(false); showToast('Orçamento criado.','success'); };
+  const mudar = (id,status)=>{ const l=orcs.map(o=>o.id===id?{...o,status}:o); saveOrcamentos(l); setOrcs(l); };
+  const apagar = (id)=>{ if(!confirm('Apagar orçamento?'))return; const l=orcs.filter(o=>o.id!==id); saveOrcamentos(l); setOrcs(l); };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Orçamentos</div>
+          <div className="page-head__sub">Administrativo · proposta comercial pronta para enviar, com a sua marca, em minutos.</div>
+        </div>
+        <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
+      </div>
+      <div className="kpi-grid" style={{marginBottom:18}}>
+        <KpiCard label="Orçamentos" value={String(total)} icon="FileText" cor="#1E90FF"/>
+        <KpiCard label="Enviados" value={String(enviados)} icon="TrendingUp" cor="#BA7517"/>
+        <KpiCard label="Aprovados" value={String(aprovados)} icon="CheckCircle2" cor="#1D9E75"/>
+        <KpiCard label="Valor aprovado" value={_orcBRL(valorAprovado)} icon="Wallet" cor="#1D9E75"/>
+      </div>
+      {total===0 ? (
+        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhum orçamento ainda. Clique em "Novo orçamento" para montar a primeira proposta.</div>
+      ) : (
+        <div style={{display:'grid', gap:8}}>
+          {orcs.map(o=>{ const st=ORC_STATUS[o.status]||ORC_STATUS.rascunho; return (
+            <div key={o.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 150px 150px auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
+              <div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{o.cliente||'Cliente'}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{(o.itens||[]).length} {((o.itens||[]).length===1)?'item':'itens'} · {_orcBRL(orcTotal(o))}</div>
+              </div>
+              <div style={{fontSize:12.5, color:'var(--t2)'}}>{new Date(o.criadoEm).toLocaleDateString('pt-BR')}</div>
+              <select value={o.status} onChange={e=>mudar(o.id,e.target.value)} style={{..._fSel, height:34, fontSize:13, color:st.cor}}>
+                <option value="rascunho">Rascunho</option><option value="enviado">Enviado</option><option value="aprovado">Aprovado</option><option value="recusado">Recusado</option>
+              </select>
+              <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+                <button onClick={()=>setVer(o)} style={_fBtnGhost}>Ver / Imprimir</button>
+                <button onClick={()=>apagar(o.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
+              </div>
+            </div>
+          ); })}
+        </div>
+      )}
+      {novo && <NovoOrcamentoModal clientes={clientes} onClose={()=>setNovo(false)} onSalvar={criar}/>}
+      {ver && <OrcamentoPrintModal orcamento={ver} onClose={()=>setVer(null)}/>}
+    </div>
+  );
+}
+function NovoOrcamentoModal({ clientes, onClose, onSalvar }) {
+  const [cliente, setCliente] = React.useState('');
+  const [validade, setValidade] = React.useState('');
+  const [desconto, setDesconto] = React.useState('');
+  const [observacoes, setObservacoes] = React.useState('');
+  const [itens, setItens] = React.useState([{ descricao:'', qtd:'1', valorUnit:'' }]);
+  const upItem = (i,campo,val)=> setItens(itens.map((it,idx)=> idx===i?{...it,[campo]:val}:it));
+  const addItem = ()=> setItens([...itens, { descricao:'', qtd:'1', valorUnit:'' }]);
+  const delItem = (i)=> setItens(itens.length>1 ? itens.filter((_,idx)=>idx!==i) : itens);
+  const bruto = itens.reduce((s,i)=>s+(Number(i.qtd||0)*Number(i.valorUnit||0)),0);
+  const totalVivo = Math.max(0, bruto-Number(desconto||0));
+  const salvar = ()=>{
+    if(!cliente){ showToast('Selecione o cliente.','erro'); return; }
+    const validos = itens.filter(i=>i.descricao.trim());
+    if(!validos.length){ showToast('Adicione ao menos um item.','erro'); return; }
+    onSalvar({ cliente, validade, desconto, observacoes, itens: validos.map(i=>({ descricao:i.descricao.trim(), qtd:Number(i.qtd||1), valorUnit:Number(i.valorUnit||0) })) });
+  };
+  return (
+    <_FModal title="Novo orçamento" onClose={onClose} wide>
+      <_FCampo label="Cliente">
+        <select value={cliente} onChange={e=>setCliente(e.target.value)} style={_fSel}>
+          <option value="">Selecione…</option>
+          {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+        </select>
+      </_FCampo>
+      <div style={{fontSize:12, color:'var(--t3)', margin:'4px 0 6px'}}>Itens</div>
+      <div style={{display:'grid', gap:8, marginBottom:8}}>
+        {itens.map((it,i)=>(
+          <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 70px 120px 34px', gap:8, alignItems:'center'}}>
+            <input value={it.descricao} onChange={e=>upItem(i,'descricao',e.target.value)} placeholder="Descrição do item ou serviço" style={_fInp}/>
+            <input value={it.qtd} onChange={e=>upItem(i,'qtd',e.target.value.replace(/[^\d]/g,''))} placeholder="Qtd" style={{..._fInp, textAlign:'center'}}/>
+            <input value={it.valorUnit} onChange={e=>upItem(i,'valorUnit',e.target.value.replace(/[^\d.,]/g,'').replace(',','.'))} placeholder="Valor unit." style={_fInp}/>
+            <button onClick={()=>delItem(i)} style={{..._fBtnGhost, color:'#E5544D', height:40, padding:0, justifyContent:'center'}}><Icon name="Trash2" size={14}/></button>
+          </div>
+        ))}
+      </div>
+      <button onClick={addItem} style={{..._fBtnGhost, marginBottom:14}}>+ Adicionar item</button>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <_FCampo label="Desconto (R$, opcional)"><input value={desconto} onChange={e=>setDesconto(e.target.value.replace(/[^\d.,]/g,'').replace(',','.'))} placeholder="0" style={_fInp}/></_FCampo>
+        <_FCampo label="Validade da proposta"><input value={validade} onChange={e=>setValidade(e.target.value)} placeholder="Ex.: 15 dias" style={_fInp}/></_FCampo>
+      </div>
+      <_FCampo label="Observações (opcional)"><textarea value={observacoes} onChange={e=>setObservacoes(e.target.value)} rows={2} style={{..._fInp, height:'auto', padding:'10px 12px', resize:'vertical'}}/></_FCampo>
+      <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:8, paddingTop:12, borderTop:'1px solid var(--border)'}}>
+        <div style={{fontSize:15, color:'var(--t1)'}}>Total: <b style={{fontFamily:'var(--f-d)'}}>{_orcBRL(totalVivo)}</b></div>
+        <div style={{display:'flex', gap:8}}>
+          <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
+          <button onClick={salvar} style={_fBtnPrimary}>Criar orçamento</button>
+        </div>
+      </div>
+    </_FModal>
+  );
+}
+function OrcamentoPrintModal({ orcamento, onClose }) {
+  const o = orcamento; const total = orcTotal(o);
+  const bruto = (o.itens||[]).reduce((s,i)=>s+(Number(i.qtd||0)*Number(i.valorUnit||0)),0);
+  const imprimir = ()=>{ const el=document.getElementById('orc-print'); const w=window.open('','_blank'); if(!w)return; w.document.write('<html><head><title>Proposta — '+(o.cliente||'')+'</title><style>body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px;line-height:1.6}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #ddd;font-size:13px}th{color:#666;font-weight:600}</style></head><body>'+el.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); };
+  return (
+    <_FModal title="Proposta comercial" onClose={onClose} wide>
+      <div id="orc-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
+        <h2 style={{margin:'0 0 4px'}}>Proposta comercial</h2>
+        <div style={{fontSize:12, color:'#666', marginBottom:18}}>Brava Company S.A. · CNPJ 34.454.770/0001-26</div>
+        <p><b>Cliente:</b> {o.cliente}</p>
+        <p><b>Data:</b> {new Date(o.criadoEm).toLocaleDateString('pt-BR')}{o.validade?(' · Validade: '+o.validade):''}</p>
+        <table>
+          <thead><tr><th>Descrição</th><th style={{textAlign:'center'}}>Qtd</th><th style={{textAlign:'right'}}>Valor unit.</th><th style={{textAlign:'right'}}>Subtotal</th></tr></thead>
+          <tbody>
+            {(o.itens||[]).map((i,idx)=>(
+              <tr key={idx}><td>{i.descricao}</td><td style={{textAlign:'center'}}>{i.qtd}</td><td style={{textAlign:'right'}}>{_orcBRL(i.valorUnit)}</td><td style={{textAlign:'right'}}>{_orcBRL(Number(i.qtd)*Number(i.valorUnit))}</td></tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{textAlign:'right', fontSize:13}}>
+          <div>Subtotal: {_orcBRL(bruto)}</div>
+          {Number(o.desconto)>0 ? <div>Desconto: -{_orcBRL(o.desconto)}</div> : null}
+          <div style={{fontSize:16, marginTop:6}}><b>Total: {_orcBRL(total)}</b></div>
+        </div>
+        {o.observacoes ? <p style={{marginTop:16, color:'#444'}}><b>Observações:</b> {o.observacoes}</p> : null}
+        <div style={{marginTop:48, display:'flex', justifyContent:'space-between', gap:24}}>
+          <div style={{flex:1, borderTop:'1px solid #111', paddingTop:6}}>Brava Company</div>
+          <div style={{flex:1, borderTop:'1px solid #111', paddingTop:6}}>{o.cliente}</div>
+        </div>
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
+        <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
+        <button onClick={imprimir} style={_fBtnPrimary}>Imprimir / PDF</button>
+      </div>
+    </_FModal>
+  );
+}
+
+// ── Administrativo: Atas de reunião ──────────────────────────────────
+const ATAS_KEY = 'brava_atas';
+function loadAtas(){ try{ return JSON.parse(localStorage.getItem(ATAS_KEY)||'[]'); }catch{ return []; } }
+function saveAtas(l){ localStorage.setItem(ATAS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_atas_changed')); }
+
+function AtasAdmin() {
+  const { list: clientes } = useClientes();
+  const [atas, setAtas] = React.useState(loadAtas);
+  const [novo, setNovo] = React.useState(false);
+  const [ver, setVer] = React.useState(null);
+  React.useEffect(()=>{ const h=()=>setAtas(loadAtas()); window.addEventListener('brava_atas_changed',h); return ()=>window.removeEventListener('brava_atas_changed',h); },[]);
+  const total = atas.length;
+  const passos = atas.reduce((s,a)=>s+((a.proximosPassos||[]).length),0);
+  const criar = (d)=>{ const a={ id:'ata_'+Date.now(), criadoEm:new Date().toISOString(), ...d }; const l=[a,...atas]; saveAtas(l); setAtas(l); setNovo(false); showToast('Ata registrada.','success'); };
+  const apagar = (id)=>{ if(!confirm('Apagar ata?'))return; const l=atas.filter(a=>a.id!==id); saveAtas(l); setAtas(l); };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Atas</div>
+          <div className="page-head__sub">Administrativo · cada reunião vira registro, decisão e próximo passo. Nada se perde.</div>
+        </div>
+        <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Nova ata</button></div>
+      </div>
+      <div className="kpi-grid" style={{marginBottom:18}}>
+        <KpiCard label="Atas" value={String(total)} icon="BookOpen" cor="#1E90FF"/>
+        <KpiCard label="Próximos passos" value={String(passos)} icon="CheckCircle2" cor="#1D9E75"/>
+      </div>
+      {total===0 ? (
+        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhuma ata ainda. Clique em "Nova ata" para registrar a primeira reunião.</div>
+      ) : (
+        <div style={{display:'grid', gap:8}}>
+          {atas.map(a=>(
+            <div key={a.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 150px 150px auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
+              <div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{a.titulo||'Reunião'}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{a.cliente||'Interno'}{(a.proximosPassos||[]).length?(' · '+a.proximosPassos.length+' próximos passos'):''}</div>
+              </div>
+              <div style={{fontSize:12.5, color:'var(--t2)'}}>{a.data || new Date(a.criadoEm).toLocaleDateString('pt-BR')}</div>
+              <div/>
+              <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+                <button onClick={()=>setVer(a)} style={_fBtnGhost}>Ver / Imprimir</button>
+                <button onClick={()=>apagar(a.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {novo && <NovaAtaModal clientes={clientes} onClose={()=>setNovo(false)} onSalvar={criar}/>}
+      {ver && <AtaPrintModal ata={ver} onClose={()=>setVer(null)}/>}
+    </div>
+  );
+}
+function NovaAtaModal({ clientes, onClose, onSalvar }) {
+  const [titulo, setTitulo] = React.useState('');
+  const [cliente, setCliente] = React.useState('');
+  const [data, setData] = React.useState(new Date().toLocaleDateString('pt-BR'));
+  const [participantes, setParticipantes] = React.useState('');
+  const [pauta, setPauta] = React.useState('');
+  const [decisoes, setDecisoes] = React.useState('');
+  const [passos, setPassos] = React.useState([{ tarefa:'', responsavel:'', prazo:'' }]);
+  const upPasso = (i,campo,val)=> setPassos(passos.map((p,idx)=> idx===i?{...p,[campo]:val}:p));
+  const addPasso = ()=> setPassos([...passos, { tarefa:'', responsavel:'', prazo:'' }]);
+  const delPasso = (i)=> setPassos(passos.length>1 ? passos.filter((_,idx)=>idx!==i) : passos);
+  const salvar = ()=>{
+    if(!titulo.trim()){ showToast('Informe o título da reunião.','erro'); return; }
+    const validos = passos.filter(p=>p.tarefa.trim());
+    onSalvar({ titulo:titulo.trim(), cliente, data, participantes, pauta, decisoes, proximosPassos:validos });
+  };
+  const _ta = {..._fInp, height:'auto', padding:'10px 12px', resize:'vertical'};
+  return (
+    <_FModal title="Nova ata" onClose={onClose} wide>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12}}>
+        <_FCampo label="Título da reunião"><input value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ex.: Kickoff do projeto" style={_fInp}/></_FCampo>
+        <_FCampo label="Data"><input value={data} onChange={e=>setData(e.target.value)} style={_fInp}/></_FCampo>
+      </div>
+      <_FCampo label="Cliente (opcional)">
+        <select value={cliente} onChange={e=>setCliente(e.target.value)} style={_fSel}>
+          <option value="">Interno / sem cliente</option>
+          {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
+        </select>
+      </_FCampo>
+      <_FCampo label="Participantes"><input value={participantes} onChange={e=>setParticipantes(e.target.value)} placeholder="Nomes separados por vírgula" style={_fInp}/></_FCampo>
+      <_FCampo label="Pauta"><textarea value={pauta} onChange={e=>setPauta(e.target.value)} rows={2} style={_ta}/></_FCampo>
+      <_FCampo label="Decisões"><textarea value={decisoes} onChange={e=>setDecisoes(e.target.value)} rows={2} style={_ta}/></_FCampo>
+      <div style={{fontSize:12, color:'var(--t3)', margin:'4px 0 6px'}}>Próximos passos</div>
+      <div style={{display:'grid', gap:8, marginBottom:8}}>
+        {passos.map((p,i)=>(
+          <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 130px 110px 34px', gap:8, alignItems:'center'}}>
+            <input value={p.tarefa} onChange={e=>upPasso(i,'tarefa',e.target.value)} placeholder="Tarefa" style={_fInp}/>
+            <input value={p.responsavel} onChange={e=>upPasso(i,'responsavel',e.target.value)} placeholder="Responsável" style={_fInp}/>
+            <input value={p.prazo} onChange={e=>upPasso(i,'prazo',e.target.value)} placeholder="Prazo" style={_fInp}/>
+            <button onClick={()=>delPasso(i)} style={{..._fBtnGhost, color:'#E5544D', height:40, padding:0, justifyContent:'center'}}><Icon name="Trash2" size={14}/></button>
+          </div>
+        ))}
+      </div>
+      <button onClick={addPasso} style={{..._fBtnGhost, marginBottom:8}}>+ Adicionar passo</button>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:8}}>
+        <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
+        <button onClick={salvar} style={_fBtnPrimary}>Registrar ata</button>
+      </div>
+    </_FModal>
+  );
+}
+function AtaPrintModal({ ata, onClose }) {
+  const a = ata;
+  const imprimir = ()=>{ const el=document.getElementById('ata-print'); const w=window.open('','_blank'); if(!w)return; w.document.write('<html><head><title>Ata — '+(a.titulo||'')+'</title><style>body{font-family:Arial,sans-serif;color:#111;max-width:720px;margin:40px auto;padding:0 24px;line-height:1.6}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid #ddd;font-size:13px}th{color:#666;font-weight:600}</style></head><body>'+el.innerHTML+'</body></html>'); w.document.close(); w.focus(); setTimeout(()=>w.print(),250); };
+  return (
+    <_FModal title="Ata de reunião" onClose={onClose} wide>
+      <div id="ata-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
+        <h2 style={{margin:'0 0 4px'}}>{a.titulo||'Ata de reunião'}</h2>
+        <div style={{fontSize:12, color:'#666', marginBottom:18}}>Brava Company S.A. · {a.data || new Date(a.criadoEm).toLocaleDateString('pt-BR')}{a.cliente?(' · '+a.cliente):''}</div>
+        {a.participantes ? <p><b>Participantes:</b> {a.participantes}</p> : null}
+        {a.pauta ? <div style={{marginTop:8}}><b>Pauta</b><p style={{margin:'4px 0', whiteSpace:'pre-wrap'}}>{a.pauta}</p></div> : null}
+        {a.decisoes ? <div style={{marginTop:8}}><b>Decisões</b><p style={{margin:'4px 0', whiteSpace:'pre-wrap'}}>{a.decisoes}</p></div> : null}
+        {(a.proximosPassos||[]).length ? (
+          <div style={{marginTop:8}}><b>Próximos passos</b>
+            <table>
+              <thead><tr><th>Tarefa</th><th>Responsável</th><th>Prazo</th></tr></thead>
+              <tbody>{a.proximosPassos.map((p,i)=>(<tr key={i}><td>{p.tarefa}</td><td>{p.responsavel||'-'}</td><td>{p.prazo||'-'}</td></tr>))}</tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
+        <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
+        <button onClick={imprimir} style={_fBtnPrimary}>Imprimir / PDF</button>
+      </div>
+    </_FModal>
+  );
+}
+
 function App() {
   // ✨ Auth gate: se nao houver sessao Supabase Auth, mostra modal de login
   //    (necessario pra JWT chegar nas queries e RLS funcionar)
@@ -24778,6 +25065,8 @@ function App() {
           : page === 'clientes_crm' ? <ClientesCRM/>
           : page === 'projetos' ? <ProjetosCRM/>
           : page === 'agenda'   ? <Agenda/>
+          : page === 'orcamentos'? <OrcamentosAdmin/>
+          : page === 'atas'     ? <AtasAdmin/>
           : page === 'analytics'? <Analytics/>
           : page === 'chamados' ? <Chamados/>
           : page === 'equipe'   ? <Equipe/>
