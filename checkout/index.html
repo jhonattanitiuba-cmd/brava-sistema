@@ -210,6 +210,16 @@ a { color: var(--blue); text-decoration: none; }
 <script type="text/babel">
 const { useState } = React;
 
+/* ─── Supabase: funções públicas do checkout BTG ─── */
+const SUPA_URL = 'https://buvduumggjpybhzbdqzm.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1dmR1dW1nZ2pweWJoemJkcXptIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg0NzcxODksImV4cCI6MjA5NDA1MzE4OX0.ngKGo55zIxVh-cmxkX0d1KxF16DbD0_rclmVtzybA_I';
+async function fnBrava(name, body) {
+  try {
+    const r = await fetch(SUPA_URL + '/functions/v1/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify(body || {}) });
+    return await r.json();
+  } catch (_e) { return { ok: false, error: 'rede' }; }
+}
+
 /* ─── Ícones inline (Lucide) ─── */
 const Icon = ({ name, size = 16 }) => {
   const icons = {
@@ -289,10 +299,10 @@ const Confirmacao = ({ plano }) => {
     document.cookie = `brava_checkout_done=1;path=/;max-age=600;samesite=lax`;
     document.cookie = `brava_plano=${plano.nome.toLowerCase()};path=/;max-age=600;samesite=lax`;
     document.cookie = `brava_theme=${tema};path=/;max-age=600;samesite=lax`;
-    const params = `new=1&plano=${plano.nome.toLowerCase()}&theme=${tema}&skip_login=1`;
-    // Mostra o loading por ~1.5s antes de redirecionar (CRM continua o loading por +3.5s)
+    const params = `new=1&plano=${plano.nome.toLowerCase()}&theme=${tema}`;
+    // Vai pro onboarding real (app de produção)
     setTimeout(() => {
-      window.location.href = `http://${window.location.hostname}:3002/Brava%20CRM.html?${params}#onboarding`;
+      window.location.href = `/app/?${params}`;
     }, 1500);
   };
 
@@ -425,11 +435,37 @@ const Checkout = () => {
   const planoKey = params.get('plano') || 'performance';
   const plano = PLANOS[planoKey] || PLANOS.performance;
 
-  const [metodo, setMetodo] = useState('cartao');
+  const [metodo, setMetodo] = useState('pix');
   const [loading, setLoading] = useState(false);
   const [pago, setPago] = useState(false);
   const [copied, setCopied] = useState(false);
   const [form, setForm] = useState({ numero: '', nome: '', validade: '', cvv: '', cpf: '' });
+
+  // ── Pix real (BTG) ──
+  const [pixData, setPixData] = useState(null);    // { emv, qrcode_url, pedido_id }
+  const [pixLoading, setPixLoading] = useState(false);
+  const [pixErro, setPixErro] = useState('');
+
+  // Gera a cobrança Pix real ao entrar no método Pix (cobra R$1 de teste; exibe preço normal)
+  React.useEffect(() => {
+    if (metodo !== 'pix' || pixData || pixLoading) return;
+    setPixLoading(true); setPixErro('');
+    fnBrava('checkout-pix', { plano: planoKey }).then(d => {
+      setPixLoading(false);
+      if (d && d.ok) setPixData(d);
+      else setPixErro('Pix indisponível no momento. Tente novamente em instantes.');
+    });
+  }, [metodo]);
+
+  // Polling: confirma o pagamento e avança pro onboarding
+  React.useEffect(() => {
+    if (!pixData || !pixData.pedido_id) return;
+    const iv = setInterval(async () => {
+      const d = await fnBrava('checkout-status', { pedido_id: pixData.pedido_id });
+      if (d && d.status === 'pago') { clearInterval(iv); setPago(true); }
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [pixData]);
 
   if (pago) return <Confirmacao plano={plano} />;
   const update = k => e => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -458,19 +494,9 @@ const Checkout = () => {
   };
 
   const handlePay = () => {
-    setLoading(true);
-    /*
-     * 🔌 INTEGRAÇÃO STRIPE - Cartão
-     * 1. Backend cria PaymentIntent: POST /api/checkout/create-intent { plano }
-     * 2. Frontend recebe { clientSecret }
-     * 3. stripe.confirmCardPayment(clientSecret, { payment_method: { card: elements.getElement('card'), ... } })
-     * 4. On success → redireciona para /confirmacao?session_id=...
-     */
-    setTimeout(() => {
-      setLoading(false);
-      setPago(true); // Mostra tela de confirmação
-      // 🔌 INTEGRAÇÃO: aguardar webhook Stripe antes de confirmar
-    }, 2000);
+    // Cartão ainda não plugado. Só o Pix concede acesso (confirmação real via BTG).
+    alert('Pagamento por cartão estará disponível em breve. Por enquanto, use o Pix — a confirmação é na hora.');
+    setMetodo('pix');
   };
 
   const handlePix = () => {
@@ -484,13 +510,9 @@ const Checkout = () => {
   };
 
   const handleBoleto = () => {
-    /*
-     * 🔌 INTEGRAÇÃO STRIPE - Boleto
-     * 1. POST /api/checkout/create-boleto { plano, cpf, nome }
-     * 2. Retorna { pdf_url, barcode, expires_at }
-     * 3. Abre PDF num nova aba
-     * 4. Webhook 'payment_intent.succeeded' confirma pagamento (D+1 a D+3)
-     */
+    // Boleto é a Fase 2. Por enquanto, Pix.
+    alert('Boleto estará disponível em breve. Por enquanto, use o Pix — a confirmação é na hora.');
+    setMetodo('pix');
   };
 
   return (
@@ -617,26 +639,30 @@ const Checkout = () => {
           {metodo === 'pix' && (
             <div style={{ display: 'grid', gap: 16 }}>
               <div className="pix-panel">
-                <p style={{ fontFamily: 'var(--f-display)', fontSize: 17, fontWeight: 500 }}>Escaneie o QR Code</p>
-                <div className="pix-qr">
-                  {/* 🔌 INTEGRAÇÃO STRIPE: trocar por QR dinâmico gerado pelo PaymentIntent Pix */}
-                  <PixQR />
-                </div>
-                <p>Abra o app do seu banco, vá em Pix e escaneie o código. O pagamento é confirmado em segundos.</p>
-                <div className="pix-code">
-                  {/* 🔌 INTEGRAÇÃO STRIPE: trocar por qr_code_text real do PaymentIntent */}
-                  00020126360014BR.GOV.BCB.PIX0114+5511999999999520400005303986540512975802BR5913BravaCompany6008Sao Paulo62070503***6304ABCD
-                </div>
-                <button className="pix-copy" onClick={() => setCopied(true)}>
-                  <Icon name="Copy" size={14} />
-                  {copied ? 'Copiado!' : 'Copiar código Pix'}
-                </button>
+                {pixLoading && <p style={{ fontFamily: 'var(--f-display)', fontSize: 16 }}>Gerando seu Pix…</p>}
+                {pixErro && <p style={{ color: 'var(--danger)' }}>{pixErro}</p>}
+                {pixData && (
+                  <>
+                    <p style={{ fontFamily: 'var(--f-display)', fontSize: 17, fontWeight: 500 }}>Escaneie o QR Code</p>
+                    <div className="pix-qr">
+                      {pixData.qrcode_url
+                        ? <img src={pixData.qrcode_url} alt="QR Code Pix" style={{ width: 170, height: 170, objectFit: 'contain' }}/>
+                        : <PixQR />}
+                    </div>
+                    <p>Abra o app do seu banco, vá em Pix e escaneie (ou copie o código abaixo). A confirmação é automática.</p>
+                    <div className="pix-code">{pixData.emv}</div>
+                    <button className="pix-copy" onClick={() => { try { navigator.clipboard.writeText(pixData.emv); } catch (e) {} setCopied(true); }}>
+                      <Icon name="Copy" size={14} />
+                      {copied ? 'Copiado!' : 'Copiar código Pix'}
+                    </button>
+                  </>
+                )}
               </div>
               <div className="total-box">
                 <div className="total-row"><span>Plano {plano.nome}</span><span>R$ {plano.preco.toLocaleString('pt-BR')}/mês</span></div>
                 <div className="total-row total-row--big"><span>Total</span><span>R$ {plano.preco.toLocaleString('pt-BR')}</span></div>
               </div>
-              <p className="security"><Icon name="Shield" size={13} /> Aguardando confirmação do Pix… {/* 🔌 INTEGRAÇÃO: polling status a cada 3s */}</p>
+              <p className="security"><Icon name="Shield" size={13} /> Aguardando confirmação do Pix automaticamente…</p>
             </div>
           )}
 
