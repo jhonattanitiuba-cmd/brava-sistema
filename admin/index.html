@@ -444,7 +444,15 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
 @keyframes ripple{from{transform:scale(0);opacity:.6;}to{transform:scale(2);opacity:0;}}
 @keyframes toast-in{from{opacity:0;transform:translateY(20px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
 
-.page{animation:fade-up .35s cubic-bezier(.22,1,.36,1);}
+/* Cascata ao trocar de tela: cada secao da pagina entra escalonada */
+.page > *{animation:fade-up .5s cubic-bezier(.22,1,.36,1) both;}
+.page > *:nth-child(1){animation-delay:.04s;}
+.page > *:nth-child(2){animation-delay:.12s;}
+.page > *:nth-child(3){animation-delay:.20s;}
+.page > *:nth-child(4){animation-delay:.28s;}
+.page > *:nth-child(5){animation-delay:.36s;}
+.page > *:nth-child(6){animation-delay:.44s;}
+.page > *:nth-child(n+7){animation-delay:.50s;}
 .kpi{animation:fade-up .4s cubic-bezier(.22,1,.36,1) both;}
 .kpi:nth-child(1){animation-delay:.05s;}
 .kpi:nth-child(2){animation-delay:.1s;}
@@ -735,7 +743,7 @@ const TENANT = {
 // (evento "brava_boot_ready" emitido por bravaRevealApp). Assim os numeros
 // realmente sobem na frente do usuario.
 // Atualizacoes (target muda depois): interpola valor anterior -> novo (~420ms)
-function useCount(target, duration = 1200, delay = 0) {
+function useCount(target, duration = 5000, delay = 0) {
   const [v, setV] = useState(0);
   const fromRef = React.useRef(0);
   const firstRef = React.useRef(true);
@@ -2715,10 +2723,10 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   }, []);
 
   // Contadores em cascata escalonada (animacao suave de 0 -> valor)
-  const clientes   = useCount(totalClientesAtivos,    8000,  80);
-  const mrr        = useCount(mrrTotalAtivo,          8000, 220);
-  const conversas  = useCount(supaStats.msgsHoje,     2500, 360); // valor real do banco
-  const chamados   = useCount(chamadosAbertos,        8000, 500);
+  const clientes   = useCount(totalClientesAtivos,    5000,  80);
+  const mrr        = useCount(mrrTotalAtivo,          5000, 220);
+  const conversas  = useCount(supaStats.msgsHoje,     5000, 360); // valor real do banco
+  const chamados   = useCount(chamadosAbertos,        5000, 500);
 
   // Filtro de período do gráfico
   const [periodoGrafico, setPeriodoGrafico] = React.useState('7d');
@@ -25147,6 +25155,7 @@ function App() {
       {!collapsed && <div className="sidebar-backdrop" onClick={() => setCollapsed(true)}/>}
       <Header page={page} collapsed={collapsed} setCollapsed={setCollapsed} setPage={setPage} busca={busca} setBusca={setBusca} notifAberta={notifAberta} setNotifAberta={setNotifAberta}/>
       <main className="main">
+        <div key={page} className="page-swap">
         {page === 'dashboard' ? <Dashboard onImpersonate={setImpersonate} pipelineCols={pipelineCols} setPage={setPage} onNovoCliente={()=>setNovoClienteAberto(true)} onExportar={exportarCSV} busca={busca}/>
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
           : page === 'mrr'      ? <Financeiro/>
@@ -25168,6 +25177,7 @@ function App() {
           : page === 'sobre'    ? <SobreBrava/>
           : page === 'marketing'? <FrenteEmBreve nome="Marketing" desc="Marca, conteúdo e presença que alimentam o topo do funil e dão voz ao seu negócio. Em construção."/>
           : <Placeholder page={page}/>}
+        </div>
       </main>
       {novoClienteAberto && <NovoClienteModal onClose={()=>setNovoClienteAberto(false)} onSalvar={cadastrarCliente}/>}
       <ShortcutsModal open={shortcutsOpen} onClose={()=>setShortcutsOpen(false)}/>
