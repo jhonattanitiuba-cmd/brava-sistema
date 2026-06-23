@@ -23712,7 +23712,7 @@ const AG_CORES = [
 const AG_COR_HEX = id => (AG_CORES.find(c => c.id === id) || AG_CORES[0]).hex;
 
 /* ── Modal de evento ── */
-function AgendaEventoModal({ ev, onClose }) {
+function AgendaEventoModal({ ev, onClose, gConectado, recarregarGoogle }) {
   const novo = !ev.id;
   const [form, setForm] = useState({
     titulo:    ev.titulo || '',
@@ -23726,10 +23726,26 @@ function AgendaEventoModal({ ev, onClose }) {
   });
   const set = (k,v) => setForm(f => ({...f, [k]:v}));
 
-  const salvar = () => {
+  const salvar = async () => {
     if (!form.titulo.trim()) { showToast?.('Informe um titulo', 'warn'); return; }
     if (!form.diaTodo && agMinutosDoDia(form.fim) <= agMinutosDoDia(form.inicio)) {
       showToast?.('O horario final deve ser maior que o inicial', 'warn'); return;
+    }
+    const ehGoogle = ev.fonte === 'google';
+    if (ehGoogle || (novo && gConectado)) {
+      try {
+        const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'America/Sao_Paulo';
+        const proxDia = (iso) => { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate()+1); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); };
+        const payload = form.diaTodo
+          ? { action: ehGoogle?'update':'create', id: ev.gid, titulo: form.titulo, descricao: form.descricao, local: form.local, diaInteiro: true, inicio: form.data, fim: proxDia(form.data) }
+          : { action: ehGoogle?'update':'create', id: ev.gid, titulo: form.titulo, descricao: form.descricao, local: form.local, diaInteiro: false, inicio: form.data+'T'+form.inicio+':00', fim: form.data+'T'+form.fim+':00', timeZone: tz };
+        const { data } = await getSupa().functions.invoke('google-calendar', { body: payload });
+        if (!data || !data.ok) { showToast?.('Erro ao salvar no Google', 'erro'); return; }
+        showToast?.(novo ? 'Evento criado no Google' : 'Evento atualizado no Google', 'success');
+        recarregarGoogle && recarregarGoogle();
+        onClose();
+      } catch (_e) { showToast?.('Erro ao salvar no Google', 'erro'); }
+      return;
     }
     if (novo) addAgendaEvent(form);
     else      updateAgendaEvent(ev.id, form);
@@ -23737,8 +23753,15 @@ function AgendaEventoModal({ ev, onClose }) {
     onClose();
   };
 
-  const remover = () => {
+  const remover = async () => {
     if (!confirm(`Excluir "${ev.titulo}"?`)) return;
+    if (ev.fonte === 'google') {
+      try {
+        const { data } = await getSupa().functions.invoke('google-calendar', { body: { action: 'delete', id: ev.gid } });
+        if (!data || !data.ok) { showToast?.('Erro ao excluir no Google', 'erro'); return; }
+        showToast?.('Evento excluido do Google', 'success'); recarregarGoogle && recarregarGoogle(); onClose(); return;
+      } catch (_e) { showToast?.('Erro ao excluir no Google', 'erro'); return; }
+    }
     deleteAgendaEvent(ev.id);
     showToast?.('Evento excluido', 'success');
     onClose();
@@ -24320,7 +24343,7 @@ function Agenda() {
         }
       `}</style>
 
-      {editando && <AgendaEventoModal ev={editando} onClose={()=>setEditando(null)}/>}
+      {editando && <AgendaEventoModal ev={editando} onClose={()=>setEditando(null)} gConectado={gStatus==='conectado'} recarregarGoogle={carregarGoogle}/>}
     </div>
   );
 }
