@@ -593,7 +593,7 @@ const DEFAULT_SESSAO = { nome: 'Jhonattan Itiuba', email: 'diretoria@brava.compa
 // SEMPRE sobrescreve nome/cargo baseado no email (mesmo se URL/cache tiver outra coisa).
 // Pra adicionar mais usuarios: incluir email aqui.
 const BRAVA_USERS = {
-  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Owner', telefone: '+55 11 96334-2541', foto: '/admin/app/jhonattan.jpg' },
+  'diretoria@brava.company':  { nome: 'Jhonattan Itiuba',  cargo: 'Diretor', telefone: '+55 11 96334-2541', foto: '/admin/app/jhonattan.jpg' },
   'financeiro@brava.company': { nome: 'Priscilla Cardoso', cargo: 'Admin', telefone: '',                  foto: '/admin/app/priscilla.jpg' },
 };
 
@@ -664,17 +664,24 @@ function aplicarPerfilBrava(email) {
   if (!email) return null;
   const found = BRAVA_USERS[String(email).toLowerCase().trim()];
   if (!found) return null;
-  // Forca atualizacao do localStorage com os dados corretos do mapa
+  // Atualiza o localStorage com os dados do mapa, MAS preserva o que o usuario
+  // editou manualmente (flag brava_perfil_custom) — senao o mapa apagaria a
+  // edicao do proprio usuario (ex: trocar cargo Owner -> Diretor) a cada load.
   try {
     const perfilAtual = JSON.parse(localStorage.getItem('brava_user_perfil') || '{}');
+    const custom = localStorage.getItem('brava_perfil_custom') === '1';
+    const nomeFinal  = (custom && perfilAtual.nome)  ? perfilAtual.nome  : found.nome;
+    const cargoFinal = (custom && perfilAtual.cargo) ? perfilAtual.cargo : found.cargo;
     const novo = {
       ...perfilAtual,
-      nome: found.nome,
+      nome: nomeFinal,
       email: email,
-      cargo: found.cargo,
+      cargo: cargoFinal,
       telefone: perfilAtual.telefone || found.telefone || '',
     };
     localStorage.setItem('brava_user_perfil', JSON.stringify(novo));
+    // devolve os valores EFETIVOS (respeitando edicao do usuario) pra sessao
+    return { ...found, nome: nomeFinal, cargo: cargoFinal };
   } catch {}
   return found;
 }
@@ -688,7 +695,7 @@ function carregarSessao() {
       // Se for um email Brava conhecido, usa o mapa como fonte da verdade
       const brava = aplicarPerfilBrava(emailUrl);
       const nomeReal  = brava?.nome  || userUrl;
-      const cargoReal = brava?.cargo || url.get('role') || 'Owner';
+      const cargoReal = brava?.cargo || url.get('role') || 'Diretor';
       const sessao = {
         nome: nomeReal,
         email: emailUrl,
@@ -973,20 +980,20 @@ function SidebarUserCard({ setPage }) {
             onError={e=>{ if(!e.currentTarget.dataset.fb){ e.currentTarget.dataset.fb='1'; e.currentTarget.src='/admin/app/jhonattan.jpg'; } else { e.currentTarget.style.display='none'; } }}/>
         </div>
         <div style={{flex:1, minWidth:0}}>
-          <div style={{fontSize:12.5, fontWeight:600, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
-          <div style={{fontSize:10.5, color:'var(--t2)', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
+          <div style={{fontSize:12.5, fontWeight:600, color:'rgba(255,255,255,.95)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{primeiroNome || 'Usuário'}</div>
+          <div style={{fontSize:10.5, color:'rgba(255,255,255,.55)', letterSpacing:'.04em', textTransform:'uppercase', fontWeight:600, marginTop:1}}>{cargo || 'membro'}</div>
         </div>
       </div>
       {/* ✨ Toggle tema (sol/lua) - substitui o antigo ícone de config */}
       <button onClick={toggleTema} title={dark ? 'Modo claro' : 'Modo escuro'} style={{
         width:30, height:30, padding:0, borderRadius:'50%', flexShrink:0,
-        background:'transparent', border:'1px solid var(--border)',
-        color:'var(--t2)', cursor:'pointer',
+        background:'transparent', border:'1px solid rgba(255,255,255,.18)',
+        color:'rgba(255,255,255,.7)', cursor:'pointer',
         display:'flex', alignItems:'center', justifyContent:'center',
         transition:'all .15s',
       }}
         onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)'; e.currentTarget.style.color='var(--blue)';}}
-        onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.color='var(--t2)';}}
+        onMouseLeave={e=>{e.currentTarget.style.borderColor='rgba(255,255,255,.18)'; e.currentTarget.style.color='rgba(255,255,255,.7)';}}
       >
         {dark
           ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -7929,6 +7936,9 @@ function setUserPerfilStore(perfil) {
   try {
     // 1. Persiste perfil "rico" (nome, cargo, email, telefone)
     localStorage.setItem('brava_user_perfil', JSON.stringify(perfil));
+    // 1b. Marca como edicao manual do usuario, pra o mapa BRAVA_USERS nao
+    //     sobrescrever nome/cargo no proximo load (ver aplicarPerfilBrava).
+    localStorage.setItem('brava_perfil_custom', '1');
     // 2. Sincroniza com a SESSAO em memoria + storage (para SaudacaoDinamica
     //    e tudo que le SESSAO.nome / SESSAO.email ver o valor novo na hora
     //    e tambem apos um reload).
