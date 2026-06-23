@@ -802,6 +802,7 @@ const NAV = [
   { key:'onboarding',   label:'Novos cadastros', icon:'UserPlus',        grupo:'Comercial', badge:null },
   { key:'agenda',       label:'Agenda',          icon:'CalendarCheck',   grupo:'Administrativo', badge:null },
   { key:'tarefas',      label:'Tarefas',         icon:'CheckCircle2',    grupo:'Administrativo', badge:null },
+  { key:'email',        label:'E-mail',          icon:'Mail',            grupo:'Administrativo', badge:null },
   { key:'orcamentos',   label:'Orçamentos',      icon:'FileText',        grupo:'Administrativo', badge:null },
   { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
@@ -23695,6 +23696,7 @@ const GOOGLE_OAUTH_SCOPES = [
   'openid', 'email',
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/gmail.readonly',
 ].join(' ');
 function iniciarConexaoGoogle() {
   const state = encodeURIComponent(window.location.origin);
@@ -23702,6 +23704,164 @@ function iniciarConexaoGoogle() {
     '&redirect_uri=' + encodeURIComponent(GOOGLE_OAUTH_REDIR) +
     '&response_type=code&scope=' + encodeURIComponent(GOOGLE_OAUTH_SCOPES) +
     '&access_type=offline&prompt=consent&include_granted_scopes=true&state=' + state;
+}
+
+// ── E-mail (Gmail, somente leitura) ──
+function gmailNomeRemetente(de) {
+  if (!de) return '(sem remetente)';
+  const m = String(de).match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
+  if (m) return (m[1].trim() || m[2].trim());
+  return String(de).trim();
+}
+function gmailDataCurta(d) {
+  if (!d) return '';
+  const dt = new Date(d); if (isNaN(dt.getTime())) return '';
+  const hoje = new Date();
+  const mesmoDia = dt.toDateString() === hoje.toDateString();
+  return mesmoDia
+    ? dt.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' })
+    : dt.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
+}
+
+function EmailLeitor({ email, onClose }) {
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:14, width:'min(820px, 96vw)', maxHeight:'92vh', display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        <div style={{padding:'16px 22px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:16, fontWeight:600, color:'var(--t1)', fontFamily:'var(--f-d)'}}>{email.assunto}</div>
+            <div style={{fontSize:12.5, color:'var(--t2)', marginTop:4, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{email.de}</div>
+            {email.para && <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>para: {email.para}</div>}
+            <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{email.data ? new Date(email.data).toLocaleString('pt-BR') : ''}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18, flexShrink:0}}>×</button>
+        </div>
+        <div style={{flex:1, overflow:'auto', background:'#fff'}}>
+          {email.html
+            ? <iframe title="email" sandbox="" srcDoc={email.html} style={{width:'100%', height:'62vh', border:'none', background:'#fff'}}/>
+            : <pre style={{margin:0, padding:'18px 22px', whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'inherit', fontSize:13.5, color:'#1a1a1a'}}>{email.texto || email.snippet || '(sem conteúdo)'}</pre>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Email() {
+  const [status, setStatus] = React.useState('checando'); // checando | conectado | desconectado | sem_escopo | erro
+  const [emails, setEmails] = React.useState([]);
+  const [aberto, setAberto] = React.useState(null);
+  const [abrindo, setAbrindo] = React.useState(false);
+
+  const call = React.useCallback(async (body) => {
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) return { ok:false, error:'sem_cliente' };
+    try { const { data } = await cli.functions.invoke('google-gmail', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    catch (_e) { return { ok:false, error:'excecao' }; }
+  }, []);
+
+  const carregar = React.useCallback(async () => {
+    const d = await call({ action:'list', max:20 });
+    if (d.ok) { setStatus('conectado'); setEmails(d.emails || []); }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
+    else setStatus('erro');
+  }, [call]);
+
+  React.useEffect(() => { carregar(); }, [carregar]);
+
+  const abrir = async (em) => {
+    setAbrindo(true);
+    setEmails(prev => prev.map(x => x.id === em.id ? { ...x, lido:true } : x));
+    const d = await call({ action:'get', id: em.id });
+    setAbrindo(false);
+    if (d.ok) setAberto(d.email);
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else showToast?.('Erro ao abrir o e-mail', 'erro');
+  };
+
+  const naoLidos = emails.filter(e => !e.lido).length;
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">E-mail</div>
+          <div className="page-head__sub">Sua caixa de entrada do Gmail · {naoLidos} {naoLidos === 1 ? 'não lido' : 'não lidos'}</div>
+        </div>
+        <div className="page-head__actions" style={{display:'flex', gap:10, alignItems:'center'}}>
+          {status === 'conectado' && <>
+            <span style={{fontSize:12, color:'#1D9E75'}}>● Gmail conectado</span>
+            <button onClick={carregar} className="btn btn-outline"><Icon name="RefreshCw" size={13}/>Atualizar</button>
+          </>}
+        </div>
+      </div>
+
+      {(status === 'desconectado' || status === 'sem_escopo') && (
+        <div className="card" style={{padding:32, textAlign:'center', maxWidth:520, margin:'0 auto'}}>
+          <Icon name="Mail" size={34} style={{color:'var(--blue)', marginBottom:10}}/>
+          <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>
+            {status === 'sem_escopo' ? 'Libere o acesso ao Gmail' : 'Conecte seu Google'}
+          </div>
+          <div style={{fontSize:13, color:'var(--t2)', marginBottom:18, lineHeight:1.6}}>
+            {status === 'sem_escopo'
+              ? 'Reconecte uma vez para liberar a leitura da sua caixa de entrada (a permissão atual ainda não inclui o Gmail).'
+              : 'Autorize o acesso para ver seus e-mails aqui dentro.'}
+          </div>
+          <button onClick={iniciarConexaoGoogle} className="btn btn-primary" style={{margin:'0 auto'}}>
+            <Icon name="Mail" size={14}/>{status === 'sem_escopo' ? 'Reconectar Google' : 'Conectar Google'}
+          </button>
+        </div>
+      )}
+
+      {status === 'erro' && (
+        <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="AlertCircle" size={28} style={{opacity:.5, marginBottom:8}}/>
+          <div style={{fontSize:13}}>Não foi possível carregar a caixa de entrada. <button onClick={carregar} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', fontWeight:600}}>Tentar de novo</button></div>
+        </div>
+      )}
+
+      {status === 'checando' && (
+        <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Carregando…</div>
+      )}
+
+      {status === 'conectado' && (
+        emails.length === 0 ? (
+          <div className="card" style={{padding:36, textAlign:'center', color:'var(--t3)'}}>
+            <Icon name="Mail" size={30} style={{opacity:.4, marginBottom:8}}/>
+            <div style={{fontSize:13}}>Caixa de entrada vazia.</div>
+          </div>
+        ) : (
+          <div className="card" style={{padding:0, overflow:'hidden'}}>
+            {emails.map((em, i) => (
+              <div key={em.id} onClick={()=>abrir(em)} style={{
+                padding:'13px 18px', display:'flex', gap:12, alignItems:'flex-start', cursor:'pointer',
+                borderBottom: i < emails.length-1 ? '1px solid var(--border-soft)' : 'none',
+                background: em.lido ? 'transparent' : 'rgba(30,144,255,.05)',
+                transition:'background .15s',
+              }}
+                onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
+                onMouseLeave={e=>e.currentTarget.style.background= em.lido ? 'transparent' : 'rgba(30,144,255,.05)'}
+              >
+                {!em.lido && <div style={{width:8, height:8, borderRadius:'50%', background:'var(--blue)', flexShrink:0, marginTop:6}}/>}
+                {em.lido && <div style={{width:8, flexShrink:0}}/>}
+                <div style={{flex:1, minWidth:0}}>
+                  <div style={{display:'flex', justifyContent:'space-between', gap:10, marginBottom:2}}>
+                    <div style={{fontSize:13.5, color:'var(--t1)', fontWeight: em.lido ? 500 : 700, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{gmailNomeRemetente(em.de)}</div>
+                    <div style={{fontSize:11.5, color:'var(--t3)', flexShrink:0}}>{gmailDataCurta(em.data)}</div>
+                  </div>
+                  <div style={{fontSize:13, color:'var(--t2)', fontWeight: em.lido ? 400 : 600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{em.assunto}</div>
+                  <div style={{fontSize:12, color:'var(--t3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', marginTop:1}}>{em.snippet}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {abrindo && <div style={{position:'fixed', inset:0, background:'rgba(0,0,0,.3)', zIndex:999, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:13}}>Abrindo…</div>}
+      {aberto && <EmailLeitor email={aberto} onClose={()=>setAberto(null)}/>}
+    </div>
+  );
 }
 
 // ── Tarefas (Google Tasks) ──
@@ -25593,6 +25753,7 @@ function App() {
           : page === 'projetos' ? <ProjetosCRM/>
           : page === 'agenda'   ? <Agenda/>
           : page === 'tarefas'  ? <Tarefas/>
+          : page === 'email'    ? <Email/>
           : page === 'orcamentos'? <OrcamentosAdmin/>
           : page === 'atas'     ? <AtasAdmin/>
           : page === 'analytics'? <Analytics/>
