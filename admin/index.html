@@ -8723,6 +8723,22 @@ function playTransferSound() {
   o2.start(now + 0.15); o2.stop(now + 0.4);
 }
 
+/* Destrava o audio no PRIMEIRO gesto do usuario na pagina (clique/tecla/toque),
+   independente do login. Sem isso, o navegador mantem o AudioContext suspenso e
+   a notificacao sonora so funcionaria apos o clique do login. Roda uma vez. */
+(function setupAudioUnlock() {
+  if (typeof document === 'undefined') return;
+  let feito = false;
+  const eventos = ['pointerdown', 'keydown', 'touchstart', 'click'];
+  const destravar = () => {
+    if (feito) return; feito = true;
+    const ctx = _getAudioCtx();
+    if (ctx && ctx.state === 'suspended') { try { ctx.resume(); } catch {} }
+    eventos.forEach(ev => document.removeEventListener(ev, destravar, true));
+  };
+  eventos.forEach(ev => document.addEventListener(ev, destravar, true));
+})();
+
 /* Hook: notifica + toca som quando agentee_id de QUALQUER chat passa a ser do user atual.
    Roda no nivel global da Conversas/App. Subscribe Realtime amplo em wa_chats UPDATE. */
 function useTransferenciaWatcher(meuUserId) {
