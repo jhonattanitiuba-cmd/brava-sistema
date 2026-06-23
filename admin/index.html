@@ -803,6 +803,7 @@ const NAV = [
   { key:'agenda',       label:'Agenda',          icon:'CalendarCheck',   grupo:'Administrativo', badge:null },
   { key:'tarefas',      label:'Tarefas',         icon:'CheckCircle2',    grupo:'Administrativo', badge:null },
   { key:'email',        label:'E-mail',          icon:'Mail',            grupo:'Administrativo', badge:null },
+  { key:'drive',        label:'Drive',           icon:'Folder',          grupo:'Administrativo', badge:null },
   { key:'orcamentos',   label:'Orçamentos',      icon:'FileText',        grupo:'Administrativo', badge:null },
   { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
@@ -23794,6 +23795,7 @@ const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/tasks',
   'https://www.googleapis.com/auth/gmail.modify',
+  'https://www.googleapis.com/auth/drive.readonly',
 ].join(' ');
 function iniciarConexaoGoogle() {
   const state = encodeURIComponent(window.location.origin);
@@ -23901,6 +23903,160 @@ function ComposeEmail({ inicial, onClose, onEnviar }) {
           <button onClick={enviar} disabled={enviando || !para.trim()} className="btn btn-primary"><Icon name="Send" size={13}/>{enviando ? 'Enviando…' : 'Enviar'}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Drive (Google Drive, navegador read-only) ──
+function driveIcone(mt, ehPasta) {
+  if (ehPasta) return '📁';
+  if (!mt) return '📄';
+  if (mt.includes('document')) return '📄';
+  if (mt.includes('spreadsheet')) return '📊';
+  if (mt.includes('presentation')) return '📽️';
+  if (mt.includes('pdf')) return '📕';
+  if (mt.startsWith('image/')) return '🖼️';
+  if (mt.startsWith('video/')) return '🎬';
+  if (mt.startsWith('audio/')) return '🎵';
+  if (mt.includes('zip') || mt.includes('compressed')) return '🗜️';
+  return '📄';
+}
+function driveTamanho(n) {
+  if (!n) return '';
+  const u = ['B','KB','MB','GB','TB']; let i = 0, v = n;
+  while (v >= 1024 && i < u.length-1) { v /= 1024; i++; }
+  return (v < 10 && i > 0 ? v.toFixed(1) : Math.round(v)) + ' ' + u[i];
+}
+function Drive() {
+  const [status, setStatus] = React.useState('checando');
+  const [arquivos, setArquivos] = React.useState([]);
+  const [pilha, setPilha] = React.useState([{ id:'root', nome:'Meu Drive' }]);
+  const [busca, setBusca] = React.useState('');
+  const [carregando, setCarregando] = React.useState(false);
+  const [buscando, setBuscando] = React.useState(false);
+
+  const call = React.useCallback(async (body) => {
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) return { ok:false, error:'sem_cliente' };
+    try { const { data } = await cli.functions.invoke('google-drive', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    catch (_e) { return { ok:false, error:'excecao' }; }
+  }, []);
+
+  const tratar = (d) => {
+    if (d.ok) { setStatus('conectado'); setArquivos(d.arquivos || []); }
+    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
+    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
+    else setStatus('erro');
+  };
+
+  const carregarPasta = React.useCallback(async (folderId) => {
+    setCarregando(true); setBuscando(false);
+    const d = await call({ action:'list', folderId });
+    setCarregando(false); tratar(d);
+  }, [call]);
+
+  React.useEffect(() => { carregarPasta('root'); }, [carregarPasta]);
+
+  const abrirPasta = (f) => { setBusca(''); setPilha(p => [...p, { id:f.id, nome:f.nome }]); carregarPasta(f.id); };
+  const irPara = (idx) => { const nova = pilha.slice(0, idx + 1); setPilha(nova); setBusca(''); carregarPasta(nova[nova.length-1].id); };
+  const buscar = async () => {
+    const termo = busca.trim();
+    if (!termo) { carregarPasta(pilha[pilha.length-1].id); return; }
+    setCarregando(true); setBuscando(true);
+    const d = await call({ action:'search', busca: termo });
+    setCarregando(false); tratar(d);
+  };
+  const abrir = (f) => { if (f.ehPasta) abrirPasta(f); else if (f.link) window.open(f.link, '_blank', 'noopener'); };
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Drive</div>
+          <div className="page-head__sub">Seus arquivos do Google Drive, dentro do sistema</div>
+        </div>
+        {status === 'conectado' && (
+          <div className="page-head__actions" style={{display:'flex', gap:10, alignItems:'center'}}>
+            <span style={{fontSize:12, color:'#1D9E75'}}>● Drive conectado</span>
+            <button onClick={()=>carregarPasta(pilha[pilha.length-1].id)} className="btn btn-outline"><Icon name="RefreshCw" size={13}/>Atualizar</button>
+          </div>
+        )}
+      </div>
+
+      {(status === 'desconectado' || status === 'sem_escopo') && (
+        <div className="card" style={{padding:32, textAlign:'center', maxWidth:520, margin:'0 auto'}}>
+          <Icon name="Folder" size={34} style={{color:'var(--blue)', marginBottom:10}}/>
+          <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>{status === 'sem_escopo' ? 'Libere o acesso ao Drive' : 'Conecte seu Google'}</div>
+          <div style={{fontSize:13, color:'var(--t2)', marginBottom:18, lineHeight:1.6}}>{status === 'sem_escopo' ? 'Reconecte uma vez para liberar a leitura dos seus arquivos do Drive.' : 'Autorize o acesso para navegar pelos seus arquivos aqui dentro.'}</div>
+          <button onClick={iniciarConexaoGoogle} className="btn btn-primary" style={{margin:'0 auto'}}><Icon name="Folder" size={14}/>{status === 'sem_escopo' ? 'Reconectar Google' : 'Conectar Google'}</button>
+        </div>
+      )}
+
+      {status === 'erro' && (
+        <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)'}}>
+          <Icon name="AlertCircle" size={28} style={{opacity:.5, marginBottom:8}}/>
+          <div style={{fontSize:13}}>Não foi possível carregar o Drive. <button onClick={()=>carregarPasta('root')} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', fontWeight:600}}>Tentar de novo</button></div>
+        </div>
+      )}
+
+      {status === 'checando' && <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Carregando…</div>}
+
+      {status === 'conectado' && (
+        <>
+          {/* Busca */}
+          <div style={{display:'flex', gap:8, marginBottom:12}}>
+            <div style={{flex:1, display:'flex', alignItems:'center', gap:8, padding:'0 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, height:40}}>
+              <Icon name="Search" size={14} style={{color:'var(--t3)'}}/>
+              <input value={busca} onChange={e=>setBusca(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') buscar(); }} placeholder="Buscar em todo o Drive…" style={{flex:1, border:'none', background:'transparent', color:'var(--t1)', fontSize:14, outline:'none'}}/>
+              {busca && <button onClick={()=>{ setBusca(''); carregarPasta(pilha[pilha.length-1].id); }} style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer'}}>×</button>}
+            </div>
+            <button onClick={buscar} className="btn btn-outline">Buscar</button>
+          </div>
+
+          {/* Breadcrumb */}
+          {!buscando && (
+            <div style={{display:'flex', alignItems:'center', gap:4, marginBottom:10, flexWrap:'wrap', fontSize:13}}>
+              {pilha.map((p, i) => (
+                <React.Fragment key={p.id + i}>
+                  {i > 0 && <span style={{color:'var(--t3)'}}>/</span>}
+                  <button onClick={()=>irPara(i)} style={{background:'none', border:'none', cursor:'pointer', color: i === pilha.length-1 ? 'var(--t1)' : 'var(--blue)', fontWeight: i === pilha.length-1 ? 600 : 500, fontSize:13, padding:'2px 4px'}}>{p.nome}</button>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+          {buscando && <div style={{fontSize:12.5, color:'var(--t3)', marginBottom:10}}>Resultados da busca por "{busca}"</div>}
+
+          {/* Lista */}
+          {carregando ? (
+            <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Carregando…</div>
+          ) : arquivos.length === 0 ? (
+            <div className="card" style={{padding:36, textAlign:'center', color:'var(--t3)'}}>
+              <Icon name="Folder" size={30} style={{opacity:.4, marginBottom:8}}/>
+              <div style={{fontSize:13}}>{buscando ? 'Nada encontrado.' : 'Pasta vazia.'}</div>
+            </div>
+          ) : (
+            <div className="card" style={{padding:0, overflow:'hidden'}}>
+              {arquivos.map((f, i) => (
+                <div key={f.id} onClick={()=>abrir(f)} title={f.ehPasta ? 'Abrir pasta' : 'Abrir no Google'} style={{
+                  padding:'11px 16px', display:'flex', gap:12, alignItems:'center', cursor:'pointer',
+                  borderBottom: i < arquivos.length-1 ? '1px solid var(--border-soft)' : 'none', transition:'background .15s',
+                }}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.03)'}
+                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}
+                >
+                  <div style={{fontSize:20, flexShrink:0, width:24, textAlign:'center'}}>{driveIcone(f.mimeType, f.ehPasta)}</div>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:13.5, color:'var(--t1)', fontWeight: f.ehPasta ? 600 : 500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{f.nome}</div>
+                    {f.modificado && <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>Modificado em {new Date(f.modificado).toLocaleDateString('pt-BR')}{f.tamanho ? ' · ' + driveTamanho(f.tamanho) : ''}</div>}
+                  </div>
+                  {!f.ehPasta && <Icon name="ArrowRight" size={13} style={{color:'var(--t3)', flexShrink:0}}/>}
+                  {f.ehPasta && <Icon name="ChevronRight" size={15} style={{color:'var(--t3)', flexShrink:0}}/>}
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -25949,6 +26105,7 @@ function App() {
           : page === 'agenda'   ? <Agenda/>
           : page === 'tarefas'  ? <Tarefas/>
           : page === 'email'    ? <Email/>
+          : page === 'drive'    ? <Drive/>
           : page === 'orcamentos'? <OrcamentosAdmin/>
           : page === 'atas'     ? <AtasAdmin/>
           : page === 'analytics'? <Analytics/>
