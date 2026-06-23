@@ -1973,7 +1973,29 @@ function App() {
         if (!window.supabase) { setBootChecking(false); return; }
 
         const { data: { session } } = await window.supabase.auth.getSession();
-        if (!session?.user || cancelled) { setBootChecking(false); return; }
+        if (cancelled) return;
+
+        // ─── Pagou → entra DIRETO no onboarding, sem tela de login ───
+        // Veio do checkout (SKIP_LOGIN) e ainda não tem sessão: cria uma sessão
+        // anônima na hora (zero formulário) e abre o onboarding. Se o login
+        // anônimo estiver desligado no projeto, cai no fluxo de criar acesso
+        // (fallback) pra não quebrar o funil.
+        if (!session?.user && SKIP_LOGIN) {
+          try {
+            const { data: anon, error: anonErr } = await window.supabase.auth.signInAnonymously();
+            if (!anonErr && anon?.user) {
+              setTweak('screen', 'onboarding');
+              setBootChecking(false);
+              return;
+            }
+            console.warn('[Brava] login anônimo indisponível, usando criar-acesso:', anonErr?.message);
+          } catch (e) { console.warn('[Brava] erro no login anônimo:', e); }
+          setTweak('screen', 'login'); // fallback: criar acesso
+          setBootChecking(false);
+          return;
+        }
+
+        if (!session?.user) { setBootChecking(false); return; }
 
         // Tem sessão - verifica se já tem workspace
         const { data: members } = await window.supabase
