@@ -23850,43 +23850,40 @@ function ComposeEmail({ inicial, onClose, onEnviar }) {
 
 // ── Contatos (Google People API + conciliacao WhatsApp/clientes) ──
 function Contatos() {
-  const [status, setStatus] = React.useState('checando');
+  const [status, setStatus] = React.useState('carregando'); // carregando | pronto | erro
   const [contatos, setContatos] = React.useState([]);
   const [resumo, setResumo] = React.useState(null);
-  const [filtro, setFiltro] = React.useState('todos'); // todos | whatsapp | clientes | novos
+  const [truncado, setTruncado] = React.useState(false);
+  const [filtro, setFiltro] = React.useState('todos'); // todos | clientes | novos | salvos
   const [busca, setBusca] = React.useState('');
 
-  const call = React.useCallback(async (body) => {
-    const cli = (typeof getSupa === 'function') ? getSupa() : null;
-    if (!cli) return { ok:false, error:'sem_cliente' };
-    try { const { data } = await cli.functions.invoke('google-contacts', { body }); return data || { ok:false, error:'sem_resposta' }; }
-    catch (_e) { return { ok:false, error:'excecao' }; }
-  }, []);
-
   const carregar = React.useCallback(async () => {
-    setStatus('checando');
-    const d = await call({ action:'list' });
-    if (d.ok) { setStatus('conectado'); setContatos(d.contatos || []); setResumo(d.resumo || null); }
-    else if (d.error === 'sem_escopo') setStatus('sem_escopo');
-    else if (d.error === 'nao_conectado' || d.error === 'sem_refresh') setStatus('desconectado');
-    else setStatus('erro');
-  }, [call]);
+    setStatus('carregando');
+    const cli = (typeof getSupa === 'function') ? getSupa() : null;
+    if (!cli) { setStatus('erro'); return; }
+    try {
+      const { data: d } = await cli.functions.invoke('contatos-conciliar', { body: {} });
+      if (d && d.ok) { setStatus('pronto'); setContatos(d.contatos || []); setResumo(d.resumo || null); setTruncado(!!d.truncado); }
+      else setStatus('erro');
+    } catch (_e) { setStatus('erro'); }
+  }, []);
   React.useEffect(() => { carregar(); }, [carregar]);
 
   const q = busca.trim().toLowerCase();
+  const qTel = busca.replace(/\D/g, '');
   const visiveis = contatos.filter(c => {
-    if (filtro === 'whatsapp' && !c.noWhatsapp) return false;
     if (filtro === 'clientes' && !c.cliente) return false;
-    if (filtro === 'novos' && (c.noWhatsapp || c.cliente)) return false;
-    if (q && !((c.nome || '').toLowerCase().includes(q) || (c.telefone || '').includes(busca.trim()) || (c.email || '').toLowerCase().includes(q))) return false;
+    if (filtro === 'novos' && c.cliente) return false;
+    if (filtro === 'salvos' && !c.salvo) return false;
+    if (q && !((c.nome || '').toLowerCase().includes(q) || (qTel && (c.telefone || '').replace(/\D/g, '').includes(qTel)))) return false;
     return true;
   });
 
   const chips = resumo ? [
     ['todos', 'Todos', resumo.total, 'var(--blue)'],
-    ['whatsapp', 'No WhatsApp', resumo.comWhatsapp, '#1D9E75'],
     ['clientes', 'Já são clientes', resumo.clientes, '#7B3FE4'],
-    ['novos', 'Novos (sem vínculo)', resumo.novos, '#BA7517'],
+    ['novos', 'Novos (não clientes)', resumo.novos, '#BA7517'],
+    ['salvos', 'Com nome salvo', resumo.comNome, '#1D9E75'],
   ] : [];
 
   const iniciais = (n) => (n || '?').split(' ').slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
@@ -23896,24 +23893,14 @@ function Contatos() {
       <div className="page-head">
         <div>
           <div className="page-head__title">Contatos</div>
-          <div className="page-head__sub">Seus contatos do Google, conciliados com WhatsApp e clientes</div>
+          <div className="page-head__sub">Seus contatos do WhatsApp, conciliados com seus clientes</div>
         </div>
-        {status === 'conectado' && (
+        {status === 'pronto' && (
           <div className="page-head__actions" style={{display:'flex', gap:10, alignItems:'center'}}>
-            <span style={{fontSize:12, color:'#1D9E75'}}>● Contatos conectados</span>
             <button onClick={carregar} className="btn btn-outline"><Icon name="RefreshCw" size={13}/>Atualizar</button>
           </div>
         )}
       </div>
-
-      {(status === 'desconectado' || status === 'sem_escopo') && (
-        <div className="card" style={{padding:32, textAlign:'center', maxWidth:540, margin:'0 auto'}}>
-          <Icon name="UserCircle" size={34} style={{color:'var(--blue)', marginBottom:10}}/>
-          <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>{status === 'sem_escopo' ? 'Libere o acesso aos Contatos' : 'Conecte seu Google'}</div>
-          <div style={{fontSize:13, color:'var(--t2)', marginBottom:18, lineHeight:1.6}}>{status === 'sem_escopo' ? 'Reconecte uma vez para liberar a leitura dos seus contatos do Google e cruzar com seu WhatsApp e clientes.' : 'Autorize para trazer seus contatos do Google e conciliar aqui.'}</div>
-          <button onClick={iniciarConexaoGoogle} className="btn btn-primary" style={{margin:'0 auto'}}><Icon name="UserCircle" size={14}/>{status === 'sem_escopo' ? 'Reconectar Google' : 'Conectar Google'}</button>
-        </div>
-      )}
 
       {status === 'erro' && (
         <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)'}}>
@@ -23922,9 +23909,9 @@ function Contatos() {
         </div>
       )}
 
-      {status === 'checando' && <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Lendo seus contatos e conciliando…</div>}
+      {status === 'carregando' && <div className="card" style={{padding:24, textAlign:'center', color:'var(--t3)', fontSize:13}}>Lendo seus contatos do WhatsApp e conciliando…</div>}
 
-      {status === 'conectado' && (
+      {status === 'pronto' && (
         <>
           {/* Resumo + filtros */}
           <div style={{display:'flex', gap:10, marginBottom:14, flexWrap:'wrap'}}>
@@ -23943,7 +23930,7 @@ function Contatos() {
           {/* Busca */}
           <div style={{display:'flex', alignItems:'center', gap:8, padding:'0 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, height:40, marginBottom:12}}>
             <Icon name="Search" size={14} style={{color:'var(--t3)'}}/>
-            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome, telefone ou e-mail…" style={{flex:1, border:'none', background:'transparent', color:'var(--t1)', fontSize:14, outline:'none'}}/>
+            <input value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Buscar por nome ou telefone…" style={{flex:1, border:'none', background:'transparent', color:'var(--t1)', fontSize:14, outline:'none'}}/>
             {busca && <button onClick={()=>setBusca('')} style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer'}}>×</button>}
           </div>
 
@@ -23952,26 +23939,23 @@ function Contatos() {
             <div className="card" style={{padding:36, textAlign:'center', color:'var(--t3)', fontSize:13}}>Nenhum contato neste filtro.</div>
           ) : (
             <div className="card" style={{padding:0, overflow:'hidden'}}>
-              {visiveis.slice(0, 400).map((c, i) => {
-                const foto = c.foto || c.waFoto || null;
-                return (
+              {visiveis.slice(0, 400).map((c, i) => (
                   <div key={i} style={{padding:'11px 16px', display:'flex', gap:12, alignItems:'center', borderBottom: i < Math.min(visiveis.length,400)-1 ? '1px solid var(--border-soft)' : 'none'}}>
                     <div style={{width:38, height:38, borderRadius:'50%', flexShrink:0, overflow:'hidden', background:'linear-gradient(135deg, var(--purple), var(--blue))', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:700}}>
-                      {foto ? <img src={foto} alt="" referrerPolicy="no-referrer" style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>{e.currentTarget.style.display='none';}}/> : iniciais(c.nome)}
+                      {c.foto ? <img src={c.foto} alt="" referrerPolicy="no-referrer" style={{width:'100%', height:'100%', objectFit:'cover'}} onError={e=>{e.currentTarget.style.display='none';}}/> : iniciais(c.nome)}
                     </div>
                     <div style={{flex:1, minWidth:0}}>
                       <div style={{fontSize:13.5, color:'var(--t1)', fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{c.nome}</div>
-                      <div style={{fontSize:11.5, color:'var(--t3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{[c.telefone, c.email].filter(Boolean).join(' · ')}</div>
+                      <div style={{fontSize:11.5, color:'var(--t3)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{c.telefone}</div>
                     </div>
                     <div style={{display:'flex', gap:6, flexShrink:0, alignItems:'center'}}>
-                      {c.cliente && <span title={c.cliente.nome} style={{fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:5, background:'rgba(123,63,228,.15)', color:'#9d6bff', textTransform:'uppercase', letterSpacing:.3}}>Cliente</span>}
-                      {c.noWhatsapp && <span style={{fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:5, background:'rgba(29,158,117,.15)', color:'#1D9E75', textTransform:'uppercase', letterSpacing:.3}}>WhatsApp</span>}
-                      {!c.cliente && !c.noWhatsapp && <span style={{fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:5, background:'rgba(186,117,23,.12)', color:'#BA7517', textTransform:'uppercase', letterSpacing:.3}}>Novo</span>}
+                      {c.cliente
+                        ? <span title={c.cliente.nome} style={{fontSize:10, fontWeight:700, padding:'3px 8px', borderRadius:5, background:'rgba(123,63,228,.15)', color:'#9d6bff', textTransform:'uppercase', letterSpacing:.3}}>Cliente</span>
+                        : <span style={{fontSize:10, fontWeight:600, padding:'3px 8px', borderRadius:5, background:'rgba(186,117,23,.12)', color:'#BA7517', textTransform:'uppercase', letterSpacing:.3}}>Novo</span>}
                     </div>
                   </div>
-                );
-              })}
-              {visiveis.length > 400 && <div style={{padding:'12px 16px', textAlign:'center', fontSize:12, color:'var(--t3)'}}>Mostrando 400 de {visiveis.length}. Use a busca ou os filtros para refinar.</div>}
+              ))}
+              {(visiveis.length > 400 || truncado) && <div style={{padding:'12px 16px', textAlign:'center', fontSize:12, color:'var(--t3)'}}>Mostrando 400 de {visiveis.length}{truncado ? '+' : ''}. Use a busca ou os filtros para refinar.</div>}
             </div>
           )}
         </>
