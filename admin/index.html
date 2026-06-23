@@ -23688,14 +23688,13 @@ function deleteAgendaEvent(id) {
 // Uma re-autorizacao libera tudo; cada modulo (Agenda, Tarefas, ...) usa o mesmo token.
 const GOOGLE_OAUTH_CID = '191092064837-09r0hj706b1k0viui6n1rfngdklkghu3.apps.googleusercontent.com';
 const GOOGLE_OAUTH_REDIR = 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback';
+// Escopo cresce por modulo (cada novo modulo do Workspace adiciona o seu e pede
+// uma reconexao de um clique). Manter restrito ao que ja esta construido evita
+// fricao de escopos "restritos" (Gmail/Drive) num app ainda nao verificado.
 const GOOGLE_OAUTH_SCOPES = [
   'openid', 'email',
   'https://www.googleapis.com/auth/calendar.events',
   'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/drive.readonly',
-  'https://www.googleapis.com/auth/documents.readonly',
-  'https://www.googleapis.com/auth/presentations.readonly',
 ].join(' ');
 function iniciarConexaoGoogle() {
   const state = encodeURIComponent(window.location.origin);
