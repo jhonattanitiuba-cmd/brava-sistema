@@ -24122,10 +24122,40 @@ function AgendaVistaTimeline({ refDate, events, onEditEvent, onNew, dias = 7 }) 
 
 /* ── Componente principal Agenda ── */
 function Agenda() {
-  const events = useAgenda();
+  const localEvents = useAgenda();
   const [refDate, setRefDate] = useState(() => new Date());
   const [vista, setVista] = useState(() => localStorage.getItem('brava_agenda_vista') || 'semana'); // mes / semana / dia
   const [editando, setEditando] = useState(null);
+  // ── Google Agenda (integracao real, via edge function google-calendar) ──
+  const [gStatus, setGStatus] = useState('checando'); // checando | desconectado | conectado | erro
+  const [gEvents, setGEvents] = useState([]);
+  const carregarGoogle = React.useCallback(async () => {
+    try {
+      const cli = (typeof getSupa === 'function') ? getSupa() : null; if (!cli) { setGStatus('erro'); return; }
+      const { data } = await cli.functions.invoke('google-calendar', { body: { action: 'list' } });
+      if (data && data.ok) {
+        setGStatus('conectado');
+        const pad = n => String(n).padStart(2,'0');
+        setGEvents((data.eventos||[]).map(e => {
+          const di = new Date(e.inicio), df = new Date(e.fim || e.inicio);
+          return { id:'g_'+e.id, gid:e.id, fonte:'google', titulo:e.titulo, descricao:e.descricao||'', local:e.local||'', diaTodo:!!e.diaInteiro, cor:'azul', data:String(e.inicio||'').slice(0,10), inicio: e.diaInteiro?'00:00':(pad(di.getHours())+':'+pad(di.getMinutes())), fim: e.diaInteiro?'23:59':(pad(df.getHours())+':'+pad(df.getMinutes())) };
+        }));
+      } else if (data && (data.error==='nao_conectado' || data.error==='sem_refresh')) { setGStatus('desconectado'); }
+      else { setGStatus('erro'); }
+    } catch (_e) { setGStatus('erro'); }
+  }, []);
+  React.useEffect(() => {
+    carregarGoogle();
+    try { const u = new URL(window.location.href); if (u.searchParams.get('google')==='ok') { showToast?.('Google Agenda conectado!', 'success'); u.searchParams.delete('google'); window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash); } } catch (_e) {}
+  }, []);
+  const conectarGoogle = () => {
+    const CID = '191092064837-09r0hj706b1k0viui6n1rfngdklkghu3.apps.googleusercontent.com';
+    const REDIR = 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback';
+    const scope = encodeURIComponent('openid email https://www.googleapis.com/auth/calendar.events');
+    const state = encodeURIComponent(window.location.origin);
+    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id=' + CID + '&redirect_uri=' + encodeURIComponent(REDIR) + '&response_type=code&scope=' + scope + '&access_type=offline&prompt=consent&state=' + state;
+  };
+  const events = React.useMemo(() => [...localEvents, ...gEvents], [localEvents, gEvents]);
 
   React.useEffect(() => { localStorage.setItem('brava_agenda_vista', vista); }, [vista]);
 
@@ -24180,7 +24210,9 @@ function Agenda() {
               : `${events.length} evento${events.length===1?'':'s'} na sua agenda`}
           </div>
         </div>
-        <div className="page-head__actions" style={{display:'flex', gap:10}}>
+        <div className="page-head__actions" style={{display:'flex', gap:10, alignItems:'center', flexWrap:'wrap'}}>
+          {gStatus==='desconectado' && <button onClick={conectarGoogle} className="btn btn-outline" style={{borderColor:'#1E90FF', color:'#1E90FF'}}><Icon name="CalendarCheck" size={14}/>Conectar Google</button>}
+          {gStatus==='conectado' && <span style={{fontSize:12, color:'#1D9E75'}}>● Google conectado</span>}
           <button onClick={()=>setRefDate(new Date())} className="btn btn-outline">Hoje</button>
           <button onClick={()=>novoEvento()} className="btn btn-primary"><Icon name="Plus" size={14}/>Novo evento</button>
         </div>
