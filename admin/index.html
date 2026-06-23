@@ -2701,6 +2701,98 @@ function Header({ page, collapsed, setCollapsed, setPage, busca, setBusca, notif
   );
 }
 
+/* ─── Acesso Rápido aos sistemas dos clientes (plug and play, data-driven) ─── */
+function AcessoRapidoSistemas({ clientes, setEditandoCliente }) {
+  const todos = clientes || [];
+  const curados = todos.filter(c => c.acesso_rapido);
+  const disponiveis = todos.filter(c => !c.acesso_rapido);
+  const [vincularAberto, setVincularAberto] = React.useState(false);
+  const [buscaVinc, setBuscaVinc] = React.useState('');
+  const [integrando, setIntegrando] = React.useState(null);
+  const [urlTmp, setUrlTmp] = React.useState('');
+
+  const atualizar = async (id, patch) => {
+    const cli = (typeof getSupa === 'function') ? getSupa() : null; if (!cli) return;
+    const { error } = await cli.from('clientes').update(patch).eq('id', id);
+    if (error) { showToast?.('Não foi possível salvar', 'erro'); return; }
+    window.dispatchEvent(new Event('brava:cliente_changed'));
+  };
+  const vincular = (c) => { atualizar(c.id, { acesso_rapido: true }); setVincularAberto(false); setBuscaVinc(''); showToast?.(`${c.nome} no acesso rápido`, 'success'); };
+  const desvincular = (c) => { if (confirm(`Tirar "${c.nome}" do acesso rápido?`)) atualizar(c.id, { acesso_rapido: false }); };
+  const abrirIntegrar = (c) => { setIntegrando(c.id); setUrlTmp(c.sistema_url || ''); };
+  const salvarUrl = (c) => {
+    let u = urlTmp.trim();
+    if (u && !/^https?:\/\//i.test(u)) u = 'https://' + u;
+    atualizar(c.id, { sistema_url: u || null });
+    setIntegrando(null); setUrlTmp(''); showToast?.('Link do sistema salvo', 'success');
+  };
+
+  const iniciais = (n) => (n || '?').split(' ').slice(0,2).map(x=>x[0]||'').join('').toUpperCase();
+  const dispFiltrados = disponiveis.filter(c => !buscaVinc || (c.nome||'').toLowerCase().includes(buscaVinc.toLowerCase())).sort((a,b)=>(a.nome||'').localeCompare(b.nome||''));
+
+  return (
+    <div className="card">
+      <div className="card__head">
+        <div className="card__title">Acesso Rápido aos sistemas</div>
+        <button onClick={()=>setVincularAberto(v=>!v)} className="card__action" style={{display:'inline-flex', alignItems:'center', gap:4}}><Icon name="Plus" size={12}/>Vincular</button>
+      </div>
+
+      {vincularAberto && (
+        <div style={{padding:'10px 12px', border:'1px solid var(--border)', borderRadius:10, marginBottom:10, background:'var(--bg-3)'}}>
+          <input value={buscaVinc} onChange={e=>setBuscaVinc(e.target.value)} placeholder="Buscar cliente para vincular…" autoFocus style={{width:'100%', height:34, padding:'0 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg-2)', color:'var(--t1)', fontSize:13, outline:'none', marginBottom:8}}/>
+          <div style={{maxHeight:200, overflowY:'auto'}}>
+            {dispFiltrados.length === 0 ? <div style={{fontSize:12, color:'var(--t3)', padding:'6px 4px'}}>Nenhum cliente disponível.</div> :
+              dispFiltrados.map(c => (
+                <button key={c.id} onClick={()=>vincular(c)} style={{width:'100%', textAlign:'left', padding:'8px 10px', border:'none', background:'transparent', color:'var(--t1)', fontSize:13, cursor:'pointer', borderRadius:6, display:'flex', alignItems:'center', gap:8}}
+                  onMouseEnter={e=>e.currentTarget.style.background='rgba(30,144,255,.1)'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                  <Icon name="Plus" size={12} style={{color:'var(--blue)'}}/>{c.nome}{c.nicho ? ` · ${c.nicho}` : ''}
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      <div className="conv-list conv-list--scroll">
+        {curados.length === 0 ? (
+          <div style={{padding:'34px 14px', textAlign:'center', color:'var(--t3)', fontSize:13, lineHeight:1.6}}>
+            <Icon name="Globe" size={26} style={{opacity:.4, display:'block', margin:'0 auto 8px'}}/>
+            Nenhum sistema no acesso rápido.<br/>Clique em <strong>Vincular</strong>, escolha um cliente e integre o link do sistema dele.
+          </div>
+        ) : curados.map(c => (
+          <div key={c.id} className="conv-item" style={{position:'relative'}}>
+            <div className="conv-avatar" style={{background: c.foto_url ? `url(${c.foto_url}) center/cover` : 'linear-gradient(135deg, var(--purple), var(--blue))'}}>
+              {!c.foto_url && iniciais(c.nome)}
+            </div>
+            <div className="conv-meta" style={{cursor:'pointer', minWidth:0}} onClick={()=>setEditandoCliente && setEditandoCliente(c)} title="Abrir Cliente 360">
+              <div className="conv-name" style={{whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{c.nome}</div>
+              <div className="conv-preview" style={{fontSize:11.5, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{c.sistema_url ? c.sistema_url.replace(/^https?:\/\//,'') : (c.nicho || 'Sem link ainda')}</div>
+            </div>
+            <div style={{display:'flex', alignItems:'center', gap:6, flexShrink:0}}>
+              {integrando === c.id ? (
+                <>
+                  <input value={urlTmp} onChange={e=>setUrlTmp(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter') salvarUrl(c); if(e.key==='Escape') setIntegrando(null); }} placeholder="slug.brava.software" autoFocus style={{width:170, height:30, padding:'0 8px', borderRadius:6, border:'1px solid var(--blue)', background:'var(--bg-2)', color:'var(--t1)', fontSize:12, outline:'none'}}/>
+                  <button onClick={()=>salvarUrl(c)} className="btn btn-primary" style={{padding:'5px 10px', fontSize:11}}>Salvar</button>
+                  <button onClick={()=>setIntegrando(null)} style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer'}}>×</button>
+                </>
+              ) : (
+                <>
+                  {c.sistema_url ? (
+                    <a href={c.sistema_url} target="_blank" rel="noopener noreferrer" style={{fontSize:11.5, fontWeight:600, color:'#fff', background:'var(--success)', padding:'5px 10px', borderRadius:6, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:4}}><Icon name="Globe" size={11}/>Abrir Sistema</a>
+                  ) : (
+                    <button onClick={()=>abrirIntegrar(c)} className="btn btn-outline" style={{padding:'5px 10px', fontSize:11.5}}><Icon name="Plus" size={11}/>Integrar Sistema</button>
+                  )}
+                  {c.sistema_url && <button onClick={()=>abrirIntegrar(c)} title="Editar link" style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer', padding:3}}><Icon name="Pencil" size={12}/></button>}
+                  <button onClick={()=>desvincular(c)} title="Desvincular do acesso rápido" style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer', padding:3}}><Icon name="X" size={13}/></button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Dashboard ─── */
 function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExportar, busca }) {
   // RECORRENCIA reativa: re-renderiza quando user edita/cria/exclui na aba MRR
@@ -2914,163 +3006,10 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
       <div className="grid-2">
         <AgendaHojeCard setPage={setPage}/>
 
-        <div className="card">
-          <div className="card__head">
-            <div className="card__title">Acesso Rápido</div>
-            <div style={{display:'flex',alignItems:'center',gap:8}}>
-              {[['todos','Todos'],['em_implantacao','Construindo'],['onboarding','Onboarding'],['ativo','Ativo']].map(([v,l]) => (
-                <button key={v} onClick={()=>setFiltroFaseRapido(v)} style={{
-                  fontSize:10.5, padding:'2px 7px', borderRadius:999, border:'1px solid',
-                  cursor:'pointer', fontFamily:'var(--f-m)', fontWeight:500,
-                  background: filtroFaseRapido===v ? 'var(--blue)' : 'transparent',
-                  color: filtroFaseRapido===v ? '#fff' : 'var(--t3)',
-                  borderColor: filtroFaseRapido===v ? 'var(--blue)' : 'var(--border)',
-                }}>{l}</button>
-              ))}
-              <div className="card__action" onClick={()=>setPage&&setPage('clientes_crm')}>Ver todos →</div>
-            </div>
-          </div>
-          <div className="conv-list conv-list--scroll">
-            {clientesList.map((c) => {
-              const menuId = c.id;
-              const cfg = getStatusByKey(statusConfig, c.status);
-              const projetosDoCliente = projetosPorCliente.get(c.id) || [];
-              const qtdProj = projetosDoCliente.length;
-              const iniciais = (c.nome || '?').split(' ').slice(0,2).map(n=>n[0]).join('').toUpperCase();
-              return (
-                <div
-                  key={menuId}
-                  className="conv-item"
-                  style={{cursor:'pointer', position:'relative'}}
-                  onClick={(e) => {
-                    if (e.target.closest('.cliente-acoes-btn') || e.target.closest('.cliente-acoes-menu')) return;
-                    setEditandoCliente(c);
-                  }}
-                  title={`Abrir Cliente 360: ${c.nome}`}
-                >
-                  <div className="conv-avatar" style={{background: c.foto_url ? `url(${c.foto_url}) center/cover` : (c.cor || cfg.cor)}}>
-                    {!c.foto_url && iniciais}
-                  </div>
-                  <div className="conv-meta">
-                    <div className="conv-name" style={{display:'flex', alignItems:'center', gap:5}}>
-                      {c.nome}
-                      {c.status_lock && <Icon name="Lock" size={10} style={{color:'#BA7517'}}/>}
-                    </div>
-                    <div className="conv-preview" style={{fontSize:11.5}}>
-                      {qtdProj} projeto{qtdProj === 1 ? '' : 's'}{c.nicho ? ` · ${c.nicho}` : ''}
-                    </div>
-                  </div>
-                  <div className="conv-right" style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
-                    <div className="conv-tag" style={{background:cfg.cor+'22', color:cfg.cor, border:`1px solid ${cfg.cor}33`, borderRadius:6, padding:'2px 7px', fontSize:10.5, fontWeight:600, display:'inline-flex', alignItems:'center', gap:4}}>
-                      <Icon name={cfg.icone} size={9}/>{cfg.label}
-                    </div>
-                    <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <div style={{fontSize:10,color:'var(--blue)',fontWeight:500,display:'flex',alignItems:'center',gap:3}}>
-                        <Icon name="ArrowRight" size={10}/>Abrir 360
-                      </div>
-                      {(() => {
-                        const crm = CLIENTES_CRM.find(x => x.nome === c.nome || (c.nome||'').startsWith(x.nome));
-                        if (!crm?.loginUrl) return null;
-                        return (
-                          <a href={crm.loginUrl} target={crm.externo?'_blank':'_self'} rel="noopener noreferrer"
-                            onClick={e=>e.stopPropagation()}
-                            style={{fontSize:10,color:'var(--success)',fontWeight:500,display:'flex',alignItems:'center',gap:3,textDecoration:'none'}}>
-                            <Icon name="Globe" size={10}/>Abrir Sistema
-                          </a>
-                        );
-                      })()}
-                      <button
-                        className="cliente-acoes-btn"
-                        onClick={(e) => { e.stopPropagation(); setMenuAberto(menuAberto === menuId ? null : menuId); }}
-                        title="Ações"
-                        style={{
-                          background:'transparent', border:'none', cursor:'pointer',
-                          color:'var(--t3)', padding:4, borderRadius:6,
-                          display:'flex', alignItems:'center', justifyContent:'center'
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,.06)'; e.currentTarget.style.color = 'var(--t1)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--t3)'; }}
-                      >
-                        <Icon name="MoreVertical" size={14}/>
-                      </button>
-                    </div>
-                  </div>
-
-                  {menuAberto === menuId && (
-                    <div
-                      className="cliente-acoes-menu"
-                      style={{
-                        position:'absolute', top:'100%', right:8, marginTop:4,
-                        background:'var(--bg-2)', border:'1px solid var(--border)',
-                        borderRadius:10, padding:6, minWidth:220, zIndex:50,
-                        boxShadow:'0 8px 24px rgba(0,0,0,.4)',
-                        maxHeight: 380, overflowY: 'auto',
-                      }}
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={() => { setEditandoCliente(c); setMenuAberto(null); }}
-                        style={{
-                          width:'100%', textAlign:'left', padding:'8px 10px', border:'none',
-                          background:'transparent', color:'var(--t1)', fontSize:13, cursor:'pointer',
-                          borderRadius:6, display:'flex', alignItems:'center', gap:8
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(30,144,255,.12)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <Icon name="UserCircle" size={13}/>Abrir Cliente 360
-                      </button>
-
-                      <div style={{padding:'8px 10px 2px', fontSize:10.5, color:'var(--t3)', fontFamily:'var(--f-m)', letterSpacing:'.05em', textTransform:'uppercase', borderTop:'1px solid var(--border-soft)', marginTop:4}}>
-                        Mudar fase {c.status_lock && '🔒'}
-                      </div>
-                      {(statusConfig||[]).map(s => (
-                        <button
-                          key={s.key}
-                          onClick={() => onMudarStatus(c, s.key)}
-                          disabled={s.key === c.status}
-                          style={{
-                            width:'100%', textAlign:'left', padding:'6px 10px', border:'none',
-                            background: s.key === c.status ? s.cor+'18' : 'transparent',
-                            color: s.key === c.status ? s.cor : 'var(--t1)',
-                            fontSize:12.5, cursor: s.key === c.status ? 'default' : 'pointer',
-                            borderRadius:6, display:'flex', alignItems:'center', gap:8,
-                            fontWeight: s.key === c.status ? 600 : 400
-                          }}
-                          onMouseEnter={e => { if (s.key !== c.status) e.currentTarget.style.background = s.cor+'12'; }}
-                          onMouseLeave={e => { if (s.key !== c.status) e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <Icon name={s.icone} size={11} style={{color:s.cor, flexShrink:0}}/>
-                          {s.label}{s.key === c.status && ' ✓'}
-                        </button>
-                      ))}
-
-                      <div style={{height:1, background:'var(--border-soft)', margin:'6px 0'}}/>
-
-                      <button
-                        onClick={() => onExcluirCliente(c)}
-                        style={{
-                          width:'100%', textAlign:'left', padding:'8px 10px', border:'none',
-                          background:'transparent', color:'#fca5a5', fontSize:13, cursor:'pointer',
-                          borderRadius:6, display:'flex', alignItems:'center', gap:8
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(163,45,45,.12)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <Icon name="Trash2" size={13}/>Excluir cliente
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Cliente 360 abre completo (mesma rota que Clientes CRM) */}
-          {editandoCliente && (
-            <Cliente360Modal cliente={editandoCliente} onClose={() => setEditandoCliente(null)}/>
-          )}
-        </div>
+        <AcessoRapidoSistemas clientes={clientesMestre} setEditandoCliente={setEditandoCliente}/>
+        {editandoCliente && (
+          <Cliente360Modal cliente={editandoCliente} onClose={() => setEditandoCliente(null)}/>
+        )}
       </div>
 
       {/* Saúde + Planos + Equipe */}
