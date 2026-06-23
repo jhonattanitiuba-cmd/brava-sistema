@@ -33,6 +33,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<!-- White-label anti-FOUC: aplica a cor do cliente (cache) antes do primeiro paint -->
+<script>
+(function(){ try{
+  var c = JSON.parse(localStorage.getItem('brava_brand') || 'null'); if(!c) return;
+  var r = document.documentElement;
+  if(c.primary_color)   r.style.setProperty('--purple', c.primary_color);
+  if(c.secondary_color) r.style.setProperty('--blue',   c.secondary_color);
+  if(c.primary_color || c.secondary_color)
+    r.style.setProperty('--grad', 'linear-gradient(90deg,'+(c.primary_color||'#7B3FE4')+' 0%,'+(c.secondary_color||c.primary_color||'#1E90FF')+' 100%)');
+}catch(e){} })();
+</script>
 <style>
 /* ─── Tokens fixos ─── */
 :root {
@@ -646,6 +657,65 @@ function useUserFotoSync() {
       .on('postgres_changes', { event:'*', schema:'public', table:'usuarios' }, carregar)
       .subscribe();
     return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+}
+
+/* ─── White-label (Fase 1): branding data-driven por workspace ───
+   Carrega cor primária/secundária + logo do workspace do usuário logado e
+   aplica nas CSS vars (--purple/--blue/--grad) + troca as logos da Brava.
+   Se não houver branding, mantém o default Brava (zero regressão). */
+function _brandHex(c) {
+  if (typeof c !== 'string') return null;
+  const v = c.trim();
+  return /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : (/^[0-9a-fA-F]{6}$/.test(v) ? '#' + v : null);
+}
+function swapBravaLogos(url) {
+  if (!url) return;
+  try {
+    document.querySelectorAll('img').forEach(img => {
+      const src = img.getAttribute('src') || '';
+      if (/brava-logo/i.test(src) && img.src !== url) { img.src = url; }
+    });
+  } catch (e) {}
+}
+let _bravaLogoObs = null;
+function _startLogoObserver() {
+  if (_bravaLogoObs || typeof MutationObserver === 'undefined' || !document.body) return;
+  _bravaLogoObs = new MutationObserver(() => { if (window.__BRAVA_LOGO) swapBravaLogos(window.__BRAVA_LOGO); });
+  _bravaLogoObs.observe(document.body, { childList: true, subtree: true });
+}
+function applyBranding(b) {
+  if (!b) return;
+  const r = document.documentElement;
+  const p = _brandHex(b.primary_color), s = _brandHex(b.secondary_color);
+  if (p) r.style.setProperty('--purple', p);
+  if (s) r.style.setProperty('--blue', s);
+  if (p || s) r.style.setProperty('--grad', 'linear-gradient(90deg,' + (p || '#7B3FE4') + ' 0%,' + (s || p || '#1E90FF') + ' 100%)');
+  if (b.logo_url) {
+    window.__BRAVA_LOGO = b.logo_url;
+    r.style.setProperty('--logo', 'url("' + b.logo_url + '")');
+    swapBravaLogos(b.logo_url);
+    _startLogoObserver();
+  }
+  try { localStorage.setItem('brava_brand', JSON.stringify({ primary_color: p, secondary_color: s, logo_url: b.logo_url || null })); } catch (e) {}
+}
+// Hook: no boot, aplica cache na hora e busca o branding do workspace do user
+function useBranding() {
+  React.useEffect(() => {
+    try { const c = JSON.parse(localStorage.getItem('brava_brand') || 'null'); if (c) applyBranding(c); } catch (e) {}
+    _startLogoObserver();
+    (async () => {
+      const cli = (typeof getSupa === 'function') ? getSupa() : null;
+      if (!cli) return;
+      try {
+        const { data: { user } } = await cli.auth.getUser();
+        if (!user) return; // sessão default Brava (sem auth) → mantém marca Brava
+        const { data: m } = await cli.from('workspace_members').select('workspace_id').limit(1).maybeSingle();
+        const wid = m?.workspace_id; if (!wid) return;
+        const { data: ws } = await cli.from('workspaces').select('name, logo_url, primary_color, secondary_color, dark_mode').eq('id', wid).maybeSingle();
+        if (ws) applyBranding(ws);
+      } catch (e) {}
+    })();
   }, []);
 }
 
@@ -25927,7 +25997,7 @@ function OrcamentosAdmin() {
           <div className="page-head__title">Orçamentos</div>
           <div className="page-head__sub">Administrativo · proposta comercial pronta para enviar, com a sua marca, em minutos.</div>
         </div>
-        <div className="page-head__actions" style={{display:'flex', gap:8}}><button onClick={()=>setEditor({})} style={_fBtnGhost}>Editor A4</button><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
+        <div className="page-head__actions" style={{display:'flex', gap:8}}><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Novo orçamento</button></div>
       </div>
       <div className="kpi-grid" style={{marginBottom:18}}>
         <KpiCard label="Orçamentos" value={String(total)} icon="FileText" cor="#1E90FF"/>
@@ -26219,6 +26289,8 @@ function App() {
   useNotifGenerator();
   // ✨ Sync das fotos de usuário do banco (realtime)
   useUserFotoSync();
+  // ✨ White-label: aplica cor/logo do workspace do cliente (default Brava se vazio)
+  useBranding();
   // Mantem credenciais Evolution sincronizadas com instancia ativa
   useSyncEvoConfig();
   // ✨ Toca som + notif quando alguem atribui um card do Pipeline pra mim
