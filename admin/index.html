@@ -15207,6 +15207,63 @@ function FinRecorrencia({ onNovoContrato, mesFiltro, filtroInicial, onFiltroCons
 // ═══════════════════════════════════════════════════════════════
 // FINANCEIRO - wrapper com tabs (Dashboard · Recorrência · Despesas · Fluxo)
 // ═══════════════════════════════════════════════════════════════
+// ── BTG: conexão (Authorization Code, redirect /admin/ já registrado) ──
+function iniciarConexaoBTG() {
+  const CID = '4cce959e-fe55-4dd0-83be-70ca5e17c1b2';
+  const REDIR = 'https://brava.software/admin/';
+  const scope = encodeURIComponent('empresas.btgpactual.com/pix-cash-in');
+  window.location.href = 'https://id.btgpactual.com/oauth2/authorize?client_id=' + CID +
+    '&response_type=code&redirect_uri=' + encodeURIComponent(REDIR) + '&scope=' + scope + '&prompt=consent&state=btg';
+}
+function BTGPagamentos() {
+  const [gerando, setGerando] = React.useState(false);
+  const [resultado, setResultado] = React.useState(null);
+  const [erro, setErro] = React.useState('');
+  const gerarTeste = async () => {
+    setErro(''); setResultado(null); setGerando(true);
+    try {
+      const { data } = await getSupa().functions.invoke('btg-cobranca', { body: { action:'criar', valor: 1.00 } });
+      setGerando(false);
+      if (data && data.ok) setResultado(data);
+      else if (data?.error === 'nao_conectado' || data?.error === 'reconectar') setErro('Conecte o BTG primeiro (botão "Conectar BTG" acima).');
+      else setErro('Erro do BTG: ' + (data?.error || 'desconhecido') + (data?.detalhe ? ' — ' + JSON.stringify(data.detalhe).slice(0, 300) : ''));
+    } catch (_e) { setGerando(false); setErro('Erro ao chamar a função.'); }
+  };
+  const copiar = (t) => { try { navigator.clipboard.writeText(t); showToast?.('Copiado', 'success'); } catch {} };
+  return (
+    <div style={{maxWidth:660}}>
+      <div className="card" style={{padding:20}}>
+        <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>Pagamentos BTG · Pix Cobrança</div>
+        <div style={{fontSize:13, color:'var(--t2)', marginBottom:16, lineHeight:1.5}}>Conecte a conta BTG da Brava (você autoriza uma vez no BTG Id) e gere uma cobrança Pix de teste de <strong>R$ 1,00</strong> pra validar a integração ponta a ponta.</div>
+        <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+          <button onClick={iniciarConexaoBTG} className="btn btn-outline"><Icon name="Globe" size={14}/>Conectar BTG</button>
+          <button onClick={gerarTeste} disabled={gerando} className="btn btn-primary"><Icon name="DollarSign" size={14}/>{gerando ? 'Gerando…' : 'Cobrança teste R$ 1,00'}</button>
+        </div>
+        {erro && <div style={{marginTop:14, padding:'10px 12px', borderRadius:8, background:'rgba(163,45,45,.12)', color:'#fca5a5', fontSize:12.5, wordBreak:'break-word'}}>{erro}</div>}
+        {resultado && (
+          <div style={{marginTop:16, padding:'14px', borderRadius:10, background:'var(--bg-3)', border:'1px solid var(--border)'}}>
+            <div style={{fontSize:13, fontWeight:600, color:'#1D9E75', marginBottom:10}}>✓ Cobrança criada{resultado.txid ? ' · ' + resultado.txid : ''}</div>
+            {resultado.emv ? (
+              <>
+                <div style={{fontSize:11.5, color:'var(--t3)', marginBottom:5}}>Pix copia e cola</div>
+                <div style={{display:'flex', gap:8}}>
+                  <input readOnly value={resultado.emv} style={{flex:1, height:38, padding:'0 10px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg-2)', color:'var(--t1)', fontSize:12}} onFocus={e=>e.target.select()}/>
+                  <button onClick={()=>copiar(resultado.emv)} className="btn btn-outline"><Icon name="Copy" size={13}/></button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{fontSize:11.5, color:'var(--t3)', marginBottom:5}}>Resposta do BTG (campos pra eu mapear):</div>
+                <pre style={{margin:0, fontSize:11.5, color:'var(--t2)', whiteSpace:'pre-wrap', wordBreak:'break-word', maxHeight:260, overflow:'auto'}}>{JSON.stringify(resultado.resposta, null, 2)}</pre>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Financeiro() {
   const [tab, setTab] = useState('dashboard');
   const [filtroInicial, setFiltroInicial] = React.useState(null); // ex: 'entrada' | 'saida' | 'nao-conciliado' | 'atrasados'
@@ -15231,6 +15288,7 @@ function Financeiro() {
     { id:'caixa',        label:'Fluxo de caixa',        icon:'Wallet'     },
     { id:'plano_contas', label:'Plano de Contas',       icon:'Layers'     },
     { id:'dre',          label:'DRE',                   icon:'ScrollText' },
+    { id:'btg',          label:'Pagamentos BTG',        icon:'DollarSign' },
   ];
 
   // Gera 12 meses pra trás + 1 mês à frente
@@ -15385,6 +15443,7 @@ function Financeiro() {
       {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
       {tab === 'plano_contas' && <FinPlanoContas/>}
       {tab === 'dre'          && <FinDRE mesFiltro={mesFiltro}/>}
+      {tab === 'btg'          && <BTGPagamentos/>}
     </div>
   );
 }
@@ -26172,6 +26231,23 @@ function App() {
   useChecklistCompletionWatcher(_meuUserIdApp);
   // ✨ Notif + som quando o sistema concilia um lançamento sozinho (Sprint A)
   useConciliacaoAutoWatcher();
+
+  // ✨ Retorno do "Conectar BTG" (Authorization Code): troca o code por token e guarda.
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.get('code') && u.searchParams.get('state') === 'btg') {
+        const code = u.searchParams.get('code');
+        u.searchParams.delete('code'); u.searchParams.delete('state'); u.searchParams.delete('scope');
+        window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
+        const cli = (typeof getSupa === 'function') ? getSupa() : null;
+        if (cli) cli.functions.invoke('btg-oauth-callback', { body: { code } }).then(({ data }) => {
+          if (data && data.ok) showToast?.('BTG conectado! Vá em Financeiro → Pagamentos BTG.', 'success');
+          else showToast?.('Falha ao conectar o BTG: ' + (data?.detalhe ? JSON.stringify(data.detalhe).slice(0,120) : (data?.error || '')), 'erro');
+        });
+      }
+    } catch (_e) {}
+  }, []);
 
   // Persistência via localStorage
   // Sempre comeca em Dashboard ao logar (ignora ultima pagina salva)
