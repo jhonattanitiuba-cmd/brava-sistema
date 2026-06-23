@@ -79,11 +79,44 @@ const LoginScreen = ({ onContinue, onNav }) => {
     }
   }, [lastEmail]);
 
+  // Retorno do "Entrar com o Google": detecta a sessao que o Supabase estabelece
+  // ao voltar do OAuth e roteia. Para e-mails da allowlist (ex: o Google do dono),
+  // garante o workspace via auth-bootstrap antes de cair no onboarding.
+  // skipAutoRef evita interferir no login por senha (que roteia no submit).
+  const skipAutoRef = React.useRef(false);
+  React.useEffect(() => {
+    let cancelado = false;
+    const rotear = async (sessionUser) => {
+      try {
+        const { data: members } = await window.supabase
+          .from('workspace_members')
+          .select('role, workspaces(id, slug, name, plan)')
+          .eq('user_id', sessionUser.id).limit(1);
+        if (members && members.length > 0 && members[0].workspaces) { irParaAdmin(sessionUser, members[0].workspaces, members[0]); return true; }
+        const { data: bs } = await window.supabase.functions.invoke('auth-bootstrap');
+        if (bs && bs.ok && bs.workspace) { irParaAdmin(sessionUser, bs.workspace, bs.member); return true; }
+        onContinue && onContinue('onboarding'); return true;
+      } catch (_e) { return false; }
+    };
+    (async () => {
+      for (let i = 0; i < 8 && !cancelado; i++) {
+        if (skipAutoRef.current) return; // login por senha cuida do roteamento
+        try {
+          const { data } = await window.supabase.auth.getSession();
+          if (data?.session?.user) { if (await rotear(data.session.user)) return; }
+        } catch (_e) {}
+        await new Promise(r => setTimeout(r, 400));
+      }
+    })();
+    return () => { cancelado = true; };
+  }, []);
+
   const submit = async (e) => {
     e?.preventDefault();
     if (!email.includes('@'))   { setError('Informe um e-mail válido.'); return; }
     if (password.length < 8)    { setError('Senha precisa ter no mínimo 8 caracteres.'); return; }
     setError(''); setInfo(''); setSubmitting(true);
+    skipAutoRef.current = true; // login por senha: o submit roteia, nao o detector OAuth
 
     try {
       if (!window.supabase) throw new Error('Supabase não carregado.');
