@@ -8726,7 +8726,7 @@ function useSupaChats() {
               }
               // Contato: nome real (push_name > profile_name > verified_name)
               if (typeof _evoContacts !== 'undefined') {
-                const nomeReal = ct.push_name || ct.profile_name || ct.verified_name || null;
+                const nomeReal = ct.push_name || ct.profile_name || ct.verified_name || ct.saved_name || null;
                 if (nomeReal) {
                   const existing = _evoContacts.byJid.get(ct.jid);
                   const novoObj = {
@@ -8734,6 +8734,7 @@ function useSupaChats() {
                     pushName: ct.push_name,
                     profileName: ct.profile_name,
                     verifiedName: ct.verified_name,
+                    savedName: ct.saved_name,
                     profilePicUrl: ct.profile_pic_url,
                     lid: ct.jid.endsWith('@lid') ? ct.jid : null,
                   };
@@ -10904,7 +10905,7 @@ function evoNormalizeChat(c) {
   const jidResolvido = !isGroup ? evoResolveJid(remoteJid) : remoteJid; // se for lid, tenta achar @s.whatsapp.net
 
   const rawName = c.pushName || c.name || c.profileName || c.subject
-               || contato?.pushName || contato?.profileName || contato?.verifiedName || contato?.notify || '';
+               || contato?.pushName || contato?.profileName || contato?.verifiedName || contato?.notify || contato?.savedName || '';
 
   // Contato salvo manualmente sempre tem prioridade maxima
   const salvo = getContatoSalvo(remoteJid) || getContatoSalvo(jidResolvido);
