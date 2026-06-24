@@ -1179,6 +1179,18 @@ function useNotifGenerator() {
             ts: new Date(ev.received_at).getTime(),
             link: 'logs',
           });
+        } else if (ev.event_type === 'venda.nova') {
+          const v = ev.payload || {};
+          adicionarNotificacao({
+            id: 'venda_' + ev.id,
+            tipo: 'info',
+            titulo: 'Nova venda pelo site',
+            sub: ((v.plano ? 'Plano ' + v.plano : 'Venda nova') + (v.valor ? ' · R$ ' + v.valor : '')).slice(0, 80),
+            icon: 'DollarSign',
+            cor: 'var(--success)',
+            ts: new Date(ev.received_at).getTime(),
+            link: 'financeiro',
+          });
         }
       })
       .subscribe();
