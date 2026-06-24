@@ -220,6 +220,7 @@ a { color: var(--blue); text-decoration: none; }
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+<script src="/pricing.js"></script>
 
 <script type="text/babel">
 const { useState } = React;
@@ -256,11 +257,22 @@ const Icon = ({ name, size = 16 }) => {
 };
 
 /* ─── Planos ─── */
-const PLANOS = {
-  essencial:   { nome: 'Essencial',   preco: 1297,  features: ['3 atendentes', '1 número WhatsApp', 'Inbox compartilhada', 'Agente de IA básico', 'Configuração guiada pela Brava'] },
-  performance: { nome: 'Performance', preco: 2497,  badge: 'MAIS ESCOLHIDO', features: ['10 atendentes', '2 números WhatsApp', 'Pipeline de vendas (kanban)', 'Analytics completo', 'Múltiplos agentes IA', <><b>White-label completo</b></>, 'Suporte em até 4h'] },
-  scale:       { nome: 'Scale',       preco: 4697,  features: ['30 atendentes', '5 números WhatsApp', <><b>Site institucional incluso</b></>, 'API REST + webhooks', 'Integração n8n', 'Múltiplos pipelines', 'Suporte prioritário 1h'] },
-};
+// Fonte única: derivado de window.BRAVA_PLANOS (pricing.js). Mexe em preço/escopo? Só na tabela `planos` + pricing.js.
+const PLANOS = (window.BRAVA_PLANOS || [])
+  .filter(function (p) { return p.preco_mensal != null; })
+  .reduce(function (acc, p) {
+    const limites = [
+      (p.limite_atendentes != null ? p.limite_atendentes + ' atendentes' : 'Atendentes ilimitados'),
+      (p.limite_whatsapp != null ? (p.limite_whatsapp + ' número' + (p.limite_whatsapp > 1 ? 's' : '') + ' WhatsApp') : 'WhatsApp ilimitado'),
+    ];
+    acc[p.id] = {
+      nome: p.nome,
+      preco: p.preco_mensal,
+      badge: p.badge || undefined,
+      features: limites.concat(window.bravaEntregaveisAcumulados(p.id)),
+    };
+    return acc;
+  }, {});
 
 /* ─── QR Pix decorativo ─── */
 const PixQR = () => {
