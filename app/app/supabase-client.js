@@ -33,6 +33,8 @@
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      // MESMO storageKey do admin (getSupa) → logar no /app/ vale no /admin/ (sessão única)
+      storageKey: 'brava_sb_auth',
     },
   });
 
