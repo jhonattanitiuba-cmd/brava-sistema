@@ -8442,7 +8442,7 @@ function getSupa() {
       persistSession: true,
       autoRefreshToken: true,
       storageKey: 'brava_sb_auth',
-      detectSessionInUrl: false,
+      detectSessionInUrl: true, // pega a sessão que volta do Google OAuth
     },
     realtime: { params: { eventsPerSecond: 20 } },
   });
