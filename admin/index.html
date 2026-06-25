@@ -309,6 +309,10 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
 .main{overflow-y:auto;padding:28px 32px;background:var(--bg);color:var(--t1);}
 .page{max-width:1440px;margin:0 auto;}
 
+/* ─── Tabela do fluxo de caixa: separadores verticais entre colunas ─── */
+.fin-extrato th, .fin-extrato td{ border-right:1px solid var(--border-soft); }
+.fin-extrato th:last-child, .fin-extrato td:last-child{ border-right:none; }
+
 /* ─── Page header ─── */
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px;gap:16px;}
 .page-head__title{font-family:var(--f-d);font-size:22px;font-weight:600;letter-spacing:-.02em;}
@@ -16866,7 +16870,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       {/* Extrato */}
       <div className="card" style={{padding:0, overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%', tableLayout:'fixed', borderCollapse:'collapse', fontSize:13}}>
+          <table className="fin-extrato" style={{width:'100%', tableLayout:'fixed', borderCollapse:'collapse', fontSize:13}}>
             <thead>
               <tr style={{background:'var(--bg-2)', borderBottom:'2px solid var(--border)'}}>
                 {[
