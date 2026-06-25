@@ -14079,6 +14079,56 @@ async function ignorarLancamentoExtrato(extratoId) {
   await cli.from('fin_extrato_bancario').update({ ignorado: true }).eq('id', extratoId);
 }
 
+// Salva o rateio de um lançamento (1 pagamento -> N destinos). origem = {extrato_id} ou {caixa_id}.
+// Substitui o rateio existente daquela origem (delete + insert em lote).
+async function salvarRateio(origem, linhas) {
+  const cli = getSupa(); if (!cli) return;
+  const campo = origem.extrato_id ? 'extrato_id' : 'caixa_id';
+  const id = origem.extrato_id || origem.caixa_id;
+  const { error: errDel } = await cli.from('fin_rateios').delete().eq(campo, id);
+  if (errDel) { showToast?.('Erro: '+errDel.message,'error'); return; }
+  const rows = (linhas || []).filter(l => l.destino_tipo && Number(l.valor) > 0).map(l => ({
+    ...origem,
+    destino_tipo: l.destino_tipo,
+    destino_id: l.destino_id || null,
+    destino_label: l.destino_label || null,
+    valor: Number(l.valor),
+    categoria_id: l.categoria_id || null,
+    observacao: l.observacao || null,
+  }));
+  if (rows.length) {
+    const { error } = await cli.from('fin_rateios').insert(rows);
+    if (error) { showToast?.('Erro: '+error.message,'error'); return; }
+  }
+  showToast?.('Rateio salvo','success');
+}
+
+// Hook: rateios indexados por origem (extrato_id|caixa_id -> [linhas]). Espelha useConciliacoesPendentes.
+function useRateios() {
+  const [mapa, setMapa] = React.useState({});
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_rateios').select('*');
+      if (!alive) return;
+      const m = {};
+      (data || []).forEach(r => {
+        const k = r.extrato_id || r.caixa_id;
+        if (!k) return;
+        (m[k] = m[k] || []).push(r);
+      });
+      setMapa(m);
+    };
+    load();
+    const ch = cli.channel('rt:fin_rateios')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_rateios' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return mapa;
+}
+
 /* ─── Hooks BTG (contas conectadas + última sincronização) ─── */
 function useBtgAccounts() {
   const [list, setList] = React.useState([]);
@@ -16311,6 +16361,8 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   const [editando, setEditando] = useState(null);
   const [importando, setImportando] = useState(false);
   const [conciliandoAberto, setConciliandoAberto] = useState(false);
+  const [rateando, setRateando] = useState(null);
+  const rateios = useRateios();
   const [filtroTipo, setFiltroTipo] = useState('todos');
 
   // Consome o filtroInicial passado pelo pai (navegacao entre abas)
@@ -16800,12 +16852,21 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                   </td>
                   {/* Vínculo (empresa, colaborador ou contato) */}
                   <td style={{padding:'10px 14px'}}>
-                    <button onClick={()=>{ if(!l.projetado) setConciliandoAberto(true); }}
-                      title={l.cliente_id ? 'Vinculado, clique para revisar' : 'Vincular a empresa, colaborador ou contato'}
-                      style={{display:'inline-flex', alignItems:'center', gap:5, background:'transparent', border:'none', cursor: l.projetado ? 'default' : 'pointer', padding:'2px 6px', borderRadius:5, fontSize:11.5, color: l.cliente_id ? 'var(--t1)' : 'var(--t3)'}}>
-                      <Icon name="Link" size={12}/>
-                      {l.cliente_id ? 'vinculado' : 'vincular'}
-                    </button>
+                    {(() => {
+                      const rats = (!l.projetado && l.raw?.id) ? (rateios[l.raw.id] || []) : [];
+                      const umDestino = rats.length === 1 ? rats[0] : null;
+                      return (
+                        <button onClick={()=>{ if(!l.projetado && l.raw?.id) setRateando(l); else if(!l.projetado) setConciliandoAberto(true); }}
+                          title={rats.length ? 'Rateado, clique para revisar' : 'Vincular a projeto, cliente, colaborador, contato ou despesa'}
+                          style={{display:'inline-flex', alignItems:'center', gap:5, background:'transparent', border:'none', cursor: l.projetado ? 'default' : 'pointer', padding:'2px 6px', borderRadius:5, fontSize:11.5, color: rats.length ? 'var(--t1)' : 'var(--t3)'}}>
+                          {umDestino
+                            ? <><ClienteAvatar nome={umDestino.destino_label || 'Destino'} init={(umDestino.destino_label || '?').slice(0,1).toUpperCase()} size={18}/><span>{umDestino.destino_label || 'vinculado'}</span></>
+                            : rats.length > 1
+                              ? <><Icon name="GitBranch" size={12}/><span style={{padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:700, background:'rgba(30,144,255,.12)', color:'var(--blue)'}}>{rats.length} destinos</span></>
+                              : <><Icon name="Link" size={12}/>{l.cliente_id ? 'vinculado' : 'vincular'}</>}
+                        </button>
+                      );
+                    })()}
                   </td>
                   {/* Descrição */}
                   <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t2)' : 'var(--t1)', maxWidth:400}}>
@@ -16911,6 +16972,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       {editando && <CaixaLancamentoModal lancamento={editando} onClose={()=>setEditando(null)}/>}
       {importando && <ImportarExtratoModal onClose={()=>setImportando(false)}/>}
       {conciliandoAberto && <ConciliacaoModal onClose={()=>setConciliandoAberto(false)}/>}
+      {rateando && <RateioModal item={rateando} recorrencia={recorrencia} despesas={despesas} onClose={()=>setRateando(null)}/>}
 
       {/* Modal: Sincronizar histórico BTG (período customizado) */}
       {histModalAberto && (
@@ -17060,6 +17122,133 @@ function CaixaLancamentoModal({ lancamento, onClose }) {
             <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
             <button onClick={salvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background:'var(--blue)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
               <Icon name="Check" size={13}/>{novo ? 'Adicionar' : 'Salvar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────
+// RATEIO - divide 1 pagamento em N destinos (projeto/cliente/colaborador/contato/despesa)
+// ─────────────────────────────────────────────────────────────────
+function RateioModal({ item, recorrencia, despesas, onClose }) {
+  const origem = item.origem === 'banco' ? { extrato_id: item.raw?.id } : { caixa_id: item.raw?.id };
+  const total = Number(item.valor) || 0;
+  const [linhas, setLinhas] = useState([{ destino_tipo:'projeto', destino_id:null, destino_label:'', valor:total, categoria:'' }]);
+  const [escolhendo, setEscolhendo] = useState(null); // índice da linha que está escolhendo destino
+
+  const setLinha = (i, patch) => setLinhas(ls => ls.map((l,idx) => idx===i ? {...l, ...patch} : l));
+  const addLinha = () => setLinhas(ls => [...ls, { destino_tipo:'projeto', destino_id:null, destino_label:'', valor:0, categoria:'' }]);
+  const removeLinha = (i) => setLinhas(ls => ls.length>1 ? ls.filter((_,idx)=>idx!==i) : ls);
+
+  const soma = linhas.reduce((s,l) => s + (Number(l.valor)||0), 0);
+  const restante = total - soma;
+  const podeSalvar = Math.abs(restante) <= 0.01 && linhas.every(l => l.destino_tipo);
+
+  const salvar = async () => {
+    if (!podeSalvar) return;
+    await salvarRateio(origem, linhas.map(l => ({
+      destino_tipo: l.destino_tipo,
+      destino_id: l.destino_id,
+      destino_label: l.destino_label,
+      valor: l.valor,
+      categoria_id: l.categoria || null,
+    })));
+    onClose();
+  };
+
+  const inp = { width:'100%', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, color:'var(--t1)', fontSize:13, outline:'none', fontFamily:'var(--f-b)' };
+
+  return (
+    <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.7)', backdropFilter:'blur(4px)', display:'grid', placeItems:'center', zIndex:9998, padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'min(640px, 95vw)', maxHeight:'90vh', background:'var(--bg)', border:'1px solid var(--border)', borderRadius:14, display:'flex', flexDirection:'column', overflow:'hidden'}}>
+        {/* Header */}
+        <div style={{padding:'18px 22px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:12}}>
+          <div style={{width:38, height:38, borderRadius:9, background:'rgba(30,144,255,.12)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+            <Icon name="GitBranch" size={17} style={{color:'var(--blue)'}}/>
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+            <h3 style={{margin:0, fontSize:17, color:'var(--t1)', fontFamily:'var(--f-d)', fontWeight:600}}>Ratear pagamento</h3>
+            <div style={{fontSize:12, color:'var(--t3)', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{item.descricao} · R$ {total.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+          </div>
+          <button onClick={onClose} style={{width:32, height:32, borderRadius:8, border:'none', background:'transparent', color:'var(--t3)', cursor:'pointer', fontSize:18}}>×</button>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1, overflowY:'auto', padding:'18px 22px'}}>
+          {linhas.map((l, i) => (
+            <div key={i} style={{marginBottom:14, padding:'12px', background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:10}}>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10}}>
+                <div>
+                  <SecaoLabel icon="Target">Tipo de destino</SecaoLabel>
+                  <select style={inp} value={l.destino_tipo} onChange={e=>setLinha(i,{destino_tipo:e.target.value})}>
+                    <option value="projeto">Projeto</option>
+                    <option value="cliente">Cliente</option>
+                    <option value="colaborador">Colaborador</option>
+                    <option value="contato">Contato</option>
+                    <option value="despesa">Despesa</option>
+                  </select>
+                </div>
+                <div>
+                  <SecaoLabel icon="DollarSign">Valor (R$)</SecaoLabel>
+                  <input style={inp} type="number" min="0" step="0.01" value={l.valor} onChange={e=>setLinha(i,{valor:e.target.value})}/>
+                </div>
+              </div>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+                <button onClick={()=>setEscolhendo(escolhendo===i?null:i)}
+                  style={{padding:'7px 12px', borderRadius:7, border:'1px solid var(--border)', background:'var(--bg-3)', color:'var(--t1)', fontSize:12.5, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+                  <Icon name="Search" size={12}/>{l.destino_label ? 'Trocar' : 'Escolher'}
+                </button>
+                <span style={{fontSize:12.5, color: l.destino_label ? 'var(--t1)' : 'var(--t3)'}}>{l.destino_label || 'nenhum destino selecionado'}</span>
+                {linhas.length > 1 && (
+                  <button onClick={()=>removeLinha(i)} title="Remover destino" style={{marginLeft:'auto', background:'transparent', border:'none', color:'#E5544D', cursor:'pointer', padding:4, display:'inline-flex'}}>
+                    <Icon name="Trash2" size={13}/>
+                  </button>
+                )}
+              </div>
+              {escolhendo === i && (
+                <EscolherCliente
+                  isEntrada={item.tipo === 'entrada'}
+                  recorrencia={recorrencia}
+                  despesas={despesas}
+                  onCancelar={()=>setEscolhendo(null)}
+                  onEscolher={(tipo, clienteId, despesaId)=>{
+                    if (tipo === 'cliente') {
+                      const r = (recorrencia||[]).find(x => x.__id === clienteId);
+                      setLinha(i, { destino_id: r?.cliente_id || clienteId, destino_label: r?.cliente || 'Cliente' });
+                    } else {
+                      const d = (despesas||[]).find(x => x.id === despesaId);
+                      setLinha(i, { destino_id: despesaId, destino_label: d?.descricao || 'Despesa', destino_tipo:'despesa' });
+                    }
+                    setEscolhendo(null);
+                  }}
+                />
+              )}
+              <div>
+                <SecaoLabel icon="Tag">Categoria (opcional)</SecaoLabel>
+                <select style={inp} value={l.categoria} onChange={e=>setLinha(i,{categoria:e.target.value})}>
+                  <option value="">-- sem categoria --</option>
+                  {CATEGORIAS_DESPESA.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+          ))}
+          <button onClick={addLinha} style={{padding:'8px 14px', borderRadius:7, border:'1px dashed var(--border)', background:'transparent', color:'var(--blue)', fontSize:12.5, fontWeight:600, cursor:'pointer', display:'inline-flex', alignItems:'center', gap:6}}>
+            <Icon name="Plus" size={13}/>Adicionar destino
+          </button>
+        </div>
+
+        {/* Footer */}
+        <div style={{padding:'12px 22px', borderTop:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center', gap:10}}>
+          <div style={{fontSize:12.5, fontWeight:600, color: Math.abs(restante)<=0.01 ? '#1D9E75' : '#E5544D'}}>
+            Restante: R$ {restante.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+          </div>
+          <div style={{display:'flex', gap:10}}>
+            <button onClick={onClose} style={{padding:'8px 16px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:13, fontWeight:500, cursor:'pointer'}}>Cancelar</button>
+            <button onClick={salvar} disabled={!podeSalvar} style={{padding:'8px 18px', borderRadius:7, border:'none', background: podeSalvar ? 'var(--blue)' : 'var(--bg-3)', color: podeSalvar ? '#fff' : 'var(--t3)', fontSize:13, fontWeight:600, cursor: podeSalvar ? 'pointer' : 'not-allowed', display:'inline-flex', alignItems:'center', gap:6}}>
+              <Icon name="Check" size={13}/>Salvar rateio
             </button>
           </div>
         </div>
