@@ -16858,19 +16858,19 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       {/* Extrato */}
       <div className="card" style={{padding:0, overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
-          <table style={{width:'100%', borderCollapse:'collapse', fontSize:13}}>
+          <table style={{width:'100%', tableLayout:'fixed', borderCollapse:'collapse', fontSize:13}}>
             <thead>
               <tr style={{background:'var(--bg-2)', borderBottom:'2px solid var(--border)'}}>
                 {[
-                  {h:'Data',      w:88,  align:'left'},
-                  {h:'Tipo',      w:88,  align:'left'},
-                  {h:'Vínculo',   w:120, align:'left'},
+                  {h:'Data',      w:76,  align:'left'},
+                  {h:'Tipo',      w:78,  align:'left'},
+                  {h:'Vínculo',   w:112, align:'left'},
                   {h:'Descrição',        align:'left'},
-                  {h:'Categoria', w:150, align:'left'},
-                  {h:'Crédito',   w:110, align:'right'},
-                  {h:'Débito',    w:110, align:'right'},
+                  {h:'Categoria', w:128, align:'left'},
+                  {h:'Crédito',   w:108, align:'right'},
+                  {h:'Débito',    w:108, align:'right'},
                   {h:'Saldo',     w:120, align:'right'},
-                  {h:'',          w:78,  align:'right'},
+                  {h:'',          w:56,  align:'right'},
                 ].map(({h,w,align}) => (
                   <th key={h} style={{padding:'9px 14px', textAlign:align, fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:.4, textTransform:'uppercase', ...(w?{width:w}:{})}}>{h}</th>
                 ))}
