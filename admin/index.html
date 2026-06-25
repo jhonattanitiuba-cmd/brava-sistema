@@ -16586,7 +16586,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   // Separa REAL (extrato/manual já realizado) de PREVISTO (projeção futura).
   const itensPeriodo = extrato.filter(i => i.data >= inicioMesFiltro && i.data <= fimMesFiltro);
   const realPeriodo = itensPeriodo.filter(i => !i.projetado);
-  const prevPeriodo = itensPeriodo.filter(i => i.projetado);
+  const prevPeriodo = itensPeriodo.filter(i => i.projetado && i.raw?.mostrar_no_previsto !== false);
 
   const entradasReal = realPeriodo.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
   const saidasReal   = realPeriodo.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
@@ -16870,6 +16870,18 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                   </td>
                   {/* Ações */}
                   <td style={{padding:'10px 14px', textAlign:'right'}}>
+                    {!l.projetado && l.raw?.id && (
+                      <input type="checkbox" title="Mostrar no previsto"
+                        defaultChecked={l.raw.mostrar_no_previsto !== false}
+                        onChange={async e=>{
+                          const cli = getSupa(); if(!cli) return;
+                          const { error } = await cli.from(l.origem==='banco' ? 'fin_extrato_bancario' : 'fin_caixa_lancamentos')
+                            .update({ mostrar_no_previsto: e.target.checked }).eq('id', l.raw.id);
+                          if(error){ showToast?.('Erro: '+error.message,'error'); return; }
+                          showToast?.(e.target.checked ? 'Incluído no previsto' : 'Removido do previsto','success');
+                        }}
+                        style={{accentColor:'var(--blue)', width:14, height:14, cursor:'pointer', marginRight:8, verticalAlign:'middle'}}/>
+                    )}
                     {l.editable
                       ? <button onClick={()=>setEditando(l.raw)} title="Editar lancamento" style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', padding:'3px 8px', borderRadius:5, fontSize:12, display:'inline-flex', alignItems:'center', gap:4}}
                           onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-3)';e.currentTarget.style.color='var(--blue)';}}
