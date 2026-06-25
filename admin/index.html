@@ -2694,10 +2694,12 @@ function HeaderNotif({ notifAberta, setNotifAberta, setPage }) {
           </div>
 
           {lista.length === 0 ? (
-            <div style={{padding:'40px 20px', textAlign:'center', color:'var(--t3)', fontSize:13}}>
-              <Icon name="Bell" size={28} style={{color:'var(--t3)', opacity:.4, marginBottom:10}}/>
-              <div>Nenhuma notificação por aqui.</div>
-              <div style={{fontSize:11, marginTop:6, color:'var(--t3)'}}>Tudo em ordem.</div>
+            <div style={{padding:'36px 20px', textAlign:'center'}}>
+              <div style={{width:44, height:44, borderRadius:'50%', margin:'0 auto 12px', display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-3)', border:'1px solid var(--border-soft)'}}>
+                <Icon name="Bell" size={18} style={{color:'var(--t3)'}}/>
+              </div>
+              <div style={{fontSize:13, fontWeight:600, color:'var(--t2)'}}>Nenhuma notificação</div>
+              <div style={{fontSize:11.5, marginTop:4, color:'var(--t3)'}}>Você está em dia.</div>
             </div>
           ) : (
             <div style={{maxHeight:380, overflowY:'auto'}}>
@@ -16592,7 +16594,9 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       while (guard++ < 500) {
         const dataProj = ISOdata(cur);
         if (dataProj > limite) break;
-        if (dataProj > hojeISO) {
+        // Inclui datas futuras E o vencimento já passado deste mês ainda não pago (atrasada).
+        // O cursor começa no mês corrente, então não traz meses antigos.
+        {
           const ym = dataProj.slice(0,7);
           const jaPaga = (freq === 'mensal' || freq === 'anual') && despesasPag[d.id]?.[ym]?.pago;
           if (!jaPaga) {
@@ -16661,7 +16665,6 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
         const ym = YM(ref);
         if (parcelaProjMes.has(p.__id + '|' + ym)) continue; // mês já coberto por parcela real
         const dataProj = `${ym}-${String(diaVenc).padStart(2,'0')}`;
-        if (dataProj <= hojeISO) continue; // só datas futuras
         if (p.recorrencia_ate && dataProj > p.recorrencia_ate) continue; // prazo fixo (ex: Garcia)
         // Verifica se já entrou no banco neste mês (tem pagamento real)
         const jaNoBanco = extratoBancario.some(e =>
@@ -16921,7 +16924,9 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                 <tr><td colSpan={9} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos no período</td></tr>
               )}
               {filtrado.map(l => {
-                const atrasada = !l.projetado && l.data < hojeISO && l.naoConciliado && l.tipo === 'saida';
+                // Atrasada = SÓ projeção (parcela de projeto / recorrência) com vencimento passado e ainda não paga.
+                // Lançamento real do banco JAMAIS é atrasado (já caiu/conciliou).
+                const atrasada = l.projetado && l.data < hojeISO;
                 const fonte = l.projetado ? { icon:'Clock', txt:'Previsão' }
                   : l.origem === 'manual' ? { icon:'Pencil', txt:'Manual' }
                   : l.origem === 'mrr'    ? { icon:'Repeat', txt:'Recorrência' }
