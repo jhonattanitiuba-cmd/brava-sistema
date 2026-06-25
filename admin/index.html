@@ -16714,6 +16714,38 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
   // KPIs calculados sobre o PERÍODO selecionado (nao sobre todo o extrato)
   // Separa REAL (extrato/manual já realizado) de PREVISTO (projeção futura).
   const [previstoOverride, setPrevistoOverride] = React.useState(() => new Map());
+
+  // Colunas redimensionáveis (arrastar a borda, igual planilha) — largura salva no navegador
+  const COLS_FIN = [
+    {key:'data',      h:'Data',      align:'left'},
+    {key:'tipo',      h:'Tipo',      align:'center'},
+    {key:'vinculo',   h:'Vínculo',   align:'center'},
+    {key:'descricao', h:'Descrição', align:'left'},
+    {key:'categoria', h:'Categoria', align:'left'},
+    {key:'credito',   h:'Crédito',   align:'right'},
+    {key:'debito',    h:'Débito',    align:'right'},
+    {key:'saldo',     h:'Saldo',     align:'right'},
+    {key:'acoes',     h:'',          align:'center'},
+  ];
+  const FIN_COLW_DEFAULT = { data:74, tipo:50, vinculo:70, descricao:300, categoria:120, credito:104, debito:104, saldo:108, acoes:84 };
+  const [colW, setColW] = React.useState(() => {
+    try { const s = JSON.parse(localStorage.getItem('brava_fin_colw')); return (s && typeof s === 'object') ? { ...FIN_COLW_DEFAULT, ...s } : FIN_COLW_DEFAULT; }
+    catch { return FIN_COLW_DEFAULT; }
+  });
+  const iniciarResizeCol = (key, e) => {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX; const startW = colW[key] || 100;
+    const onMove = (ev) => setColW(prev => ({ ...prev, [key]: Math.max(40, Math.round(startW + (ev.clientX - startX))) }));
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      setColW(prev => { try { localStorage.setItem('brava_fin_colw', JSON.stringify(prev)); } catch {} return prev; });
+    };
+    document.body.style.cursor = 'col-resize';
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
   const itensPeriodo = extrato.filter(i => i.data >= inicioMesFiltro && i.data <= fimMesFiltro);
   const realPeriodo = itensPeriodo.filter(i => !i.projetado);
   // Previsto é controlável em tempo real: override de sessão (Map id->bool) por cima do flag do banco
@@ -16870,21 +16902,17 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       {/* Extrato */}
       <div className="card" style={{padding:0, overflow:'hidden'}}>
         <div style={{overflowX:'auto'}}>
-          <table className="fin-extrato" style={{width:'100%', tableLayout:'fixed', borderCollapse:'collapse', fontSize:13}}>
+          <table className="fin-extrato" style={{width: COLS_FIN.reduce((s,c)=>s+(colW[c.key]||0),0), tableLayout:'fixed', borderCollapse:'collapse', fontSize:13}}>
             <thead>
               <tr style={{background:'var(--bg-2)', borderBottom:'2px solid var(--border)'}}>
-                {[
-                  {h:'Data',      w:74,  align:'left'},
-                  {h:'Tipo',      w:50,  align:'center'},
-                  {h:'Vínculo',   w:70,  align:'center'},
-                  {h:'Descrição',        align:'left'},
-                  {h:'Categoria', w:128, align:'left'},
-                  {h:'Crédito',   w:108, align:'right'},
-                  {h:'Débito',    w:108, align:'right'},
-                  {h:'Saldo',     w:108, align:'right'},
-                  {h:'',          w:84,  align:'center'},
-                ].map(({h,w,align}) => (
-                  <th key={h} style={{padding:'9px 14px', textAlign:align, fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:.4, textTransform:'uppercase', ...(w?{width:w}:{})}}>{h}</th>
+                {COLS_FIN.map((c, idx) => (
+                  <th key={c.key} style={{padding:'9px 14px', textAlign:c.align, fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:.4, textTransform:'uppercase', width:colW[c.key], position:'relative', userSelect:'none'}}>
+                    {c.h}
+                    {idx < COLS_FIN.length-1 && (
+                      <span onMouseDown={(e)=>iniciarResizeCol(c.key, e)} title="Arraste para ajustar a largura da coluna"
+                        style={{position:'absolute', top:0, right:-4, width:8, height:'100%', cursor:'col-resize', zIndex:3}}/>
+                    )}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -16911,8 +16939,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                   onMouseLeave={e=>e.currentTarget.style.background = atrasada ? 'rgba(229,84,77,.06)' : 'transparent'}>
                   {/* Data (com icone minimalista de identificacao da fonte) */}
                   <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t3)' : 'var(--t2)', fontFamily:'var(--f-m)', fontSize:12, whiteSpace:'nowrap'}}>
-                    <span title={fonte.txt} style={{display:'inline-flex', alignItems:'center', gap:6}}>
-                      <Icon name={fonte.icon} size={12}/>
+                    <span style={{display:'inline-flex', alignItems:'center'}}>
                       {l.data ? l.data.slice(8,10)+'/'+l.data.slice(5,7) : ''}
                     </span>
                     {l.projetado && <span style={{marginLeft:5, fontSize:9, color:'var(--blue)', fontWeight:600, letterSpacing:.3}}>PREV</span>}
