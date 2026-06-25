@@ -25662,13 +25662,14 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   if (!w) { try{ showToast('Permita pop-ups para gerar o PDF.','erro'); }catch(e){} return; }
   const logo = window.location.origin + '/admin/app/brava-logo-white.png';
   const logoDark = window.location.origin + '/admin/app/brava-logo-dark.png';
-  // Cabecalho e rodape corridos: position:fixed repete em toda pagina (Chrome/Edge).
-  // @page :first{margin:0} deixa a capa full-bleed; a capa (z-index:2) mascara o
-  // header/rodape fixos (z-index:1) na pagina 1. Conteudo flui dentro das margens.
+  // Cabecalho e rodape corridos via TABELA: <thead> repete no topo e <tfoot> no
+  // rodape de CADA pagina (confiavel no Chrome print; position:fixed bottom:0 falha,
+  // jogava o rodape pro topo). A capa fica FORA da tabela, entao nao recebe header/rodape.
+  // @page :first{margin:0} deixa a capa full-bleed.
   const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
-    + "@page{size:A4;margin:22mm 16mm 18mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
+    + "@page{size:A4;margin:14mm 16mm 14mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
     + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:2}"
+    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
     + ".cover-logo img{height:26px}"
     + ".cover-body{flex:1;display:flex;flex-direction:column;justify-content:center}"
     + ".cover-tag{font-size:7.5pt;text-transform:uppercase;letter-spacing:2.5px;color:#888;margin-bottom:7mm}"
@@ -25679,22 +25680,23 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + ".cm-lbl{font-size:7pt;text-transform:uppercase;letter-spacing:1.5px;color:#777}"
     + ".cm-val{font-size:9.5pt;font-weight:700;color:#fff;margin-top:2px}"
     + ".cover-foot{font-size:7.5pt;color:#888;display:flex;gap:6mm;padding-top:6mm;border-top:1px solid #1a1a1a}"
-    + ".runhdr{position:fixed;top:0;left:0;right:0;height:22mm;padding:9mm 16mm 0;background:#fff;z-index:1}"
-    + ".runhdr .rin{display:flex;align-items:center;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm}"
-    + ".runhdr img{height:13px}.runhdr .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
-    + ".runftr{position:fixed;bottom:0;left:0;right:0;height:18mm;padding:0 16mm 9mm;background:#fff;z-index:1;display:flex;align-items:flex-end}"
-    + ".runftr .rin{width:100%;border-top:.5px solid #ddd;padding-top:3mm;font-size:7pt;color:#888;text-align:center}"
+    + "thead{display:table-header-group}tfoot{display:table-footer-group}"
+    + ".frame{width:100%;border-collapse:collapse}"
+    + ".frame>thead>tr>td,.frame>tbody>tr>td,.frame>tfoot>tr>td{border:0;padding:0;vertical-align:top}"
+    + ".rhd{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm;margin-bottom:7mm}"
+    + ".rhd img{height:13px}.rhd .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
+    + ".rft{border-top:.5px solid #ddd;padding-top:3mm;margin-top:9mm;font-size:7pt;color:#888;text-align:center}"
     + ".doc{padding:0}"
     + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc;break-after:avoid;page-break-after:avoid}"
     + "p{margin:5px 0;orphans:3;widows:3}b{font-weight:700}"
-    + "table{border-collapse:collapse;width:100%;margin:8px 0}thead{display:table-header-group}"
-    + "th,td{border:1px solid #ddd;padding:6px 8px;font-size:9.5pt;text-align:left;vertical-align:top}"
-    + "th{background:#000;color:#fff;font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.4px}"
-    + "tr{break-inside:avoid;page-break-inside:avoid}tbody tr:nth-child(even) td{background:#f7f7f7}.num{text-align:right;white-space:nowrap}.ctr{text-align:center}"
+    + ".doc table{border-collapse:collapse;width:100%;margin:8px 0}"
+    + ".doc th,.doc td{border:1px solid #ddd;padding:6px 8px;font-size:9.5pt;text-align:left;vertical-align:top}"
+    + ".doc th{background:#000;color:#fff;font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.4px}"
+    + ".doc tr{break-inside:avoid;page-break-inside:avoid}.doc tbody tr:nth-child(even) td{background:#f7f7f7}.num{text-align:right;white-space:nowrap}.ctr{text-align:center}"
     + "ul,ol{margin:6px 0;padding-left:18px}li{margin:3px 0;break-inside:avoid;page-break-inside:avoid}"
     + ".box{background:#000;color:#fff;padding:12px 16px;margin:10px 0;break-inside:avoid;page-break-inside:avoid}"
     + ".box .bl2{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#888}.box .bv{font-size:18pt;font-weight:800}"
-    + ".sign{display:flex;gap:32px;margin-top:26mm;break-inside:avoid;page-break-inside:avoid}.sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}"
+    + ".sign{display:flex;gap:32px;margin-top:20mm;break-inside:avoid;page-break-inside:avoid}.sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}"
     + ".sn{font-weight:700}.sr{color:#555}";
   const meta = ((capa&&capa.meta)||[]).map(function(m){ return '<div><div class="cm-lbl">'+_pdfEsc(m.lbl)+'</div><div class="cm-val">'+_pdfEsc(m.val)+'</div></div>'; }).join('');
   const cover = '<div class="cover"><div class="cover-logo"><img src="'+logo+'" alt="Brava"></div>'
@@ -25706,11 +25708,11 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + '</div>'
     + '<div class="cover-foot"><span>Brava Company</span><span>diretoria@brava.company</span><span>brava.software</span></div></div>';
   const rotulo = _pdfEsc(headerLabel || (capa&&capa.tag) || 'Documento');
-  const runhdr = '<div class="runhdr"><div class="rin"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></div>';
-  const runftr = '<div class="runftr"><div class="rin">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div></div>';
+  const frame = '<table class="frame"><thead><tr><td><div class="rhd"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></td></tr></thead>'
+    + '<tfoot><tr><td><div class="rft">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div></td></tr></tfoot>'
+    + '<tbody><tr><td><div class="doc">'+bodyHTML+'</div></td></tr></tbody></table>';
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
-    + cover + runhdr + runftr
-    + '<div class="doc">'+bodyHTML+'</div></body></html>';
+    + cover + frame + '</body></html>';
   w.document.write(html); w.document.close(); w.focus();
   var done=false; var go=function(){ if(done)return; done=true; try{ w.print(); }catch(e){} };
   var imgs=function(){ try{ return Array.prototype.slice.call(w.document.images||[]); }catch(e){ return []; } };
@@ -26327,6 +26329,7 @@ function AtasAdmin() {
   const regerar = async (a)=>{ if(!a.transcricao){ showToast('Sem transcrição salva para regerar.','erro'); return; } setBusy(a.id);
     try{ const cli=getSupa(); const { data:resp, error }=await cli.functions.invoke('gerar-ata',{ body:{ transcricao:a.transcricao, cliente_nome:a.cliente_nome, tipo:a.tipo, tema:a.tema, data:'', participantes:a.participantes, marca:a.marca, correcoes:a.correcoes } });
       if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
+      if(a.tema&&a.tema.trim()&&resp.conteudo.capa){ resp.conteudo.capa.titulo=a.tema.trim(); } // titulo da capa = exatamente o tema
       const titulo=(resp.conteudo.capa&&resp.conteudo.capa.titulo)?String(resp.conteudo.capa.titulo).replace(/\n/g,' '):a.titulo;
       const { error:e2 }=await cli.from('atas').update({ conteudo:resp.conteudo, titulo, updated_at:new Date().toISOString() }).eq('id',a.id);
       if(e2) throw new Error(e2.message); showToast('Ata gerada novamente.','success');
@@ -26396,6 +26399,7 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
       const { data:resp, error } = await cli.functions.invoke('gerar-ata',{ body:{ transcricao, cliente_nome:(clienteSel?clienteSel.nome:''), tipo, tema, data, participantes, marca:(marca||(clienteSel?clienteSel.nome:'Brava')), correcoes } });
       if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
       const conteudo=resp.conteudo;
+      if(tema&&tema.trim()&&conteudo.capa){ conteudo.capa.titulo=tema.trim(); } // titulo da capa = exatamente o tema digitado
       const titulo=(conteudo.capa&&conteudo.capa.titulo)?String(conteudo.capa.titulo).replace(/\n/g,' '):(tema||'Ata de Reunião');
       const { data:ins, error:e2 } = await cli.from('atas').insert({ cliente_id:clienteId||null, cliente_nome:(clienteSel?clienteSel.nome:null), tipo, titulo, tema:tema||null, participantes:participantes||null, marca:(marca||null), correcoes:(correcoes||null), transcricao, conteudo, status:'pronta' }).select('*').single();
       if(e2) throw new Error(e2.message);
