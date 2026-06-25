@@ -16114,10 +16114,24 @@ function DespesaModal({ despesa, onClose }) {
     recorrente: despesa.recorrente ?? true,
     dia_vencimento: despesa.dia_vencimento ?? 10,
     data_unica: despesa.data_unica || hojeISO(),
+    frequencia: despesa.frequencia || 'mensal',
+    recorrencia_ate: despesa.recorrencia_ate || '',
+    ativo_na_agenda: despesa.ativo_na_agenda ?? false,
     ativo: despesa.ativo ?? true,
     observacao: despesa.observacao || '',
   });
   const set = (k,v) => setForm(f => ({...f, [k]:v}));
+
+  // Próximo vencimento (usado pra agenda): recorrente => dia_vencimento neste/próximo mês; avulso => data_unica
+  const proximoVencimento = () => {
+    if (!form.recorrente) return form.data_unica || hojeISO();
+    const dia = parseInt(form.dia_vencimento) || 10;
+    const ho = hojeISO();
+    const n = new Date();
+    let alvo = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    if (alvo < ho) { n.setMonth(n.getMonth()+1); alvo = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(dia).padStart(2,'0')}`; }
+    return alvo;
+  };
 
   const salvar = async () => {
     if (!form.descricao.trim()) { showToast?.('Informe a descrição','warn'); return; }
@@ -16126,8 +16140,22 @@ function DespesaModal({ despesa, onClose }) {
       valor: Number(form.valor)||0,
       dia_vencimento: form.recorrente ? (parseInt(form.dia_vencimento)||null) : null,
       data_unica: form.recorrente ? null : form.data_unica,
+      recorrencia_ate: form.recorrencia_ate || null,
     };
-    if (novo) await addDespesa(patch); else await editDespesa(despesa.id, patch);
+    let despesaId = despesa.id;
+    if (novo) despesaId = await addDespesa(patch); else await editDespesa(despesa.id, patch);
+    // Sincroniza com a agenda quando marcado
+    if (despesaId) {
+      const cli = getSupa();
+      if (cli) {
+        await cli.from('fin_agenda_eventos').delete().eq('origem_tipo','despesa').eq('origem_id', despesaId);
+        if (form.ativo_na_agenda) {
+          const { error } = await cli.from('fin_agenda_eventos')
+            .insert({ origem_tipo:'despesa', origem_id:despesaId, titulo:form.descricao, data:proximoVencimento(), tipo:'saida', valor:Number(form.valor)||0 });
+          if (error) showToast?.('Despesa salva, agenda falhou: '+error.message,'warn');
+        }
+      }
+    }
     showToast?.(novo ? 'Despesa adicionada' : 'Despesa atualizada', 'success');
     onClose();
   };
@@ -16196,10 +16224,30 @@ function DespesaModal({ despesa, onClose }) {
           </div>
 
           {form.recorrente ? (
-            <div style={{marginBottom:18}}>
-              <SecaoLabel icon="Calendar">Dia do vencimento</SecaoLabel>
-              <input style={inp} type="number" min="1" max="31" value={form.dia_vencimento || ''} onChange={e=>set('dia_vencimento', e.target.value)} placeholder="1 a 31"/>
-            </div>
+            <>
+              <div style={{marginBottom:18}}>
+                <SecaoLabel icon="Calendar">Dia do vencimento</SecaoLabel>
+                <input style={inp} type="number" min="1" max="31" value={form.dia_vencimento || ''} onChange={e=>set('dia_vencimento', e.target.value)} placeholder="1 a 31"/>
+              </div>
+              <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:8}}>
+                <div>
+                  <SecaoLabel icon="Repeat">Frequência</SecaoLabel>
+                  <select style={inp} value={form.frequencia} onChange={e=>set('frequencia', e.target.value)}>
+                    <option value="mensal">Mensal</option>
+                    <option value="semanal">Semanal</option>
+                    <option value="quinzenal">Quinzenal</option>
+                    <option value="anual">Anual</option>
+                  </select>
+                </div>
+                <div>
+                  <SecaoLabel icon="Calendar">Repetir até (opcional)</SecaoLabel>
+                  <input style={inp} type="date" min={hojeISO()} value={form.recorrencia_ate} onChange={e=>set('recorrencia_ate', e.target.value)}/>
+                </div>
+              </div>
+              <div style={{fontSize:11.5, color:'var(--t3)', marginBottom:18, lineHeight:1.5}}>
+                mensal = compatível com débito recorrente BTG; outras = previsão interna
+              </div>
+            </>
           ) : (
             <div style={{marginBottom:18}}>
               <SecaoLabel icon="Calendar">Data do pagamento</SecaoLabel>
@@ -16217,6 +16265,14 @@ function DespesaModal({ despesa, onClose }) {
             <div style={{flex:1}}>
               <div style={{fontSize:13, color:'var(--t1)', fontWeight:500}}>Despesa ativa</div>
               <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>Entra no cálculo do saldo e do fluxo de caixa</div>
+            </div>
+          </label>
+
+          <label style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', marginTop:12, background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer'}}>
+            <input type="checkbox" checked={form.ativo_na_agenda} onChange={e=>set('ativo_na_agenda', e.target.checked)} style={{accentColor:'var(--blue)', width:16, height:16, cursor:'pointer'}}/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13, color:'var(--t1)', fontWeight:500}}>Mostrar na agenda</div>
+              <div style={{fontSize:11.5, color:'var(--t3)', marginTop:1}}>Cria um evento de vencimento na agenda</div>
             </div>
           </label>
         </div>
@@ -16509,34 +16565,46 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
       return (anoAtualProj - n.getFullYear()) * 12 + (11 - n.getMonth()); // 11 = dezembro (0-indexed)
     })();
 
-    // 3) PROJETADO: despesas fixas recorrentes ate o fim do ano
+    // 3) PROJETADO: despesas fixas recorrentes ate o fim do ano (respeita frequencia + recorrencia_ate)
+    const ISOdata = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
     (despesas || []).filter(d => d.ativo && d.recorrente && Number(d.valor) > 0).forEach(d => {
-      for (let m = 0; m <= mesesRestantes; m++) {
-        const ref = new Date();
-        ref.setMonth(ref.getMonth() + m);
-        const ym = YM(ref);
-        const dia = d.dia_vencimento || 10;
-        const dataProj = `${ym}-${String(dia).padStart(2,'0')}`;
-        if (dataProj <= hojeISO) continue; // só datas futuras
-        // Verifica se já foi paga neste mês
-        const jaPaga = despesasPag[d.id]?.[ym]?.pago;
-        if (jaPaga) continue;
-        // Verifica se já tem no extrato real (evita duplicar)
-        const jaNoExtrato = extratoBancario.some(e =>
-          e.conciliado_despesa_pagamento_id && e.data?.slice(0,7) === ym
-          // verificação simplificada - aceita duplicata melhor que omitir
-        );
-        itens.push({
-          id: `proj:desp:${d.id}:${ym}`,
-          tipo: 'saida',
-          descricao: d.descricao,
-          categoria: d.categoria || 'Despesa',
-          valor: Number(d.valor),
-          data: dataProj,
-          origem: 'projecao',
-          projetado: true,
-          editable: false,
-        });
+      const freq = d.frequencia || 'mensal';
+      const dia = d.dia_vencimento || 10;
+      const limite = d.recorrencia_ate && d.recorrencia_ate < fimAnoProj ? d.recorrencia_ate : fimAnoProj;
+      // Cursor inicial
+      let cur;
+      if (freq === 'semanal' || freq === 'quinzenal') {
+        cur = new Date(); // começa de hoje, passos de 7/15 dias
+      } else {
+        const n = new Date();
+        cur = new Date(n.getFullYear(), n.getMonth(), dia); // mensal/anual: ancorado no dia de vencimento
+      }
+      let guard = 0;
+      while (guard++ < 500) {
+        const dataProj = ISOdata(cur);
+        if (dataProj > limite) break;
+        if (dataProj > hojeISO) {
+          const ym = dataProj.slice(0,7);
+          const jaPaga = (freq === 'mensal' || freq === 'anual') && despesasPag[d.id]?.[ym]?.pago;
+          if (!jaPaga) {
+            itens.push({
+              id: `proj:desp:${d.id}:${dataProj}`,
+              tipo: 'saida',
+              descricao: d.descricao,
+              categoria: d.categoria || 'Despesa',
+              valor: Number(d.valor),
+              data: dataProj,
+              origem: 'projecao',
+              projetado: true,
+              editable: false,
+            });
+          }
+        }
+        // Avança o cursor conforme a frequência
+        if (freq === 'semanal') cur.setDate(cur.getDate() + 7);
+        else if (freq === 'quinzenal') cur.setDate(cur.getDate() + 15);
+        else if (freq === 'anual') cur.setFullYear(cur.getFullYear() + 1);
+        else cur.setMonth(cur.getMonth() + 1); // mensal
       }
     });
 
@@ -25545,7 +25613,28 @@ function Agenda() {
     try { const u = new URL(window.location.href); if (u.searchParams.get('google')==='ok') { showToast?.('Google Agenda conectado!', 'success'); u.searchParams.delete('google'); window.history.replaceState({}, '', u.pathname + (u.search ? u.search : '') + u.hash); } } catch (_e) {}
   }, []);
   const conectarGoogle = () => iniciarConexaoGoogle();
-  const events = React.useMemo(() => [...localEvents, ...gEvents], [localEvents, gEvents]);
+  // ── Eventos financeiros (fin_agenda_eventos: vencimentos de despesas, etc.) ──
+  const [finEvents, setFinEvents] = useState([]);
+  React.useEffect(() => {
+    const cli = (typeof getSupa === 'function') ? getSupa() : null; if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('fin_agenda_eventos').select('*');
+      if (!alive) return;
+      setFinEvents((data || []).map(e => ({
+        id: 'fin_'+e.id, fonte:'financeiro', titulo: e.titulo || 'Vencimento',
+        descricao: e.valor != null ? ('R$ '+Number(e.valor).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})) : '',
+        local:'', diaTodo:true, cor: e.tipo === 'entrada' ? 'verde' : 'vermelho',
+        data: String(e.data || '').slice(0,10), inicio:'00:00', fim:'23:59', convidados:[], meet:'',
+      })));
+    };
+    load();
+    const ch = cli.channel('rt:fin_agenda_eventos')
+      .on('postgres_changes', { event:'*', schema:'public', table:'fin_agenda_eventos' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  const events = React.useMemo(() => [...localEvents, ...gEvents, ...finEvents], [localEvents, gEvents, finEvents]);
 
   React.useEffect(() => { localStorage.setItem('brava_agenda_vista', vista); }, [vista]);
 
