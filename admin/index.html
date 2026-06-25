@@ -16742,13 +16742,15 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             <thead>
               <tr style={{background:'var(--bg-2)', borderBottom:'2px solid var(--border)'}}>
                 {[
-                  {h:'Data',      w:90,  align:'left'},
-                  {h:'Tipo',      w:90,  align:'left'},
+                  {h:'Data',      w:88,  align:'left'},
+                  {h:'Tipo',      w:88,  align:'left'},
+                  {h:'Vínculo',   w:120, align:'left'},
                   {h:'Descrição',        align:'left'},
-                  {h:'Categoria', w:160, align:'left'},
-                  {h:'Fonte',     w:80,  align:'left'},
-                  {h:'Valor',     w:130, align:'right'},
-                  {h:'',          w:80,  align:'right'},
+                  {h:'Categoria', w:150, align:'left'},
+                  {h:'Crédito',   w:110, align:'right'},
+                  {h:'Débito',    w:110, align:'right'},
+                  {h:'Saldo',     w:120, align:'right'},
+                  {h:'',          w:78,  align:'right'},
                 ].map(({h,w,align}) => (
                   <th key={h} style={{padding:'9px 14px', textAlign:align, fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:.4, textTransform:'uppercase', ...(w?{width:w}:{})}}>{h}</th>
                 ))}
@@ -16756,19 +16758,31 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             </thead>
             <tbody>
               {filtrado.length === 0 && (
-                <tr><td colSpan={7} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos no período</td></tr>
+                <tr><td colSpan={9} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Sem lançamentos no período</td></tr>
               )}
-              {filtrado.map(l => (
+              {filtrado.map(l => {
+                const atrasada = !l.projetado && l.data < hojeISO && l.naoConciliado && l.tipo === 'saida';
+                const fonte = l.projetado ? { icon:'Clock', txt:'Previsão' }
+                  : l.origem === 'manual' ? { icon:'Pencil', txt:'Manual' }
+                  : l.origem === 'mrr'    ? { icon:'Repeat', txt:'Recorrência' }
+                  : l.origem === 'banco'  ? { icon:'Building2', txt:(l.fonteLabel||'Banco') }
+                  : { icon:'FileText', txt:'Despesa' };
+                return (
                 <tr key={l.id}
                   style={{
                     borderBottom: l.projetado ? '1px dashed rgba(255,255,255,.08)' : '1px solid var(--border-soft)',
                     opacity: l.projetado ? .75 : 1,
+                    background: atrasada ? 'rgba(229,84,77,.06)' : 'transparent',
+                    boxShadow: atrasada ? 'inset 3px 0 0 #E5544D' : 'none',
                   }}
-                  onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,.02)'}
-                  onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                  {/* Data */}
+                  onMouseEnter={e=>e.currentTarget.style.background = atrasada ? 'rgba(229,84,77,.10)' : 'rgba(255,255,255,.02)'}
+                  onMouseLeave={e=>e.currentTarget.style.background = atrasada ? 'rgba(229,84,77,.06)' : 'transparent'}>
+                  {/* Data (com icone minimalista de identificacao da fonte) */}
                   <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t3)' : 'var(--t2)', fontFamily:'var(--f-m)', fontSize:12, whiteSpace:'nowrap'}}>
-                    {formatBR(l.data)}
+                    <span title={fonte.txt} style={{display:'inline-flex', alignItems:'center', gap:6}}>
+                      <Icon name={fonte.icon} size={12}/>
+                      {formatBR(l.data)}
+                    </span>
                     {l.projetado && <span style={{marginLeft:5, fontSize:9, color:'var(--blue)', fontWeight:600, letterSpacing:.3}}>PREV</span>}
                   </td>
                   {/* Tipo */}
@@ -16784,14 +16798,28 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                       {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                     </span>
                   </td>
+                  {/* Vínculo (empresa, colaborador ou contato) */}
+                  <td style={{padding:'10px 14px'}}>
+                    <button onClick={()=>{ if(!l.projetado) setConciliandoAberto(true); }}
+                      title={l.cliente_id ? 'Vinculado, clique para revisar' : 'Vincular a empresa, colaborador ou contato'}
+                      style={{display:'inline-flex', alignItems:'center', gap:5, background:'transparent', border:'none', cursor: l.projetado ? 'default' : 'pointer', padding:'2px 6px', borderRadius:5, fontSize:11.5, color: l.cliente_id ? 'var(--t1)' : 'var(--t3)'}}>
+                      <Icon name="Link" size={12}/>
+                      {l.cliente_id ? 'vinculado' : 'vincular'}
+                    </button>
+                  </td>
                   {/* Descrição */}
                   <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t2)' : 'var(--t1)', maxWidth:400}}>
                     <div style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={l.descricao}>
                       {l.descricao}
                     </div>
-                    {l.naoConciliado && !l.projetado && (
+                    {l.naoConciliado && !l.projetado && !atrasada && (
                       <span style={{display:'inline-block', marginTop:2, padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:600, background:'rgba(186,117,23,.12)', color:'#BA7517'}}>
                         pendente
+                      </span>
+                    )}
+                    {atrasada && (
+                      <span style={{display:'inline-block', marginTop:2, padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:700, background:'rgba(229,84,77,.14)', color:'#E5544D'}}>
+                        atrasada
                       </span>
                     )}
                   </td>
@@ -16828,24 +16856,17 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                       </button>
                     )}
                   </td>
-                  {/* Fonte */}
-                  <td style={{padding:'10px 14px'}}>
-                    <span style={{
-                      fontSize:11, padding:'2px 7px', borderRadius:4, fontWeight:500,
-                      background: l.projetado ? 'rgba(30,144,255,.08)' : 'var(--bg-3)',
-                      color: l.projetado ? 'var(--blue)' : 'var(--t3)',
-                      border: l.projetado ? '1px solid rgba(30,144,255,.2)' : 'none',
-                    }}>
-                      {l.projetado ? 'Previsão'
-                       : l.origem === 'manual'  ? 'Manual'
-                       : l.origem === 'mrr'     ? 'Recorrencia'
-                       : l.origem === 'banco'   ? l.fonteLabel
-                                                : 'Despesa'}
-                    </span>
+                  {/* Crédito */}
+                  <td style={{padding:'10px 14px', textAlign:'right', color:'#1D9E75', fontFamily:'var(--f-m)', fontWeight:700, whiteSpace:'nowrap'}}>
+                    {l.tipo === 'entrada' ? 'R$ ' + l.valor.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}
                   </td>
-                  {/* Valor */}
-                  <td style={{padding:'10px 14px', textAlign:'right', color: l.tipo === 'entrada' ? '#1D9E75' : '#E5544D', fontFamily:'var(--f-m)', fontWeight:700, whiteSpace:'nowrap'}}>
-                    {l.tipo === 'entrada' ? '+' : '-'} R$ {l.valor.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2})}
+                  {/* Débito */}
+                  <td style={{padding:'10px 14px', textAlign:'right', color:'#E5544D', fontFamily:'var(--f-m)', fontWeight:700, whiteSpace:'nowrap'}}>
+                    {l.tipo === 'saida' ? 'R$ ' + l.valor.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}
+                  </td>
+                  {/* Saldo (saldo_apos do extrato bancário) */}
+                  <td style={{padding:'10px 14px', textAlign:'right', color:'var(--t2)', fontFamily:'var(--f-m)', fontSize:12, whiteSpace:'nowrap'}}>
+                    {l.raw && l.raw.saldo_apos != null ? 'R$ ' + Number(l.raw.saldo_apos).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}
                   </td>
                   {/* Ações */}
                   <td style={{padding:'10px 14px', textAlign:'right'}}>
@@ -16868,7 +16889,8 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                           </button>}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
