@@ -20162,6 +20162,7 @@ function Cliente360Modal({ cliente: clienteProp, onClose }) {
   const { list: statusConfig } = useStatusConfig();
   const { list: projetos, loading: loadingProj } = useProjetosResumoCliente(cliente?.id);
   const extrato = useExtratoPorCliente(cliente?.id);
+  const atasCliente = useAtasCliente(cliente?.id);
   const stats = React.useMemo(() => {
     const mrr = projetos.reduce((s,p) => s + Number(p.mensal_esperado||0), 0);
     const recebidoTotal = projetos.reduce((s,p) => s + Number(p.total_recebido||0), 0);
@@ -20181,6 +20182,7 @@ function Cliente360Modal({ cliente: clienteProp, onClose }) {
     { key:'projetos',   label:'Projetos',   icon:'Layers', badge: projetos.length },
     { key:'pagamentos', label:'Pagamentos', icon:'Wallet', badge: extrato.length },
     { key:'anexos',     label:'Anexos',     icon:'Paperclip' },
+    { key:'atas',       label:'Atas',       icon:'BookOpen', badge: atasCliente.length },
   ];
 
   return (
@@ -20248,10 +20250,50 @@ function Cliente360Modal({ cliente: clienteProp, onClose }) {
           {tab === 'projetos'   && <Cliente360TabProjetos cliente={cliente} projetos={projetos} loading={loadingProj}/>}
           {tab === 'pagamentos' && <Cliente360TabPagamentos cliente={cliente} extrato={extrato} projetos={projetos}/>}
           {tab === 'anexos'     && <Cliente360TabAnexos cliente={cliente} projetos={projetos}/>}
+          {tab === 'atas'       && <Cliente360TabAtas cliente={cliente} atas={atasCliente}/>}
         </div>
       </div>
 
       {editandoCad && <ClienteCadastroModal cliente={cliente} embedded onClose={()=>setEditandoCad(false)}/>}
+    </div>
+  );
+}
+
+// ─── Atas do cliente (vinculadas por cliente_id) ───
+function useAtasCliente(clienteId){
+  const [list,setList]=React.useState([]);
+  React.useEffect(()=>{ if(!clienteId){ setList([]); return; } const cli=getSupa(); if(!cli) return; let alive=true;
+    const load=async()=>{ const { data }=await cli.from('atas').select('*').eq('cliente_id',clienteId).order('created_at',{ascending:false}); if(alive) setList(data||[]); };
+    load(); const ch=cli.channel('rt:atas:'+clienteId).on('postgres_changes',{event:'*',schema:'public',table:'atas',filter:'cliente_id=eq.'+clienteId},load).subscribe();
+    return ()=>{ alive=false; cli.removeChannel(ch); };
+  },[clienteId]);
+  return list;
+}
+function Cliente360TabAtas({ cliente, atas }){
+  const [ver,setVer]=React.useState(null); const [busy,setBusy]=React.useState('');
+  const enviar=async(a)=>{ const tel=((cliente&&cliente.contato_telefone)||'').replace(/\D/g,''); const numero=prompt('Enviar a ata no WhatsApp.\nNúmero com DDD e país:', tel||'55'); if(!numero) return; setBusy(a.id);
+    try{ await _ataEnviarWhatsapp(a, numero); showToast('Ata enviada no WhatsApp.','success'); }catch(e){ showToast('Erro ao enviar: '+(e.message||e),'erro'); } finally{ setBusy(''); } };
+  return (
+    <div style={{padding:'18px 22px'}}>
+      {(!atas||!atas.length) ? (
+        <div style={{color:'var(--t3)', fontSize:13, padding:'20px 0'}}>Nenhuma ata vinculada a este cliente ainda. Gere na tela <b>Atas</b> escolhendo este cliente.</div>
+      ) : (
+        <div style={{display:'grid', gap:8}}>
+          {atas.map(a=>(
+            <div key={a.id} className="card" style={{display:'grid', gridTemplateColumns:'1fr auto', gap:10, alignItems:'center', padding:'10px 14px', opacity:busy===a.id?0.6:1}}>
+              <div>
+                <div style={{fontWeight:600, color:'var(--t1)', fontSize:13}}>{a.titulo||'Ata'}</div>
+                <div style={{fontSize:11.5, color:'var(--t3)'}}>{a.tipo==='ligacao'?'Ligação':'Reunião'} · {a.data_reuniao? new Date(a.data_reuniao).toLocaleDateString('pt-BR') : new Date(a.created_at).toLocaleDateString('pt-BR')}</div>
+              </div>
+              <div style={{display:'flex', gap:6}}>
+                <button onClick={()=>setVer(a)} style={_fBtnGhost}>Ver / Imprimir</button>
+                <button onClick={()=>enviar(a)} disabled={busy===a.id} style={_fBtnGhost} title="Enviar no WhatsApp"><Icon name="Send" size={14}/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {ver && <AtaViewModal ata={ver} onClose={()=>setVer(null)}/>}
     </div>
   );
 }
@@ -26192,26 +26234,101 @@ function OrcamentoPrintModal({ orcamento, onClose }) {
 }
 
 // ── Administrativo: Atas de reunião ──────────────────────────────────
-const ATAS_KEY = 'brava_atas';
-function loadAtas(){ try{ return JSON.parse(localStorage.getItem(ATAS_KEY)||'[]'); }catch{ return []; } }
-function saveAtas(l){ localStorage.setItem(ATAS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_atas_changed')); }
+// Atas agora vivem no Supabase (tabela atas), geradas por IA (edge function gerar-ata).
+function useAtas(){
+  const [list,setList]=React.useState([]); const [loading,setLoading]=React.useState(true);
+  React.useEffect(()=>{ const cli=getSupa(); if(!cli){ setLoading(false); return; } let alive=true;
+    const load=async()=>{ const { data }=await cli.from('atas').select('*').order('created_at',{ascending:false}); if(alive){ setList(data||[]); setLoading(false); } };
+    load(); const ch=cli.channel('rt:atas').on('postgres_changes',{event:'*',schema:'public',table:'atas'},load).subscribe();
+    return ()=>{ alive=false; cli.removeChannel(ch); };
+  },[]);
+  return { list, loading };
+}
+function _limpaTrav(s){ return typeof s==='string' ? s.replace(/\s+[—–]\s+/g,', ').replace(/[—–]/g,'-') : s; }
+// Renderiza o conteudo (JSON) da ata no padrao Brava (mesmo CSS do bravaPrintDoc)
+function _ataTabela(cab, linhas){ const e=_pdfEsc; cab=cab||[]; linhas=linhas||[]; if(!cab.length && !linhas.length) return ''; let t='<table>'; if(cab.length){ t+='<tr>'; cab.forEach(function(c){ t+='<th>'+e(c)+'</th>'; }); t+='</tr>'; } linhas.forEach(function(r){ t+='<tr>'; (r||[]).forEach(function(c){ t+='<td>'+e(c)+'</td>'; }); t+='</tr>'; }); return t+'</table>'; }
+function _ataBodyHTML(conteudo){ const e=_pdfEsc; const secoes=(conteudo&&conteudo.secoes)||[]; let body='';
+  secoes.forEach(function(s){ body+='<h2>'+e(s.h2||'')+'</h2>';
+    if(s.tipo==='paragrafos'){ (s.paragrafos||[]).forEach(function(p){ body+='<p>'+e(p)+'</p>'; }); }
+    else if(s.tipo==='lista'){ if((s.itens||[]).length){ body+='<ul style="margin:6px 0;padding-left:18px">'; (s.itens||[]).forEach(function(it){ body+='<li style="margin:3px 0">'+e(it)+'</li>'; }); body+='</ul>'; } }
+    else if(s.tipo==='tabela'){ body+=_ataTabela(s.cabecalho,s.linhas); }
+    else if(s.tipo==='destaque_tabela'){ (s.destaque||[]).forEach(function(d){ body+='<div class="box"><div class="bl2">'+e(d.lbl||'')+'</div><div class="bv" style="font-size:11pt">'+e(d.val||'')+'</div></div>'; }); body+=_ataTabela(s.cabecalho,s.linhas); }
+  });
+  const ass=(conteudo&&conteudo.assinaturas)||[];
+  if(ass.length){ body+='<div class="sign">'; ass.forEach(function(a){ body+='<div><div class="sn">'+e(a.org||'')+'</div><div class="sr">'+e(a.pessoa||'')+'</div></div>'; }); body+='</div>'; }
+  return body || '<p>Sem conteudo.</p>';
+}
+function _ataCapa(ata){ const c=(ata.conteudo&&ata.conteudo.capa)||{}; return { tag:c.tag||'Ata de Reunião', titulo:c.titulo||(ata.tema||ata.titulo||'Ata'), sub:c.sub||'Registro formal dos pontos discutidos, decisões e próximos passos', meta:(c.meta||[]).map(function(m){ return {lbl:m.lbl,val:m.val}; }) }; }
+function renderAtaDoc(ata){ bravaPrintDoc({ capa:_ataCapa(ata), bodyHTML:_ataBodyHTML(ata.conteudo||{}) }); }
+function _ataFilename(ata){ const up=function(s,sep){ return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,sep).replace(new RegExp('^'+sep+'|'+sep+'$','g'),''); };
+  const marca=up(ata.marca||'BRAVA','')||'BRAVA'; const tema=up(ata.tema||ata.titulo||'REUNIAO','_')||'REUNIAO';
+  const d=ata.data_reuniao?new Date(ata.data_reuniao):new Date(ata.created_at||Date.now());
+  const dd=String(d.getUTCDate()).padStart(2,'0'),mm=String(d.getUTCMonth()+1).padStart(2,'0'),yy=String(d.getUTCFullYear()).slice(-2);
+  return 'ATA_'+marca+'_'+dd+'-'+mm+'-'+yy+'_'+tema+'.pdf';
+}
+// CSS do documento (copia do bravaPrintDoc) p/ o html2pdf do envio WhatsApp
+const _ATA_CSS = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');*{box-sizing:border-box}body{margin:0}.cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;display:flex;flex-direction:column;justify-content:space-between;font-family:'Montserrat',Arial,sans-serif}.cover-logo img{height:26px}.cover-body{flex:1;display:flex;flex-direction:column;justify-content:center}.cover-tag{font-size:7.5pt;text-transform:uppercase;letter-spacing:2.5px;color:#888;margin-bottom:7mm}.cover-title{font-size:32pt;font-weight:800;line-height:1.1;color:#fff;margin:0 0 3mm}.cover-sub{font-size:12pt;color:#aaa;margin:0 0 8mm}.cover-hr{border:none;border-top:.5px solid #333;margin:0 0 6mm}.cover-meta{display:flex;gap:12mm;flex-wrap:wrap}.cm-lbl{font-size:7pt;text-transform:uppercase;letter-spacing:1.5px;color:#777}.cm-val{font-size:9.5pt;font-weight:700;color:#fff;margin-top:2px}.cover-foot{font-size:7.5pt;color:#888;display:flex;gap:6mm;padding-top:6mm;border-top:1px solid #1a1a1a}.doc{padding:18mm;font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55}.doc h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc}.doc p{margin:5px 0}.doc table{border-collapse:collapse;width:100%;margin:8px 0;page-break-inside:avoid}.doc th,.doc td{border:1px solid #ddd;padding:6px 8px;font-size:9.5pt;text-align:left;vertical-align:top}.doc th{background:#000;color:#fff;font-weight:700;font-size:8.5pt;text-transform:uppercase}.doc tr:nth-child(even) td{background:#f7f7f7}.doc .box{background:#000;color:#fff;padding:12px 16px;margin:10px 0}.doc .box .bl2{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#888}.doc .sign{display:flex;gap:32px;margin-top:18mm}.doc .sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}.doc .sn{font-weight:700}.doc .sr{color:#555}.doc-ft{padding:0 18mm 14mm;font-size:7.5pt;color:#888;text-align:center}";
+function _ataCoverHtml(ata){ const e=_pdfEsc; const c=_ataCapa(ata); const logo=window.location.origin+'/admin/app/brava-logo-white.png';
+  const meta=(c.meta||[]).map(function(m){ return '<div><div class="cm-lbl">'+e(m.lbl)+'</div><div class="cm-val">'+e(m.val)+'</div></div>'; }).join('');
+  return '<div class="cover"><div class="cover-logo"><img src="'+logo+'" alt="Brava"></div><div class="cover-body"><div class="cover-tag">'+e(c.tag||'')+'</div><div class="cover-title">'+e(c.titulo||'').replace(/\n/g,'<br>')+'</div>'+(c.sub?'<div class="cover-sub">'+e(c.sub)+'</div>':'')+'<hr class="cover-hr"><div class="cover-meta">'+meta+'</div></div><div class="cover-foot"><span>Brava Company</span><span>diretoria@brava.company</span><span>brava.software</span></div></div>';
+}
+function _ataFragment(ata){ return '<style>'+_ATA_CSS+'</style>'+_ataCoverHtml(ata)+'<div class="doc">'+_ataBodyHTML(ata.conteudo||{})+'</div><div class="doc-ft">Brava Company LTDA &copy; 2026 &middot; brava.software</div>'; }
+function _ensureHtml2Pdf(){ return new Promise(function(res,rej){ if(window.html2pdf) return res(); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js'; s.onload=function(){ res(); }; s.onerror=function(){ rej(new Error('cdn html2pdf')); }; document.body.appendChild(s); }); }
+function _blobToB64(blob){ return new Promise(function(res,rej){ const fr=new FileReader(); fr.onload=function(){ res(String(fr.result).split(',')[1]); }; fr.onerror=rej; fr.readAsDataURL(blob); }); }
+async function _ataEnviarWhatsapp(ata, numero){ await _ensureHtml2Pdf();
+  const el=document.createElement('div'); el.style.width='210mm'; el.style.background='#fff'; el.innerHTML=_ataFragment(ata);
+  const opt={ margin:0, filename:_ataFilename(ata), image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff'}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','legacy']} };
+  const blob=await window.html2pdf().set(opt).from(el).outputPdf('blob');
+  const b64=await _blobToB64(blob);
+  const cap='*'+(ata.titulo||'Ata')+'*\nSegue a ata em anexo.';
+  const { data, error }=await getSupa().functions.invoke('enviar-ata-wa',{ body:{ pdf_base64:b64, filename:_ataFilename(ata), numero:numero, caption:cap } });
+  if(error||!(data&&data.ok)) throw new Error((data&&data.error)||(error&&error.message)||'falha no envio');
+}
+// Serializa/parseia uma secao p/ edicao em textarea
+function _secaoToText(s){ const tab=function(){ return [].concat([s.cabecalho||[]], s.linhas||[]).map(function(r){ return (r||[]).join(' | '); }).join('\n'); };
+  if(s.tipo==='paragrafos') return (s.paragrafos||[]).join('\n\n');
+  if(s.tipo==='lista') return (s.itens||[]).join('\n');
+  if(s.tipo==='tabela') return tab();
+  if(s.tipo==='destaque_tabela') return (s.destaque||[]).map(function(d){ return d.lbl+': '+d.val; }).join('\n')+'\n---\n'+tab();
+  return '';
+}
+function _textToSecao(s, text){ const ns=Object.assign({},s); const t=String(text);
+  const parseTab=function(str){ const rows=str.split(/\n/).map(function(l){ return l.split('|').map(function(c){ return c.trim(); }); }).filter(function(r){ return r.join('').length; }); ns.cabecalho=rows[0]||[]; ns.linhas=rows.slice(1); };
+  if(s.tipo==='paragrafos'){ ns.paragrafos=t.split(/\n{2,}/).map(function(x){return x.trim();}).filter(Boolean); }
+  else if(s.tipo==='lista'){ ns.itens=t.split(/\n/).map(function(x){return x.replace(/^[-•]\s*/,'').trim();}).filter(Boolean); }
+  else if(s.tipo==='tabela'){ parseTab(t); }
+  else if(s.tipo==='destaque_tabela'){ const parts=t.split(/\n---\n/); const dl=(parts[0]||'').split(/\n/).map(function(x){return x.trim();}).filter(Boolean); ns.destaque=dl.map(function(l){ const i=l.indexOf(':'); return i>=0?{lbl:l.slice(0,i).trim(),val:l.slice(i+1).trim()}:{lbl:l,val:''}; }); parseTab(parts[1]||''); }
+  return ns;
+}
 
 function AtasAdmin() {
   const { list: clientes } = useClientes();
-  const [atas, setAtas] = React.useState(loadAtas);
+  const { list: atas } = useAtas();
   const [novo, setNovo] = React.useState(false);
   const [ver, setVer] = React.useState(null);
-  React.useEffect(()=>{ const h=()=>setAtas(loadAtas()); window.addEventListener('brava_atas_changed',h); return ()=>window.removeEventListener('brava_atas_changed',h); },[]);
+  const [editar, setEditar] = React.useState(null);
+  const [busy, setBusy] = React.useState('');
   const total = atas.length;
-  const passos = atas.reduce((s,a)=>s+((a.proximosPassos||[]).length),0);
-  const criar = (d)=>{ const a={ id:'ata_'+Date.now(), criadoEm:new Date().toISOString(), ...d }; const l=[a,...atas]; saveAtas(l); setAtas(l); setNovo(false); showToast('Ata registrada.','success'); };
-  const apagar = (id)=>{ if(!confirm('Apagar ata?'))return; const l=atas.filter(a=>a.id!==id); saveAtas(l); setAtas(l); };
+  const passos = atas.reduce((s,a)=>{ const c=a.conteudo||{}; const sec=(c.secoes||[]).find(x=>x.tipo==='destaque_tabela'); return s+((sec&&sec.linhas&&sec.linhas.length)||0); },0);
+  const apagar = async (a)=>{ if(!confirm('Apagar esta ata?'))return; const { error }=await getSupa().from('atas').delete().eq('id',a.id); if(error) showToast('Erro: '+error.message,'erro'); else showToast('Ata apagada.','success'); };
+  const regerar = async (a)=>{ if(!a.transcricao){ showToast('Sem transcrição salva para regerar.','erro'); return; } setBusy(a.id);
+    try{ const cli=getSupa(); const { data:resp, error }=await cli.functions.invoke('gerar-ata',{ body:{ transcricao:a.transcricao, cliente_nome:a.cliente_nome, tipo:a.tipo, tema:a.tema, data:'', participantes:a.participantes, marca:a.marca } });
+      if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
+      const titulo=(resp.conteudo.capa&&resp.conteudo.capa.titulo)?String(resp.conteudo.capa.titulo).replace(/\n/g,' '):a.titulo;
+      const { error:e2 }=await cli.from('atas').update({ conteudo:resp.conteudo, titulo, updated_at:new Date().toISOString() }).eq('id',a.id);
+      if(e2) throw new Error(e2.message); showToast('Ata gerada novamente.','success');
+    }catch(err){ showToast('Erro: '+(err.message||err),'erro'); } finally{ setBusy(''); }
+  };
+  const enviar = async (a)=>{ const c=(clientes||[]).find(x=>x.id===a.cliente_id); const tel=((c&&c.contato_telefone)||'').replace(/\D/g,'');
+    const numero=prompt('Enviar a ata no WhatsApp.\nNúmero com DDD e país (ex.: 5511999999999):', tel||'55'); if(!numero)return; setBusy(a.id);
+    try{ await _ataEnviarWhatsapp(a, numero); showToast('Ata enviada no WhatsApp.','success'); }catch(err){ showToast('Erro ao enviar: '+(err.message||err),'erro'); } finally{ setBusy(''); }
+  };
   return (
     <div className="page">
       <div className="page-head">
         <div>
           <div className="page-head__title">Atas</div>
-          <div className="page-head__sub">Administrativo · cada reunião vira registro, decisão e próximo passo. Nada se perde.</div>
+          <div className="page-head__sub">Cole a transcrição, a IA gera a ata no padrão Brava. Cada reunião vira registro, decisão e próximo passo.</div>
         </div>
         <div className="page-head__actions"><button onClick={()=>setNovo(true)} style={_fBtnPrimary}>+ Nova ata</button></div>
       </div>
@@ -26220,115 +26337,158 @@ function AtasAdmin() {
         <KpiCard label="Próximos passos" value={String(passos)} icon="CheckCircle2" cor="#1D9E75"/>
       </div>
       {total===0 ? (
-        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhuma ata ainda. Clique em "Nova ata" para registrar a primeira reunião.</div>
+        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhuma ata ainda. Clique em "Nova ata", cole a transcrição e a IA gera no padrão validado.</div>
       ) : (
         <div style={{display:'grid', gap:8}}>
           {atas.map(a=>(
-            <div key={a.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 150px 150px auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
+            <div key={a.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr auto', gap:12, alignItems:'center', padding:'12px 16px', opacity:busy===a.id?0.6:1}}>
               <div>
-                <div style={{fontWeight:600, color:'var(--t1)'}}>{a.titulo||'Reunião'}</div>
-                <div style={{fontSize:12, color:'var(--t3)'}}>{a.cliente||'Interno'}{(a.proximosPassos||[]).length?(' · '+a.proximosPassos.length+' próximos passos'):''}</div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{a.titulo||'Ata'} <span style={{fontSize:11, color:'var(--t3)', fontWeight:400}}>· {a.tipo==='ligacao'?'Ligação':'Reunião'}</span></div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{a.cliente_nome||'Interno'} · {a.data_reuniao? new Date(a.data_reuniao).toLocaleDateString('pt-BR') : new Date(a.created_at).toLocaleDateString('pt-BR')}</div>
               </div>
-              <div style={{fontSize:12.5, color:'var(--t2)'}}>{a.data || new Date(a.criadoEm).toLocaleDateString('pt-BR')}</div>
-              <div/>
-              <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
+              <div style={{display:'flex', gap:6, justifyContent:'flex-end', flexWrap:'wrap'}}>
                 <button onClick={()=>setVer(a)} style={_fBtnGhost}>Ver / Imprimir</button>
-                <button onClick={()=>apagar(a.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
+                <button onClick={()=>setEditar(a)} style={_fBtnGhost}>Editar</button>
+                <button onClick={()=>regerar(a)} disabled={busy===a.id} style={_fBtnGhost} title="Gerar novamente com a IA"><Icon name="RefreshCw" size={14}/></button>
+                <button onClick={()=>enviar(a)} disabled={busy===a.id} style={_fBtnGhost} title="Enviar no WhatsApp"><Icon name="Send" size={14}/></button>
+                <button onClick={()=>apagar(a)} style={{..._fBtnGhost, color:'#E5544D'}} title="Apagar"><Icon name="Trash2" size={14}/></button>
               </div>
             </div>
           ))}
         </div>
       )}
-      {novo && <NovaAtaModal clientes={clientes} onClose={()=>setNovo(false)} onSalvar={criar}/>}
-      {ver && <AtaPrintModal ata={ver} onClose={()=>setVer(null)}/>}
+      {novo && <NovaAtaModal clientes={clientes} onClose={()=>setNovo(false)} onCriada={(a)=>setVer(a)}/>}
+      {ver && <AtaViewModal ata={ver} onClose={()=>setVer(null)}/>}
+      {editar && <EditarAtaModal ata={editar} onClose={()=>setEditar(null)}/>}
     </div>
   );
 }
-function NovaAtaModal({ clientes, onClose, onSalvar }) {
-  const [titulo, setTitulo] = React.useState('');
-  const [cliente, setCliente] = React.useState('');
+function NovaAtaModal({ clientes, onClose, onCriada }) {
+  const [clienteId, setClienteId] = React.useState('');
+  const [tipo, setTipo] = React.useState('reuniao');
   const [data, setData] = React.useState(new Date().toLocaleDateString('pt-BR'));
+  const [tema, setTema] = React.useState('');
+  const [marca, setMarca] = React.useState('');
   const [participantes, setParticipantes] = React.useState('');
-  const [pauta, setPauta] = React.useState('');
-  const [decisoes, setDecisoes] = React.useState('');
-  const [passos, setPassos] = React.useState([{ tarefa:'', responsavel:'', prazo:'' }]);
-  const upPasso = (i,campo,val)=> setPassos(passos.map((p,idx)=> idx===i?{...p,[campo]:val}:p));
-  const addPasso = ()=> setPassos([...passos, { tarefa:'', responsavel:'', prazo:'' }]);
-  const delPasso = (i)=> setPassos(passos.length>1 ? passos.filter((_,idx)=>idx!==i) : passos);
-  const salvar = ()=>{
-    if(!titulo.trim()){ showToast('Informe o título da reunião.','erro'); return; }
-    const validos = passos.filter(p=>p.tarefa.trim());
-    onSalvar({ titulo:titulo.trim(), cliente, data, participantes, pauta, decisoes, proximosPassos:validos });
+  const [transcricao, setTranscricao] = React.useState('');
+  const [gerando, setGerando] = React.useState(false);
+  const clienteSel = (clientes||[]).find(c=>c.id===clienteId);
+  React.useEffect(()=>{ if(clienteSel) setMarca(clienteSel.nome_fantasia||clienteSel.nome||''); },[clienteId]);
+  const gerar = async ()=>{
+    if(transcricao.trim().length<20){ showToast('Cole a transcrição da reunião.','erro'); return; }
+    setGerando(true);
+    try{
+      const cli=getSupa();
+      const { data:resp, error } = await cli.functions.invoke('gerar-ata',{ body:{ transcricao, cliente_nome:(clienteSel?clienteSel.nome:''), tipo, tema, data, participantes, marca:(marca||(clienteSel?clienteSel.nome:'Brava')) } });
+      if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
+      const conteudo=resp.conteudo;
+      const titulo=(conteudo.capa&&conteudo.capa.titulo)?String(conteudo.capa.titulo).replace(/\n/g,' '):(tema||'Ata de Reunião');
+      const { data:ins, error:e2 } = await cli.from('atas').insert({ cliente_id:clienteId||null, cliente_nome:(clienteSel?clienteSel.nome:null), tipo, titulo, tema:tema||null, participantes:participantes||null, marca:(marca||null), transcricao, conteudo, status:'pronta' }).select('*').single();
+      if(e2) throw new Error(e2.message);
+      showToast('Ata gerada no padrão Brava.','success'); onCriada&&onCriada(ins); onClose();
+    }catch(err){ showToast('Erro: '+(err.message||err),'erro'); }
+    finally{ setGerando(false); }
   };
   const _ta = {..._fInp, height:'auto', padding:'10px 12px', resize:'vertical'};
   return (
-    <_FModal title="Nova ata" onClose={onClose} wide>
-      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12}}>
-        <_FCampo label="Título da reunião"><input value={titulo} onChange={e=>setTitulo(e.target.value)} placeholder="Ex.: Kickoff do projeto" style={_fInp}/></_FCampo>
+    <_FModal title="Nova ata (IA)" onClose={onClose} wide>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr 1fr', gap:12}}>
+        <_FCampo label="Cliente">
+          <select value={clienteId} onChange={e=>setClienteId(e.target.value)} style={_fSel}>
+            <option value="">Interno / sem cliente</option>
+            {(clientes||[]).map(c=><option key={c.id} value={c.id}>{c.nome}</option>)}
+          </select>
+        </_FCampo>
+        <_FCampo label="Tipo"><select value={tipo} onChange={e=>setTipo(e.target.value)} style={_fSel}><option value="reuniao">Reunião</option><option value="ligacao">Ligação</option></select></_FCampo>
         <_FCampo label="Data"><input value={data} onChange={e=>setData(e.target.value)} style={_fInp}/></_FCampo>
       </div>
-      <_FCampo label="Cliente (opcional)">
-        <select value={cliente} onChange={e=>setCliente(e.target.value)} style={_fSel}>
-          <option value="">Interno / sem cliente</option>
-          {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
-        </select>
-      </_FCampo>
-      <_FCampo label="Participantes"><input value={participantes} onChange={e=>setParticipantes(e.target.value)} placeholder="Nomes separados por vírgula" style={_fInp}/></_FCampo>
-      <_FCampo label="Pauta"><textarea value={pauta} onChange={e=>setPauta(e.target.value)} rows={2} style={_ta}/></_FCampo>
-      <_FCampo label="Decisões"><textarea value={decisoes} onChange={e=>setDecisoes(e.target.value)} rows={2} style={_ta}/></_FCampo>
-      <div style={{fontSize:12, color:'var(--t3)', margin:'4px 0 6px'}}>Próximos passos</div>
-      <div style={{display:'grid', gap:8, marginBottom:8}}>
-        {passos.map((p,i)=>(
-          <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 130px 110px 34px', gap:8, alignItems:'center'}}>
-            <input value={p.tarefa} onChange={e=>upPasso(i,'tarefa',e.target.value)} placeholder="Tarefa" style={_fInp}/>
-            <input value={p.responsavel} onChange={e=>upPasso(i,'responsavel',e.target.value)} placeholder="Responsável" style={_fInp}/>
-            <input value={p.prazo} onChange={e=>upPasso(i,'prazo',e.target.value)} placeholder="Prazo" style={_fInp}/>
-            <button onClick={()=>delPasso(i)} style={{..._fBtnGhost, color:'#E5544D', height:40, padding:0, justifyContent:'center'}}><Icon name="Trash2" size={14}/></button>
-          </div>
-        ))}
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <_FCampo label="Tema (opcional)"><input value={tema} onChange={e=>setTema(e.target.value)} placeholder="Ex.: Interfaces da plataforma" style={_fInp}/></_FCampo>
+        <_FCampo label="Marca/empresa (grafia exata)"><input value={marca} onChange={e=>setMarca(e.target.value)} placeholder="Ex.: AILogic Hub" style={_fInp}/></_FCampo>
       </div>
-      <button onClick={addPasso} style={{..._fBtnGhost, marginBottom:8}}>+ Adicionar passo</button>
+      <_FCampo label="Participantes (opcional)"><input value={participantes} onChange={e=>setParticipantes(e.target.value)} placeholder="Se vazio, a IA extrai da transcrição" style={_fInp}/></_FCampo>
+      <_FCampo label="Colar transcrição da reunião / ligação"><textarea value={transcricao} onChange={e=>setTranscricao(e.target.value)} rows={11} placeholder="Cole aqui a transcrição completa. A IA monta a ata no padrão validado (antitravessão, siglas legendadas, decisões e próximos passos)." style={_ta}/></_FCampo>
       <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:8}}>
-        <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
-        <button onClick={salvar} style={_fBtnPrimary}>Registrar ata</button>
+        <button onClick={onClose} style={_fBtnGhost} disabled={gerando}>Cancelar</button>
+        <button onClick={gerar} style={_fBtnPrimary} disabled={gerando}>{gerando?'Gerando ata…':'Gerar ata com IA'}</button>
       </div>
     </_FModal>
   );
 }
-function AtaPrintModal({ ata, onClose }) {
-  const a = ata;
-  const imprimir = ()=>{
-    const e=_pdfEsc; const data=a.data||new Date(a.criadoEm).toLocaleDateString('pt-BR');
-    const capa = { tag:'Ata de Reunião', titulo:(a.titulo||'Ata de Reunião'), sub:'Registro de decisões e próximos passos',
-      meta:[ {lbl:'Cliente',val:(a.cliente||'Interno')}, {lbl:'Data',val:data}, {lbl:'Participantes',val:(a.participantes||'-')} ] };
-    let body = '';
-    if(a.pauta) body += '<h2>Pauta</h2><p style="white-space:pre-wrap">'+e(a.pauta)+'</p>';
-    if(a.decisoes) body += '<h2>Decisões</h2><p style="white-space:pre-wrap">'+e(a.decisoes)+'</p>';
-    if((a.proximosPassos||[]).length){ body += '<h2>Próximos Passos</h2><table><tr><th>Tarefa</th><th>Responsável</th><th>Prazo</th></tr>'; a.proximosPassos.forEach(function(p){ body += '<tr><td>'+e(p.tarefa)+'</td><td>'+e(p.responsavel||'-')+'</td><td>'+e(p.prazo||'-')+'</td></tr>'; }); body += '</table>'; }
-    if(!body) body = '<p>Sem conteúdo registrado nesta ata.</p>';
-    body += '<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">Jhonattan Itiuba</div></div><div><div class="sn">'+e(a.cliente||'Participante')+'</div><div class="sr">Ciente</div></div></div>';
-    bravaPrintDoc({ capa: capa, bodyHTML: body });
-  };
+function AtaViewModal({ ata, onClose }) {
+  const previewHTML = _ataBodyHTML(ata.conteudo||{});
   return (
-    <_FModal title="Ata de reunião" onClose={onClose} wide>
-      <div id="ata-print" style={{background:'#fff', color:'#111', padding:32, borderRadius:8, fontSize:13.5, lineHeight:1.65, maxHeight:'58vh', overflowY:'auto'}}>
-        <h2 style={{margin:'0 0 4px'}}>{a.titulo||'Ata de reunião'}</h2>
-        <div style={{fontSize:12, color:'#666', marginBottom:18}}>Brava Company S.A. · {a.data || new Date(a.criadoEm).toLocaleDateString('pt-BR')}{a.cliente?(' · '+a.cliente):''}</div>
-        {a.participantes ? <p><b>Participantes:</b> {a.participantes}</p> : null}
-        {a.pauta ? <div style={{marginTop:8}}><b>Pauta</b><p style={{margin:'4px 0', whiteSpace:'pre-wrap'}}>{a.pauta}</p></div> : null}
-        {a.decisoes ? <div style={{marginTop:8}}><b>Decisões</b><p style={{margin:'4px 0', whiteSpace:'pre-wrap'}}>{a.decisoes}</p></div> : null}
-        {(a.proximosPassos||[]).length ? (
-          <div style={{marginTop:8}}><b>Próximos passos</b>
-            <table>
-              <thead><tr><th>Tarefa</th><th>Responsável</th><th>Prazo</th></tr></thead>
-              <tbody>{a.proximosPassos.map((p,i)=>(<tr key={i}><td>{p.tarefa}</td><td>{p.responsavel||'-'}</td><td>{p.prazo||'-'}</td></tr>))}</tbody>
-            </table>
-          </div>
-        ) : null}
-      </div>
+    <_FModal title={ata.titulo||'Ata'} onClose={onClose} wide>
+      <div style={{background:'#fff', color:'#111', padding:'24px 28px', borderRadius:8, fontSize:13, lineHeight:1.6, maxHeight:'60vh', overflowY:'auto'}}
+           dangerouslySetInnerHTML={{__html: '<style>div[data-ata] h2{font-size:14px;font-weight:700;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #ddd;color:#111}div[data-ata] table{border-collapse:collapse;width:100%;margin:8px 0}div[data-ata] th,div[data-ata] td{border:1px solid #ddd;padding:5px 8px;font-size:12px;text-align:left;vertical-align:top}div[data-ata] th{background:#111;color:#fff}div[data-ata] .box{background:#111;color:#fff;padding:10px 14px;margin:8px 0}div[data-ata] .sign{display:flex;gap:24px;margin-top:24px}div[data-ata] .sign>div{flex:1;border-top:1px solid #111;padding-top:6px;font-size:12px}div[data-ata] .sn{font-weight:700}div[data-ata] .sr{color:#666}</style><div data-ata>'+previewHTML+'</div>'}}/>
       <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
         <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
-        <button onClick={imprimir} style={_fBtnPrimary}>Imprimir / PDF</button>
+        <button onClick={()=>renderAtaDoc(ata)} style={_fBtnPrimary}>Imprimir / PDF</button>
+      </div>
+    </_FModal>
+  );
+}
+function EditarAtaModal({ ata, onClose }) {
+  const c0 = ata.conteudo || {};
+  const [capaTitulo, setCapaTitulo] = React.useState((c0.capa&&c0.capa.titulo)||'');
+  const [capaSub, setCapaSub] = React.useState((c0.capa&&c0.capa.sub)||'');
+  const [meta, setMeta] = React.useState(((c0.capa&&c0.capa.meta)||[]).map(m=>({lbl:m.lbl||'',val:m.val||''})));
+  const [secoes, setSecoes] = React.useState((c0.secoes||[]).map(s=>({ h2:s.h2||'', tipo:s.tipo, text:_secaoToText(s) })));
+  const [assin, setAssin] = React.useState((c0.assinaturas||[]).map(a=>({org:a.org||'',pessoa:a.pessoa||''})));
+  const [saving, setSaving] = React.useState(false);
+  const upMeta=(i,k,v)=>setMeta(meta.map((m,idx)=>idx===i?{...m,[k]:v}:m));
+  const upSec=(i,k,v)=>setSecoes(secoes.map((s,idx)=>idx===i?{...s,[k]:v}:s));
+  const upAss=(i,k,v)=>setAssin(assin.map((a,idx)=>idx===i?{...a,[k]:v}:a));
+  const clean=(v)=>{ if(typeof v==='string')return _limpaTrav(v); if(Array.isArray(v))return v.map(clean); if(v&&typeof v==='object'){const o={};for(const k in v)o[k]=clean(v[k]);return o;} return v; };
+  const salvar = async ()=>{
+    setSaving(true);
+    try{
+      const base={ paragrafos:[], itens:[], cabecalho:[], linhas:[], destaque:[] };
+      const novasSec = secoes.map(s=>{ const ns=_textToSecao({...base, tipo:s.tipo}, s.text); ns.h2=s.h2; ns.tipo=s.tipo; return ns; });
+      let conteudo = { capa:{ tag:(c0.capa&&c0.capa.tag)||'Ata de Reunião', titulo:capaTitulo, sub:capaSub, meta:meta.filter(m=>m.lbl||m.val) }, secoes:novasSec, assinaturas:assin.filter(a=>a.org||a.pessoa) };
+      conteudo = clean(conteudo);
+      const { error } = await getSupa().from('atas').update({ conteudo, titulo:(capaTitulo.replace(/\n/g,' ')||ata.titulo), updated_at:new Date().toISOString() }).eq('id', ata.id);
+      if(error) throw new Error(error.message);
+      showToast('Ata atualizada.','success'); onClose();
+    }catch(err){ showToast('Erro: '+(err.message||err),'erro'); } finally{ setSaving(false); }
+  };
+  const _ta={..._fInp, height:'auto', padding:'8px 10px', resize:'vertical', fontFamily:'inherit'};
+  return (
+    <_FModal title="Editar ata" onClose={onClose} wide>
+      <div style={{maxHeight:'62vh', overflowY:'auto', paddingRight:6}}>
+        <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+          <_FCampo label="Título (capa)"><textarea value={capaTitulo} onChange={e=>setCapaTitulo(e.target.value)} rows={2} style={_ta}/></_FCampo>
+          <_FCampo label="Subtítulo (capa)"><textarea value={capaSub} onChange={e=>setCapaSub(e.target.value)} rows={2} style={_ta}/></_FCampo>
+        </div>
+        <div style={{fontSize:12, color:'var(--t3)', margin:'8px 0 4px'}}>Dados da capa (rótulo · valor)</div>
+        {meta.map((m,i)=>(
+          <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'140px 1fr 30px', gap:8, marginBottom:6, alignItems:'center'}}>
+            <input value={m.lbl} onChange={e=>upMeta(i,'lbl',e.target.value)} placeholder="Rótulo" style={_fInp}/>
+            <input value={m.val} onChange={e=>upMeta(i,'val',e.target.value)} placeholder="Valor" style={_fInp}/>
+            <button onClick={()=>setMeta(meta.filter((_,x)=>x!==i))} style={{..._fBtnGhost,color:'#E5544D',padding:0,height:38,justifyContent:'center'}}><Icon name="X" size={14}/></button>
+          </div>
+        ))}
+        <button onClick={()=>setMeta([...meta,{lbl:'',val:''}])} style={{..._fBtnGhost, marginBottom:10}}>+ Dado da capa</button>
+        {secoes.map((s,i)=>(
+          <div key={i} style={{borderTop:'1px solid var(--bd)', paddingTop:10, marginTop:8}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 150px', gap:8, marginBottom:6}}>
+              <input value={s.h2} onChange={e=>upSec(i,'h2',e.target.value)} placeholder="Título da seção" style={_fInp}/>
+              <div style={{fontSize:11, color:'var(--t3)', alignSelf:'center'}}>{s.tipo==='tabela'||s.tipo==='destaque_tabela'?'tabela: célula | célula':s.tipo==='lista'?'lista: 1 item por linha':'parágrafos'}</div>
+            </div>
+            <textarea value={s.text} onChange={e=>upSec(i,'text',e.target.value)} rows={s.tipo==='paragrafos'?3:4} style={_ta}/>
+          </div>
+        ))}
+        <div style={{fontSize:12, color:'var(--t3)', margin:'12px 0 4px'}}>Assinaturas</div>
+        {assin.map((a,i)=>(
+          <div key={i} className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:6}}>
+            <input value={a.org} onChange={e=>upAss(i,'org',e.target.value)} placeholder="Organização" style={_fInp}/>
+            <input value={a.pessoa} onChange={e=>upAss(i,'pessoa',e.target.value)} placeholder="Pessoa · cargo" style={_fInp}/>
+          </div>
+        ))}
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
+        <button onClick={onClose} style={_fBtnGhost} disabled={saving}>Cancelar</button>
+        <button onClick={salvar} style={_fBtnPrimary} disabled={saving}>{saving?'Salvando…':'Salvar'}</button>
       </div>
     </_FModal>
   );
