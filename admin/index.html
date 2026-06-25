@@ -25657,14 +25657,18 @@ function NovoContratoModal({ clientes, onClose, onSalvar }) {
 // Plug and play: 1 clique gera o documento já no padrão aprovado.
 // Usado por Contrato, Orçamento/Proposta e Ata.
 function _pdfEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function bravaPrintDoc({ capa, bodyHTML }) {
+function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   const w = window.open('', '_blank');
   if (!w) { try{ showToast('Permita pop-ups para gerar o PDF.','erro'); }catch(e){} return; }
   const logo = window.location.origin + '/admin/app/brava-logo-white.png';
+  const logoDark = window.location.origin + '/admin/app/brava-logo-dark.png';
+  // Cabecalho e rodape corridos: position:fixed repete em toda pagina (Chrome/Edge).
+  // @page :first{margin:0} deixa a capa full-bleed; a capa (z-index:2) mascara o
+  // header/rodape fixos (z-index:1) na pagina 1. Conteudo flui dentro das margens.
   const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
-    + "@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
+    + "@page{size:A4;margin:22mm 16mm 18mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
     + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
+    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:2}"
     + ".cover-logo img{height:26px}"
     + ".cover-body{flex:1;display:flex;flex-direction:column;justify-content:center}"
     + ".cover-tag{font-size:7.5pt;text-transform:uppercase;letter-spacing:2.5px;color:#888;margin-bottom:7mm}"
@@ -25675,18 +25679,23 @@ function bravaPrintDoc({ capa, bodyHTML }) {
     + ".cm-lbl{font-size:7pt;text-transform:uppercase;letter-spacing:1.5px;color:#777}"
     + ".cm-val{font-size:9.5pt;font-weight:700;color:#fff;margin-top:2px}"
     + ".cover-foot{font-size:7.5pt;color:#888;display:flex;gap:6mm;padding-top:6mm;border-top:1px solid #1a1a1a}"
-    + ".doc{padding:18mm}"
-    + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc}"
-    + "p{margin:5px 0}b{font-weight:700}"
-    + "table{border-collapse:collapse;width:100%;margin:8px 0;page-break-inside:avoid}"
+    + ".runhdr{position:fixed;top:0;left:0;right:0;height:22mm;padding:9mm 16mm 0;background:#fff;z-index:1}"
+    + ".runhdr .rin{display:flex;align-items:center;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm}"
+    + ".runhdr img{height:13px}.runhdr .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
+    + ".runftr{position:fixed;bottom:0;left:0;right:0;height:18mm;padding:0 16mm 9mm;background:#fff;z-index:1;display:flex;align-items:flex-end}"
+    + ".runftr .rin{width:100%;border-top:.5px solid #ddd;padding-top:3mm;font-size:7pt;color:#888;text-align:center}"
+    + ".doc{padding:0}"
+    + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc;break-after:avoid;page-break-after:avoid}"
+    + "p{margin:5px 0;orphans:3;widows:3}b{font-weight:700}"
+    + "table{border-collapse:collapse;width:100%;margin:8px 0}thead{display:table-header-group}"
     + "th,td{border:1px solid #ddd;padding:6px 8px;font-size:9.5pt;text-align:left;vertical-align:top}"
     + "th{background:#000;color:#fff;font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.4px}"
-    + "tr:nth-child(even) td{background:#f7f7f7}.num{text-align:right;white-space:nowrap}.ctr{text-align:center}"
-    + ".box{background:#000;color:#fff;padding:12px 16px;margin:10px 0}"
+    + "tr{break-inside:avoid;page-break-inside:avoid}tbody tr:nth-child(even) td{background:#f7f7f7}.num{text-align:right;white-space:nowrap}.ctr{text-align:center}"
+    + "ul,ol{margin:6px 0;padding-left:18px}li{margin:3px 0;break-inside:avoid;page-break-inside:avoid}"
+    + ".box{background:#000;color:#fff;padding:12px 16px;margin:10px 0;break-inside:avoid;page-break-inside:avoid}"
     + ".box .bl2{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#888}.box .bv{font-size:18pt;font-weight:800}"
-    + ".sign{display:flex;gap:32px;margin-top:26mm}.sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}"
-    + ".sn{font-weight:700}.sr{color:#555}"
-    + ".doc-ft{margin-top:26px;border-top:.5px solid #ccc;padding-top:8px;font-size:7.5pt;color:#888;text-align:center}";
+    + ".sign{display:flex;gap:32px;margin-top:26mm;break-inside:avoid;page-break-inside:avoid}.sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}"
+    + ".sn{font-weight:700}.sr{color:#555}";
   const meta = ((capa&&capa.meta)||[]).map(function(m){ return '<div><div class="cm-lbl">'+_pdfEsc(m.lbl)+'</div><div class="cm-val">'+_pdfEsc(m.val)+'</div></div>'; }).join('');
   const cover = '<div class="cover"><div class="cover-logo"><img src="'+logo+'" alt="Brava"></div>'
     + '<div class="cover-body">'
@@ -25696,14 +25705,17 @@ function bravaPrintDoc({ capa, bodyHTML }) {
     + '<hr class="cover-hr"><div class="cover-meta">'+meta+'</div>'
     + '</div>'
     + '<div class="cover-foot"><span>Brava Company</span><span>diretoria@brava.company</span><span>brava.software</span></div></div>';
+  const rotulo = _pdfEsc(headerLabel || (capa&&capa.tag) || 'Documento');
+  const runhdr = '<div class="runhdr"><div class="rin"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></div>';
+  const runftr = '<div class="runftr"><div class="rin">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div></div>';
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
-    + cover
-    + '<div class="doc">'+bodyHTML
-    + '<div class="doc-ft">Brava Company LTDA &copy; 2026 - Todos os direitos reservados &middot; brava.software</div>'
-    + '</div></body></html>';
+    + cover + runhdr + runftr
+    + '<div class="doc">'+bodyHTML+'</div></body></html>';
   w.document.write(html); w.document.close(); w.focus();
   var done=false; var go=function(){ if(done)return; done=true; try{ w.print(); }catch(e){} };
-  try{ var im=w.document.images&&w.document.images[0]; if(im&&!im.complete){ im.onload=function(){setTimeout(go,150);}; im.onerror=function(){setTimeout(go,150);}; } else { setTimeout(go,350); } }catch(e){ setTimeout(go,350); }
+  var imgs=function(){ try{ return Array.prototype.slice.call(w.document.images||[]); }catch(e){ return []; } };
+  var allReady=function(){ return imgs().every(function(i){ return i.complete; }); };
+  if(allReady()){ setTimeout(go,350); } else { imgs().forEach(function(i){ i.onload=function(){ if(allReady()) setTimeout(go,150); }; i.onerror=function(){ if(allReady()) setTimeout(go,150); }; }); }
   setTimeout(go,1800);
 }
 
@@ -26246,7 +26258,7 @@ function useAtas(){
 }
 function _limpaTrav(s){ return typeof s==='string' ? s.replace(/\s+[—–]\s+/g,', ').replace(/[—–]/g,'-') : s; }
 // Renderiza o conteudo (JSON) da ata no padrao Brava (mesmo CSS do bravaPrintDoc)
-function _ataTabela(cab, linhas){ const e=_pdfEsc; cab=cab||[]; linhas=linhas||[]; if(!cab.length && !linhas.length) return ''; let t='<table>'; if(cab.length){ t+='<tr>'; cab.forEach(function(c){ t+='<th>'+e(c)+'</th>'; }); t+='</tr>'; } linhas.forEach(function(r){ t+='<tr>'; (r||[]).forEach(function(c){ t+='<td>'+e(c)+'</td>'; }); t+='</tr>'; }); return t+'</table>'; }
+function _ataTabela(cab, linhas){ const e=_pdfEsc; cab=cab||[]; linhas=linhas||[]; if(!cab.length && !linhas.length) return ''; let t='<table>'; if(cab.length){ t+='<thead><tr>'; cab.forEach(function(c){ t+='<th>'+e(c)+'</th>'; }); t+='</tr></thead>'; } t+='<tbody>'; linhas.forEach(function(r){ t+='<tr>'; (r||[]).forEach(function(c){ t+='<td>'+e(c)+'</td>'; }); t+='</tr>'; }); return t+'</tbody></table>'; }
 function _ataBodyHTML(conteudo){ const e=_pdfEsc; const secoes=(conteudo&&conteudo.secoes)||[]; let body='';
   secoes.forEach(function(s){ body+='<h2>'+e(s.h2||'')+'</h2>';
     if(s.tipo==='paragrafos'){ (s.paragrafos||[]).forEach(function(p){ body+='<p>'+e(p)+'</p>'; }); }
@@ -26259,7 +26271,8 @@ function _ataBodyHTML(conteudo){ const e=_pdfEsc; const secoes=(conteudo&&conteu
   return body || '<p>Sem conteudo.</p>';
 }
 function _ataCapa(ata){ const c=(ata.conteudo&&ata.conteudo.capa)||{}; return { tag:c.tag||'Ata de Reunião', titulo:c.titulo||(ata.tema||ata.titulo||'Ata'), sub:c.sub||'Registro formal dos pontos discutidos, decisões e próximos passos', meta:(c.meta||[]).map(function(m){ return {lbl:m.lbl,val:m.val}; }) }; }
-function renderAtaDoc(ata){ bravaPrintDoc({ capa:_ataCapa(ata), bodyHTML:_ataBodyHTML(ata.conteudo||{}) }); }
+function _ataHeaderLabel(ata){ const tipo=(ata.tipo==='ligacao')?'LIGAÇÃO':'REUNIÃO'; const d=ata.data_reuniao?new Date(ata.data_reuniao):new Date(ata.created_at||Date.now()); const dd=String(d.getUTCDate()).padStart(2,'0'),mm=String(d.getUTCMonth()+1).padStart(2,'0'),yy=d.getUTCFullYear(); const marca=(ata.marca||ata.cliente_nome||'Brava'); return 'ATA DE '+tipo+' · '+marca+' · '+dd+'/'+mm+'/'+yy; }
+function renderAtaDoc(ata){ bravaPrintDoc({ capa:_ataCapa(ata), bodyHTML:_ataBodyHTML(ata.conteudo||{}), headerLabel:_ataHeaderLabel(ata) }); }
 function _ataFilename(ata){ const up=function(s,sep){ return String(s||'').toUpperCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Z0-9]+/g,sep).replace(new RegExp('^'+sep+'|'+sep+'$','g'),''); };
   const marca=up(ata.marca||'BRAVA','')||'BRAVA'; const tema=up(ata.tema||ata.titulo||'REUNIAO','_')||'REUNIAO';
   const d=ata.data_reuniao?new Date(ata.data_reuniao):new Date(ata.created_at||Date.now());
@@ -26312,7 +26325,7 @@ function AtasAdmin() {
   const passos = atas.reduce((s,a)=>{ const c=a.conteudo||{}; const sec=(c.secoes||[]).find(x=>x.tipo==='destaque_tabela'); return s+((sec&&sec.linhas&&sec.linhas.length)||0); },0);
   const apagar = async (a)=>{ if(!confirm('Apagar esta ata?'))return; const { error }=await getSupa().from('atas').delete().eq('id',a.id); if(error) showToast('Erro: '+error.message,'erro'); else showToast('Ata apagada.','success'); };
   const regerar = async (a)=>{ if(!a.transcricao){ showToast('Sem transcrição salva para regerar.','erro'); return; } setBusy(a.id);
-    try{ const cli=getSupa(); const { data:resp, error }=await cli.functions.invoke('gerar-ata',{ body:{ transcricao:a.transcricao, cliente_nome:a.cliente_nome, tipo:a.tipo, tema:a.tema, data:'', participantes:a.participantes, marca:a.marca } });
+    try{ const cli=getSupa(); const { data:resp, error }=await cli.functions.invoke('gerar-ata',{ body:{ transcricao:a.transcricao, cliente_nome:a.cliente_nome, tipo:a.tipo, tema:a.tema, data:'', participantes:a.participantes, marca:a.marca, correcoes:a.correcoes } });
       if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
       const titulo=(resp.conteudo.capa&&resp.conteudo.capa.titulo)?String(resp.conteudo.capa.titulo).replace(/\n/g,' '):a.titulo;
       const { error:e2 }=await cli.from('atas').update({ conteudo:resp.conteudo, titulo, updated_at:new Date().toISOString() }).eq('id',a.id);
@@ -26358,7 +26371,7 @@ function AtasAdmin() {
         </div>
       )}
       {novo && <NovaAtaModal clientes={clientes} onClose={()=>setNovo(false)} onCriada={(a)=>setVer(a)}/>}
-      {ver && <AtaViewModal ata={ver} onClose={()=>setVer(null)}/>}
+      {ver && <AtaViewModal ata={ver} onClose={()=>setVer(null)} onEditar={(a)=>setEditar(a)}/>}
       {editar && <EditarAtaModal ata={editar} onClose={()=>setEditar(null)}/>}
     </div>
   );
@@ -26371,6 +26384,7 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
   const [marca, setMarca] = React.useState('');
   const [participantes, setParticipantes] = React.useState('');
   const [transcricao, setTranscricao] = React.useState('');
+  const [correcoes, setCorrecoes] = React.useState('');
   const [gerando, setGerando] = React.useState(false);
   const clienteSel = (clientes||[]).find(c=>c.id===clienteId);
   React.useEffect(()=>{ if(clienteSel) setMarca(clienteSel.nome_fantasia||clienteSel.nome||''); },[clienteId]);
@@ -26379,11 +26393,11 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
     setGerando(true);
     try{
       const cli=getSupa();
-      const { data:resp, error } = await cli.functions.invoke('gerar-ata',{ body:{ transcricao, cliente_nome:(clienteSel?clienteSel.nome:''), tipo, tema, data, participantes, marca:(marca||(clienteSel?clienteSel.nome:'Brava')) } });
+      const { data:resp, error } = await cli.functions.invoke('gerar-ata',{ body:{ transcricao, cliente_nome:(clienteSel?clienteSel.nome:''), tipo, tema, data, participantes, marca:(marca||(clienteSel?clienteSel.nome:'Brava')), correcoes } });
       if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
       const conteudo=resp.conteudo;
       const titulo=(conteudo.capa&&conteudo.capa.titulo)?String(conteudo.capa.titulo).replace(/\n/g,' '):(tema||'Ata de Reunião');
-      const { data:ins, error:e2 } = await cli.from('atas').insert({ cliente_id:clienteId||null, cliente_nome:(clienteSel?clienteSel.nome:null), tipo, titulo, tema:tema||null, participantes:participantes||null, marca:(marca||null), transcricao, conteudo, status:'pronta' }).select('*').single();
+      const { data:ins, error:e2 } = await cli.from('atas').insert({ cliente_id:clienteId||null, cliente_nome:(clienteSel?clienteSel.nome:null), tipo, titulo, tema:tema||null, participantes:participantes||null, marca:(marca||null), correcoes:(correcoes||null), transcricao, conteudo, status:'pronta' }).select('*').single();
       if(e2) throw new Error(e2.message);
       showToast('Ata gerada no padrão Brava.','success'); onCriada&&onCriada(ins); onClose();
     }catch(err){ showToast('Erro: '+(err.message||err),'erro'); }
@@ -26407,7 +26421,8 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
         <_FCampo label="Marca/empresa (grafia exata)"><input value={marca} onChange={e=>setMarca(e.target.value)} placeholder="Ex.: AILogic Hub" style={_fInp}/></_FCampo>
       </div>
       <_FCampo label="Participantes (opcional)"><input value={participantes} onChange={e=>setParticipantes(e.target.value)} placeholder="Se vazio, a IA extrai da transcrição" style={_fInp}/></_FCampo>
-      <_FCampo label="Colar transcrição da reunião / ligação"><textarea value={transcricao} onChange={e=>setTranscricao(e.target.value)} rows={11} placeholder="Cole aqui a transcrição completa. A IA monta a ata no padrão validado (antitravessão, siglas legendadas, decisões e próximos passos)." style={_ta}/></_FCampo>
+      <_FCampo label="Correções de nomes/termos (grafia correta)"><textarea value={correcoes} onChange={e=>setCorrecoes(e.target.value)} rows={2} placeholder="A transcrição erra nomes próprios. Liste a grafia certa, 1 por linha. Ex.: Sabrina Almeida Noureddine (não 'Sabrina Noredini')" style={_ta}/></_FCampo>
+      <_FCampo label="Colar transcrição da reunião / ligação"><textarea value={transcricao} onChange={e=>setTranscricao(e.target.value)} rows={10} placeholder="Cole aqui a transcrição completa. A IA monta a ata no padrão validado (antitravessão, siglas legendadas, decisões e próximos passos)." style={_ta}/></_FCampo>
       <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:8}}>
         <button onClick={onClose} style={_fBtnGhost} disabled={gerando}>Cancelar</button>
         <button onClick={gerar} style={_fBtnPrimary} disabled={gerando}>{gerando?'Gerando ata…':'Gerar ata com IA'}</button>
@@ -26415,15 +26430,39 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
     </_FModal>
   );
 }
-function AtaViewModal({ ata, onClose }) {
+function AtaViewModal({ ata, onClose, onEditar }) {
   const previewHTML = _ataBodyHTML(ata.conteudo||{});
+  const cap = _ataCapa(ata);
+  const metaTxt = (cap.meta||[]).map(function(m){ return m.lbl+': '+m.val; }).join('   ·   ');
+  const css = "div[data-ata]{font-family:Montserrat,Arial,sans-serif;color:#111}"
+    + "div[data-ata] h2{font-size:14px;font-weight:700;margin:16px 0 6px;padding-bottom:4px;border-bottom:1px solid #ccc;color:#000}"
+    + "div[data-ata] p{margin:5px 0}div[data-ata] b{font-weight:700}"
+    + "div[data-ata] ul{margin:6px 0;padding-left:18px}div[data-ata] li{margin:3px 0}"
+    + "div[data-ata] table{border-collapse:collapse;width:100%;margin:8px 0}"
+    + "div[data-ata] th,div[data-ata] td{border:1px solid #ddd;padding:5px 8px;font-size:12px;text-align:left;vertical-align:top}"
+    + "div[data-ata] th{background:#000;color:#fff;text-transform:uppercase;font-size:10.5px;letter-spacing:.4px}"
+    + "div[data-ata] tbody tr:nth-child(even) td{background:#f7f7f7}"
+    + "div[data-ata] .box{background:#000;color:#fff;padding:10px 14px;margin:8px 0}"
+    + "div[data-ata] .box .bl2{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#888}div[data-ata] .box .bv{font-size:16px;font-weight:800}"
+    + "div[data-ata] .sign{display:flex;gap:24px;margin-top:24px}div[data-ata] .sign>div{flex:1;border-top:1px solid #111;padding-top:6px;font-size:12px}"
+    + "div[data-ata] .sn{font-weight:700}div[data-ata] .sr{color:#666}";
   return (
     <_FModal title={ata.titulo||'Ata'} onClose={onClose} wide>
-      <div style={{background:'#fff', color:'#111', padding:'24px 28px', borderRadius:8, fontSize:13, lineHeight:1.6, maxHeight:'60vh', overflowY:'auto'}}
-           dangerouslySetInnerHTML={{__html: '<style>div[data-ata] h2{font-size:14px;font-weight:700;margin:14px 0 6px;padding-bottom:3px;border-bottom:1px solid #ddd;color:#111}div[data-ata] table{border-collapse:collapse;width:100%;margin:8px 0}div[data-ata] th,div[data-ata] td{border:1px solid #ddd;padding:5px 8px;font-size:12px;text-align:left;vertical-align:top}div[data-ata] th{background:#111;color:#fff}div[data-ata] .box{background:#111;color:#fff;padding:10px 14px;margin:8px 0}div[data-ata] .sign{display:flex;gap:24px;margin-top:24px}div[data-ata] .sign>div{flex:1;border-top:1px solid #111;padding-top:6px;font-size:12px}div[data-ata] .sn{font-weight:700}div[data-ata] .sr{color:#666}</style><div data-ata>'+previewHTML+'</div>'}}/>
-      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
-        <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
-        <button onClick={()=>renderAtaDoc(ata)} style={_fBtnPrimary}>Imprimir / PDF</button>
+      <div style={{background:'#fff', color:'#111', padding:'24px 28px', borderRadius:8, fontSize:13, lineHeight:1.6, maxHeight:'60vh', overflowY:'auto'}}>
+        <div style={{borderBottom:'2px solid #000', paddingBottom:10, marginBottom:4}}>
+          <div style={{fontSize:10, letterSpacing:1.5, textTransform:'uppercase', color:'#888'}}>{cap.tag}</div>
+          <div style={{fontSize:20, fontWeight:800, color:'#000', lineHeight:1.15, margin:'2px 0 6px'}}>{(cap.titulo||'').replace(/\n/g,' ')}</div>
+          {metaTxt ? <div style={{fontSize:11, color:'#666'}}>{metaTxt}</div> : null}
+        </div>
+        <div dangerouslySetInnerHTML={{__html: '<style>'+css+'</style><div data-ata>'+previewHTML+'</div>'}}/>
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'space-between', alignItems:'center', marginTop:12}}>
+        <div style={{fontSize:11, color:'var(--t3)'}}>Pré-visualização. O PDF final tem capa, cabeçalho e rodapé em todas as páginas.</div>
+        <div style={{display:'flex', gap:8}}>
+          <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
+          {onEditar ? <button onClick={()=>{ onClose(); onEditar(ata); }} style={_fBtnGhost}>Editar</button> : null}
+          <button onClick={()=>renderAtaDoc(ata)} style={_fBtnPrimary}>Imprimir / PDF</button>
+        </div>
       </div>
     </_FModal>
   );
