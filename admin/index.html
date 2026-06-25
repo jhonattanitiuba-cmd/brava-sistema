@@ -15468,18 +15468,23 @@ function Financeiro() {
     { id:'btg',          label:'Pagamentos BTG',        icon:'DollarSign' },
   ];
 
-  // Gera 12 meses pra trás + 1 mês à frente
+  // Gera 12 meses pra trás + todos os meses à frente até dezembro do ano corrente
+  // (pra projetar o financeiro até o fim do ano)
   const opcoesMes = React.useMemo(() => {
     const arr = [];
     const hoje = new Date();
-    for (let i = -12; i <= 1; i++) {
+    const anoAtual = hoje.getFullYear();
+    const mesesAFrente = 11 - hoje.getMonth(); // vai sempre até dezembro do ano corrente
+    for (let i = -12; i <= mesesAFrente; i++) {
       const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
       const ym = YM(d);
-      // Apenas o mes, sem o ano (minimalista — ja sabemos o ano)
-      const label = d.toLocaleDateString('pt-BR', { month:'long' });
-      arr.push({ ym, label: label.charAt(0).toUpperCase() + label.slice(1) });
+      let label = d.toLocaleDateString('pt-BR', { month:'long' });
+      label = label.charAt(0).toUpperCase() + label.slice(1);
+      // Desambigua meses de outro ano (ex: "Dezembro 25") pra nao confundir com o atual
+      if (d.getFullYear() !== anoAtual) label += ` ${String(d.getFullYear()).slice(-2)}`;
+      arr.push({ ym, label });
     }
-    return arr.reverse(); // mais recente primeiro
+    return arr.reverse(); // mais recente (futuro) primeiro
   }, []);
 
   const mesAtualLabel = mesFiltro === 'este_ano'
@@ -15498,7 +15503,7 @@ function Financeiro() {
             {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos manuais · período: <strong style={{color:'var(--t1)'}}>{mesAtualLabel}</strong>
           </div>
         </div>
-        <div className="page-head__actions" style={{display:'flex', gap:8, alignItems:'center', overflow:'visible', position:'relative', zIndex:100}}>
+        <div className="page-head__actions" style={{display:'flex', gap:8, alignItems:'center', overflow:'visible', position:'relative', zIndex:9999}}>
           {/* Seletor de período — dropdown custom */}
           <div style={{position:'relative', zIndex:9999}}>
             {/* Botão principal */}
