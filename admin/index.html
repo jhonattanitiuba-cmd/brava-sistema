@@ -16709,9 +16709,12 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
 
   // KPIs calculados sobre o PERÍODO selecionado (nao sobre todo o extrato)
   // Separa REAL (extrato/manual já realizado) de PREVISTO (projeção futura).
+  const [previstoOverride, setPrevistoOverride] = React.useState(() => new Map());
   const itensPeriodo = extrato.filter(i => i.data >= inicioMesFiltro && i.data <= fimMesFiltro);
   const realPeriodo = itensPeriodo.filter(i => !i.projetado);
-  const prevPeriodo = itensPeriodo.filter(i => i.projetado && i.raw?.mostrar_no_previsto !== false);
+  // Previsto é controlável em tempo real: override de sessão (Map id->bool) por cima do flag do banco
+  const previstoIncluido = (i) => i.projetado && (previstoOverride.has(i.id) ? previstoOverride.get(i.id) : (i.raw?.mostrar_no_previsto !== false));
+  const prevPeriodo = itensPeriodo.filter(previstoIncluido);
 
   const entradasReal = realPeriodo.filter(l => l.tipo === 'entrada').reduce((s,l) => s + l.valor, 0);
   const saidasReal   = realPeriodo.filter(l => l.tipo === 'saida').reduce((s,l) => s + l.valor, 0);
@@ -16867,9 +16870,9 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
             <thead>
               <tr style={{background:'var(--bg-2)', borderBottom:'2px solid var(--border)'}}>
                 {[
-                  {h:'Data',      w:76,  align:'left'},
-                  {h:'Tipo',      w:78,  align:'left'},
-                  {h:'Vínculo',   w:112, align:'left'},
+                  {h:'Data',      w:74,  align:'left'},
+                  {h:'Tipo',      w:50,  align:'center'},
+                  {h:'Vínculo',   w:70,  align:'center'},
                   {h:'Descrição',        align:'left'},
                   {h:'Categoria', w:128, align:'left'},
                   {h:'Crédito',   w:108, align:'right'},
@@ -16906,37 +16909,38 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                   <td style={{padding:'10px 14px', color: l.projetado ? 'var(--t3)' : 'var(--t2)', fontFamily:'var(--f-m)', fontSize:12, whiteSpace:'nowrap'}}>
                     <span title={fonte.txt} style={{display:'inline-flex', alignItems:'center', gap:6}}>
                       <Icon name={fonte.icon} size={12}/>
-                      {formatBR(l.data)}
+                      {l.data ? l.data.slice(8,10)+'/'+l.data.slice(5,7) : ''}
                     </span>
                     {l.projetado && <span style={{marginLeft:5, fontSize:9, color:'var(--blue)', fontWeight:600, letterSpacing:.3}}>PREV</span>}
                   </td>
-                  {/* Tipo */}
-                  <td style={{padding:'10px 14px'}}>
-                    <span style={{
-                      display:'inline-flex', alignItems:'center', gap:4,
-                      padding:'2px 8px', borderRadius:5, fontSize:11.5, fontWeight:600,
+                  {/* Tipo (só ícone) */}
+                  <td style={{padding:'10px 4px', textAlign:'center'}}>
+                    <span title={l.tipo === 'entrada' ? 'Entrada' : 'Saída'} style={{
+                      display:'inline-flex', alignItems:'center', justifyContent:'center',
+                      width:24, height:24, borderRadius:6,
                       background: l.tipo === 'entrada' ? 'rgba(29,158,117,.12)' : 'rgba(229,84,77,.10)',
                       color: l.tipo === 'entrada' ? '#1D9E75' : '#E5544D',
                       opacity: l.projetado ? .7 : 1,
                     }}>
-                      <Icon name={l.tipo === 'entrada' ? 'ArrowDownCircle' : 'ArrowUpCircle'} size={11}/>
-                      {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                      <Icon name={l.tipo === 'entrada' ? 'ArrowDownCircle' : 'ArrowUpCircle'} size={14}/>
                     </span>
                   </td>
-                  {/* Vínculo (empresa, colaborador ou contato) */}
-                  <td style={{padding:'10px 14px'}}>
+                  {/* Vínculo (só ícone: amarelo = pendente, cor padrão = vinculado) */}
+                  <td style={{padding:'10px 4px', textAlign:'center'}}>
                     {(() => {
-                      const rats = (!l.projetado && l.raw?.id) ? (rateios[l.raw.id] || []) : [];
-                      const umDestino = rats.length === 1 ? rats[0] : null;
+                      const rats = (l.raw?.id) ? (rateios[l.raw.id] || []) : [];
+                      const vinculado = rats.length > 0 || !!l.cliente_id;
+                      const podeAgir = !!l.raw?.id || !l.projetado;
                       return (
-                        <button onClick={()=>{ if(!l.projetado && l.raw?.id) setRateando(l); else if(!l.projetado) setConciliandoAberto(true); }}
-                          title={rats.length ? 'Rateado, clique para revisar' : 'Vincular a projeto, cliente, colaborador, contato ou despesa'}
-                          style={{display:'inline-flex', alignItems:'center', gap:5, background:'transparent', border:'none', cursor: l.projetado ? 'default' : 'pointer', padding:'2px 6px', borderRadius:5, fontSize:11.5, color: rats.length ? 'var(--t1)' : 'var(--t3)'}}>
-                          {umDestino
-                            ? <><ClienteAvatar nome={umDestino.destino_label || 'Destino'} init={(umDestino.destino_label || '?').slice(0,1).toUpperCase()} size={18}/><span>{umDestino.destino_label || 'vinculado'}</span></>
-                            : rats.length > 1
-                              ? <><Icon name="GitBranch" size={12}/><span style={{padding:'1px 6px', borderRadius:4, fontSize:10, fontWeight:700, background:'rgba(30,144,255,.12)', color:'var(--blue)'}}>{rats.length} destinos</span></>
-                              : <><Icon name="Link" size={12}/>{l.cliente_id ? 'vinculado' : 'vincular'}</>}
+                        <button onClick={()=>{ if(l.raw?.id) setRateando(l); else if(!l.projetado) setConciliandoAberto(true); }}
+                          title={vinculado
+                            ? (rats.length>1 ? rats.length+' destinos · clique para revisar ou desvincular' : 'Vinculado · clique para revisar ou desvincular')
+                            : 'Pendente · clique para vincular a projeto, cliente, colaborador, contato ou despesa'}
+                          style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, background:'transparent', border:'none', cursor: podeAgir ? 'pointer' : 'default', color: vinculado ? 'var(--blue)' : '#BA7517', position:'relative'}}
+                          onMouseEnter={e=>{ if(podeAgir) e.currentTarget.style.background='var(--bg-3)'; }}
+                          onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; }}>
+                          <Icon name="Link" size={15}/>
+                          {rats.length>1 && <span style={{position:'absolute', top:-3, right:-3, fontSize:8.5, fontWeight:700, background:'var(--blue)', color:'#fff', borderRadius:999, minWidth:13, height:13, lineHeight:'13px', textAlign:'center', padding:'0 2px'}}>{rats.length}</span>}
                         </button>
                       );
                     })()}
@@ -17004,15 +17008,18 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                   </td>
                   {/* Ações */}
                   <td style={{padding:'10px 14px', textAlign:'right'}}>
-                    {!l.projetado && l.raw?.id && (
-                      <input type="checkbox" title="Mostrar no previsto"
-                        defaultChecked={l.raw.mostrar_no_previsto !== false}
+                    {l.projetado && (
+                      <input type="checkbox" title="Mostrar no previsto (impacta o resultado em tempo real)"
+                        checked={previstoOverride.has(l.id) ? previstoOverride.get(l.id) : (l.raw?.mostrar_no_previsto !== false)}
                         onChange={async e=>{
-                          const cli = getSupa(); if(!cli) return;
-                          const { error } = await cli.from(l.origem==='banco' ? 'fin_extrato_bancario' : 'fin_caixa_lancamentos')
-                            .update({ mostrar_no_previsto: e.target.checked }).eq('id', l.raw.id);
-                          if(error){ showToast?.('Erro: '+error.message,'error'); return; }
-                          showToast?.(e.target.checked ? 'Incluído no previsto' : 'Removido do previsto','success');
+                          const incluir = e.target.checked;
+                          setPrevistoOverride(prev => { const m = new Map(prev); m.set(l.id, incluir); return m; });
+                          if(l.raw?.id){
+                            const cli = getSupa(); if(!cli) return;
+                            const { error } = await cli.from(l.origem==='banco' ? 'fin_extrato_bancario' : 'fin_caixa_lancamentos')
+                              .update({ mostrar_no_previsto: incluir }).eq('id', l.raw.id);
+                            if(error){ showToast?.('Erro: '+error.message,'error'); }
+                          }
                         }}
                         style={{accentColor:'var(--blue)', width:14, height:14, cursor:'pointer', marginRight:8, verticalAlign:'middle'}}/>
                     )}
