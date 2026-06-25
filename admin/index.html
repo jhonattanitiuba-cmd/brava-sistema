@@ -16881,8 +16881,8 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                   {h:'Categoria', w:128, align:'left'},
                   {h:'Crédito',   w:108, align:'right'},
                   {h:'Débito',    w:108, align:'right'},
-                  {h:'Saldo',     w:120, align:'right'},
-                  {h:'',          w:56,  align:'right'},
+                  {h:'Saldo',     w:108, align:'right'},
+                  {h:'',          w:84,  align:'center'},
                 ].map(({h,w,align}) => (
                   <th key={h} style={{padding:'9px 14px', textAlign:align, fontSize:11, color:'var(--t3)', fontWeight:600, letterSpacing:.4, textTransform:'uppercase', ...(w?{width:w}:{})}}>{h}</th>
                 ))}
@@ -17011,7 +17011,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                     {l.raw && l.raw.saldo_apos != null ? 'R$ ' + Number(l.raw.saldo_apos).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : ''}
                   </td>
                   {/* Ações */}
-                  <td style={{padding:'10px 14px', textAlign:'right'}}>
+                  <td style={{padding:'10px 6px', textAlign:'center', whiteSpace:'nowrap'}}>
                     {l.projetado && (
                       <input type="checkbox" title="Mostrar no previsto (impacta o resultado em tempo real)"
                         checked={previstoOverride.has(l.id) ? previstoOverride.get(l.id) : (l.raw?.mostrar_no_previsto !== false)}
@@ -17028,21 +17028,21 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
                         style={{accentColor:'var(--blue)', width:14, height:14, cursor:'pointer', marginRight:8, verticalAlign:'middle'}}/>
                     )}
                     {l.editable
-                      ? <button onClick={()=>setEditando(l.raw)} title="Editar lancamento" style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', padding:'3px 8px', borderRadius:5, fontSize:12, display:'inline-flex', alignItems:'center', gap:4}}
+                      ? <button onClick={()=>setEditando(l.raw)} title="Editar lançamento" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)'}}
                           onMouseEnter={e=>{e.currentTarget.style.background='var(--bg-3)';e.currentTarget.style.color='var(--blue)';}}
                           onMouseLeave={e=>{e.currentTarget.style.background='transparent';e.currentTarget.style.color='var(--t3)';}}>
-                          <Icon name="Pencil" size={12}/>Editar
+                          <Icon name="Pencil" size={14}/>
                         </button>
                       : l.naoConciliado
-                        ? <button onClick={()=>setConciliandoAberto(true)} title="Abrir conciliacao para vincular este lancamento" style={{background:'rgba(186,117,23,.10)', border:'1px solid rgba(186,117,23,.3)', cursor:'pointer', color:'#BA7517', padding:'3px 8px', borderRadius:5, fontSize:11.5, fontWeight:600, display:'inline-flex', alignItems:'center', gap:4}}
+                        ? <button onClick={()=>setConciliandoAberto(true)} title="Conciliar: clique para vincular este lançamento" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, background:'rgba(186,117,23,.10)', border:'1px solid rgba(186,117,23,.3)', cursor:'pointer', color:'#BA7517'}}
                             onMouseEnter={e=>e.currentTarget.style.background='rgba(186,117,23,.2)'}
                             onMouseLeave={e=>e.currentTarget.style.background='rgba(186,117,23,.10)'}>
-                            <Icon name="Link" size={11}/>Conciliar
+                            <Icon name="Link" size={13}/>
                           </button>
-                        : <button onClick={()=>setConciliandoAberto(true)} title="Clique para revisar ou alterar o vinculo" style={{background:'transparent', border:'1px solid rgba(29,158,117,.3)', cursor:'pointer', color:'#1D9E75', padding:'3px 8px', borderRadius:5, fontSize:11.5, fontWeight:600, display:'inline-flex', alignItems:'center', gap:4}}
+                        : <button onClick={()=>setConciliandoAberto(true)} title="Conciliado: clique para revisar ou alterar o vínculo" style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:26, height:26, borderRadius:6, background:'transparent', border:'1px solid rgba(29,158,117,.3)', cursor:'pointer', color:'#1D9E75'}}
                             onMouseEnter={e=>e.currentTarget.style.background='rgba(29,158,117,.12)'}
                             onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                            <Icon name="Link" size={11}/>conciliado
+                            <Icon name="Check" size={13}/>
                           </button>}
                   </td>
                 </tr>
