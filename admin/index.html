@@ -7129,11 +7129,15 @@ function CountUp({ children, duration = 900 }) {
   return <>{parsed.prefix}{fmt(cur)}{parsed.suffix}</>;
 }
 
-function KpiCard({ label, value, sub, icon, cor }) {
+function KpiCard({ label, value, sub, icon, cor, onClick }) {
   return (
-    <div style={{
+    <div onClick={onClick}
+      onMouseEnter={onClick ? (e=>{ e.currentTarget.style.borderColor=cor; e.currentTarget.style.transform='translateY(-1px)'; }) : undefined}
+      onMouseLeave={onClick ? (e=>{ e.currentTarget.style.borderColor='var(--border)'; e.currentTarget.style.transform='none'; }) : undefined}
+      style={{
       background:'var(--bg-2)', borderRadius:12, padding:'16px 18px',
-      border:'1px solid var(--border)',
+      border:'1px solid var(--border)', transition:'border-color .14s, transform .14s',
+      cursor: onClick ? 'pointer' : 'default',
     }}>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8}}>
         <span style={{fontSize:12, color:'var(--t3)', fontWeight:500, textTransform:'uppercase', letterSpacing:'.04em'}}>{label}</span>
@@ -26322,6 +26326,7 @@ function AtasAdmin() {
   const [novo, setNovo] = React.useState(false);
   const [ver, setVer] = React.useState(null);
   const [editar, setEditar] = React.useState(null);
+  const [verPassos, setVerPassos] = React.useState(false);
   const [busy, setBusy] = React.useState('');
   const total = atas.length;
   const passos = atas.reduce((s,a)=>{ const c=a.conteudo||{}; const sec=(c.secoes||[]).find(x=>x.tipo==='destaque_tabela'); return s+((sec&&sec.linhas&&sec.linhas.length)||0); },0);
@@ -26350,7 +26355,7 @@ function AtasAdmin() {
       </div>
       <div className="kpi-grid" style={{marginBottom:18}}>
         <KpiCard label="Atas" value={String(total)} icon="BookOpen" cor="#1E90FF"/>
-        <KpiCard label="Próximos passos" value={String(passos)} icon="CheckCircle2" cor="#1D9E75"/>
+        <KpiCard label="Próximos passos" value={String(passos)} icon="CheckCircle2" cor="#1D9E75" sub={passos>0?'Clique para ver e enviar ao Google':undefined} onClick={passos>0?(()=>setVerPassos(true)):undefined}/>
       </div>
       {total===0 ? (
         <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhuma ata ainda. Clique em "Nova ata", cole a transcrição e a IA gera no padrão validado.</div>
@@ -26376,6 +26381,7 @@ function AtasAdmin() {
       {novo && <NovaAtaModal clientes={clientes} onClose={()=>setNovo(false)} onCriada={(a)=>setVer(a)}/>}
       {ver && <AtaViewModal ata={ver} onClose={()=>setVer(null)} onEditar={(a)=>setEditar(a)}/>}
       {editar && <EditarAtaModal ata={editar} onClose={()=>setEditar(null)}/>}
+      {verPassos && <PassosModal atas={atas} onClose={()=>setVerPassos(false)}/>}
     </div>
   );
 }
@@ -26468,6 +26474,87 @@ function AtaViewModal({ ata, onClose, onEditar }) {
           <button onClick={()=>renderAtaDoc(ata)} style={_fBtnPrimary}>Imprimir / PDF</button>
         </div>
       </div>
+    </_FModal>
+  );
+}
+// ─── Próximos passos das atas -> tarefas no Google Tasks ───
+function _extrairPassos(atas){
+  const out=[];
+  (atas||[]).forEach(function(a){
+    const secs=((a.conteudo||{}).secoes)||[];
+    secs.filter(function(s){ return s.tipo==='destaque_tabela'; }).forEach(function(sec){
+      const cab=(sec.cabecalho||[]).map(function(x){ return String(x||'').toLowerCase(); });
+      const iAcao=cab.findIndex(function(c){ return c.indexOf('ção')>=0||c.indexOf('cao')>=0||c.indexOf('combinado')>=0||c.indexOf('tarefa')>=0||c.indexOf('passo')>=0; });
+      const iResp=cab.findIndex(function(c){ return c.indexOf('respons')>=0; });
+      const iPrazo=cab.findIndex(function(c){ return c.indexOf('prazo')>=0||c.indexOf('data')>=0; });
+      (sec.linhas||[]).forEach(function(ln,idx){
+        ln=ln||[];
+        const acao=(iAcao>=0?ln[iAcao]:(ln[1]||ln[0])||'').toString().trim();
+        if(!acao) return;
+        out.push({ key:a.id+'_'+idx, ataId:a.id, ataTitulo:a.titulo||'Ata', cliente:a.cliente_nome||'', acao:acao, responsavel:(iResp>=0?ln[iResp]:'')||'', prazo:(iPrazo>=0?ln[iPrazo]:'')||'' });
+      });
+    });
+  });
+  return out;
+}
+function _prazoParaISO(prazo){
+  const m=String(prazo||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if(!m) return '';
+  let d=m[1], mo=m[2], y=m[3]; if(y.length===2) y='20'+y;
+  return y+'-'+mo.padStart(2,'0')+'-'+d.padStart(2,'0');
+}
+function PassosModal({ atas, onClose }){
+  const passos = React.useMemo(function(){ return _extrairPassos(atas); },[atas]);
+  const [datas,setDatas] = React.useState(function(){ const o={}; passos.forEach(function(p){ o[p.key]=_prazoParaISO(p.prazo); }); return o; });
+  const [feitos,setFeitos] = React.useState({});
+  const [busy,setBusy] = React.useState('');
+  const converter = async function(p){
+    setBusy(p.key);
+    try{
+      const dISO=datas[p.key];
+      const due=dISO ? new Date(dISO+'T12:00:00').toISOString() : undefined;
+      const notas='Origem: ata "'+p.ataTitulo+'"'+(p.cliente?(' · Cliente: '+p.cliente):'')+(p.responsavel?(' · Responsável: '+p.responsavel):'')+(p.prazo?(' · Prazo: '+p.prazo):'');
+      const { data, error }=await getSupa().functions.invoke('google-tasks',{ body:{ action:'create', titulo:p.acao, notas:notas, due:due } });
+      if(error||!(data&&data.ok)){
+        const er=(data&&data.error)||(error&&error.message)||'falha';
+        if(er==='sem_escopo'||er==='nao_conectado'||er==='sem_refresh') throw new Error('Conecte o Google primeiro (tela Agenda ou Tarefas).');
+        throw new Error(er);
+      }
+      setFeitos(function(f){ const n=Object.assign({},f); n[p.key]='ok'; return n; });
+      showToast('Tarefa enviada ao Google.','success');
+    }catch(e){ showToast('Erro: '+(e.message||e),'erro'); }
+    finally{ setBusy(''); }
+  };
+  const converterTodos = async function(){ for(const p of passos){ if(feitos[p.key]!=='ok'){ await converter(p); } } };
+  const pendentes = passos.filter(function(p){ return feitos[p.key]!=='ok'; }).length;
+  return (
+    <_FModal title={'Próximos passos ('+passos.length+')'} onClose={onClose} wide>
+      {passos.length===0 ? (
+        <div style={{color:'var(--t3)', fontSize:13, padding:'12px 0'}}>Nenhum próximo passo registrado nas atas ainda.</div>
+      ) : (
+        <div>
+          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginBottom:10}}>
+            <div style={{fontSize:12, color:'var(--t3)'}}>Defina a data (opcional) e converta em tarefa no Google Tasks do workspace.</div>
+            <button onClick={converterTodos} style={_fBtnPrimary} disabled={!!busy||pendentes===0}>Converter todos</button>
+          </div>
+          <div style={{display:'grid', gap:8, maxHeight:'58vh', overflowY:'auto', paddingRight:4}}>
+            {passos.map(function(p){ return (
+              <div key={p.key} className="card" style={{display:'grid', gridTemplateColumns:'1fr 150px 132px', gap:10, alignItems:'center', padding:'10px 12px', opacity:busy===p.key?0.6:1}}>
+                <div style={{minWidth:0}}>
+                  <div style={{fontWeight:600, color:'var(--t1)', fontSize:13}}>{p.acao}</div>
+                  <div style={{fontSize:11.5, color:'var(--t3)'}}>{p.ataTitulo}{p.cliente?(' · '+p.cliente):''}{p.responsavel?(' · '+p.responsavel):''}{p.prazo?(' · prazo: '+p.prazo):''}</div>
+                </div>
+                <input type="date" value={datas[p.key]||''} onChange={function(e){ const v=e.target.value; setDatas(function(d){ const n=Object.assign({},d); n[p.key]=v; return n; }); }} style={Object.assign({}, _fInp, {height:34, fontSize:13})}/>
+                {feitos[p.key]==='ok' ? (
+                  <span style={{fontSize:12, color:'#1D9E75', display:'inline-flex', alignItems:'center', gap:5, justifyContent:'center'}}><Icon name="CheckCircle2" size={14}/>No Google</span>
+                ) : (
+                  <button onClick={function(){ converter(p); }} disabled={busy===p.key} style={Object.assign({}, _fBtnGhost, {justifyContent:'center'})}>Criar tarefa</button>
+                )}
+              </div>
+            ); })}
+          </div>
+        </div>
+      )}
     </_FModal>
   );
 }
