@@ -17100,6 +17100,15 @@ function ConciliacaoModal({ onClose }) {
     return { total: pendentes.length, entradas: entradas.length, saidas: saidas.length, sugestoes: comSugestao.length };
   }, [pendentes]);
 
+  // Conserto: a aba inicia em "sugestoes", mas se nao houver sugestao (so pendentes),
+  // cai automaticamente pra "todos" na primeira carga, senao a tela abre vazia e parece quebrada.
+  const autoAbaRef = React.useRef(false);
+  React.useEffect(() => {
+    if (autoAbaRef.current || stats.total === 0) return;
+    autoAbaRef.current = true;
+    if (filtroAba === 'sugestoes' && stats.sugestoes === 0) setFiltroAba('todos');
+  }, [stats.total, stats.sugestoes]);
+
   const filtrados = React.useMemo(() => {
     let arr = [...pendentes];
     if (filtroAba === 'sugestoes')      arr = arr.filter(p => p.sugestoes.length > 0);
