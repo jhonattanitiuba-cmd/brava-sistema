@@ -7080,10 +7080,17 @@ function _filtroBtn(active, cor) {
 }
 
 // Contador animado 0 -> valor, preservando prefixo/sufixo e formato do texto.
-function CountUp({ children, duration = 900 }) {
-  const isText = typeof children === 'string' || typeof children === 'number';
+// Número animado reutilizável.
+// - 1º mount: anima de 0 → value, respeitando `delay` (efeito cascata).
+// - value muda depois (realtime): re-anima do valor exibido atual → novo value,
+//   rápido (~500ms) e SEM delay (não re-cascateia a cada tick).
+// Aceita children string ("R$ 1.234,56") OU prop numérica `value` + `format(n)`.
+function CountUp({ children, value, format, duration = 900, delay = 0 }) {
+  const hasNum = typeof value === 'number' && isFinite(value);
+  const isText = !hasNum && (typeof children === 'string' || typeof children === 'number');
   const raw = isText ? String(children) : '';
   const parsed = React.useMemo(() => {
+    if (hasNum) return { numeric: true, value };
     if (!isText) return null;
     const m = raw.match(/\d[\d.,]*/);
     if (!m) return null;
@@ -7107,28 +7114,56 @@ function CountUp({ children, duration = 900 }) {
     }
     if (!isFinite(value)) return null;
     return { prefix, suffix, value, decimals, decSep, thouSep };
-  }, [raw, isText]);
+  }, [raw, isText, hasNum, value]);
 
   const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const [cur, setCur] = React.useState(() => (parsed && !reduce ? 0 : (parsed ? parsed.value : 0)));
+  const target = parsed ? parsed.value : 0;
+  const [cur, setCur] = React.useState(() => (parsed && !reduce ? 0 : target));
+  const curRef = React.useRef(cur);            // último valor exibido (pra re-animar a partir dele)
+  curRef.current = cur;
+  const firstRef = React.useRef(true);          // distingue 1º mount de mudança realtime
+  const rafRef = React.useRef(null);
+  const timerRef = React.useRef(null);
 
   React.useEffect(() => {
-    if (!parsed || reduce) return;
-    let raf, s = null;
-    setCur(0);
-    const step = ts => {
-      if (!s) s = ts;
-      const p = Math.min((ts - s) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setCur(parsed.value * eased);
-      if (p < 1) raf = requestAnimationFrame(step);
-      else setCur(parsed.value);
+    if (!parsed) return;
+    const limpar = () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      rafRef.current = null; timerRef.current = null;
     };
-    raf = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(raf);
-  }, [parsed, duration, reduce]);
+    if (reduce) { setCur(target); firstRef.current = false; return limpar; }
+
+    const primeiro = firstRef.current;
+    firstRef.current = false;
+    const from = primeiro ? 0 : curRef.current;   // cascata começa do 0; realtime do valor atual
+    const dur  = primeiro ? duration : 500;        // realtime é mais rápido
+    const wait = primeiro ? delay : 0;             // só a cascata respeita delay
+
+    const animar = () => {
+      let s = null;
+      const step = ts => {
+        if (!s) s = ts;
+        const p = Math.min((ts - s) / dur, 1);
+        const eased = 1 - Math.pow(1 - p, 3);
+        setCur(from + (target - from) * eased);
+        if (p < 1) rafRef.current = requestAnimationFrame(step);
+        else { setCur(target); rafRef.current = null; }
+      };
+      rafRef.current = requestAnimationFrame(step);
+    };
+    if (primeiro) setCur(0);
+    if (wait > 0) timerRef.current = setTimeout(animar, wait);
+    else animar();
+    return limpar;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, duration, delay, reduce]);
 
   if (!parsed) return <>{children}</>;
+  if (parsed.numeric) {
+    const f = typeof format === 'function' ? format : (n => Math.round(n).toLocaleString('pt-BR'));
+    return <>{f(cur)}</>;
+  }
   const fmt = (n) => {
     const s = Number(n).toFixed(parsed.decimals);
     let [intp, frac] = s.split('.');
@@ -7136,6 +7171,28 @@ function CountUp({ children, duration = 900 }) {
     return frac != null ? intp + parsed.decSep + frac : intp;
   };
   return <>{parsed.prefix}{fmt(cur)}{parsed.suffix}</>;
+}
+
+// Reveal em cascata: entra com opacity 0 + translateY(10px) → 1 / 0,
+// com transitionDelay = index*90ms. Remonta (re-anima) quando a `key` do pai troca.
+function AnimIn({ index = 0, children, style, ...rest }) {
+  const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const [show, setShow] = React.useState(reduce);
+  React.useEffect(() => {
+    if (reduce) return;
+    const r = requestAnimationFrame(() => setShow(true));
+    return () => cancelAnimationFrame(r);
+  }, [reduce]);
+  return (
+    <div {...rest} style={{
+      ...style,
+      opacity: show ? 1 : 0,
+      transform: show ? 'none' : 'translateY(10px)',
+      transition: 'opacity .45s ease, transform .45s ease',
+      transitionDelay: show ? `${index * 90}ms` : '0ms',
+      willChange: 'opacity, transform',
+    }}>{children}</div>
+  );
 }
 
 function KpiCard({ label, value, sub, icon, cor, onClick }) {
@@ -13303,7 +13360,7 @@ function FinDRE({ mesFiltro }) {
             <span style={{ color:'var(--t3)' }}>{prefixo}</span> {lbl}
             {!!cats.length && <span style={{ fontSize:11, color:'var(--t3)' }}>({cats.length})</span>}
           </span>
-          <span style={{ fontFamily:'var(--f-m)', fontSize:13, color: total < 0 ? '#E5544D' : 'var(--t1)' }}>{fmt(total)}</span>
+          <span style={{ fontFamily:'var(--f-m)', fontSize:13, color: total < 0 ? '#E5544D' : 'var(--t1)' }}><CountUp>{fmt(total)}</CountUp></span>
         </div>
         {aberto && cats.map((c, i) => (
           <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 14px 5px 40px', fontSize:12, color:'var(--t3)', background:'var(--bg-2)' }}>
@@ -13318,7 +13375,7 @@ function FinDRE({ mesFiltro }) {
   const subtotal = (lbl, valor, forte) => (
     <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--border)', background: forte ? 'var(--bg-2)' : 'transparent' }}>
       <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>{lbl}</span>
-      <span style={{ fontFamily:'var(--f-m)', fontSize:13.5, fontWeight:700, color: valor < 0 ? '#E5544D' : (forte ? '#1D9E75' : 'var(--t1)') }}>{fmt(valor)}</span>
+      <span style={{ fontFamily:'var(--f-m)', fontSize:13.5, fontWeight:700, color: valor < 0 ? '#E5544D' : (forte ? '#1D9E75' : 'var(--t1)') }}><CountUp>{fmt(valor)}</CountUp></span>
     </div>
   );
 
@@ -13333,7 +13390,7 @@ function FinDRE({ mesFiltro }) {
         </div>
       )}
 
-      <div className="card" style={{ padding:0, overflow:'hidden' }}>
+      <AnimIn className="card" style={{ padding:0, overflow:'hidden' }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderBottom:'2px solid var(--border)', background:'var(--bg-2)' }}>
           <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>DRE · {label}</span>
           {margem != null && <span style={{ fontSize:12, color: dados.resultadoLiquido >= 0 ? '#1D9E75' : '#E5544D', fontWeight:600 }}>Margem líquida {margem.toFixed(1)}%</span>}
@@ -13350,7 +13407,7 @@ function FinDRE({ mesFiltro }) {
         {subtotal('= Resultado Operacional', dados.resultadoOperacional)}
         {linhaGrupo('nao_operacional', '(+/-)', 'Não Operacional')}
         {subtotal('= Resultado Líquido', dados.resultadoLiquido, true)}
-      </div>
+      </AnimIn>
 
       {temNaoDre && (
         <div style={{ marginTop:12, padding:'10px 14px', borderRadius:8, border:'1px dashed var(--border)', fontSize:12, color:'var(--t3)' }}>
@@ -14602,18 +14659,19 @@ function ProjecaoMRR({ data }) {
   const corStatus = { 'Ativo':'#1E90FF', 'Em Prod':'#1D9E75', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
 
-  // Gera 13 meses começando 5 meses atrás → fim 8 meses no futuro (mês atual fica no meio)
+  // Ano civil: Janeiro → Dezembro do ano corrente (12 meses).
+  // O `offset` (relativo ao mês atual) é mantido pra alimentar a lógica de projeção
+  // por status; só a janela exibida muda pra jan..dez.
   const hoje = new Date();
   const mesesArr = React.useMemo(() => {
     const arr = [];
-    const monthsBack = 4; // 4 meses pra trás + atual + 8 meses adiante
-    for (let i = -monthsBack; i <= 8; i++) {
-      const d = new Date(hoje.getFullYear(), hoje.getMonth() + i, 1);
+    const mesAtual = hoje.getMonth();
+    for (let mi = 0; mi <= 11; mi++) {
+      const d = new Date(hoje.getFullYear(), mi, 1);
       arr.push({
         date: d,
-        offset: i,
-        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.','') +
-               (d.getFullYear() !== hoje.getFullYear() ? '/' + String(d.getFullYear()).slice(2) : ''),
+        offset: mi - mesAtual, // negativo = passado, 0 = atual, positivo = futuro
+        label: d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.',''),
       });
     }
     return arr;
@@ -14686,23 +14744,23 @@ function ProjecaoMRR({ data }) {
     <div className="card" style={{marginBottom:14, padding:'22px 24px'}}>
       <div className="card__head" style={{marginBottom:18}}>
         <div>
-          <div className="card__title" style={{fontSize:15}}>Projeção de receita recorrente · {dados.length} meses</div>
+          <div className="card__title" style={{fontSize:15}}>Projeção de receita recorrente · jan a dez {hoje.getFullYear()}</div>
           <div style={{fontSize:12, color:'var(--t3)', marginTop:3}}>Considera entrada gradual dos contratos em implantação e conversão do funil comercial</div>
         </div>
         <div style={{display:'flex', gap:14, alignItems:'center'}}>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Receita prevista · {dados[ultimoIdx].mes}</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}>R$ {projUltimo.toLocaleString('pt-BR')}</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}><CountUp delay={0}>{`R$ ${projUltimo.toLocaleString('pt-BR')}`}</CountUp></div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Crescimento esperado</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>{crescimento >= 0 ? '+' : ''}{crescimento}%</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>{crescimento >= 0 ? '+' : ''}<CountUp delay={120}>{`${crescimento}%`}</CountUp></div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Total previsto a entrar</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}>R$ {totalAcumulado.toLocaleString('pt-BR')}</div>
+            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}><CountUp delay={240}>{`R$ ${totalAcumulado.toLocaleString('pt-BR')}`}</CountUp></div>
           </div>
         </div>
       </div>
@@ -15153,7 +15211,7 @@ function FinRecorrencia({ onNovoContrato, mesFiltro, filtroInicial, onFiltroCons
           {label:'Ticket médio por contrato',val:`R$ ${Math.round(totalMRR/tickMensalPorContrato).toLocaleString('pt-BR')}`, icon:'BarChart3', color:'#BA7517'},
           {label:`Em atraso (${qtdAtrasados})`, val:`R$ ${totalAtrasado.toLocaleString('pt-BR')}`, icon:'AlertCircle', color:'#A32D2D', highlight:qtdAtrasados>0, onClick:()=>setFiltro('atrasados')},
         ].map((k,i) => (
-          <div key={i} className="kpi" onClick={k.onClick} style={{
+          <AnimIn key={i} index={i} className="kpi" onClick={k.onClick} style={{
             cursor:k.onClick?'pointer':'default',
             border: k.highlight ? '1px solid #A32D2D66' : '1px solid var(--border)',
             background: k.highlight ? 'linear-gradient(135deg, rgba(163,45,45,.08), transparent)' : undefined,
@@ -15162,8 +15220,8 @@ function FinRecorrencia({ onNovoContrato, mesFiltro, filtroInicial, onFiltroCons
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{color:k.highlight?'#ff8585':'var(--t1)',fontSize:22}}>{k.val}</div>
-          </div>
+            <div className="kpi__value" style={{color:k.highlight?'#ff8585':'var(--t1)',fontSize:22}}><CountUp delay={i*90}>{k.val}</CountUp></div>
+          </AnimIn>
         ))}
       </div>
 
@@ -15470,7 +15528,7 @@ function BTGPagamentos() {
   const copiar = (t) => { try { navigator.clipboard.writeText(t); showToast?.('Copiado', 'success'); } catch {} };
   return (
     <div style={{maxWidth:660}}>
-      <div className="card" style={{padding:20}}>
+      <AnimIn className="card" style={{padding:20}}>
         <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>Pagamentos BTG · Pix Cobrança</div>
         <div style={{fontSize:13, color:'var(--t2)', marginBottom:16, lineHeight:1.5}}>Conecte a conta BTG da Brava (você autoriza uma vez no BTG Id) e gere uma cobrança Pix de teste de <strong>R$ 1,00</strong> pra validar a integração ponta a ponta.</div>
         <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
@@ -15497,13 +15555,17 @@ function BTGPagamentos() {
             )}
           </div>
         )}
-      </div>
+      </AnimIn>
     </div>
   );
 }
 
 function Financeiro() {
   const [tab, setTab] = useState('dashboard');
+  // Sequência de animação: incrementa ao montar o módulo e a cada troca de aba.
+  // Usada na `key` dos sub-componentes pra remontar e re-cascatear o reveal/CountUp do 0.
+  const [animSeq, setAnimSeq] = React.useState(0);
+  React.useEffect(() => { setAnimSeq(s => s + 1); }, [tab]);
   const [filtroInicial, setFiltroInicial] = React.useState(null); // ex: 'entrada' | 'saida' | 'nao-conciliado' | 'atrasados'
 
   // Navega pra outra aba e aplica filtro automaticamente
@@ -15679,14 +15741,16 @@ function Financeiro() {
         ))}
       </div>
 
-      {/* Render condicional da tab - todas recebem mesFiltro + navegarPara */}
-      {tab === 'dashboard'   && <FinDashboard mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} navegarPara={navegarPara}/>}
-      {tab === 'recorrencia' && <FinRecorrencia mesFiltro={mesFiltro} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
-      {tab === 'despesas'    && <FinDespesas mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
-      {tab === 'caixa'       && <FinCaixa mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
-      {tab === 'plano_contas' && <FinPlanoContas/>}
-      {tab === 'dre'          && <FinDRE mesFiltro={mesFiltro}/>}
-      {tab === 'btg'          && <BTGPagamentos/>}
+      {/* Render condicional da tab - todas recebem mesFiltro + navegarPara.
+          key={tab+'_'+animSeq} remonta o sub-componente ao entrar/trocar de aba,
+          re-disparando o reveal em cascata + CountUp do 0 (sem afetar mudanças realtime). */}
+      {tab === 'dashboard'   && <FinDashboard key={tab+'_'+animSeq} mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} navegarPara={navegarPara}/>}
+      {tab === 'recorrencia' && <FinRecorrencia key={tab+'_'+animSeq} mesFiltro={mesFiltro} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
+      {tab === 'despesas'    && <FinDespesas key={tab+'_'+animSeq} mesFiltro={mesFiltro} despesas={despesas} despesasPag={despesasPag} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
+      {tab === 'caixa'       && <FinCaixa key={tab+'_'+animSeq} mesFiltro={mesFiltro} recorrencia={recorrencia} pagamentos={pagamentos} despesas={despesas} despesasPag={despesasPag} caixa={caixa} filtroInicial={filtroInicial} onFiltroConsumido={()=>setFiltroInicial(null)}/>}
+      {tab === 'plano_contas' && <FinPlanoContas key={tab+'_'+animSeq}/>}
+      {tab === 'dre'          && <FinDRE key={tab+'_'+animSeq} mesFiltro={mesFiltro}/>}
+      {tab === 'btg'          && <BTGPagamentos key={tab+'_'+animSeq}/>}
     </div>
   );
 }
@@ -15830,8 +15894,8 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
     <div>
       <div className="kpi-grid" style={{gridTemplateColumns:'repeat(3,1fr)', marginBottom:22}}>
         {KPIS.map((k,i) => (
-          <div key={i} className="kpi" onClick={k.acao} title={k.hint}
-            style={{cursor: k.acao ? 'pointer' : 'default', transition:'all .15s'}}
+          <AnimIn key={i} index={i} className="kpi" onClick={k.acao} title={k.hint}
+            style={{cursor: k.acao ? 'pointer' : 'default'}}
             onMouseEnter={e=>{ if(k.acao){ e.currentTarget.style.borderColor=k.color+'66'; e.currentTarget.style.transform='translateY(-1px)'; }}}
             onMouseLeave={e=>{ if(k.acao){ e.currentTarget.style.borderColor=''; e.currentTarget.style.transform=''; }}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
@@ -15841,9 +15905,9 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
                 <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
               </div>
             </div>
-            <div className="kpi__value" style={{fontSize:24, color:'var(--t1)'}}>{k.val}</div>
+            <div className="kpi__value" style={{fontSize:24, color:'var(--t1)'}}><CountUp delay={i*90}>{k.val}</CountUp></div>
             <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{k.sub}</div>
-          </div>
+          </AnimIn>
         ))}
       </div>
 
@@ -15858,8 +15922,9 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
 function CompararEntradasSaidas({ extrato }) {
   const hoje = new Date();
   const meses = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+  // Ano civil: Janeiro → Dezembro do ano corrente. Meses futuros (sem dado) ficam zerados.
+  for (let mi = 0; mi <= 11; mi++) {
+    const d = new Date(hoje.getFullYear(), mi, 1);
     const inicio = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0,10);
     const fim = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().slice(0,10);
     const movs = (extrato || []).filter(e => !e.ignorado && e.data >= inicio && e.data <= fim);
@@ -15867,13 +15932,13 @@ function CompararEntradasSaidas({ extrato }) {
     const saidas = Math.abs(movs.filter(e => e.valor < 0).reduce((s,e) => s + Number(e.valor), 0));
     meses.push({
       label: d.toLocaleDateString('pt-BR', { month:'short' }).replace('.',''),
-      entradas, saidas, lucro: entradas - saidas, eAtual: i === 0,
+      entradas, saidas, lucro: entradas - saidas, eAtual: mi === hoje.getMonth(),
     });
   }
   return (
     <div className="card" style={{padding:'22px 24px', marginBottom:14}}>
       <div className="card__head" style={{marginBottom:16}}>
-        <div className="card__title" style={{fontSize:15}}>Entradas vs Saídas · últimos 6 meses</div>
+        <div className="card__title" style={{fontSize:15}}>Entradas vs Saídas · jan a dez {hoje.getFullYear()}</div>
       </div>
       <BravaChart
         type="bar"
@@ -15934,13 +15999,13 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
           { label:`Pago em ${label}`, val:`R$ ${totalPagoMes.toLocaleString('pt-BR')}`, icon:'CheckCircle2', color:'#1D9E75' },
           { label:`A pagar em ${label}`, val:`R$ ${totalPendenteMes.toLocaleString('pt-BR')}`, icon:'Clock', color:'#BA7517' },
         ].map((k,i)=>(
-          <div key={i} className="kpi">
+          <AnimIn key={i} index={i} className="kpi">
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start'}}>
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
-          </div>
+            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}><CountUp delay={i*90}>{k.val}</CountUp></div>
+          </AnimIn>
         ))}
       </div>
 
@@ -16891,13 +16956,13 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
           { label: temPrevisao ? 'Resultado projetado' : 'Resultado do período', val:fmtR(resultadoPeriodo), icon: resultadoPeriodo >= 0 ? 'TrendingUp' : 'TrendingDown', color: resultadoPeriodo >= 0 ? '#1D9E75' : '#A32D2D', filtro:null, hint:'Entradas menos saídas no período',
             sub: totalNaoConciliado > 0 ? `${totalNaoConciliado} aguardando conciliar` : null },
         ].map((k,i)=>(
-          <div key={i} className="kpi"
+          <AnimIn key={i} index={i} className="kpi"
             onClick={()=>{
               if(k.filtro === 'conciliar') { setConciliandoAberto(true); setFiltroTipo('nao-conciliado'); }
               else if(k.filtro) setFiltroTipo(filtroTipo === k.filtro ? 'todos' : k.filtro);
             }}
             title={k.hint}
-            style={{cursor: k.filtro ? 'pointer' : 'default', transition:'all .15s',
+            style={{cursor: k.filtro ? 'pointer' : 'default',
               ...(k.filtro && filtroTipo === k.filtro ? {borderColor: k.color+'66', background: k.color+'08'} : {}),
             }}
             onMouseEnter={e=>{ if(k.filtro){ e.currentTarget.style.borderColor=k.color+'55'; e.currentTarget.style.transform='translateY(-1px)'; }}}
@@ -16906,12 +16971,12 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}>{k.val}</div>
+            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}><CountUp delay={i*90}>{k.val}</CountUp></div>
             {k.sub && <div style={{fontSize:10.5, color:'var(--t3)', marginTop:3}}>{k.sub}</div>}
             {k.filtro && <div style={{fontSize:10, color:k.color, marginTop:3, opacity:.7, display:'flex', alignItems:'center', gap:3}}>
               <Icon name="ArrowRight" size={9}/> {k.hint}
             </div>}
-          </div>
+          </AnimIn>
         ))}
       </div>
 
