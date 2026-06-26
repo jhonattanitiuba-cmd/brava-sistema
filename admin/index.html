@@ -18042,6 +18042,26 @@ function _normalizaGeo(s) {
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .trim();
 }
+const MAPA_DARK_STYLE = [
+  {elementType:'geometry',stylers:[{color:'#212121'}]},
+  {elementType:'labels.icon',stylers:[{visibility:'off'}]},
+  {elementType:'labels.text.fill',stylers:[{color:'#757575'}]},
+  {elementType:'labels.text.stroke',stylers:[{color:'#212121'}]},
+  {featureType:'administrative',elementType:'geometry',stylers:[{color:'#757575'}]},
+  {featureType:'administrative.country',elementType:'labels.text.fill',stylers:[{color:'#9e9e9e'}]},
+  {featureType:'administrative.land_parcel',stylers:[{visibility:'off'}]},
+  {featureType:'administrative.locality',elementType:'labels.text.fill',stylers:[{color:'#bdbdbd'}]},
+  {featureType:'poi',elementType:'labels.text.fill',stylers:[{color:'#757575'}]},
+  {featureType:'poi.park',elementType:'geometry',stylers:[{color:'#181818'}]},
+  {featureType:'road',elementType:'geometry.fill',stylers:[{color:'#2c2c2c'}]},
+  {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#8a8a8a'}]},
+  {featureType:'road.arterial',elementType:'geometry',stylers:[{color:'#373737'}]},
+  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3c3c3c'}]},
+  {featureType:'road.highway',elementType:'labels.text.fill',stylers:[{color:'#f3d19c'}]},
+  {featureType:'transit',elementType:'labels.text.fill',stylers:[{color:'#757575'}]},
+  {featureType:'water',elementType:'geometry',stylers:[{color:'#000000'}]},
+  {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#3d3d3d'}]},
+];
 function carregarGeo() {
   if (_geoCache) return Promise.resolve(_geoCache);
   if (_geoPromise) return _geoPromise;
@@ -18133,6 +18153,7 @@ function MapaBrava() {
   const infoRef = React.useRef(null);
 
   const [modo, setModo] = React.useState('clientes'); // 'clientes' | 'whatsapp'
+  const [mapaDark, setMapaDark] = React.useState(() => { try { return localStorage.getItem('brava_mapa_dark') === '1'; } catch { return false; } });
   const [geo, setGeo] = React.useState(null);
   const [mapsKey, setMapsKey] = React.useState(undefined); // undefined = carregando, null = sem chave, string = ok
   const [mapsPronto, setMapsPronto] = React.useState(false);
@@ -18195,9 +18216,16 @@ function MapaBrava() {
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
+      styles: mapaDark ? MAPA_DARK_STYLE : [],
     });
     infoRef.current = new g.InfoWindow();
   }, [mapsPronto]);
+
+  // ─── Modo escuro do mapa (aplica o estilo + salva a escolha) ───
+  React.useEffect(() => {
+    if (mapRef.current) mapRef.current.setOptions({ styles: mapaDark ? MAPA_DARK_STYLE : [] });
+    try { localStorage.setItem('brava_mapa_dark', mapaDark ? '1' : '0'); } catch {}
+  }, [mapaDark, mapsPronto]);
 
   // ─── Distinct de nichos e UFs dos clientes (pros filtros) ───
   const nichos = React.useMemo(() => {
@@ -18569,6 +18597,13 @@ function MapaBrava() {
                 </div>
               )}
               <div ref={mapDivRef} style={{width:'100%', height:'100%'}}/>
+              <button onClick={()=>setMapaDark(v=>!v)}
+                title={mapaDark ? 'Mapa claro' : 'Mapa escuro'}
+                style={{position:'absolute', top:10, right:10, zIndex:3, width:38, height:38, borderRadius:9, border:'1px solid var(--border)', background:'var(--bg-2)', color:'var(--t1)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 10px rgba(0,0,0,.25)'}}>
+                {mapaDark
+                  ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>}
+              </button>
             </div>
           )}
         </div>
