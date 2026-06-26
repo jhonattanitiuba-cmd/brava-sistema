@@ -18279,6 +18279,58 @@ function MapaBrava() {
     return Array.from(g.values());
   }, [clientesFiltrados, geo]);
 
+  // ─── Contagem de clientes por UF efetiva (deriva UF pela cidade quando vazio) ───
+  const clientesPorUf = React.useMemo(() => {
+    const m = new Map(); // uf -> count
+    if (!geo) return m;
+    (clientes || []).forEach(c => {
+      const uf = (c.endereco_estado || '').toUpperCase();
+      const cidade = c.endereco_cidade || '';
+      const norm = cidade ? _normalizaGeo(cidade) : '';
+      let muni = null;
+      if (cidade) muni = (uf && geo.muniIdx.get(norm + '|' + uf)) || geo.muniByNome.get(norm) || null;
+      const ufEff = (muni ? (muni.uf || uf) : uf) || '';
+      if (!ufEff) return;
+      m.set(ufEff, (m.get(ufEff) || 0) + 1);
+    });
+    return m;
+  }, [clientes, geo]);
+
+  // ─── Lookup de instância WhatsApp por id ───
+  const waInstanceById = React.useMemo(() => {
+    const m = new Map();
+    (waInstances || []).forEach(w => m.set(String(w.id), w));
+    return m;
+  }, [waInstances]);
+
+  // ─── InfoWindow ao selecionar UF: infos dinâmicas (sempre ativo) ───
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapsPronto || !geo) return;
+    if (!ufSel) { if (infoRef.current) infoRef.current.close(); return; }
+    const est = geo.estIdx.get(ufSel);
+    const nomeEst = (est && est.nome) || ufSel;
+    const reg = franquia.get(ufSel);
+    const inst = reg && reg.wa_instancia_id ? waInstanceById.get(String(reg.wa_instancia_id)) : null;
+    const nomeInst = inst ? (inst.profile_name || inst.nome || inst.evolution_instance_name || 'Instância') : null;
+    const qtd = clientesPorUf.get(ufSel) || 0;
+    const esc = (s) => String(s == null ? '' : s).replace(/</g, '&lt;');
+    const linha = (rotulo, valor) =>
+      '<div style="display:flex;justify-content:space-between;gap:14px;padding:3px 0;font-size:12.5px;">' +
+      '<span style="color:#888;">' + rotulo + '</span>' +
+      '<span style="color:#111;font-weight:600;text-align:right;">' + valor + '</span></div>';
+    const html = '<div style="min-width:210px;max-width:260px;font-family:Montserrat,sans-serif;color:#111;">' +
+      '<div style="font-weight:700;font-size:14px;margin-bottom:6px;">' + esc(nomeEst) + ' (' + esc(ufSel) + ')</div>' +
+      linha('WhatsApp', nomeInst ? esc(nomeInst) : 'Sem número') +
+      linha('Campanha', reg && reg.campanha ? esc(reg.campanha) : '—') +
+      linha('Principal', reg && reg.principal ? 'Sim' : 'Não') +
+      linha('Clientes', String(qtd)) +
+      '</div>';
+    infoRef.current.setContent(html);
+    if (est) infoRef.current.setPosition({ lat: est.lat, lng: est.lng });
+    infoRef.current.open(map);
+  }, [ufSel, franquia, clientesPorUf, waInstanceById, mapsPronto, geo]);
+
   // ─── Resumo modo clientes ───
   const resumoClientes = React.useMemo(() => {
     const topCidades = [...grupos].sort((a, b) => b.clientes.length - a.clientes.length).slice(0, 5);
@@ -18290,7 +18342,7 @@ function MapaBrava() {
     };
   }, [clientesFiltrados, grupos]);
 
-  // ─── Plota marcadores (modo clientes) ───
+  // ─── Camada de cima: marcadores de clientes (azul) — SEMPRE plotada ───
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapsPronto) return;
@@ -18298,7 +18350,6 @@ function MapaBrava() {
     // Limpa marcadores anteriores
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
-    if (modo !== 'clientes') return;
     if (!grupos.length) return;
     const bounds = new g.LatLngBounds();
     grupos.forEach(grp => {
@@ -18345,51 +18396,45 @@ function MapaBrava() {
     });
     if (grupos.length > 1) map.fitBounds(bounds);
     else if (grupos.length === 1) { map.setCenter({ lat: grupos[0].lat, lng: grupos[0].lng }); map.setZoom(7); }
-  }, [grupos, modo, mapsPronto]);
+  }, [grupos, mapsPronto]);
 
-  // ─── Carrega o GeoJSON de UFs no map.data (modo whatsapp) ───
+  // ─── Camada base: GeoJSON de UFs (cobertura WhatsApp) — SEMPRE plotada ───
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapsPronto || !geo) return;
-    if (modo !== 'whatsapp') {
-      // Sai do modo whatsapp: limpa as features
-      map.data.forEach(f => map.data.remove(f));
-      return;
-    }
-    // Entra no modo whatsapp: limpa marcadores e adiciona o geojson
-    markersRef.current.forEach(m => m.setMap(null));
-    markersRef.current = [];
+    // (Re)carrega o geojson uma vez por inicialização do mapa
     map.data.forEach(f => map.data.remove(f));
     map.data.addGeoJson(geo.geojson);
-    map.setCenter({ lat: -15.78, lng: -47.93 });
-    map.setZoom(4);
     const listener = map.data.addListener('click', (e) => {
       const sigla = (e.feature.getProperty('sigla') || '').toUpperCase();
       if (sigla) setUfSel(sigla);
     });
     return () => { if (window.google) window.google.maps.event.removeListener(listener); };
-  }, [modo, mapsPronto, geo]);
+  }, [mapsPronto, geo]);
 
-  // ─── Re-estiliza as UFs conforme franquia + seleção (modo whatsapp) ───
+  // ─── Re-estiliza as UFs conforme franquia + seleção — SEMPRE ativa ───
   React.useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapsPronto || modo !== 'whatsapp') return;
+    if (!map || !mapsPronto) return;
     map.data.setStyle((feature) => {
       const sigla = (feature.getProperty('sigla') || '').toUpperCase();
       const reg = franquia.get(sigla);
-      let fillColor = '#9AA0A6', fillOpacity = 0.15; // sem número: cinza claro
-      if (reg) {
-        if (reg.principal) { fillColor = '#7B3FE4'; fillOpacity = 0.45; } // destaque (principal)
-        else { fillColor = '#1E90FF'; fillOpacity = 0.35; } // com número
+      const temNumero = !!(reg && reg.wa_instancia_id);
+      let fillColor = '#9AA0A6', fillOpacity = 0.12; // sem número: cinza
+      if (temNumero) {
+        if (reg.principal) { fillColor = accent2; fillOpacity = 0.45; } // principal: roxo
+        else { fillColor = '#1D9E75'; fillOpacity = 0.30; } // com número: verde
       }
+      const selecionado = sigla === ufSel;
       return {
         fillColor,
         fillOpacity,
-        strokeColor: '#1E90FF',
-        strokeWeight: sigla === ufSel ? 3 : 1,
+        strokeColor: selecionado ? accent : '#7d8590',
+        strokeWeight: selecionado ? 4 : 1,
+        zIndex: selecionado ? 2 : 1,
       };
     });
-  }, [franquia, ufSel, modo, mapsPronto]);
+  }, [franquia, ufSel, mapsPronto, geo]);
 
   // ─── Ao selecionar UF, preenche o form com o registro existente ───
   React.useEffect(() => {
@@ -18462,7 +18507,7 @@ function MapaBrava() {
     <div className="page">
       <div className="page-head">
         <div>
-          <div className="page-head__sub">Distribuição geográfica de clientes e cobertura de WhatsApp por estado</div>
+          <div className="page-head__sub">Clientes (azul) e cobertura de WhatsApp por estado (roxo principal · verde com número · cinza sem número) na mesma vista</div>
         </div>
         <div className="page-head__actions" style={{display:'flex', gap:6}}>
           <button onClick={()=>setModo('clientes')} style={btnFiltro(modo==='clientes', accent)}>
@@ -18537,7 +18582,7 @@ function MapaBrava() {
                   {resumoWa.comNumero} {resumoWa.comNumero === 1 ? 'estado com número' : 'estados com número'}
                   {resumoWa.principal ? <> · principal: <strong style={{color:accent2}}>{resumoWa.principal}</strong></> : ''}
                 </div>
-                <div style={{marginTop:10, fontSize:11.5, color:'var(--t3)'}}>Clique num estado no mapa pra vincular um WhatsApp.</div>
+                <div style={{marginTop:10, fontSize:11.5, color:'var(--t3)'}}>Clique num estado no mapa pra ver as infos e vincular um WhatsApp. Roxo = principal, verde = com número, cinza = sem número. Pontos azuis = clientes.</div>
               </div>
 
               {ufSel && (
