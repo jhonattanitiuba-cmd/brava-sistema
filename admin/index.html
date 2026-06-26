@@ -18266,15 +18266,20 @@ function MapaBrava() {
       const uf = (c.endereco_estado || '').toUpperCase();
       const cidade = c.endereco_cidade || '';
       const norm = cidade ? _normalizaGeo(cidade) : '';
-      // Casa por cidade+UF; se não tiver UF (ou não casar), cai pra cidade-só e deriva a UF da base IBGE
+      // Casa por cidade+UF; se não casar, cai pra cidade-só (deriva UF da base IBGE)
       let muni = null;
       if (cidade) muni = (uf && geo.muniIdx.get(norm + '|' + uf)) || geo.muniByNome.get(norm) || null;
-      const ufEff = muni ? (muni.uf || uf) : uf;
-      let ponto = null, label = '';
-      if (muni) { ponto = { lat: muni.lat, lng: muni.lng }; label = norm + '|' + ufEff; }
-      else if (uf && geo.estIdx.get(uf)) { const e = geo.estIdx.get(uf); ponto = { lat: e.lat, lng: e.lng }; label = '__uf__' + uf; }
-      if (!ponto) return; // sem localização: não plota
-      if (!g.has(label)) g.set(label, { lat: ponto.lat, lng: ponto.lng, cidade: muni ? cidade : (geo.estIdx.get(uf)?.nome || uf), uf: ufEff, clientes: [] });
+      let ponto = null, label = '', cidadeNome = '', ufEff = '';
+      if (muni) {
+        ponto = { lat: muni.lat, lng: muni.lng }; ufEff = muni.uf || uf; label = norm + '|' + ufEff; cidadeNome = cidade;
+      } else {
+        // Sem cidade casada: usa o estado; sem estado válido, cai pra SP (provisório até conciliar endereços)
+        const ufUse = (uf && geo.estIdx.get(uf)) ? uf : 'SP';
+        const e = geo.estIdx.get(ufUse);
+        if (e) { ponto = { lat: e.lat, lng: e.lng }; ufEff = ufUse; label = '__uf__' + ufUse; cidadeNome = (cidade || e.nome); }
+      }
+      if (!ponto) return;
+      if (!g.has(label)) g.set(label, { lat: ponto.lat, lng: ponto.lng, cidade: cidadeNome, uf: ufEff, clientes: [] });
       g.get(label).clientes.push(c);
     });
     return Array.from(g.values());
@@ -18461,11 +18466,11 @@ function MapaBrava() {
       }
       const selecionado = sigla === ufSel;
       return {
-        fillColor,
-        fillOpacity,
-        strokeColor: selecionado ? accent : '#7d8590',
-        strokeWeight: selecionado ? 4 : 1,
-        zIndex: selecionado ? 2 : 1,
+        fillColor: selecionado ? accent : fillColor,
+        fillOpacity: selecionado ? 0.55 : fillOpacity,
+        strokeColor: selecionado ? '#ffffff' : '#7d8590',
+        strokeWeight: selecionado ? 5 : 1,
+        zIndex: selecionado ? 3 : 1,
       };
     });
   }, [franquia, ufSel, mapsPronto, geo]);
