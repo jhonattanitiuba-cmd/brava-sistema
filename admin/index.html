@@ -897,6 +897,7 @@ const NAV = [
   { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
   { key:'projetos',     label:'Projetos',        icon:'Layers',          grupo:'Operações', badge:null },
+  { key:'mapa',         label:'Mapa',            icon:'MapPin',          grupo:'Operações', badge:null },
   { key:'equipe',       label:'Equipe',          icon:'UsersRound',      grupo:'Operações', badge:null },
   { key:'etiquetas',    label:'Etiquetas',       icon:'Tag',             grupo:'Operações', badge:null },
   { key:'trafego',      label:'Campanhas',       icon:'TrendingUp',      grupo:'Tráfego', badge:null },
@@ -18029,6 +18030,546 @@ function ClientesCRM() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MAPA BRAVA - distribuição geográfica de clientes + franquia WhatsApp por estado
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Cache module-level dos assets geo (carregados uma única vez) ───
+let _geoCache = null;
+let _geoPromise = null;
+function _normalizaGeo(s) {
+  return (s || '').toString().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .trim();
+}
+function carregarGeo() {
+  if (_geoCache) return Promise.resolve(_geoCache);
+  if (_geoPromise) return _geoPromise;
+  _geoPromise = (async () => {
+    const [munis, estados, geojson] = await Promise.all([
+      fetch('geo/municipios_br.json').then(r => r.json()),
+      fetch('geo/estados_br.json').then(r => r.json()),
+      fetch('geo/uf_br.geojson').then(r => r.json()),
+    ]);
+    // Índice de municípios: normaliza(nome)+'|'+uf -> {lat,lng}
+    const muniIdx = new Map();
+    (munis || []).forEach(m => {
+      muniIdx.set(_normalizaGeo(m.nome) + '|' + (m.uf || '').toUpperCase(), { lat: m.lat, lng: m.lng });
+    });
+    // Índice de estados: UF -> {lat,lng,nome}
+    const estIdx = new Map();
+    (estados || []).forEach(e => {
+      estIdx.set((e.uf || '').toUpperCase(), { lat: e.lat, lng: e.lng, nome: e.nome });
+    });
+    _geoCache = { munis, estados, geojson, muniIdx, estIdx };
+    return _geoCache;
+  })();
+  return _geoPromise;
+}
+
+// ─── Loader do Google Maps (injeta o script uma única vez) ───
+let _gmapsPromise = null;
+function carregarGoogleMaps(key) {
+  if (typeof window !== 'undefined' && window.google && window.google.maps) return Promise.resolve(window.google.maps);
+  if (_gmapsPromise) return _gmapsPromise;
+  _gmapsPromise = new Promise((resolve, reject) => {
+    if (!key) { reject(new Error('sem chave')); return; }
+    const existente = document.querySelector('script[data-brava-gmaps]');
+    if (!existente) {
+      const s = document.createElement('script');
+      s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&libraries=geometry';
+      s.async = true;
+      s.defer = true;
+      s.setAttribute('data-brava-gmaps', '1');
+      s.onerror = () => reject(new Error('Falha ao carregar Google Maps'));
+      document.head.appendChild(s);
+    }
+    // Poll leve até window.google.maps existir
+    let tentativas = 0;
+    const t = setInterval(() => {
+      if (window.google && window.google.maps) { clearInterval(t); resolve(window.google.maps); }
+      else if (++tentativas > 200) { clearInterval(t); reject(new Error('Timeout no Google Maps')); }
+    }, 50);
+  });
+  return _gmapsPromise;
+}
+
+// ─── Hook realtime: wa_franquia_estados indexado por UF ───
+function useFranquiaEstados() {
+  const [porUf, setPorUf] = React.useState(() => new Map());
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('wa_franquia_estados').select('*');
+      if (!alive) return;
+      const m = new Map();
+      (data || []).forEach(r => m.set((r.uf || '').toUpperCase(), r));
+      setPorUf(m);
+    };
+    load();
+    const ch = cli.channel('rt:wa_franquia_estados')
+      .on('postgres_changes', { event:'*', schema:'public', table:'wa_franquia_estados' }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, []);
+  return porUf;
+}
+
+function MapaBrava() {
+  const isMobile = useIsMobile();
+  const { list: clientes, loading } = useClientes();
+  const { instances: waInstances } = useWaInstances();
+  const franquia = useFranquiaEstados();
+
+  const mapDivRef = React.useRef(null);
+  const mapRef = React.useRef(null);
+  const markersRef = React.useRef([]);
+  const infoRef = React.useRef(null);
+
+  const [modo, setModo] = React.useState('clientes'); // 'clientes' | 'whatsapp'
+  const [geo, setGeo] = React.useState(null);
+  const [mapsKey, setMapsKey] = React.useState(undefined); // undefined = carregando, null = sem chave, string = ok
+  const [mapsPronto, setMapsPronto] = React.useState(false);
+  const [mapsErro, setMapsErro] = React.useState(null);
+
+  // Filtros modo clientes
+  const [fNicho, setFNicho] = React.useState('todos');
+  const [fUf, setFUf] = React.useState('todos');
+  const [fStatus, setFStatus] = React.useState('todos');
+  const [fCidade, setFCidade] = React.useState('');
+
+  // Modo whatsapp
+  const [ufSel, setUfSel] = React.useState(null);
+  const [formFranq, setFormFranq] = React.useState({ wa_instancia_id:'', campanha:'', principal:false, observacao:'' });
+  const [salvando, setSalvando] = React.useState(false);
+  const [cliente360, setCliente360] = React.useState(null);
+
+  // ─── Lê a chave do Google Maps via app_config no mount ───
+  React.useEffect(() => {
+    let alive = true;
+    const cli = getSupa();
+    if (!cli) { setMapsKey(null); return; }
+    (async () => {
+      try {
+        const { data } = await cli.from('app_config').select('valor').eq('chave', 'google_maps_browser_key').maybeSingle();
+        if (!alive) return;
+        const v = (data && data.valor || '').toString().trim();
+        setMapsKey(v || null);
+      } catch (_e) {
+        if (alive) setMapsKey(null);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  // ─── Carrega os assets geo (cache module-level) ───
+  React.useEffect(() => {
+    let alive = true;
+    carregarGeo().then(g => { if (alive) setGeo(g); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  // ─── Injeta o Google Maps quando há chave ───
+  React.useEffect(() => {
+    if (!mapsKey) return; // null/undefined: não tenta
+    let alive = true;
+    carregarGoogleMaps(mapsKey)
+      .then(() => { if (alive) setMapsPronto(true); })
+      .catch(e => { if (alive) setMapsErro(e.message || 'Erro ao carregar o mapa'); });
+    return () => { alive = false; };
+  }, [mapsKey]);
+
+  // ─── Inicializa o mapa quando google carregou + ref existe ───
+  React.useEffect(() => {
+    if (!mapsPronto || !mapDivRef.current || mapRef.current) return;
+    const g = window.google.maps;
+    mapRef.current = new g.Map(mapDivRef.current, {
+      center: { lat: -15.78, lng: -47.93 },
+      zoom: 4,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+    infoRef.current = new g.InfoWindow();
+  }, [mapsPronto]);
+
+  // ─── Distinct de nichos e UFs dos clientes (pros filtros) ───
+  const nichos = React.useMemo(() => {
+    const s = new Set();
+    (clientes || []).forEach(c => { if (c.nicho) s.add(c.nicho); });
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [clientes]);
+  const ufsClientes = React.useMemo(() => {
+    const s = new Set();
+    (clientes || []).forEach(c => { if (c.endereco_estado) s.add((c.endereco_estado || '').toUpperCase()); });
+    return Array.from(s).sort();
+  }, [clientes]);
+  const statusList = React.useMemo(() => {
+    const s = new Set();
+    (clientes || []).forEach(c => { if (c.status) s.add(c.status); });
+    return Array.from(s).sort();
+  }, [clientes]);
+
+  // ─── Clientes filtrados ───
+  const clientesFiltrados = React.useMemo(() => {
+    let arr = clientes || [];
+    if (fNicho !== 'todos') arr = arr.filter(c => c.nicho === fNicho);
+    if (fUf !== 'todos') arr = arr.filter(c => (c.endereco_estado || '').toUpperCase() === fUf);
+    if (fStatus !== 'todos') arr = arr.filter(c => c.status === fStatus);
+    if (fCidade.trim()) {
+      const q = _normalizaGeo(fCidade);
+      arr = arr.filter(c => _normalizaGeo(c.endereco_cidade).includes(q));
+    }
+    return arr;
+  }, [clientes, fNicho, fUf, fStatus, fCidade]);
+
+  // ─── Agrupa clientes por ponto no mapa (cidade ou centróide do estado) ───
+  const grupos = React.useMemo(() => {
+    if (!geo) return [];
+    const g = new Map(); // key -> { lat, lng, cidade, uf, clientes:[] }
+    (clientesFiltrados || []).forEach(c => {
+      const uf = (c.endereco_estado || '').toUpperCase();
+      const cidade = c.endereco_cidade || '';
+      let ponto = null, label = '';
+      const muni = cidade ? geo.muniIdx.get(_normalizaGeo(cidade) + '|' + uf) : null;
+      if (muni) { ponto = muni; label = cidade + '|' + uf; }
+      else if (uf && geo.estIdx.get(uf)) { const e = geo.estIdx.get(uf); ponto = { lat: e.lat, lng: e.lng }; label = '__uf__' + uf; }
+      if (!ponto) return; // sem localização: não plota
+      if (!g.has(label)) g.set(label, { lat: ponto.lat, lng: ponto.lng, cidade: muni ? cidade : (geo.estIdx.get(uf)?.nome || uf), uf, clientes: [] });
+      g.get(label).clientes.push(c);
+    });
+    return Array.from(g.values());
+  }, [clientesFiltrados, geo]);
+
+  // ─── Resumo modo clientes ───
+  const resumoClientes = React.useMemo(() => {
+    const topCidades = [...grupos].sort((a, b) => b.clientes.length - a.clientes.length).slice(0, 5);
+    return {
+      total: clientesFiltrados.length,
+      cidades: grupos.length,
+      nichos: new Set(clientesFiltrados.map(c => c.nicho).filter(Boolean)).size,
+      topCidades,
+    };
+  }, [clientesFiltrados, grupos]);
+
+  // ─── Plota marcadores (modo clientes) ───
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapsPronto) return;
+    const g = window.google.maps;
+    // Limpa marcadores anteriores
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+    if (modo !== 'clientes') return;
+    if (!grupos.length) return;
+    const bounds = new g.LatLngBounds();
+    grupos.forEach(grp => {
+      const n = grp.clientes.length;
+      const scale = Math.min(30, 8 + n * 1.5);
+      const pos = { lat: grp.lat, lng: grp.lng };
+      const marker = new g.Marker({
+        position: pos,
+        map,
+        label: { text: String(n), color: '#fff', fontSize: '11px', fontWeight: '700' },
+        icon: {
+          path: g.SymbolPath.CIRCLE,
+          scale,
+          fillColor: '#1E90FF',
+          fillOpacity: 0.8,
+          strokeColor: '#ffffff',
+          strokeWeight: 2,
+        },
+      });
+      marker.addListener('click', () => {
+        const linhas = grp.clientes.map(c =>
+          '<div data-cli-id="' + c.id + '" style="padding:5px 2px;cursor:pointer;border-bottom:1px solid #eee;">' +
+          '<strong>' + (c.nome || 'Sem nome').replace(/</g, '&lt;') + '</strong>' +
+          (c.nicho ? '<br><span style="color:#888;font-size:12px;">' + c.nicho.replace(/</g, '&lt;') + '</span>' : '') +
+          '</div>'
+        ).join('');
+        const html = '<div style="max-width:240px;font-family:Montserrat,sans-serif;color:#111;">' +
+          '<div style="font-weight:700;margin-bottom:6px;">' + (grp.cidade || '').replace(/</g, '&lt;') + ' (' + grp.uf + ') · ' + n + '</div>' +
+          '<div style="max-height:220px;overflow-y:auto;">' + linhas + '</div></div>';
+        infoRef.current.setContent(html);
+        infoRef.current.open(map, marker);
+        // Liga clique nos itens pra abrir Cliente 360
+        g.event.addListenerOnce(infoRef.current, 'domready', () => {
+          document.querySelectorAll('[data-cli-id]').forEach(el => {
+            el.onclick = () => {
+              const c = grp.clientes.find(x => String(x.id) === el.getAttribute('data-cli-id'));
+              if (c) setCliente360(c);
+            };
+          });
+        });
+      });
+      markersRef.current.push(marker);
+      bounds.extend(pos);
+    });
+    if (grupos.length > 1) map.fitBounds(bounds);
+    else if (grupos.length === 1) { map.setCenter({ lat: grupos[0].lat, lng: grupos[0].lng }); map.setZoom(7); }
+  }, [grupos, modo, mapsPronto]);
+
+  // ─── Carrega o GeoJSON de UFs no map.data (modo whatsapp) ───
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapsPronto || !geo) return;
+    if (modo !== 'whatsapp') {
+      // Sai do modo whatsapp: limpa as features
+      map.data.forEach(f => map.data.remove(f));
+      return;
+    }
+    // Entra no modo whatsapp: limpa marcadores e adiciona o geojson
+    markersRef.current.forEach(m => m.setMap(null));
+    markersRef.current = [];
+    map.data.forEach(f => map.data.remove(f));
+    map.data.addGeoJson(geo.geojson);
+    map.setCenter({ lat: -15.78, lng: -47.93 });
+    map.setZoom(4);
+    const listener = map.data.addListener('click', (e) => {
+      const sigla = (e.feature.getProperty('sigla') || '').toUpperCase();
+      if (sigla) setUfSel(sigla);
+    });
+    return () => { if (window.google) window.google.maps.event.removeListener(listener); };
+  }, [modo, mapsPronto, geo]);
+
+  // ─── Re-estiliza as UFs conforme franquia + seleção (modo whatsapp) ───
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapsPronto || modo !== 'whatsapp') return;
+    map.data.setStyle((feature) => {
+      const sigla = (feature.getProperty('sigla') || '').toUpperCase();
+      const reg = franquia.get(sigla);
+      let fillColor = '#9AA0A6', fillOpacity = 0.15; // sem número: cinza claro
+      if (reg) {
+        if (reg.principal) { fillColor = '#7B3FE4'; fillOpacity = 0.45; } // destaque (principal)
+        else { fillColor = '#1E90FF'; fillOpacity = 0.35; } // com número
+      }
+      return {
+        fillColor,
+        fillOpacity,
+        strokeColor: '#1E90FF',
+        strokeWeight: sigla === ufSel ? 3 : 1,
+      };
+    });
+  }, [franquia, ufSel, modo, mapsPronto]);
+
+  // ─── Ao selecionar UF, preenche o form com o registro existente ───
+  React.useEffect(() => {
+    if (!ufSel) return;
+    const reg = franquia.get(ufSel);
+    setFormFranq({
+      wa_instancia_id: reg?.wa_instancia_id || '',
+      campanha: reg?.campanha || '',
+      principal: !!reg?.principal,
+      observacao: reg?.observacao || '',
+    });
+  }, [ufSel, franquia]);
+
+  const salvarFranquia = async () => {
+    if (!ufSel) return;
+    const cli = getSupa(); if (!cli) return;
+    setSalvando(true);
+    try {
+      const { error } = await cli.from('wa_franquia_estados').upsert({
+        uf: ufSel,
+        wa_instancia_id: formFranq.wa_instancia_id || null,
+        campanha: formFranq.campanha || null,
+        principal: !!formFranq.principal,
+        observacao: formFranq.observacao || null,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) showToast?.('Erro ao salvar vínculo: ' + error.message, 'erro');
+      else showToast?.('Vínculo do estado ' + ufSel + ' salvo', 'success');
+    } finally {
+      setSalvando(false);
+    }
+  };
+  const removerFranquia = async () => {
+    if (!ufSel) return;
+    const cli = getSupa(); if (!cli) return;
+    setSalvando(true);
+    try {
+      const { error } = await cli.from('wa_franquia_estados').delete().eq('uf', ufSel);
+      if (error) showToast?.('Erro ao remover vínculo: ' + error.message, 'erro');
+      else { showToast?.('Vínculo do estado ' + ufSel + ' removido', 'success'); }
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  // ─── Resumo modo whatsapp ───
+  const resumoWa = React.useMemo(() => {
+    let comNumero = 0, principal = null;
+    franquia.forEach((reg, uf) => {
+      if (reg.wa_instancia_id) comNumero++;
+      if (reg.principal) principal = uf;
+    });
+    return { comNumero, principal };
+  }, [franquia]);
+
+  const btnFiltro = (ativo, cor) => ({
+    padding:'5px 10px', borderRadius:7, fontSize:11.5, fontWeight:500, cursor:'pointer', flexShrink:0,
+    background: ativo ? cor + '22' : 'transparent',
+    color: ativo ? cor : 'var(--t3)',
+    border: '1px solid ' + (ativo ? cor : 'transparent'),
+    display:'inline-flex', alignItems:'center', gap:4,
+  });
+  const selStyle = { width:'100%', padding:'8px 10px', borderRadius:8, background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--t1)', fontSize:13, marginTop:4 };
+  const labelStyle = { fontSize:11.5, fontWeight:600, color:'var(--t2)', display:'block', marginTop:12 };
+
+  const accent = '#1E90FF';
+  const accent2 = '#7B3FE4';
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__sub">Distribuição geográfica de clientes e cobertura de WhatsApp por estado</div>
+        </div>
+        <div className="page-head__actions" style={{display:'flex', gap:6}}>
+          <button onClick={()=>setModo('clientes')} style={btnFiltro(modo==='clientes', accent)}>
+            <Icon name="UsersRound" size={12}/>Clientes
+          </button>
+          <button onClick={()=>setModo('whatsapp')} style={btnFiltro(modo==='whatsapp', accent2)}>
+            <Icon name="WhatsApp" size={12}/>WhatsApp por estado
+          </button>
+        </div>
+      </div>
+
+      <div style={{display:'flex', flexDirection: isMobile ? 'column' : 'row', gap:16}}>
+        {/* Coluna esquerda: filtros + resumo */}
+        <div style={{width: isMobile ? '100%' : 360, flexShrink:0, display:'flex', flexDirection:'column', gap:12}}>
+          {modo === 'clientes' ? (
+            <>
+              <div className="card" style={{padding:14}}>
+                <div style={{fontSize:13, fontWeight:600, color:'var(--t1)', marginBottom:10, display:'flex', alignItems:'center', gap:6}}>
+                  <Icon name="MapPin" size={14} style={{color:accent}}/>Filtros
+                </div>
+                <label style={labelStyle}>Nicho</label>
+                <select value={fNicho} onChange={e=>setFNicho(e.target.value)} style={selStyle}>
+                  <option value="todos">Todos os nichos</option>
+                  {nichos.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <label style={labelStyle}>Estado (UF)</label>
+                <select value={fUf} onChange={e=>setFUf(e.target.value)} style={selStyle}>
+                  <option value="todos">Todos os estados</option>
+                  {ufsClientes.map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+                <label style={labelStyle}>Status</label>
+                <select value={fStatus} onChange={e=>setFStatus(e.target.value)} style={selStyle}>
+                  <option value="todos">Todos os status</option>
+                  {statusList.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                <label style={labelStyle}>Cidade</label>
+                <input value={fCidade} onChange={e=>setFCidade(e.target.value)} placeholder="Buscar cidade..." style={selStyle}/>
+              </div>
+
+              <div className="card" style={{padding:14}}>
+                <div style={{fontSize:13, fontWeight:600, color:'var(--t1)', marginBottom:10}}>Resumo</div>
+                <div style={{display:'flex', gap:10, flexWrap:'wrap'}}>
+                  {[
+                    { l:'Clientes', v: resumoClientes.total },
+                    { l:'Cidades', v: resumoClientes.cidades },
+                    { l:'Nichos', v: resumoClientes.nichos },
+                  ].map((k,i)=>(
+                    <div key={i} style={{flex:1, minWidth:80, background:'var(--bg-3)', border:'1px solid var(--border-soft)', borderRadius:10, padding:'10px 12px'}}>
+                      <div style={{fontSize:11, color:'var(--t2)'}}>{k.l}</div>
+                      <div style={{fontSize:22, fontWeight:700, color:'var(--t1)'}}>{k.v}</div>
+                    </div>
+                  ))}
+                </div>
+                {resumoClientes.topCidades.length > 0 && (
+                  <div style={{marginTop:14}}>
+                    <div style={{fontSize:11.5, fontWeight:600, color:'var(--t2)', marginBottom:6}}>Top cidades</div>
+                    {resumoClientes.topCidades.map((g,i)=>(
+                      <div key={i} style={{display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid var(--border-soft)', fontSize:12.5}}>
+                        <span style={{color:'var(--t1)'}}>{g.cidade} <span style={{color:'var(--t3)'}}>({g.uf})</span></span>
+                        <span style={{color:accent, fontWeight:700}}>{g.clientes.length}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="card" style={{padding:14}}>
+                <div style={{fontSize:13, fontWeight:600, color:'var(--t1)', marginBottom:6}}>Cobertura por estado</div>
+                <div style={{fontSize:12.5, color:'var(--t2)'}}>
+                  {resumoWa.comNumero} {resumoWa.comNumero === 1 ? 'estado com número' : 'estados com número'}
+                  {resumoWa.principal ? <> · principal: <strong style={{color:accent2}}>{resumoWa.principal}</strong></> : ''}
+                </div>
+                <div style={{marginTop:10, fontSize:11.5, color:'var(--t3)'}}>Clique num estado no mapa pra vincular um WhatsApp.</div>
+              </div>
+
+              {ufSel && (
+                <div className="card" style={{padding:14}}>
+                  <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4}}>
+                    <div style={{fontSize:15, fontWeight:700, color:'var(--t1)'}}>{ufSel}</div>
+                    <button onClick={()=>setUfSel(null)} style={{background:'none', border:'none', color:'var(--t3)', cursor:'pointer'}}><Icon name="X" size={16}/></button>
+                  </div>
+                  <label style={labelStyle}>WhatsApp vinculado</label>
+                  <select value={formFranq.wa_instancia_id} onChange={e=>setFormFranq(f=>({...f, wa_instancia_id:e.target.value}))} style={selStyle}>
+                    <option value="">Nenhum</option>
+                    {(waInstances || []).map(w => <option key={w.id} value={w.id}>{w.profile_name || w.nome || w.evolution_instance_name}</option>)}
+                  </select>
+                  <label style={labelStyle}>Campanha</label>
+                  <input value={formFranq.campanha} onChange={e=>setFormFranq(f=>({...f, campanha:e.target.value}))} placeholder="Ex: Expansão Sul" style={selStyle}/>
+                  <label style={{...labelStyle, display:'flex', alignItems:'center', gap:8, cursor:'pointer'}}>
+                    <input type="checkbox" checked={formFranq.principal} onChange={e=>setFormFranq(f=>({...f, principal:e.target.checked}))}/>
+                    Estado principal
+                  </label>
+                  <label style={labelStyle}>Observação</label>
+                  <textarea value={formFranq.observacao} onChange={e=>setFormFranq(f=>({...f, observacao:e.target.value}))} rows={3} style={{...selStyle, resize:'vertical'}}/>
+                  <div style={{display:'flex', gap:8, marginTop:12}}>
+                    <button onClick={salvarFranquia} disabled={salvando} className="btn btn-primary" style={{flex:1}}>
+                      <Icon name="CheckCircle2" size={13}/>{salvando ? 'Salvando...' : 'Salvar'}
+                    </button>
+                    {franquia.get(ufSel) && (
+                      <button onClick={removerFranquia} disabled={salvando} className="btn btn-outline" style={{color:'#ff8585', borderColor:'#A32D2D55'}}>
+                        <Icon name="Trash2" size={13}/>Remover
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Mapa */}
+        <div style={{flex:1, minWidth:0}}>
+          {mapsKey === null ? (
+            <div className="card" style={{height: isMobile ? 360 : 'calc(100vh - 160px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:30}}>
+              <Icon name="MapPin" size={40} style={{color:'var(--t3)', opacity:.4, marginBottom:12}}/>
+              <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>Mapa não configurado</div>
+              <div style={{fontSize:13, color:'var(--t2)', maxWidth:420}}>Configure a chave do Google Maps em app_config.google_maps_browser_key pra ativar o mapa.</div>
+            </div>
+          ) : mapsErro ? (
+            <div className="card" style={{height: isMobile ? 360 : 'calc(100vh - 160px)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:30}}>
+              <Icon name="AlertCircle" size={40} style={{color:'#ff8585', opacity:.6, marginBottom:12}}/>
+              <div style={{fontSize:15, fontWeight:600, color:'var(--t1)', marginBottom:6}}>Não foi possível carregar o mapa</div>
+              <div style={{fontSize:13, color:'var(--t2)', maxWidth:420}}>{mapsErro}</div>
+            </div>
+          ) : (
+            <div style={{position:'relative', height: isMobile ? 360 : 'calc(100vh - 160px)', borderRadius:14, overflow:'hidden', border:'1px solid var(--border-soft)'}}>
+              {(!mapsPronto || loading) && (
+                <div style={{position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', background:'var(--bg-2)', zIndex:2, color:'var(--t3)', fontSize:13}}>
+                  Carregando mapa...
+                </div>
+              )}
+              <div ref={mapDivRef} style={{width:'100%', height:'100%'}}/>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {cliente360 && <Cliente360Modal cliente={cliente360} onClose={()=>setCliente360(null)}/>}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 // CLIENTE CADASTRO MODAL - estilo black brava (Sprint C.1.4)
 // 4 seções: Identificação, Contato, Endereço, Comercial
@@ -27158,6 +27699,7 @@ function App() {
           : page === 'pipeline' ? <PipelineProjetos/>
           : page === 'clientes_crm' ? <ClientesCRM/>
           : page === 'projetos' ? <ProjetosCRM/>
+          : page === 'mapa'     ? <MapaBrava/>
           : page === 'agenda'   ? <Agenda/>
           : page === 'tarefas'  ? <Tarefas/>
           : page === 'email'    ? <Email/>
