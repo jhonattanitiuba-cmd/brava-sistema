@@ -18097,11 +18097,14 @@ function carregarGeo() {
   if (_geoCache) return Promise.resolve(_geoCache);
   if (_geoPromise) return _geoPromise;
   _geoPromise = (async () => {
-    const [munis, estados, geojson] = await Promise.all([
-      fetch('geo/municipios_br.json').then(r => r.json()),
-      fetch('geo/estados_br.json').then(r => r.json()),
-      fetch('geo/uf_br.geojson').then(r => r.json()),
+    const base = '/admin/geo/'; // caminho absoluto (independe de barra final na URL)
+    const [munis, estados] = await Promise.all([
+      fetch(base + 'municipios_br.json').then(r => r.json()),
+      fetch(base + 'estados_br.json').then(r => r.json()),
     ]);
+    // geojson (1.6MB) desacoplado: se falhar, os pontos de cliente/estado ainda funcionam
+    let geojson = null;
+    try { geojson = await fetch(base + 'uf_br.geojson').then(r => r.json()); } catch (_e) { geojson = null; }
     // Índice de municípios: normaliza(nome)+'|'+uf -> {lat,lng,uf}
     // + índice por nome de cidade só (deriva a UF quando o cliente não tem UF preenchida)
     const muniIdx = new Map();
@@ -18120,6 +18123,7 @@ function carregarGeo() {
     _geoCache = { munis, estados, geojson, muniIdx, muniByNome, estIdx };
     return _geoCache;
   })();
+  _geoPromise.catch(() => { _geoPromise = null; }); // se falhar, permite tentar de novo na próxima
   return _geoPromise;
 }
 
@@ -18472,9 +18476,9 @@ function MapaBrava() {
   React.useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapsPronto || !geo) return;
-    // (Re)carrega o geojson uma vez por inicialização do mapa
+    // (Re)carrega o geojson uma vez por inicialização do mapa (se carregou; pontos funcionam sem ele)
     map.data.forEach(f => map.data.remove(f));
-    map.data.addGeoJson(geo.geojson);
+    if (geo.geojson) map.data.addGeoJson(geo.geojson);
     const listener = map.data.addListener('click', (e) => {
       const sigla = (e.feature.getProperty('sigla') || '').toUpperCase();
       if (sigla) setUfSel(sigla);
