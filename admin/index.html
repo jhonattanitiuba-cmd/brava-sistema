@@ -18150,6 +18150,7 @@ function MapaBrava() {
   const mapDivRef = React.useRef(null);
   const mapRef = React.useRef(null);
   const markersRef = React.useRef([]);
+  const stateMarkersRef = React.useRef([]);
   const infoRef = React.useRef(null);
 
   const [modo, setModo] = React.useState('clientes'); // 'clientes' | 'whatsapp'
@@ -18341,6 +18342,39 @@ function MapaBrava() {
       topCidades,
     };
   }, [clientesFiltrados, grupos]);
+
+  // ─── Pontinhos por estado (modo WhatsApp): roxo = com número Brava, maior no principal ───
+  React.useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapsPronto || !geo) return;
+    const g = window.google.maps;
+    stateMarkersRef.current.forEach(m => m.setMap(null));
+    stateMarkersRef.current = [];
+    if (modo !== 'whatsapp') return;
+    (geo.estados || []).forEach(e => {
+      const uf = (e.uf || '').toUpperCase();
+      const reg = franquia.get(uf);
+      const temNum = !!(reg && reg.wa_instancia_id);
+      const principal = !!(reg && reg.principal);
+      const marker = new g.Marker({
+        position: { lat: e.lat, lng: e.lng },
+        map,
+        title: e.nome + (temNum ? (principal ? ' · principal' : '') : ' · sem número'),
+        zIndex: 60,
+        icon: {
+          path: g.SymbolPath.CIRCLE,
+          scale: principal ? 11 : 8,
+          fillColor: temNum ? '#7B3FE4' : '#9AA0A6',
+          fillOpacity: temNum ? 0.95 : 0.5,
+          strokeColor: '#ffffff',
+          strokeWeight: principal ? 2.5 : 1.5,
+        },
+      });
+      marker.addListener('click', () => setUfSel(uf));
+      stateMarkersRef.current.push(marker);
+    });
+    return () => { stateMarkersRef.current.forEach(m => m.setMap(null)); stateMarkersRef.current = []; };
+  }, [modo, mapsPronto, geo, franquia]);
 
   // ─── Camada de cima: marcadores de clientes (azul) — SEMPRE plotada ───
   React.useEffect(() => {
