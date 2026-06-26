@@ -18051,17 +18051,22 @@ function carregarGeo() {
       fetch('geo/estados_br.json').then(r => r.json()),
       fetch('geo/uf_br.geojson').then(r => r.json()),
     ]);
-    // Índice de municípios: normaliza(nome)+'|'+uf -> {lat,lng}
+    // Índice de municípios: normaliza(nome)+'|'+uf -> {lat,lng,uf}
+    // + índice por nome de cidade só (deriva a UF quando o cliente não tem UF preenchida)
     const muniIdx = new Map();
+    const muniByNome = new Map();
     (munis || []).forEach(m => {
-      muniIdx.set(_normalizaGeo(m.nome) + '|' + (m.uf || '').toUpperCase(), { lat: m.lat, lng: m.lng });
+      const nn = _normalizaGeo(m.nome);
+      const uf = (m.uf || '').toUpperCase();
+      muniIdx.set(nn + '|' + uf, { lat: m.lat, lng: m.lng, uf });
+      if (!muniByNome.has(nn)) muniByNome.set(nn, { lat: m.lat, lng: m.lng, uf });
     });
     // Índice de estados: UF -> {lat,lng,nome}
     const estIdx = new Map();
     (estados || []).forEach(e => {
       estIdx.set((e.uf || '').toUpperCase(), { lat: e.lat, lng: e.lng, nome: e.nome });
     });
-    _geoCache = { munis, estados, geojson, muniIdx, estIdx };
+    _geoCache = { munis, estados, geojson, muniIdx, muniByNome, estIdx };
     return _geoCache;
   })();
   return _geoPromise;
@@ -18231,12 +18236,16 @@ function MapaBrava() {
     (clientesFiltrados || []).forEach(c => {
       const uf = (c.endereco_estado || '').toUpperCase();
       const cidade = c.endereco_cidade || '';
+      const norm = cidade ? _normalizaGeo(cidade) : '';
+      // Casa por cidade+UF; se não tiver UF (ou não casar), cai pra cidade-só e deriva a UF da base IBGE
+      let muni = null;
+      if (cidade) muni = (uf && geo.muniIdx.get(norm + '|' + uf)) || geo.muniByNome.get(norm) || null;
+      const ufEff = muni ? (muni.uf || uf) : uf;
       let ponto = null, label = '';
-      const muni = cidade ? geo.muniIdx.get(_normalizaGeo(cidade) + '|' + uf) : null;
-      if (muni) { ponto = muni; label = cidade + '|' + uf; }
+      if (muni) { ponto = { lat: muni.lat, lng: muni.lng }; label = norm + '|' + ufEff; }
       else if (uf && geo.estIdx.get(uf)) { const e = geo.estIdx.get(uf); ponto = { lat: e.lat, lng: e.lng }; label = '__uf__' + uf; }
       if (!ponto) return; // sem localização: não plota
-      if (!g.has(label)) g.set(label, { lat: ponto.lat, lng: ponto.lng, cidade: muni ? cidade : (geo.estIdx.get(uf)?.nome || uf), uf, clientes: [] });
+      if (!g.has(label)) g.set(label, { lat: ponto.lat, lng: ponto.lng, cidade: muni ? cidade : (geo.estIdx.get(uf)?.nome || uf), uf: ufEff, clientes: [] });
       g.get(label).clientes.push(c);
     });
     return Array.from(g.values());
