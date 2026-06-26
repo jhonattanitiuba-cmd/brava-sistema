@@ -27546,6 +27546,7 @@ function PassosModal({ atas, onClose }){
   const [datas,setDatas] = React.useState(function(){ const o={}; passos.forEach(function(p){ o[p.key]=_prazoParaISO(p.prazo); }); return o; });
   const [feitos,setFeitos] = React.useState({});
   const [busy,setBusy] = React.useState('');
+  const [removidos,setRemovidos] = React.useState(function(){ return new Set(); });
   const converter = async function(p){
     setBusy(p.key);
     try{
@@ -27563,12 +27564,14 @@ function PassosModal({ atas, onClose }){
     }catch(e){ showToast('Erro: '+(e.message||e),'erro'); }
     finally{ setBusy(''); }
   };
-  const converterTodos = async function(){ for(const p of passos){ if(feitos[p.key]!=='ok'){ await converter(p); } } };
-  const pendentes = passos.filter(function(p){ return feitos[p.key]!=='ok'; }).length;
+  const visiveis = passos.filter(function(p){ return !removidos.has(p.key); });
+  const removerPasso = function(key){ setRemovidos(function(s){ const n=new Set(s); n.add(key); return n; }); };
+  const converterTodos = async function(){ for(const p of visiveis){ if(feitos[p.key]!=='ok'){ await converter(p); } } };
+  const pendentes = visiveis.filter(function(p){ return feitos[p.key]!=='ok'; }).length;
   return (
-    <_FModal title={'Próximos passos ('+passos.length+')'} onClose={onClose} wide>
-      {passos.length===0 ? (
-        <div style={{color:'var(--t3)', fontSize:13, padding:'12px 0'}}>Nenhum próximo passo registrado nas atas ainda.</div>
+    <_FModal title={'Próximos passos ('+visiveis.length+')'} onClose={onClose} wide>
+      {visiveis.length===0 ? (
+        <div style={{color:'var(--t3)', fontSize:13, padding:'12px 0'}}>{passos.length===0 ? 'Nenhum próximo passo registrado nas atas ainda.' : 'Todos os passos foram removidos.'}</div>
       ) : (
         <div>
           <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, marginBottom:10}}>
@@ -27576,8 +27579,8 @@ function PassosModal({ atas, onClose }){
             <button onClick={converterTodos} style={_fBtnPrimary} disabled={!!busy||pendentes===0}>Converter todos</button>
           </div>
           <div style={{display:'grid', gap:8, maxHeight:'58vh', overflowY:'auto', paddingRight:4}}>
-            {passos.map(function(p){ return (
-              <div key={p.key} className="card" style={{display:'grid', gridTemplateColumns:'1fr 150px 132px', gap:10, alignItems:'center', padding:'10px 12px', opacity:busy===p.key?0.6:1}}>
+            {visiveis.map(function(p){ return (
+              <div key={p.key} className="card" style={{display:'grid', gridTemplateColumns:'1fr 150px 132px 30px', gap:10, alignItems:'center', padding:'10px 12px', opacity:busy===p.key?0.6:1}}>
                 <div style={{minWidth:0}}>
                   <div style={{fontWeight:600, color:'var(--t1)', fontSize:13}}>{p.acao}</div>
                   <div style={{fontSize:11.5, color:'var(--t3)'}}>{p.ataTitulo}{p.cliente?(' · '+p.cliente):''}{p.responsavel?(' · '+p.responsavel):''}{p.prazo?(' · prazo: '+p.prazo):''}</div>
@@ -27588,6 +27591,12 @@ function PassosModal({ atas, onClose }){
                 ) : (
                   <button onClick={function(){ converter(p); }} disabled={busy===p.key} style={Object.assign({}, _fBtnGhost, {justifyContent:'center'})}>Criar tarefa</button>
                 )}
+                <button onClick={function(){ removerPasso(p.key); }} disabled={busy===p.key} title="Remover este passo (não vai pro Google)"
+                  style={{display:'inline-flex', alignItems:'center', justifyContent:'center', width:28, height:28, borderRadius:7, background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)'}}
+                  onMouseEnter={function(e){ e.currentTarget.style.background='rgba(229,84,77,.12)'; e.currentTarget.style.color='#E5544D'; }}
+                  onMouseLeave={function(e){ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)'; }}>
+                  <Icon name="Trash2" size={15}/>
+                </button>
               </div>
             ); })}
           </div>
