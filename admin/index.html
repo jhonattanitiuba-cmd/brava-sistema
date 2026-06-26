@@ -353,6 +353,9 @@ body.boot-ready .grid-3 > *:nth-child(3) { animation-delay: .86s; }
 .kpi__delta.down{color:var(--danger);}
 .kpi__icon{float:right;width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-top:-4px;}
 
+/* Privacidade do Financeiro: borra os valores grandes preservando o layout */
+.fin-privado .fin-valor{filter:blur(9px);user-select:none;pointer-events:none;}
+
 /* Responsivo: 4 col → 2 col em tablet → 1 col em mobile */
 @media (max-width: 1080px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
@@ -7079,13 +7082,16 @@ function _filtroBtn(active, cor) {
   };
 }
 
+// Privacidade do Financeiro: true = valores ocultos (blur). Default oculto a cada entrada.
+const FinPrivacyContext = React.createContext(false);
+
 // Contador animado 0 -> valor, preservando prefixo/sufixo e formato do texto.
 // Número animado reutilizável.
 // - 1º mount: anima de 0 → value, respeitando `delay` (efeito cascata).
 // - value muda depois (realtime): re-anima do valor exibido atual → novo value,
-//   rápido (~500ms) e SEM delay (não re-cascateia a cada tick).
+//   rápido (~900ms) e SEM delay (não re-cascateia a cada tick).
 // Aceita children string ("R$ 1.234,56") OU prop numérica `value` + `format(n)`.
-function CountUp({ children, value, format, duration = 900, delay = 0 }) {
+function CountUp({ children, value, format, duration = 1700, delay = 0 }) {
   const hasNum = typeof value === 'number' && isFinite(value);
   const isText = !hasNum && (typeof children === 'string' || typeof children === 'number');
   const raw = isText ? String(children) : '';
@@ -7137,7 +7143,7 @@ function CountUp({ children, value, format, duration = 900, delay = 0 }) {
     const primeiro = firstRef.current;
     firstRef.current = false;
     const from = primeiro ? 0 : curRef.current;   // cascata começa do 0; realtime do valor atual
-    const dur  = primeiro ? duration : 500;        // realtime é mais rápido
+    const dur  = primeiro ? duration : 900;        // realtime é mais rápido
     const wait = primeiro ? delay : 0;             // só a cascata respeita delay
 
     const animar = () => {
@@ -7174,7 +7180,7 @@ function CountUp({ children, value, format, duration = 900, delay = 0 }) {
 }
 
 // Reveal em cascata: entra com opacity 0 + translateY(10px) → 1 / 0,
-// com transitionDelay = index*90ms. Remonta (re-anima) quando a `key` do pai troca.
+// com transitionDelay = index*200ms. Remonta (re-anima) quando a `key` do pai troca.
 function AnimIn({ index = 0, children, style, ...rest }) {
   const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const [show, setShow] = React.useState(reduce);
@@ -7189,7 +7195,7 @@ function AnimIn({ index = 0, children, style, ...rest }) {
       opacity: show ? 1 : 0,
       transform: show ? 'none' : 'translateY(10px)',
       transition: 'opacity .45s ease, transform .45s ease',
-      transitionDelay: show ? `${index * 90}ms` : '0ms',
+      transitionDelay: show ? `${index * 200}ms` : '0ms',
       willChange: 'opacity, transform',
     }}>{children}</div>
   );
@@ -13360,12 +13366,12 @@ function FinDRE({ mesFiltro }) {
             <span style={{ color:'var(--t3)' }}>{prefixo}</span> {lbl}
             {!!cats.length && <span style={{ fontSize:11, color:'var(--t3)' }}>({cats.length})</span>}
           </span>
-          <span style={{ fontFamily:'var(--f-m)', fontSize:13, color: total < 0 ? '#E5544D' : 'var(--t1)' }}><CountUp>{fmt(total)}</CountUp></span>
+          <span className="fin-valor" style={{ fontFamily:'var(--f-m)', fontSize:13, color: total < 0 ? '#E5544D' : 'var(--t1)' }}><CountUp>{fmt(total)}</CountUp></span>
         </div>
         {aberto && cats.map((c, i) => (
           <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 14px 5px 40px', fontSize:12, color:'var(--t3)', background:'var(--bg-2)' }}>
             <span style={{ display:'flex', alignItems:'center', gap:7 }}><span style={{ width:8, height:8, borderRadius:2, background: c.cor || '#6B7280' }} />{c.nome}</span>
-            <span style={{ fontFamily:'var(--f-m)' }}>{fmt(c.total)}</span>
+            <span className="fin-valor" style={{ fontFamily:'var(--f-m)' }}>{fmt(c.total)}</span>
           </div>
         ))}
       </div>
@@ -13375,7 +13381,7 @@ function FinDRE({ mesFiltro }) {
   const subtotal = (lbl, valor, forte) => (
     <div style={{ display:'flex', justifyContent:'space-between', padding:'10px 14px', borderBottom:'1px solid var(--border)', background: forte ? 'var(--bg-2)' : 'transparent' }}>
       <span style={{ fontSize:13, fontWeight:700, color:'var(--t1)' }}>{lbl}</span>
-      <span style={{ fontFamily:'var(--f-m)', fontSize:13.5, fontWeight:700, color: valor < 0 ? '#E5544D' : (forte ? '#1D9E75' : 'var(--t1)') }}><CountUp>{fmt(valor)}</CountUp></span>
+      <span className="fin-valor" style={{ fontFamily:'var(--f-m)', fontSize:13.5, fontWeight:700, color: valor < 0 ? '#E5544D' : (forte ? '#1D9E75' : 'var(--t1)') }}><CountUp>{fmt(valor)}</CountUp></span>
     </div>
   );
 
@@ -14750,17 +14756,17 @@ function ProjecaoMRR({ data }) {
         <div style={{display:'flex', gap:14, alignItems:'center'}}>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Receita prevista · {dados[ultimoIdx].mes}</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}><CountUp delay={0}>{`R$ ${projUltimo.toLocaleString('pt-BR')}`}</CountUp></div>
+            <div className="fin-valor" style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'#1D9E75', letterSpacing:'-.02em', marginTop:2}}><CountUp delay={0}>{`R$ ${projUltimo.toLocaleString('pt-BR')}`}</CountUp></div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Crescimento esperado</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>{crescimento >= 0 ? '+' : ''}<CountUp delay={120}>{`${crescimento}%`}</CountUp></div>
+            <div className="fin-valor" style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, background:'var(--grad)', WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent', letterSpacing:'-.02em', marginTop:2}}>{crescimento >= 0 ? '+' : ''}<CountUp delay={120}>{`${crescimento}%`}</CountUp></div>
           </div>
           <div style={{width:1, height:38, background:'var(--border-soft)'}}/>
           <div style={{textAlign:'right'}}>
             <div style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)', textTransform:'uppercase', letterSpacing:'.05em'}}>Total previsto a entrar</div>
-            <div style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}><CountUp delay={240}>{`R$ ${totalAcumulado.toLocaleString('pt-BR')}`}</CountUp></div>
+            <div className="fin-valor" style={{fontFamily:'var(--f-d)', fontSize:22, fontWeight:700, color:'var(--t1)', letterSpacing:'-.02em', marginTop:2}}><CountUp delay={240}>{`R$ ${totalAcumulado.toLocaleString('pt-BR')}`}</CountUp></div>
           </div>
         </div>
       </div>
@@ -15220,7 +15226,7 @@ function FinRecorrencia({ onNovoContrato, mesFiltro, filtroInicial, onFiltroCons
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{color:k.highlight?'#ff8585':'var(--t1)',fontSize:22}}><CountUp delay={i*90}>{k.val}</CountUp></div>
+            <div className="kpi__value fin-valor" style={{color:k.highlight?'#ff8585':'var(--t1)',fontSize:22}}><CountUp delay={i*200}>{k.val}</CountUp></div>
           </AnimIn>
         ))}
       </div>
@@ -15567,6 +15573,8 @@ function Financeiro() {
   const [animSeq, setAnimSeq] = React.useState(0);
   React.useEffect(() => { setAnimSeq(s => s + 1); }, [tab]);
   const [filtroInicial, setFiltroInicial] = React.useState(null); // ex: 'entrada' | 'saida' | 'nao-conciliado' | 'atrasados'
+  // Privacidade: valores ocultos (blur) por padrão a cada entrada no Financeiro (não persiste).
+  const [ocultarValores, setOcultarValores] = React.useState(true);
 
   // Navega pra outra aba e aplica filtro automaticamente
   const navegarPara = React.useCallback((novaTab, filtro = null) => {
@@ -15618,10 +15626,19 @@ function Financeiro() {
   const [mesDropOpen, setMesDropOpen] = React.useState(false);
 
   return (
-    <div className="page">
+    <FinPrivacyContext.Provider value={ocultarValores}>
+    <div className={'page' + (ocultarValores ? ' fin-privado' : '')}>
       <div className="page-head">
         <div>
-          <div className="page-head__title">Financeiro</div>
+          <div className="page-head__title" style={{display:'flex', alignItems:'center', gap:8}}>
+            Financeiro
+            <button
+              onClick={()=>setOcultarValores(v=>!v)}
+              title={ocultarValores ? 'Mostrar valores' : 'Ocultar valores'}
+              style={{background:'transparent', border:'none', cursor:'pointer', color:'var(--t3)', display:'inline-flex', alignItems:'center', padding:2, lineHeight:0}}>
+              <Icon name={ocultarValores ? 'EyeOff' : 'Eye'} size={16}/>
+            </button>
+          </div>
           <div className="page-head__sub">
             {recorrencia.length} contratos · {despesas.length} despesas · {caixa.length} lançamentos manuais · período: <strong style={{color:'var(--t1)'}}>{mesAtualLabel}</strong>
           </div>
@@ -15752,6 +15769,7 @@ function Financeiro() {
       {tab === 'dre'          && <FinDRE key={tab+'_'+animSeq} mesFiltro={mesFiltro}/>}
       {tab === 'btg'          && <BTGPagamentos key={tab+'_'+animSeq}/>}
     </div>
+    </FinPrivacyContext.Provider>
   );
 }
 
@@ -15905,7 +15923,7 @@ function FinDashboard({ mesFiltro, recorrencia, pagamentos, despesas, despesasPa
                 <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
               </div>
             </div>
-            <div className="kpi__value" style={{fontSize:24, color:'var(--t1)'}}><CountUp delay={i*90}>{k.val}</CountUp></div>
+            <div className="kpi__value fin-valor" style={{fontSize:24, color:'var(--t1)'}}><CountUp delay={i*200}>{k.val}</CountUp></div>
             <div style={{fontSize:11.5, color:'var(--t3)', marginTop:2}}>{k.sub}</div>
           </AnimIn>
         ))}
@@ -16004,7 +16022,7 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}><CountUp delay={i*90}>{k.val}</CountUp></div>
+            <div className="kpi__value fin-valor" style={{fontSize:22, color:'var(--t1)'}}><CountUp delay={i*200}>{k.val}</CountUp></div>
           </AnimIn>
         ))}
       </div>
@@ -16971,7 +16989,7 @@ function FinCaixa({ mesFiltro, recorrencia, pagamentos, despesas, despesasPag, c
               <div className="kpi__label">{k.label}</div>
               <div className="kpi__icon" style={{background:k.color+'22'}}><Icon name={k.icon} size={17} style={{color:k.color}}/></div>
             </div>
-            <div className="kpi__value" style={{fontSize:22, color:'var(--t1)'}}><CountUp delay={i*90}>{k.val}</CountUp></div>
+            <div className="kpi__value fin-valor" style={{fontSize:22, color:'var(--t1)'}}><CountUp delay={i*200}>{k.val}</CountUp></div>
             {k.sub && <div style={{fontSize:10.5, color:'var(--t3)', marginTop:3}}>{k.sub}</div>}
             {k.filtro && <div style={{fontSize:10, color:k.color, marginTop:3, opacity:.7, display:'flex', alignItems:'center', gap:3}}>
               <Icon name="ArrowRight" size={9}/> {k.hint}
