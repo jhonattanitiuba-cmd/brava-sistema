@@ -610,6 +610,8 @@ if (!document.documentElement.getAttribute('data-theme')) {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
 <!-- SheetJS (XLSX): parse de extratos bancários no browser, sem subir arquivo pro servidor -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- ApexCharts: gráficos elegantes (estilo Power BI) no módulo Financeiro -->
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js"></script>
 <script type="text/babel" src="app/icons.jsx"></script>
 <script type="text/babel" src="app/components.jsx"></script>
 <script type="text/babel">
@@ -14488,6 +14490,114 @@ function statusFaseParaGrafico(sf) {
   return 'Em breve';
 }
 
+// ─────────────────────────────────────────────────────────────────
+// BravaChart — wrapper fino do ApexCharts com a identidade visual
+// Power BI minimalista da Brava. Reutilizável em qualquer gráfico.
+// Props: { type, series, options, height }  (height default 280)
+// Real-time: as props (series/options) chegam de hooks realtime; ao
+// mudar, o gráfico re-renderiza via updateOptions. Tema dark|light é
+// detectado por data-theme no <html> e observado por MutationObserver.
+// ─────────────────────────────────────────────────────────────────
+function mergeBravaDefaults(type, series, options, height, dark) {
+  const base = {
+    chart: {
+      type, height,
+      toolbar: { show:false },
+      zoom: { enabled:false },
+      fontFamily: 'Montserrat, sans-serif',
+      background: 'transparent',
+      animations: { enabled:true, easing:'easeinout', speed:450 },
+      parentHeightOffset: 0,
+    },
+    dataLabels: { enabled:false },
+    grid: { borderColor: dark?'#1F1F2A':'#E6E6E6', strokeDashArray:4, padding:{ left:4, right:4 } },
+    stroke: { curve:'smooth', width: type==='area'?2.5:(type==='line'?2.5:0), lineCap:'round' },
+    fill: type==='area'
+      ? { type:'gradient', gradient:{ shadeIntensity:.4, opacityFrom:.35, opacityTo:.05 } }
+      : { type:'solid', opacity:1 },
+    legend: {
+      position:'bottom', horizontalAlign:'left', fontSize:'12px',
+      labels:{ colors: dark?'#A0A0AA':'#4A4A52' },
+      markers:{ radius:12 },
+      itemMargin:{ horizontal:10, vertical:4 },
+    },
+    xaxis: {
+      axisBorder:{ show:false }, axisTicks:{ show:false },
+      labels:{ style:{ colors: dark?'#6E6E78':'#8E8E94', fontSize:'11px' } },
+    },
+    yaxis: {
+      labels:{
+        style:{ colors: dark?'#6E6E78':'#8E8E94', fontSize:'11px' },
+        formatter:(v)=> v>=1000 ? (v/1000).toFixed(v%1000?1:0)+'k' : String(v),
+      },
+    },
+    tooltip: {
+      theme: dark?'dark':'light',
+      y:{ formatter:(v)=>'R$ '+Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2}) },
+    },
+  };
+  // deep-merge raso: o caller sobrescreve por chave de topo (chart, xaxis, etc.)
+  const merged = { ...base };
+  Object.keys(options || {}).forEach(k => {
+    merged[k] = (base[k] && typeof base[k]==='object' && !Array.isArray(base[k]) &&
+                 options[k] && typeof options[k]==='object' && !Array.isArray(options[k]))
+      ? { ...base[k], ...options[k] }
+      : options[k];
+  });
+  merged.series = series;
+  return merged;
+}
+
+function BravaChart({ type, series, options, height = 280 }) {
+  const elRef = React.useRef(null);
+  const instRef = React.useRef(null);
+
+  const buildOpts = React.useCallback(() => {
+    const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+    return mergeBravaDefaults(type, series, options, height, dark);
+  }, [type, series, options, height]);
+
+  // mount / unmount: cria a instância (com poll curto até ApexCharts existir) e destrói no cleanup
+  React.useEffect(() => {
+    let timer = null;
+    let cancelado = false;
+    const montar = () => {
+      if (cancelado || !elRef.current || instRef.current) return;
+      instRef.current = new window.ApexCharts(elRef.current, buildOpts());
+      instRef.current.render();
+    };
+    if (window.ApexCharts) {
+      montar();
+    } else {
+      timer = setInterval(() => {
+        if (window.ApexCharts) { clearInterval(timer); timer = null; montar(); }
+      }, 50);
+    }
+    return () => {
+      cancelado = true;
+      if (timer) clearInterval(timer);
+      if (instRef.current) { try { instRef.current.destroy(); } catch (e) {} instRef.current = null; }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // mudança de series/options/height (props realtime): atualiza sem recriar
+  React.useEffect(() => {
+    if (instRef.current) instRef.current.updateOptions(buildOpts(), false, true);
+  }, [buildOpts]);
+
+  // troca de tema (data-theme no <html>): re-renderiza com as cores certas
+  React.useEffect(() => {
+    const obs = new MutationObserver(() => {
+      if (instRef.current) instRef.current.updateOptions(buildOpts(), false, true);
+    });
+    obs.observe(document.documentElement, { attributes:true, attributeFilter:['data-theme'] });
+    return () => obs.disconnect();
+  }, [buildOpts]);
+
+  return <div ref={elRef} style={{ width:'100%', minHeight:height }}/>;
+}
+
 function ProjecaoMRR({ data }) {
   const corStatus = { 'Ativo':'#1E90FF', 'Em Prod':'#1D9E75', 'Implementação':'#7B3FE4', 'Comercial':'#BA7517', 'Proposta Apresentada':'#A32D2D', 'Em breve':'#6E6E78' };
   const statusOrdem = ['Em Prod','Ativo','Implementação','Comercial','Proposta Apresentada','Em breve'];
@@ -14566,7 +14676,6 @@ function ProjecaoMRR({ data }) {
     return { mes: m.label, total, stack, eAtual: idx === mesAtualIdx, ePassado: idx < mesAtualIdx, eFuturo: idx > mesAtualIdx };
   });
 
-  const maxTotal = Math.max(1, ...dados.map(d => d.total));
   const totalAcumulado = dados.slice(mesAtualIdx).reduce((s,d) => s + d.total, 0);
   const ultimoIdx = dados.length - 1;
   const projUltimo = dados[ultimoIdx].total;
@@ -14598,81 +14707,26 @@ function ProjecaoMRR({ data }) {
         </div>
       </div>
 
-      {/* Gráfico empilhado */}
-      <div style={{display:'flex', alignItems:'flex-end', gap:8, height:220, padding:'0 4px', position:'relative'}}>
-        {/* Linha pontilhada do mês atual */}
-        <div style={{
-          position:'absolute', left:`${(mesAtualIdx+0.5)/dados.length*100}%`, top:0, bottom:24,
-          borderLeft:'2px dashed var(--blue)', opacity:.5, pointerEvents:'none'
-        }}/>
-
-        {dados.map((d, i) => {
-          const altura = (d.total / maxTotal) * 100;
-          return (
-            <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6, height:'100%'}}>
-              {/* Valor topo */}
-              <div style={{
-                fontFamily:'var(--f-m)', fontSize:9.5,
-                color: d.eAtual ? 'var(--blue)' : d.eFuturo ? 'var(--t3)' : 'var(--t2)',
-                fontWeight: d.eAtual ? 700 : 500,
-                opacity: d.total > 0 ? 1 : 0,
-              }}>
-                {d.total >= 1000 ? `${(d.total/1000).toFixed(1)}k` : d.total}
-              </div>
-
-              {/* Barra empilhada */}
-              <div style={{flex:1, width:'100%', display:'flex', flexDirection:'column', justifyContent:'flex-end', position:'relative'}}>
-                <div style={{
-                  width:'100%', height:`${altura}%`, minHeight:4,
-                  display:'flex', flexDirection:'column-reverse',
-                  borderRadius:'5px 5px 0 0', overflow:'hidden',
-                  border: d.eAtual ? '2px solid var(--blue)' : 'none',
-                  boxShadow: d.eAtual ? '0 0 12px rgba(30,144,255,.4)' : 'none',
-                  transition:'opacity .2s',
-                  opacity: d.eFuturo ? 0.85 : 1,
-                  cursor:'default',
-                }}
-                  title={`${d.mes} · R$ ${d.total.toLocaleString('pt-BR')}\n${Object.entries(d.stack).map(([k,v]) => `${k}: R$ ${v.toLocaleString('pt-BR')}`).join('\n')}`}
-                >
-                  {statusOrdem.map(st => d.stack[st] ? (
-                    <div key={st} style={{
-                      width:'100%',
-                      height:`${(d.stack[st]/d.total)*100}%`,
-                      background: corStatus[st],
-                    }}/>
-                  ) : null)}
-                </div>
-              </div>
-
-              {/* Mês */}
-              <div style={{
-                fontFamily:'var(--f-m)', fontSize:10,
-                color: d.eAtual ? 'var(--blue)' : 'var(--t3)',
-                fontWeight: d.eAtual ? 700 : 500,
-              }}>{d.mes}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Legenda */}
-      <div style={{display:'flex', gap:18, marginTop:18, paddingTop:14, borderTop:'1px solid var(--border-soft)', flexWrap:'wrap', alignItems:'center'}}>
-        {statusOrdem.map(st => {
-          const total = lista.filter(r => r.status === st).reduce((s,r) => s+r.mensal, 0);
-          if (total === 0) return null;
-          return (
-            <div key={st} style={{display:'flex', alignItems:'center', gap:6}}>
-              <div style={{width:12, height:12, borderRadius:3, background:corStatus[st]}}/>
-              <span style={{fontSize:12, color:'var(--t2)', fontWeight:500}}>{st}</span>
-              <span style={{fontSize:11, color:'var(--t3)', fontFamily:'var(--f-m)'}}>R$ {total.toLocaleString('pt-BR')}/mês</span>
-            </div>
-          );
-        })}
-        <div style={{marginLeft:'auto', display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--t3)'}}>
-          <div style={{width:14, height:0, borderTop:'2px dashed var(--blue)'}}/>
-          <span>Mês atual ({dados[mesAtualIdx]?.mes || '-'})</span>
-        </div>
-      </div>
+      {/* Gráfico empilhado (ApexCharts via BravaChart) */}
+      <BravaChart
+        type="bar"
+        height={280}
+        series={statusOrdem.map(st => ({
+          name: st,
+          data: dados.map(d => d.stack[st] || 0),
+        }))}
+        options={{
+          chart: { stacked:true },
+          colors: statusOrdem.map(st => corStatus[st]),
+          plotOptions: { bar:{ columnWidth:'55%', borderRadius:4, borderRadiusApplication:'end' } },
+          xaxis: { categories: dados.map(d => d.mes) },
+          annotations: { xaxis: [{
+            x: dados[mesAtualIdx]?.mes,
+            borderColor: '#1E90FF', strokeDashArray: 4,
+            label: { text:'atual', style:{ color:'#fff', background:'#1E90FF' } },
+          }] },
+        }}
+      />
     </div>
   );
 }
@@ -15816,47 +15870,24 @@ function CompararEntradasSaidas({ extrato }) {
       entradas, saidas, lucro: entradas - saidas, eAtual: i === 0,
     });
   }
-  const maxBar = Math.max(1, ...meses.flatMap(m => [m.entradas, m.saidas]));
-
   return (
     <div className="card" style={{padding:'22px 24px', marginBottom:14}}>
       <div className="card__head" style={{marginBottom:16}}>
         <div className="card__title" style={{fontSize:15}}>Entradas vs Saídas · últimos 6 meses</div>
       </div>
-      <div style={{display:'flex', alignItems:'flex-end', gap:18, height:180, padding:'0 4px'}}>
-        {meses.map((m, i) => (
-          <div key={i} style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6, height:'100%'}}>
-            <div style={{flex:1, width:'100%', display:'flex', alignItems:'flex-end', justifyContent:'center', gap:5}}>
-              <div title={`Entrada: R$ ${m.entradas.toLocaleString('pt-BR')}`}
-                style={{
-                  flex:1, maxWidth:18,
-                  height:`${(m.entradas / maxBar) * 100}%`, minHeight:m.entradas > 0 ? 3 : 0,
-                  background:'#1D9E75', borderRadius:'4px 4px 0 0', opacity: m.eAtual ? 1 : 0.7,
-                }}/>
-              <div title={`Saída: R$ ${m.saidas.toLocaleString('pt-BR')}`}
-                style={{
-                  flex:1, maxWidth:18,
-                  height:`${(m.saidas / maxBar) * 100}%`, minHeight:m.saidas > 0 ? 3 : 0,
-                  background:'#A32D2D', borderRadius:'4px 4px 0 0', opacity: m.eAtual ? 1 : 0.7,
-                }}/>
-            </div>
-            <div style={{fontFamily:'var(--f-m)', fontSize:10, color: m.eAtual ? 'var(--blue)' : 'var(--t3)', fontWeight: m.eAtual ? 700 : 500}}>{m.label}</div>
-            <div style={{fontSize:10.5, color: m.lucro >= 0 ? '#1D9E75' : '#ff8585', fontFamily:'var(--f-m)', fontWeight:600}}>
-              {m.lucro === 0 ? '+0' : m.lucro > 0
-                ? `+${Math.abs(m.lucro) >= 1000 ? `${(m.lucro/1000).toFixed(1)}k` : m.lucro.toFixed(0)}`
-                : `-${Math.abs(m.lucro) >= 1000 ? `${(Math.abs(m.lucro)/1000).toFixed(1)}k` : Math.abs(m.lucro).toFixed(0)}`}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div style={{display:'flex', gap:18, marginTop:14, paddingTop:12, borderTop:'1px solid var(--border-soft)'}}>
-        <div style={{display:'flex', alignItems:'center', gap:6}}>
-          <div style={{width:12, height:12, borderRadius:3, background:'#1D9E75'}}/><span style={{fontSize:12, color:'var(--t2)'}}>Entradas (extrato real)</span>
-        </div>
-        <div style={{display:'flex', alignItems:'center', gap:6}}>
-          <div style={{width:12, height:12, borderRadius:3, background:'#A32D2D'}}/><span style={{fontSize:12, color:'var(--t2)'}}>Saídas (extrato real)</span>
-        </div>
-      </div>
+      <BravaChart
+        type="bar"
+        height={260}
+        series={[
+          { name:'Entradas', data: meses.map(m => Math.round(m.entradas)) },
+          { name:'Saídas',   data: meses.map(m => Math.round(m.saidas)) },
+        ]}
+        options={{
+          colors: ['#1D9E75', '#A32D2D'],
+          plotOptions: { bar:{ columnWidth:'55%', borderRadius:4 } },
+          xaxis: { categories: meses.map(m => m.label) },
+        }}
+      />
     </div>
   );
 }
