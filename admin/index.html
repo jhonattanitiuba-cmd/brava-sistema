@@ -905,6 +905,7 @@ const NAV = [
   { key:'mapa',         label:'Mapa',            icon:'MapPin',          grupo:'Operações', badge:null },
   { key:'equipe',       label:'Equipe',          icon:'UsersRound',      grupo:'Operações', badge:null },
   { key:'etiquetas',    label:'Etiquetas',       icon:'Tag',             grupo:'Operações', badge:null },
+  { key:'criacao',      label:'Criação',         icon:'Sparkles',        grupo:'Operações', badge:null },
   { key:'trafego',      label:'Campanhas',       icon:'TrendingUp',      grupo:'Tráfego', badge:null },
   { key:'marketing',    label:'Marketing',       icon:'Lightbulb',       grupo:'Marketing', badge:null, soon:true },
   { key:'mrr',          label:'Financeiro',      icon:'DollarSign',      grupo:'Financeiro', badge:null },
@@ -23920,6 +23921,303 @@ function EtiquetaAplicarPopover({ entidadeId, tabela, fkCampo, jaAplicadas, onCl
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   CRIAÇÃO — Studio de protótipos (tabela prototipos + edge gerar-prototipo)
+   Realtime espelha useDespesas. Edita HTML manual ou gera/refina via IA.
+   ═══════════════════════════════════════════════════════════════════ */
+function usePrototipos() {
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('prototipos').select('*').order('updated_at', { ascending: false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:prototipos')
+      .on('postgres_changes', { event:'*', schema:'public', table:'prototipos' }, load)
+      .subscribe();
+    const onChange = () => load();
+    window.addEventListener('brava:prototipo_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:prototipo_changed', onChange);
+    };
+  }, []);
+  return list;
+}
+
+function CriacaoStudio() {
+  const lista = usePrototipos();
+  const [selId, setSelId]       = React.useState(null);   // protótipo aberto (null = novo)
+  const [nome, setNome]         = React.useState('');
+  const [html, setHtml]         = React.useState('');
+  const [modo, setModo]         = React.useState('manual'); // 'manual' | 'ia'
+  const [promptIA, setPromptIA] = React.useState('');
+  const [refino, setRefino]     = React.useState('');
+  const [gerando, setGerando]   = React.useState(false);
+  const [salvando, setSalvando] = React.useState(false);
+  const [previewHtml, setPreviewHtml] = React.useState(''); // debounced
+
+  const nomeRef = React.useRef(null);
+  const debounceRef = React.useRef(null);
+
+  // Preview ao vivo com debounce ~300ms (sem vazar timer no unmount)
+  React.useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setPreviewHtml(html), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [html]);
+
+  const abrir = (p) => {
+    setSelId(p.id);
+    setNome(p.nome || '');
+    setHtml(p.html || '');
+    setModo('manual');
+    setPromptIA(''); setRefino('');
+  };
+
+  const novo = () => {
+    setSelId(null);
+    setNome('');
+    setHtml('');
+    setModo('manual');
+    setPromptIA(''); setRefino('');
+    setTimeout(() => nomeRef.current?.focus(), 30);
+  };
+
+  const excluir = async (p, ev) => {
+    ev?.stopPropagation();
+    if (!confirm(`Excluir o protótipo "${p.nome || 'sem nome'}"?`)) return;
+    const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','erro'); return; }
+    const { error } = await cli.from('prototipos').delete().eq('id', p.id);
+    if (error) { showToast?.('Erro ao excluir: '+error.message,'erro'); return; }
+    window.dispatchEvent(new CustomEvent('brava:prototipo_changed'));
+    if (selId === p.id) novo();
+    showToast?.('Protótipo excluído','success');
+  };
+
+  const gerar = async (texto, ehRefino) => {
+    const prompt = (texto || '').trim();
+    if (!prompt) { showToast?.('Descreva o que deseja gerar','erro'); return; }
+    const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','erro'); return; }
+    setGerando(true);
+    try {
+      const body = { prompt };
+      if (ehRefino && html) body.html_atual = html; // refinamento reusa a mesma edge
+      const { data, error } = await cli.functions.invoke('gerar-prototipo', { body });
+      if (error) { showToast?.('Erro na geração: '+error.message,'erro'); return; }
+      if (!data || !data.ok) { showToast?.('Falha: '+(data?.error || 'sem resposta'),'erro'); return; }
+      setHtml(data.html || '');
+      setModo('manual');
+      if (ehRefino) setRefino(''); else setPromptIA('');
+      showToast?.(ehRefino ? 'Protótipo refinado' : 'Protótipo gerado','success');
+    } catch (e) {
+      showToast?.('Falha na geração','erro');
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const salvar = async () => {
+    const n = nome.trim();
+    if (!n) { showToast?.('Dê um nome ao protótipo','erro'); setTimeout(()=>nomeRef.current?.focus(),20); return; }
+    const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','erro'); return; }
+    setSalvando(true);
+    try {
+      if (selId) {
+        const { error } = await cli.from('prototipos')
+          .update({ nome:n, descricao: n, html, updated_at: new Date().toISOString() })
+          .eq('id', selId);
+        if (error) { showToast?.('Erro ao salvar: '+error.message,'erro'); return; }
+        showToast?.('Protótipo salvo','success');
+      } else {
+        const { data: sess } = await cli.auth.getSession();
+        const { data, error } = await cli.from('prototipos')
+          .insert({ nome:n, descricao:n, html, created_by: sess?.session?.user?.id || null })
+          .select().single();
+        if (error) { showToast?.('Erro ao criar: '+error.message,'erro'); return; }
+        if (data?.id) setSelId(data.id);
+        showToast?.('Protótipo criado','success');
+      }
+      window.dispatchEvent(new CustomEvent('brava:prototipo_changed'));
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const baixar = () => {
+    if (!html) { showToast?.('Nada para baixar','erro'); return; }
+    const safe = (nome.trim() || 'prototipo').replace(/[^\w\-]+/g,'_');
+    const blob = new Blob([html], { type:'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = safe + '.html';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+
+  const abrirNovaAba = () => {
+    if (!html) { showToast?.('Nada para abrir','erro'); return; }
+    const blob = new Blob([html], { type:'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  };
+
+  const fmtData = (s) => {
+    if (!s) return '';
+    try { return new Date(s).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'2-digit' }); }
+    catch { return ''; }
+  };
+
+  const inputBase = {
+    background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8,
+    color:'var(--t1)', fontFamily:'var(--f-b)', fontSize:13.5, padding:'9px 12px', outline:'none',
+  };
+  const toggleBtn = (ativo) => ({
+    flex:1, padding:'7px 0', borderRadius:7, border:'none', cursor:'pointer',
+    fontSize:12.5, fontWeight:600, fontFamily:'var(--f-b)',
+    background: ativo ? 'var(--purple)' : 'transparent',
+    color: ativo ? '#fff' : 'var(--t2)', transition:'background .15s,color .15s',
+  });
+
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Criação</div>
+          <div className="page-head__sub">Studio de protótipos. Edite o HTML na mão ou gere com IA.</div>
+        </div>
+        <div className="page-head__actions">
+          <button onClick={salvar} disabled={salvando} className="btn btn-primary" style={salvando ? {opacity:.6} : null}>
+            <Icon name="Check" size={14}/>{salvando ? 'Salvando...' : 'Salvar'}
+          </button>
+          <button onClick={baixar} className="btn btn-outline"><Icon name="Download" size={14}/>Baixar .html</button>
+          <button onClick={abrirNovaAba} className="btn btn-outline"><Icon name="Link" size={14}/>Abrir em nova aba</button>
+        </div>
+      </div>
+
+      <div style={{display:'grid', gridTemplateColumns:'240px 1fr 1fr', gap:14, height:'calc(100vh - 120px)'}}>
+
+        {/* ── Esquerda: lista ── */}
+        <div style={{display:'flex', flexDirection:'column', background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:14, overflow:'hidden'}}>
+          <div style={{padding:'12px 12px 8px'}}>
+            <button onClick={novo} className="btn btn-primary" style={{width:'100%'}}>
+              <Icon name="Plus" size={14}/>Novo protótipo
+            </button>
+          </div>
+          <div style={{flex:1, overflowY:'auto', padding:'4px 8px 8px'}}>
+            {lista.length === 0 && (
+              <div style={{padding:'18px 10px', color:'var(--t3)', fontSize:12.5, textAlign:'center'}}>
+                Nenhum protótipo ainda. Crie o primeiro.
+              </div>
+            )}
+            {lista.map(p => {
+              const ativo = p.id === selId;
+              return (
+                <div key={p.id} onClick={()=>abrir(p)}
+                  style={{
+                    display:'flex', alignItems:'center', gap:6, padding:'9px 10px', marginBottom:4,
+                    borderRadius:9, cursor:'pointer',
+                    background: ativo ? 'var(--purple)18' : 'transparent',
+                    border: ativo ? '1px solid var(--purple)55' : '1px solid transparent',
+                  }}
+                  onMouseEnter={ev=>{ if(!ativo) ev.currentTarget.style.background='var(--bg-3)'; }}
+                  onMouseLeave={ev=>{ if(!ativo) ev.currentTarget.style.background='transparent'; }}>
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:13, fontWeight:600, color: ativo ? 'var(--purple)' : 'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>
+                      {p.nome || 'Sem nome'}
+                    </div>
+                    <div style={{fontSize:11, color:'var(--t3)', marginTop:2}}>{fmtData(p.updated_at)}</div>
+                  </div>
+                  <button onClick={(ev)=>excluir(p, ev)} title="Excluir"
+                    style={{background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', padding:4, display:'inline-flex', flexShrink:0}}
+                    onMouseEnter={ev=>ev.currentTarget.style.color='#E5544D'}
+                    onMouseLeave={ev=>ev.currentTarget.style.color='var(--t3)'}>
+                    <Icon name="Trash2" size={14}/>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Centro: editor ── */}
+        <div style={{display:'flex', flexDirection:'column', background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:14, overflow:'hidden'}}>
+          <div style={{padding:'14px 14px 0', display:'flex', flexDirection:'column', gap:10}}>
+            <input ref={nomeRef} value={nome} onChange={e=>setNome(e.target.value)}
+              placeholder="Nome do protótipo" style={{...inputBase, width:'100%'}}/>
+            <div style={{display:'flex', gap:4, background:'var(--bg-3)', borderRadius:9, padding:3}}>
+              <button onClick={()=>setModo('manual')} style={toggleBtn(modo==='manual')}>
+                <Icon name="FileText" size={12} style={{verticalAlign:'-2px', marginRight:5}}/>Manual
+              </button>
+              <button onClick={()=>setModo('ia')} style={toggleBtn(modo==='ia')}>
+                <Icon name="Sparkles" size={12} style={{verticalAlign:'-2px', marginRight:5}}/>Gerar com IA
+              </button>
+            </div>
+          </div>
+
+          {modo === 'manual' ? (
+            <div style={{flex:1, padding:14, display:'flex', minHeight:0}}>
+              <textarea value={html} onChange={e=>setHtml(e.target.value)}
+                spellCheck={false}
+                placeholder="<!DOCTYPE html> ... cole ou edite o HTML aqui"
+                style={{
+                  flex:1, width:'100%', resize:'none',
+                  background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:9,
+                  color:'var(--t1)', padding:12, outline:'none',
+                  fontFamily:'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+                  fontSize:12.5, lineHeight:1.55,
+                }}/>
+            </div>
+          ) : (
+            <div style={{flex:1, padding:14, display:'flex', flexDirection:'column', gap:14, minHeight:0, overflowY:'auto'}}>
+              <div style={{display:'flex', flexDirection:'column', gap:8}}>
+                <label style={{fontSize:12, fontWeight:600, color:'var(--t2)'}}>Gerar do zero</label>
+                <textarea value={promptIA} onChange={e=>setPromptIA(e.target.value)}
+                  placeholder="Descreva o protótipo. Ex: uma landing page de planos com 3 cards e CTA roxo."
+                  style={{...inputBase, width:'100%', minHeight:120, resize:'vertical', lineHeight:1.5}}/>
+                <button onClick={()=>gerar(promptIA, false)} disabled={gerando} className="btn btn-primary"
+                  style={{alignSelf:'flex-start', ...(gerando ? {opacity:.6} : {})}}>
+                  <Icon name="Sparkles" size={14}/>{gerando ? 'Gerando...' : 'Gerar'}
+                </button>
+              </div>
+              <div style={{borderTop:'1px solid var(--border)', paddingTop:14, display:'flex', flexDirection:'column', gap:8}}>
+                <label style={{fontSize:12, fontWeight:600, color:'var(--t2)'}}>Refinar o atual</label>
+                <input value={refino} onChange={e=>setRefino(e.target.value)}
+                  placeholder='Ex: deixe os botões roxos'
+                  disabled={!html}
+                  style={{...inputBase, width:'100%', opacity: html ? 1 : .5}}/>
+                <button onClick={()=>gerar(refino, true)} disabled={gerando || !html} className="btn btn-outline"
+                  style={{alignSelf:'flex-start', ...((gerando || !html) ? {opacity:.5} : {})}}>
+                  <Icon name="Sparkles" size={13}/>{gerando ? 'Refinando...' : 'Refinar'}
+                </button>
+                {!html && <div style={{fontSize:11.5, color:'var(--t3)'}}>Gere ou edite um HTML para poder refinar.</div>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Direita: preview ── */}
+        <div style={{display:'flex', flexDirection:'column', background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:14, overflow:'hidden'}}>
+          <div style={{padding:'11px 14px', borderBottom:'1px solid var(--border-soft)', fontSize:12, fontWeight:600, color:'var(--t2)', display:'flex', alignItems:'center', gap:6}}>
+            <Icon name="Eye" size={13}/>Preview
+          </div>
+          <div style={{flex:1, padding:12, minHeight:0}}>
+            <iframe title="preview" srcDoc={previewHtml}
+              sandbox="allow-scripts allow-same-origin"
+              style={{width:'100%', height:'100%', border:'1px solid var(--border)', borderRadius:9, background:'#fff'}}/>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 function PipelineProjetos() {
   const { list: statusConfig } = useStatusConfig();
   const projetos = useRecorrencia();
@@ -27966,6 +28264,7 @@ function App() {
           : page === 'chamados' ? <Chamados/>
           : page === 'equipe'   ? <Equipe/>
           : page === 'etiquetas'? <EtiquetasPage/>
+          : page === 'criacao'  ? <CriacaoStudio/>
           : page === 'onboarding'? <OnboardingAdmin/>
           : page === 'logs'     ? <Logs/>
           : page === 'config'   ? <Config/>
