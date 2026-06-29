@@ -902,6 +902,7 @@ const NAV = [
   { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
   { key:'projetos',     label:'Projetos',        icon:'Layers',          grupo:'Operações', badge:null },
+  { key:'canvas',       label:'Canvas',          icon:'Layers',          grupo:'Operações', badge:null },
   { key:'mapa',         label:'Mapa',            icon:'MapPin',          grupo:'Operações', badge:null },
   { key:'equipe',       label:'Equipe',          icon:'UsersRound',      grupo:'Operações', badge:null },
   { key:'etiquetas',    label:'Etiquetas',       icon:'Tag',             grupo:'Operações', badge:null },
@@ -12816,6 +12817,500 @@ function useDespesas() {
     };
   }, []);
   return list;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   CANVAS DE FLUXOS - tabela canvases (formato compatível Obsidian .canvas)
+   dados jsonb: { nodes:[{id,type,text,x,y,width,height,color?}],
+                  edges:[{id,fromNode,fromSide,toNode,toSide,label?,color?}] }
+   ═══════════════════════════════════════════════════════════════════ */
+function _canvasUid(){ return 'n' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+
+async function addCanvas(nome){
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','erro'); return null; }
+  const { data, error } = await cli.from('canvases')
+    .insert({ nome: nome || 'Novo canvas', dados: { nodes:[], edges:[] } })
+    .select().single();
+  if (error) { showToast?.('Erro: '+error.message,'erro'); return null; }
+  _bravaEmit('canvas', { op:'insert', id: data?.id });
+  return data || null;
+}
+async function saveCanvas(id, patch){
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','erro'); return false; }
+  const clean = { ...patch, updated_at: new Date().toISOString() };
+  delete clean.id; delete clean.criado_em; delete clean.created_by;
+  const { error } = await cli.from('canvases').update(clean).eq('id', id);
+  if (error) { showToast?.('Erro ao salvar: '+error.message,'erro'); console.error('saveCanvas:', error); return false; }
+  _bravaEmit('canvas', { op:'update', id });
+  return true;
+}
+async function deleteCanvas(id){
+  const cli = getSupa(); if (!cli) { showToast?.('Sem conexão','erro'); return false; }
+  const { error } = await cli.from('canvases').delete().eq('id', id);
+  if (error) { showToast?.('Erro ao excluir: '+error.message,'erro'); return false; }
+  _bravaEmit('canvas', { op:'delete', id });
+  showToast?.('Canvas removido','success');
+  return true;
+}
+
+function useCanvases(){
+  const [list, setList] = React.useState([]);
+  React.useEffect(() => {
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('canvases').select('*').order('updated_at', { ascending: false });
+      if (alive && data) setList(data);
+    };
+    load();
+    const ch = cli.channel('rt:canvases')
+      .on('postgres_changes', { event:'*', schema:'public', table:'canvases' }, load)
+      .subscribe();
+    const onChange = () => load();
+    window.addEventListener('brava:canvas_changed', onChange);
+    return () => {
+      alive = false;
+      cli.removeChannel(ch);
+      window.removeEventListener('brava:canvas_changed', onChange);
+    };
+  }, []);
+  return list;
+}
+
+/* ─── geometria: ponto do lado (side) de um nó ─── */
+function _canvasSidePoint(node, side){
+  const x = node.x, y = node.y, w = node.width || 220, h = node.height || 90;
+  if (side === 'top')    return { x: x + w/2, y: y };
+  if (side === 'bottom') return { x: x + w/2, y: y + h };
+  if (side === 'left')   return { x: x,       y: y + h/2 };
+  return { x: x + w, y: y + h/2 }; // right
+}
+function _canvasCtrl(p, side, k){
+  if (side === 'top')    return { x: p.x, y: p.y - k };
+  if (side === 'bottom') return { x: p.x, y: p.y + k };
+  if (side === 'left')   return { x: p.x - k, y: p.y };
+  return { x: p.x + k, y: p.y };
+}
+function _canvasPath(from, fromSide, to, toSide){
+  const k = Math.max(40, Math.hypot(to.x-from.x, to.y-from.y) * 0.35);
+  const c1 = _canvasCtrl(from, fromSide, k);
+  const c2 = _canvasCtrl(to, toSide, k);
+  return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
+}
+const _CANVAS_SIDES = ['top','right','bottom','left'];
+
+function CanvasFluxos(){
+  const lista = useCanvases();
+  const [selId, setSelId] = React.useState(null);
+  const [nodes, setNodes] = React.useState([]);
+  const [edges, setEdges] = React.useState([]);
+  const [nome, setNome] = React.useState('');
+  const [pan, setPan] = React.useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = React.useState(1);
+  const [selNode, setSelNode] = React.useState(null);
+  const [selEdge, setSelEdge] = React.useState(null);
+  const [editId, setEditId] = React.useState(null);
+  const [savState, setSavState] = React.useState('idle'); // idle|saving|saved
+  const [linking, setLinking] = React.useState(null); // {fromNode,fromSide,cx,cy}
+
+  const vpRef = React.useRef(null);
+  const fileRef = React.useRef(null);
+  const saveTimer = React.useRef(null);
+  const lastSaved = React.useRef('');     // snapshot dos dados que ESTE cliente gravou
+  const dragRef = React.useRef(null);
+  const panRef = React.useRef(null);
+
+  const canvasAtual = lista.find(c => c.id === selId) || null;
+
+  // seleciona o primeiro canvas automaticamente
+  React.useEffect(() => {
+    if (!selId && lista.length) setSelId(lista[0].id);
+  }, [lista, selId]);
+
+  // carrega dados do canvas selecionado (sem sobrescrever edição local)
+  React.useEffect(() => {
+    if (!canvasAtual) { setNodes([]); setEdges([]); setNome(''); return; }
+    const dados = canvasAtual.dados || {};
+    const snap = JSON.stringify({ nodes: dados.nodes || [], edges: dados.edges || [] });
+    if (snap === lastSaved.current) return; // foi a própria edição, ignora realtime
+    setNodes(Array.isArray(dados.nodes) ? dados.nodes : []);
+    setEdges(Array.isArray(dados.edges) ? dados.edges : []);
+    setNome(canvasAtual.nome || '');
+    lastSaved.current = snap;
+  }, [canvasAtual]);
+
+  // autosave debounced
+  React.useEffect(() => {
+    if (!selId) return;
+    const snap = JSON.stringify({ nodes, edges });
+    if (snap === lastSaved.current) return;
+    setSavState('saving');
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(async () => {
+      lastSaved.current = snap;
+      const ok = await saveCanvas(selId, { dados: { nodes, edges } });
+      setSavState(ok ? 'saved' : 'idle');
+      if (ok) setTimeout(() => setSavState(s => s === 'saved' ? 'idle' : s), 1600);
+    }, 800);
+    return () => clearTimeout(saveTimer.current);
+  }, [nodes, edges, selId]);
+
+  React.useEffect(() => () => clearTimeout(saveTimer.current), []);
+
+  // tela -> mundo
+  const toWorld = React.useCallback((clientX, clientY) => {
+    const r = vpRef.current?.getBoundingClientRect();
+    if (!r) return { x: 0, y: 0 };
+    return { x: (clientX - r.left - pan.x) / zoom, y: (clientY - r.top - pan.y) / zoom };
+  }, [pan, zoom]);
+
+  const novoCanvas = async () => {
+    const c = await addCanvas('Novo canvas');
+    if (c) { setSelId(c.id); setSelNode(null); setSelEdge(null); }
+  };
+  const excluirCanvas = async (id) => {
+    if (!window.confirm('Excluir este canvas? Esta ação não pode ser desfeita.')) return;
+    await deleteCanvas(id);
+    if (id === selId) { setSelId(null); setNodes([]); setEdges([]); }
+  };
+
+  const criarNo = (wx, wy) => {
+    const id = _canvasUid();
+    const n = { id, type:'text', text:'', x: Math.round(wx - 110), y: Math.round(wy - 45), width: 220, height: 90 };
+    setNodes(ns => [...ns, n]);
+    setSelNode(id); setSelEdge(null); setEditId(id);
+  };
+  const excluirNo = (id) => {
+    setNodes(ns => ns.filter(n => n.id !== id));
+    setEdges(es => es.filter(e => e.fromNode !== id && e.toNode !== id));
+    if (selNode === id) setSelNode(null);
+    if (editId === id) setEditId(null);
+  };
+  const excluirEdge = (id) => {
+    setEdges(es => es.filter(e => e.id !== id));
+    if (selEdge === id) setSelEdge(null);
+  };
+
+  // teclado: Delete remove seleção
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      if (editId) return; // não atrapalha edição de texto
+      const t = e.target;
+      if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      if (selEdge) { e.preventDefault(); excluirEdge(selEdge); }
+      else if (selNode) { e.preventDefault(); excluirNo(selNode); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selNode, selEdge, editId]);
+
+  // ─── drag de nó ───
+  const onNodePointerDown = (e, node) => {
+    if (editId === node.id) return;
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    setSelNode(node.id); setSelEdge(null);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    dragRef.current = { id: node.id, startX: e.clientX, startY: e.clientY, ox: node.x, oy: node.y, moved: false };
+  };
+  const onNodePointerMove = (e) => {
+    const d = dragRef.current; if (!d) return;
+    const dx = (e.clientX - d.startX) / zoom;
+    const dy = (e.clientY - d.startY) / zoom;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1) d.moved = true;
+    setNodes(ns => ns.map(n => n.id === d.id ? { ...n, x: Math.round(d.ox + dx), y: Math.round(d.oy + dy) } : n));
+  };
+  const onNodePointerUp = (e) => {
+    const d = dragRef.current; dragRef.current = null;
+    try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
+  };
+
+  // ─── handle: iniciar conexão ───
+  const onHandleDown = (e, node, side) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const p = _canvasSidePoint(node, side);
+    setLinking({ fromNode: node.id, fromSide: side, cx: p.x, cy: p.y });
+  };
+  const onViewportPointerMove = (e) => {
+    if (linking) {
+      const w = toWorld(e.clientX, e.clientY);
+      setLinking(l => l ? { ...l, cx: w.x, cy: w.y } : l);
+    }
+    if (panRef.current) {
+      const p = panRef.current;
+      setPan({ x: p.ox + (e.clientX - p.sx), y: p.oy + (e.clientY - p.sy) });
+    }
+  };
+  const finalizarLink = (e) => {
+    if (!linking) return;
+    const w = toWorld(e.clientX, e.clientY);
+    // acha nó alvo sob o cursor
+    let alvo = null;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      const n = nodes[i];
+      const nw = n.width || 220, nh = n.height || 90;
+      if (w.x >= n.x && w.x <= n.x + nw && w.y >= n.y && w.y <= n.y + nh) { alvo = n; break; }
+    }
+    if (alvo && alvo.id !== linking.fromNode) {
+      // escolhe o lado do alvo mais próximo do centro de origem
+      let best = 'left', bestD = Infinity;
+      _CANVAS_SIDES.forEach(s => {
+        const sp = _canvasSidePoint(alvo, s);
+        const d = Math.hypot(sp.x - w.x, sp.y - w.y);
+        if (d < bestD) { bestD = d; best = s; }
+      });
+      const edge = { id: _canvasUid(), fromNode: linking.fromNode, fromSide: linking.fromSide, toNode: alvo.id, toSide: best };
+      setEdges(es => [...es, edge]);
+    }
+    setLinking(null);
+  };
+
+  // ─── pan no fundo ───
+  const onBgPointerDown = (e) => {
+    if (e.button !== 0) return;
+    if (e.target !== e.currentTarget) return; // só no fundo
+    setSelNode(null); setSelEdge(null);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    panRef.current = { sx: e.clientX, sy: e.clientY, ox: pan.x, oy: pan.y };
+  };
+  const onViewportPointerUp = (e) => {
+    if (linking) finalizarLink(e);
+    panRef.current = null;
+    try { e.currentTarget.releasePointerCapture?.(e.pointerId); } catch {}
+  };
+  const onBgDoubleClick = (e) => {
+    if (e.target !== e.currentTarget) return;
+    const w = toWorld(e.clientX, e.clientY);
+    criarNo(w.x, w.y);
+  };
+
+  // ─── zoom no cursor ───
+  const onWheel = (e) => {
+    e.preventDefault();
+    const r = vpRef.current?.getBoundingClientRect(); if (!r) return;
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const factor = e.deltaY < 0 ? 1.1 : 1/1.1;
+    const nz = Math.min(2.5, Math.max(0.3, zoom * factor));
+    // mantém o ponto sob o cursor fixo
+    const wx = (mx - pan.x) / zoom, wy = (my - pan.y) / zoom;
+    setPan({ x: mx - wx * nz, y: my - wy * nz });
+    setZoom(nz);
+  };
+  const ajustar = () => { setPan({ x: 0, y: 0 }); setZoom(1); };
+  const zoomBtn = (dir) => {
+    const r = vpRef.current?.getBoundingClientRect();
+    const mx = r ? r.width/2 : 300, my = r ? r.height/2 : 200;
+    const nz = Math.min(2.5, Math.max(0.3, zoom * (dir > 0 ? 1.2 : 1/1.2)));
+    const wx = (mx - pan.x) / zoom, wy = (my - pan.y) / zoom;
+    setPan({ x: mx - wx * nz, y: my - wy * nz });
+    setZoom(nz);
+  };
+
+  // ─── export / import .canvas ───
+  const exportar = () => {
+    const out = JSON.stringify({ nodes, edges }, null, 2);
+    const blob = new Blob([out], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = (nome || 'canvas').replace(/[^\w\-]+/g,'_') + '.canvas';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const importar = (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        const ns = Array.isArray(data.nodes) ? data.nodes.filter(n => n && n.id) : [];
+        const es = Array.isArray(data.edges) ? data.edges.filter(x => x && x.id && x.fromNode && x.toNode) : [];
+        setNodes(ns.map(n => ({ id:n.id, type:'text', text:n.text||'', x:+n.x||0, y:+n.y||0, width:+n.width||220, height:+n.height||90, ...(n.color?{color:n.color}:{}) })));
+        setEdges(es.map(x => ({ id:x.id, fromNode:x.fromNode, fromSide:x.fromSide||'right', toNode:x.toNode, toSide:x.toSide||'left', ...(x.label?{label:x.label}:{}), ...(x.color?{color:x.color}:{}) })));
+        showToast?.('Canvas importado','success');
+      } catch (err) { showToast?.('Arquivo inválido','erro'); }
+    };
+    reader.readAsText(f);
+    e.target.value = '';
+  };
+
+  const renomear = (v) => {
+    setNome(v);
+    clearTimeout(renomear._t);
+    renomear._t = setTimeout(() => { if (selId) saveCanvas(selId, { nome: v || 'Sem nome' }); }, 600);
+  };
+
+  const HANDLE_POS = {
+    top:    { left:'50%', top:0,        transform:'translate(-50%,-50%)' },
+    bottom: { left:'50%', top:'100%',   transform:'translate(-50%,-50%)' },
+    left:   { left:0,     top:'50%',    transform:'translate(-50%,-50%)' },
+    right:  { left:'100%',top:'50%',    transform:'translate(-50%,-50%)' },
+  };
+
+  return (
+    <div style={{ display:'flex', gap:14, height:'calc(100vh - 120px)' }}>
+      {/* ─── lista de canvases ─── */}
+      <div style={{ width:220, flexShrink:0, background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:14, padding:12, display:'flex', flexDirection:'column', gap:8, overflow:'hidden' }}>
+        <button onClick={novoCanvas} className="btn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, background:'var(--blue)', color:'#fff', borderRadius:9, padding:'9px 10px', fontWeight:600, fontSize:13 }}>
+          <Icon name="Plus" size={15}/> Novo canvas
+        </button>
+        <div style={{ overflowY:'auto', display:'flex', flexDirection:'column', gap:4, flex:1 }}>
+          {lista.length === 0 && <div style={{ color:'var(--t3)', fontSize:13, padding:'8px 4px' }}>Nenhum canvas ainda.</div>}
+          {lista.map(c => (
+            <div key={c.id} onClick={() => { setSelId(c.id); setSelNode(null); setSelEdge(null); }}
+              style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 10px', borderRadius:9, cursor:'pointer',
+                background: c.id === selId ? 'var(--bg-3)' : 'transparent',
+                border: '1px solid ' + (c.id === selId ? 'var(--border)' : 'transparent') }}>
+              <Icon name="Layers" size={14} style={{ color:'var(--t3)' }}/>
+              <span style={{ flex:1, fontSize:13, color:'var(--t1)', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.nome || 'Sem nome'}</span>
+              <button onClick={(e) => { e.stopPropagation(); excluirCanvas(c.id); }} title="Excluir" style={{ color:'var(--t3)', padding:2, borderRadius:6 }}>
+                <Icon name="Trash2" size={14}/>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── área principal ─── */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, background:'var(--bg-2)', border:'1px solid var(--border-soft)', borderRadius:14, overflow:'hidden' }}>
+        {/* barra de topo */}
+        <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', borderBottom:'1px solid var(--border-soft)', flexShrink:0 }}>
+          <input value={nome} onChange={(e) => renomear(e.target.value)} placeholder="Nome do canvas" disabled={!selId}
+            style={{ flex:'0 1 280px', background:'transparent', border:'1px solid var(--border)', borderRadius:9, padding:'7px 10px', color:'var(--t1)', fontSize:14, fontWeight:600 }}/>
+          <div style={{ flex:1 }}/>
+          <span style={{ fontSize:12, color: savState === 'saved' ? 'var(--success)' : 'var(--t3)', minWidth:48 }}>
+            {savState === 'saving' ? 'salvando…' : savState === 'saved' ? 'salvo' : ''}
+          </span>
+          <button onClick={() => { const w = toWorld((vpRef.current?.getBoundingClientRect().left||0) + 200, (vpRef.current?.getBoundingClientRect().top||0) + 160); criarNo(w.x, w.y); }} disabled={!selId}
+            className="btn-outline" style={{ display:'flex', alignItems:'center', gap:5, borderRadius:9, padding:'7px 11px', fontSize:13 }}>
+            <Icon name="Plus" size={14}/> Nó
+          </button>
+          <button onClick={exportar} disabled={!selId} className="btn-outline" style={{ display:'flex', alignItems:'center', gap:5, borderRadius:9, padding:'7px 11px', fontSize:13 }}>
+            <Icon name="Download" size={14}/> Exportar
+          </button>
+          <button onClick={() => fileRef.current?.click()} disabled={!selId} className="btn-outline" style={{ display:'flex', alignItems:'center', gap:5, borderRadius:9, padding:'7px 11px', fontSize:13 }}>
+            <Icon name="Upload" size={14}/> Importar
+          </button>
+          <input ref={fileRef} type="file" accept=".canvas,application/json,.json" onChange={importar} style={{ display:'none' }}/>
+        </div>
+
+        {/* viewport do canvas */}
+        <div ref={vpRef}
+          onPointerDown={onBgPointerDown}
+          onPointerMove={(e) => { onViewportPointerMove(e); if (dragRef.current) onNodePointerMove(e); }}
+          onPointerUp={(e) => { onViewportPointerUp(e); if (dragRef.current) onNodePointerUp(e); }}
+          onDoubleClick={onBgDoubleClick}
+          onWheel={onWheel}
+          style={{ position:'relative', flex:1, overflow:'hidden', cursor: panRef.current ? 'grabbing' : 'default',
+            backgroundColor:'var(--bg-1)',
+            backgroundImage:'radial-gradient(var(--border) 1px, transparent 1px)',
+            backgroundSize: (24*zoom)+'px '+(24*zoom)+'px',
+            backgroundPosition: pan.x+'px '+pan.y+'px',
+            touchAction:'none' }}>
+
+          {!selId && (
+            <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', color:'var(--t3)', fontSize:14 }}>
+              Selecione ou crie um canvas para começar.
+            </div>
+          )}
+
+          {/* mundo transformado */}
+          <div style={{ position:'absolute', left:0, top:0, transform:`translate(${pan.x}px,${pan.y}px) scale(${zoom})`, transformOrigin:'0 0' }}>
+            {/* camada SVG de edges */}
+            <svg style={{ position:'absolute', left:0, top:0, overflow:'visible', pointerEvents:'none', width:1, height:1 }}>
+              <defs>
+                <marker id="cv-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+                  <path d="M0,0 L9,5 L0,10 z" fill="var(--t2)"/>
+                </marker>
+                <marker id="cv-arrow-sel" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+                  <path d="M0,0 L9,5 L0,10 z" fill="var(--blue)"/>
+                </marker>
+              </defs>
+              {edges.map(edge => {
+                const a = nodes.find(n => n.id === edge.fromNode);
+                const b = nodes.find(n => n.id === edge.toNode);
+                if (!a || !b) return null;
+                const p1 = _canvasSidePoint(a, edge.fromSide);
+                const p2 = _canvasSidePoint(b, edge.toSide);
+                const d = _canvasPath(p1, edge.fromSide, p2, edge.toSide);
+                const sel = selEdge === edge.id;
+                return (
+                  <g key={edge.id}>
+                    <path d={d} fill="none" stroke="transparent" strokeWidth={14} style={{ pointerEvents:'stroke', cursor:'pointer' }}
+                      onPointerDown={(e) => { e.stopPropagation(); setSelEdge(edge.id); setSelNode(null); }}/>
+                    <path d={d} fill="none" stroke={sel ? 'var(--blue)' : (edge.color || 'var(--t2)')} strokeWidth={sel ? 2.5 : 1.8}
+                      markerEnd={sel ? 'url(#cv-arrow-sel)' : 'url(#cv-arrow)'} style={{ pointerEvents:'none' }}/>
+                  </g>
+                );
+              })}
+              {linking && (() => {
+                const a = nodes.find(n => n.id === linking.fromNode); if (!a) return null;
+                const p1 = _canvasSidePoint(a, linking.fromSide);
+                return <path d={_canvasPath(p1, linking.fromSide, { x: linking.cx, y: linking.cy }, 'left')} fill="none" stroke="var(--blue)" strokeWidth={1.8} strokeDasharray="5 4" style={{ pointerEvents:'none' }}/>;
+              })()}
+            </svg>
+
+            {/* nós */}
+            {nodes.map(node => {
+              const isSel = selNode === node.id;
+              const isEdit = editId === node.id;
+              const accent = node.color || null;
+              return (
+                <div key={node.id}
+                  onPointerDown={(e) => onNodePointerDown(e, node)}
+                  onPointerMove={onNodePointerMove}
+                  onPointerUp={onNodePointerUp}
+                  onDoubleClick={(e) => { e.stopPropagation(); setEditId(node.id); setSelNode(node.id); }}
+                  style={{ position:'absolute', left:node.x, top:node.y, width:node.width||220, minHeight:node.height||90,
+                    background:'var(--bg-2)', border:'1px solid '+(isSel ? 'var(--blue)' : 'var(--border)'),
+                    borderTop: accent ? ('3px solid '+accent) : ('1px solid '+(isSel ? 'var(--blue)' : 'var(--border)')),
+                    borderRadius:10, padding:'10px 12px', boxShadow: isSel ? '0 0 0 2px rgba(30,144,255,.25)' : 'var(--shadow)',
+                    cursor: isEdit ? 'text' : 'grab', userSelect: isEdit ? 'text' : 'none' }}>
+                  {isEdit ? (
+                    <textarea autoFocus value={node.text}
+                      onChange={(e) => setNodes(ns => ns.map(n => n.id === node.id ? { ...n, text: e.target.value } : n))}
+                      onBlur={() => setEditId(null)}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      style={{ width:'100%', minHeight:(node.height||90)-24, resize:'none', background:'transparent', border:'none', outline:'none', color:'var(--t1)', fontSize:13, lineHeight:1.45, fontFamily:'inherit' }}/>
+                  ) : (
+                    <div style={{ fontSize:13, lineHeight:1.45, color: node.text ? 'var(--t1)' : 'var(--t3)', whiteSpace:'pre-wrap', wordBreak:'break-word' }}>
+                      {node.text || 'duplo-clique para editar'}
+                    </div>
+                  )}
+                  {/* botão excluir nó (quando selecionado) */}
+                  {isSel && !isEdit && (
+                    <button onClick={(e) => { e.stopPropagation(); excluirNo(node.id); }} onPointerDown={(e) => e.stopPropagation()}
+                      title="Excluir nó" style={{ position:'absolute', top:-10, right:-10, width:22, height:22, borderRadius:'50%', background:'var(--danger)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <Icon name="X" size={12}/>
+                    </button>
+                  )}
+                  {/* handles de conexão */}
+                  {!isEdit && _CANVAS_SIDES.map(side => (
+                    <div key={side}
+                      onPointerDown={(e) => onHandleDown(e, node, side)}
+                      title="Arraste para conectar"
+                      style={{ position:'absolute', width:11, height:11, borderRadius:'50%', background:'var(--bg-1)', border:'2px solid var(--blue)', cursor:'crosshair', zIndex:2, ...HANDLE_POS[side] }}/>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* controles flutuantes de zoom */}
+          {selId && (
+            <div style={{ position:'absolute', right:14, bottom:14, display:'flex', flexDirection:'column', gap:6, background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:10, padding:6 }}>
+              <button onClick={() => zoomBtn(1)} title="Aproximar" className="btn-ghost" style={{ width:32, height:32, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center' }}><Icon name="Plus" size={16}/></button>
+              <button onClick={() => zoomBtn(-1)} title="Afastar" className="btn-ghost" style={{ width:32, height:32, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, fontWeight:600 }}>−</button>
+              <button onClick={ajustar} title="Ajustar (reset)" className="btn-ghost" style={{ width:32, height:32, borderRadius:7, display:'flex', alignItems:'center', justifyContent:'center' }}><Icon name="Square" size={14}/></button>
+              <div style={{ textAlign:'center', fontSize:10, color:'var(--t3)', paddingTop:2 }}>{Math.round(zoom*100)}%</div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* Pagamentos efetivos das despesas (espelha projeto_pagamentos) */
@@ -28252,6 +28747,7 @@ function App() {
           : page === 'pipeline' ? <PipelineProjetos/>
           : page === 'clientes_crm' ? <ClientesCRM/>
           : page === 'projetos' ? <ProjetosCRM/>
+          : page === 'canvas'   ? <CanvasFluxos/>
           : page === 'mapa'     ? <MapaBrava/>
           : page === 'agenda'   ? <Agenda/>
           : page === 'tarefas'  ? <Tarefas/>
