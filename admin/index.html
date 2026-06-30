@@ -28476,6 +28476,56 @@ function AtasAdmin() {
     </div>
   );
 }
+function _limpaNomeDoc(nome){ return String(nome||'').replace(/\.(docx?|txt|pdf)$/i,'').replace(/\s*[-–—]\s*(transcri[cç][aã]o|transcript|notas?( do gemini)?|notes by gemini|gemini)\s*$/i,'').replace(/^notes by gemini:?\s*/i,'').replace(/^notas do gemini:?\s*/i,'').trim(); }
+function ImportarTranscricaoModal({ onClose, onPick }){
+  const [busca,setBusca]=React.useState('');
+  const [lista,setLista]=React.useState([]);
+  const [status,setStatus]=React.useState('carregando'); // carregando|ok|vazio|desconectado|sem_escopo|erro
+  const [baixando,setBaixando]=React.useState('');
+  const call=React.useCallback(async function(body){ const cli=(typeof getSupa==='function')?getSupa():null; if(!cli) return {ok:false,error:'sem_cliente'}; try{ const r=await cli.functions.invoke('google-drive',{body:body}); return r.data||{ok:false,error:'sem_resposta'}; }catch(_e){ return {ok:false,error:'excecao'}; } },[]);
+  const carregar=React.useCallback(async function(termo){ setStatus('carregando'); const d=await call({action:'docs', busca:termo||undefined});
+    if(d.ok){ const a=d.arquivos||[]; setLista(a); setStatus(a.length?'ok':'vazio'); }
+    else if(d.error==='sem_escopo') setStatus('sem_escopo');
+    else if(d.error==='nao_conectado'||d.error==='sem_refresh'||d.error==='refresh_falhou') setStatus('desconectado');
+    else setStatus('erro');
+  },[call]);
+  React.useEffect(function(){ carregar(''); },[carregar]);
+  React.useEffect(function(){ const t=setTimeout(function(){ carregar(busca.trim()); },450); return function(){ clearTimeout(t); }; },[busca]);
+  const ehTranscricao=function(nome){ return /transcri|transcript|gemini|notas|meet|reuni/i.test(nome||''); };
+  const escolher=async function(f){ setBaixando(f.id);
+    const d=await call({action:'export', fileId:f.id}); setBaixando('');
+    if(d.ok&&typeof d.texto==='string'){ if(d.texto.trim().length<10){ showToast('O documento está vazio.','erro'); return; } onPick({texto:d.texto, nome:f.nome}); }
+    else if(d.error==='sem_escopo'||d.error==='nao_conectado'||d.error==='sem_refresh'||d.error==='refresh_falhou') showToast('Conecte o Google na tela Drive/Agenda.','erro');
+    else showToast('Não consegui ler o documento.','erro');
+  };
+  const fmtData=function(s){ try{ return new Date(s).toLocaleDateString('pt-BR'); }catch(_e){ return ''; } };
+  return (
+    <_FModal title="Importar transcrição do Google" onClose={onClose} wide>
+      <div style={{fontSize:12, color:'var(--t3)', marginBottom:10}}>Puxa a transcrição/notas do Google Meet (Google Docs no Drive). A transcrição costuma levar alguns minutos pra aparecer depois da reunião.</div>
+      <input value={busca} onChange={function(e){ setBusca(e.target.value); }} placeholder="Buscar por nome (ex.: Reunião 4/4, Transcrição, Gemini)…" style={Object.assign({}, _fInp, {marginBottom:10})}/>
+      {status==='carregando' && <div style={{color:'var(--t3)', fontSize:13, padding:'16px 0', textAlign:'center'}}>Carregando documentos…</div>}
+      {status==='desconectado' && <div style={{color:'#E5544D', fontSize:13, padding:'12px 0'}}>Google desconectado ou sessão expirada. Reconecte na tela <b>Drive</b> ou <b>Agenda</b> e tente de novo.</div>}
+      {status==='sem_escopo' && <div style={{color:'#E5544D', fontSize:13, padding:'12px 0'}}>Falta permissão de Drive. Reconecte o Google aceitando o acesso ao Drive.</div>}
+      {status==='erro' && <div style={{color:'#E5544D', fontSize:13, padding:'12px 0'}}>Erro ao listar o Drive. Tente novamente.</div>}
+      {status==='vazio' && <div style={{color:'var(--t3)', fontSize:13, padding:'12px 0'}}>Nenhum Google Doc encontrado{busca?' para essa busca':''}.</div>}
+      {status==='ok' && (
+        <div style={{display:'grid', gap:6, maxHeight:'52vh', overflowY:'auto', paddingRight:4}}>
+          {lista.map(function(f){ const t=ehTranscricao(f.nome); return (
+            <div key={f.id} onClick={function(){ if(!baixando) escolher(f); }} style={{display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:8, border:'1px solid var(--border)', background: t?'rgba(29,158,117,.06)':'var(--bg-2)', cursor:'pointer', opacity:(baixando&&baixando!==f.id)?0.5:1}}
+              onMouseEnter={function(e){ e.currentTarget.style.borderColor='var(--blue)'; }} onMouseLeave={function(e){ e.currentTarget.style.borderColor='var(--border)'; }}>
+              <span style={{fontSize:16}}>📄</span>
+              <div style={{flex:1, minWidth:0}}>
+                <div style={{fontSize:13, color:'var(--t1)', fontWeight: t?600:500, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}}>{f.nome}{t?<span style={{marginLeft:6, fontSize:10, color:'#1D9E75', fontWeight:600}}>• transcrição</span>:null}</div>
+                <div style={{fontSize:11, color:'var(--t3)'}}>Modificado {fmtData(f.modificado)}</div>
+              </div>
+              {baixando===f.id ? <span style={{fontSize:12, color:'var(--t3)'}}>lendo…</span> : <Icon name="ChevronRight" size={16} style={{color:'var(--t3)'}}/>}
+            </div>
+          ); })}
+        </div>
+      )}
+    </_FModal>
+  );
+}
 function NovaAtaModal({ clientes, onClose, onCriada }) {
   const [clienteId, setClienteId] = React.useState('');
   const [tipo, setTipo] = React.useState('reuniao');
@@ -28486,6 +28536,7 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
   const [transcricao, setTranscricao] = React.useState('');
   const [correcoes, setCorrecoes] = React.useState('');
   const [gerando, setGerando] = React.useState(false);
+  const [importar, setImportar] = React.useState(false);
   const clienteSel = (clientes||[]).find(c=>c.id===clienteId);
   React.useEffect(()=>{ if(clienteSel) setMarca(clienteSel.nome_fantasia||clienteSel.nome||''); },[clienteId]);
   const gerar = async ()=>{
@@ -28523,11 +28574,18 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
       </div>
       <_FCampo label="Participantes (opcional)"><input value={participantes} onChange={e=>setParticipantes(e.target.value)} placeholder="Se vazio, a IA extrai da transcrição" style={_fInp}/></_FCampo>
       <_FCampo label="Correções de nomes/termos (grafia correta)"><textarea value={correcoes} onChange={e=>setCorrecoes(e.target.value)} rows={2} placeholder="A transcrição erra nomes próprios. Liste a grafia certa, 1 por linha. Ex.: Sabrina Almeida Noureddine (não 'Sabrina Noredini')" style={_ta}/></_FCampo>
-      <_FCampo label="Colar transcrição da reunião / ligação"><textarea value={transcricao} onChange={e=>setTranscricao(e.target.value)} rows={10} placeholder="Cole aqui a transcrição completa. A IA monta a ata no padrão validado (antitravessão, siglas legendadas, decisões e próximos passos)." style={_ta}/></_FCampo>
+      <div style={{marginBottom:12}}>
+        <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, marginBottom:5}}>
+          <span style={{fontSize:12, color:'var(--t3)'}}>Transcrição da reunião / ligação</span>
+          <button type="button" onClick={()=>setImportar(true)} style={{..._fBtnGhost, height:28, fontSize:12}}><Icon name="Folder" size={13}/> Importar do Google Meet/Drive</button>
+        </div>
+        <textarea value={transcricao} onChange={e=>setTranscricao(e.target.value)} rows={10} placeholder="Cole a transcrição completa, ou importe do Google. A IA monta a ata no padrão validado (antitravessão, siglas legendadas, decisões e próximos passos)." style={_ta}/>
+      </div>
       <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:8}}>
         <button onClick={onClose} style={_fBtnGhost} disabled={gerando}>Cancelar</button>
         <button onClick={gerar} style={_fBtnPrimary} disabled={gerando}>{gerando?'Gerando ata…':'Gerar ata com IA'}</button>
       </div>
+      {importar && <ImportarTranscricaoModal onClose={()=>setImportar(false)} onPick={({texto,nome})=>{ setTranscricao(texto); if(!tema.trim()) setTema(_limpaNomeDoc(nome)); setImportar(false); showToast('Transcrição importada do Google.','success'); }}/>}
     </_FModal>
   );
 }
