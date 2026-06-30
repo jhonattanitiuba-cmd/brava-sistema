@@ -28105,6 +28105,23 @@ function NovoOrcamentoModal({ clientes, onClose, onSalvar }) {
   const upItem = (i,campo,val)=> setItens(itens.map((it,idx)=> idx===i?{...it,[campo]:val}:it));
   const addItem = ()=> setItens([...itens, { descricao:'', qtd:'1', valorUnit:'' }]);
   const delItem = (i)=> setItens(itens.length>1 ? itens.filter((_,idx)=>idx!==i) : itens);
+  const [contextoIA, setContextoIA] = React.useState('');
+  const [gerandoIA, setGerandoIA] = React.useState(false);
+  const gerarIA = async ()=>{
+    if(contextoIA.trim().length<10){ showToast('Cole um contexto pra IA gerar.','erro'); return; }
+    setGerandoIA(true);
+    try{
+      const { data, error } = await getSupa().functions.invoke('gerar-orcamento', { body:{ contexto: contextoIA, cliente_nome: cliente } });
+      if(error || !(data && data.ok)) throw new Error((data && data.error) || (error && error.message) || 'falha');
+      const o = data.orcamento || {};
+      if(Array.isArray(o.itens) && o.itens.length) setItens(o.itens.map(i=>({ descricao:String(i.descricao||''), qtd:String(i.qtd||1), valorUnit:String(i.valorUnit||'') })));
+      if(o.desconto != null) setDesconto(String(o.desconto||''));
+      if(o.validade) setValidade(String(o.validade));
+      if(o.observacoes) setObservacoes(String(o.observacoes));
+      showToast('Orçamento gerado pela IA, revise antes de criar.','success');
+    }catch(e){ showToast('Erro: '+(e.message||e),'erro'); }
+    finally{ setGerandoIA(false); }
+  };
   const bruto = itens.reduce((s,i)=>s+(Number(i.qtd||0)*Number(i.valorUnit||0)),0);
   const totalVivo = Math.max(0, bruto-Number(desconto||0));
   const salvar = ()=>{
@@ -28121,6 +28138,11 @@ function NovoOrcamentoModal({ clientes, onClose, onSalvar }) {
           {(clientes||[]).map(c=><option key={c.id} value={c.nome}>{c.nome}</option>)}
         </select>
       </_FCampo>
+      <div style={{margin:'2px 0 10px', padding:'10px 12px', background:'var(--bg-3)', border:'1px solid var(--border)', borderRadius:8}}>
+        <div style={{display:'flex', alignItems:'center', gap:6, fontSize:12.5, fontWeight:600, color:'var(--t1)', marginBottom:6}}><Icon name="Sparkles" size={13} style={{color:'var(--purple)'}}/>Gerar com IA</div>
+        <textarea value={contextoIA} onChange={e=>setContextoIA(e.target.value)} rows={3} placeholder="Cole a conversa, o briefing ou o que o cliente pediu. A IA monta os itens, valores, validade e observações." style={{..._fInp, height:'auto', padding:'10px 12px', resize:'vertical'}}/>
+        <button onClick={gerarIA} disabled={gerandoIA} style={{..._fBtnGhost, marginTop:8}}>{gerandoIA ? 'Gerando...' : 'Gerar orçamento com IA'}</button>
+      </div>
       <div style={{fontSize:12, color:'var(--t3)', margin:'4px 0 6px'}}>Itens</div>
       <div style={{display:'grid', gap:8, marginBottom:8}}>
         {itens.map((it,i)=>(
