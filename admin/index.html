@@ -16718,7 +16718,7 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
                 <tr><td colSpan={6} style={{padding:40, textAlign:'center', color:'var(--t3)'}}>Nenhuma despesa cadastrada</td></tr>
               )}
               {filtrados.map(d => {
-                const reg = despesasPag[d.id]?.[ymHoje];
+                const reg = despesasPag[d.id]?.[ymRef];
                 const pago = !!reg?.pago;
                 const cor = CATEGORIAS_COR[d.categoria] || '#6E6E78';
                 return (
@@ -16732,7 +16732,7 @@ function FinDespesas({ mesFiltro, despesas, despesasPag }) {
                       {d.recorrente ? `Mensal · dia ${d.dia_vencimento || '?'}` : `Avulso · ${d.data_unica ? formatBR(d.data_unica) : '-'}`}
                     </td>
                     <td style={{padding:'10px 14px'}}>
-                      <button onClick={()=>setDespesaPagamento(d.id, ymHoje, pago ? null : { pago:true, data: hojeISO(), valor_pago: d.valor })}
+                      <button onClick={()=>setDespesaPagamento(d.id, ymRef, pago ? null : { pago:true, data: hojeISO(), valor_pago: d.valor })}
                         style={{
                           padding:'4px 10px', borderRadius:999, fontSize:11.5, fontWeight:500, cursor:'pointer',
                           background: pago ? 'rgba(29,158,117,.15)' : 'transparent',
