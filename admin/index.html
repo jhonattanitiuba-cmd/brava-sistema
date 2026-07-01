@@ -899,6 +899,7 @@ const NAV = [
   { key:'email',        label:'E-mail',          icon:'Mail',            grupo:'Administrativo', badge:null },
   { key:'drive',        label:'Drive',           icon:'Folder',          grupo:'Administrativo', badge:null },
   { key:'orcamentos',   label:'Orçamentos',      icon:'FileText',        grupo:'Administrativo', badge:null },
+  { key:'propostas',    label:'Propostas',       icon:'FileText',        grupo:'Administrativo', badge:null },
   { key:'atas',         label:'Atas',            icon:'BookOpen',        grupo:'Administrativo', badge:null },
   { key:'contratos',    label:'Contratos',       icon:'FileText',        grupo:'Jurídico', badge:null },
   { key:'projetos',     label:'Projetos',        icon:'Layers',          grupo:'Operações', badge:null },
@@ -27799,13 +27800,9 @@ function ContratoPrintModal({ contrato, onClose }) {
   const imprimir = ()=>{
     const e=_pdfEsc;
     const capa = { tag:'Contrato de Prestação de Serviços', titulo:'Contrato de\nServiços', sub:(t.nome||''),
-      meta:[ {lbl:'Contratante',val:(contrato.cliente||'-')}, {lbl:'Contratada',val:'Brava Company LTDA'}, {lbl:'Valor',val:(contrato.valor?('R$ '+Number(contrato.valor).toLocaleString('pt-BR')):'-')} ] };
-    let body = '<p><b>Contratante:</b> '+e(contrato.cliente||'')+'</p>'
-      + '<p><b>Objeto:</b> '+e(t.resumo||'')+'</p>';
-    if(contrato.valor) body += '<div class="box"><div class="bl2">Valor do contrato</div><div class="bv">R$ '+Number(contrato.valor).toLocaleString('pt-BR')+'</div></div>';
-    body += '<p style="color:#888;font-style:italic">[Cláusulas completas do modelo "'+e(t.nome||'')+'" a serem inseridas. O texto jurídico real por vertical será fornecido pela Brava.]</p>'
-      + '<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">Jhonattan Itiuba</div></div><div><div class="sn">'+e(contrato.cliente||'Contratante')+'</div><div class="sr">Representante legal</div></div></div>';
-    bravaPrintDoc({ capa: capa, bodyHTML: body });
+      meta:[ {lbl:'Contratante',val:(contrato.cliente||'-')}, {lbl:'Contratada',val:'Brava Company LTDA'}, {lbl:'Mensalidade',val:(contrato.valor?('R$ '+Number(contrato.valor).toLocaleString('pt-BR')):'-')} ] };
+    const body = _contratoServicosBody({ cliente:contrato.cliente, mensal:contrato.valor||0, setup:0, minMeses:3, prazoDias:15, foro:'Sorocaba/SP', objetoExtra:(t.resumo||'') });
+    bravaPrintDoc({ capa: capa, bodyHTML: body, headerLabel:'CONTRATO · '+String(contrato.cliente||'').toUpperCase() });
   };
   return (
     <_FModal title="Contrato" onClose={onClose} wide>
@@ -27814,8 +27811,8 @@ function ContratoPrintModal({ contrato, onClose }) {
         <div style={{fontSize:12, color:'#666', marginBottom:18}}>Brava Company S.A. · CNPJ 34.454.770/0001-26</div>
         <p><b>Contratante:</b> {contrato.cliente}</p>
         <p><b>Objeto:</b> {t.resumo}</p>
-        {contrato.valor ? <p><b>Valor:</b> R$ {Number(contrato.valor).toLocaleString('pt-BR')}</p> : null}
-        <p style={{marginTop:16, color:'#999', fontStyle:'italic'}}>[Cláusulas completas do modelo "{t.nome}" a serem inseridas. O texto jurídico real por vertical será fornecido pela Brava.]</p>
+        {contrato.valor ? <p><b>Mensalidade:</b> R$ {Number(contrato.valor).toLocaleString('pt-BR')}</p> : null}
+        <p style={{marginTop:16, color:'#666', fontStyle:'italic'}}>O PDF gera o contrato completo (11 cláusulas: objeto, escopo, prazo, investimento, funcionamento, continuidade, responsabilidades, LGPD, propriedade intelectual, rescisão e foro), já pré-assinado pela Brava.</p>
         <div style={{marginTop:48, display:'flex', justifyContent:'space-between', gap:24}}>
           <div style={{flex:1, borderTop:'1px solid #111', paddingTop:6}}>Brava Company</div>
           <div style={{flex:1, borderTop:'1px solid #111', paddingTop:6}}>{contrato.cliente}</div>
@@ -28337,6 +28334,280 @@ function OrcamentoPrintModal({ orcamento, onClose }) {
       <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12}}>
         <button onClick={onClose} style={_fBtnGhost}>Fechar</button>
         <button onClick={imprimir} style={_fBtnPrimary}>Imprimir / PDF</button>
+      </div>
+    </_FModal>
+  );
+}
+
+// ── Administrativo: Propostas comerciais (padrão Brava, escalável) ───
+// Camada 1 = Proposta comercial estruturada; camada 2 = Contrato já pré-assinado pela Brava.
+// Teor baseado nos documentos reais fornecidos (Garcia Sadler). Reaproveita bravaPrintDoc.
+const PROPOSTAS_KEY = 'brava_propostas';
+function loadPropostas(){ try{ return JSON.parse(localStorage.getItem(PROPOSTAS_KEY)||'[]'); }catch{ return []; } }
+function savePropostas(l){ localStorage.setItem(PROPOSTAS_KEY, JSON.stringify(l)); window.dispatchEvent(new Event('brava_propostas_changed')); }
+const PROP_STATUS = { rascunho:{label:'Rascunho',cor:'#BA7517'}, enviada:{label:'Enviada',cor:'#1E90FF'}, aceita:{label:'Aceita',cor:'#1D9E75'}, recusada:{label:'Recusada',cor:'#E5544D'} };
+
+// Corpo do CONTRATO (11 cláusulas reais) — usado pela proposta (camada 2) e pelo Jurídico.
+function _contratoServicosBody(d){
+  const e=_pdfEsc;
+  const setup=Number(d.setup||0), desc=Number(d.setupDescPct||0), setupEf=Math.max(0, setup*(1-desc/100));
+  const mensal=Number(d.mensal||0), minM=d.minMeses||3, prazo=d.prazoDias||15, foro=d.foro||'Sorocaba/SP';
+  const objetoExtra = d.objetoExtra ? (' '+e(d.objetoExtra)) : '';
+  let b='';
+  b+='<p>Pelo presente Instrumento Particular de Contrato de Prestação de Serviços Tecnológicos, de um lado <b>'+e(d.cliente||'')+'</b>'+(d.cnpj?(', inscrita no CNPJ nº '+e(d.cnpj)):'')+(d.endereco?(', com sede na '+e(d.endereco)):'')+', doravante <b>CONTRATANTE</b>; e, de outro lado, <b>Brava Company LTDA</b>, inscrita no CNPJ nº 34.454.770/0001-26, com sede na Avenida São Paulo, nº 2233, neste ato representada por Jhonattan Gabriel Itiuba Silva, doravante <b>CONTRATADA</b>, resolvem celebrar o presente contrato, que se regerá pelas cláusulas a seguir.</p>';
+  b+='<h2>1. Objeto do Contrato</h2><p>1.1 O presente contrato tem por objeto a implementação de infraestrutura tecnológica e plataforma inteligente de atendimento automatizado, integrada ao WhatsApp e utilizando agentes de Inteligência Artificial, destinada à organização e otimização do atendimento da CONTRATANTE.'+objetoExtra+'</p><p>1.2 A solução envolve a criação de infraestrutura tecnológica, automações, base de dados e sistema de atendimento automatizado integrado ao WhatsApp Comercial.</p>';
+  b+='<h2>2. Escopo dos Serviços</h2>'
+    +'<p><b>2.1 Estruturação inicial do atendimento:</b> reunião de briefing estratégico, alinhamento com a equipe, estruturação dos produtos e serviços, definição de protocolos e fluxos de atendimento.</p>'
+    +'<p><b>2.2 Base de dados e integrações:</b> criação do "CRM" (sistema que organiza os seus clientes), criação da base de dados, configuração da automação, integração entre o CRM e os fluxos de atendimento e preparação da integração com o WhatsApp.</p>'
+    +'<p><b>2.3 Plataforma de atendimento:</b> sistema de acesso por login e senha, painéis e relatórios de indicadores, monitoramento dos atendimentos e gestão de contatos e agendamentos.</p>'
+    +'<p><b>2.4 Agentes de Inteligência Artificial:</b> agente de triagem (primeiro contato e identificação da necessidade), agente de qualificação (tira as dúvidas do cliente antes da compra) e agente de conversão (valida a intenção e transfere para o atendente humano).</p>';
+  b+='<h2>3. Prazo de Implementação</h2><p>3.1 O prazo estimado para a implementação completa da solução é de até '+e(prazo)+' dias úteis, contados a partir da confirmação do pagamento inicial, conforme a proposta comercial apresentada.</p><p>3.2 A CONTRATADA poderá, a seu critério técnico, antecipar a conclusão da implementação, sem alterar as demais condições.</p><p>3.3 O prazo poderá ser prorrogado na mesma proporção de eventuais atrasos no envio de informações, documentos, acessos ou aprovações por parte da CONTRATANTE.</p>';
+  b+='<h2>4. Investimento do Projeto</h2>';
+  if(desc>=100){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', concedido como <b>cortesia (100% de desconto)</b> à CONTRATANTE nesta contratação.</p>'; }
+  else if(desc>0){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', com desconto de '+e(desc)+'%, resultando em '+_orcBRL(setupEf)+'.</p>'; }
+  else if(setup>0){ b+='<p>4.1 O valor total da implementação da infraestrutura tecnológica e da plataforma inteligente de atendimento automatizado é de '+_orcBRL(setup)+'.</p>'; }
+  else { b+='<p>4.1 A implementação da infraestrutura tecnológica segue conforme a proposta comercial apresentada.</p>'; }
+  b+='<h2>5. Funcionamento Contínuo do Sistema</h2><p>5.1 O valor da mensalidade referente ao funcionamento da infraestrutura tecnológica do sistema é de '+_orcBRL(mensal)+'.</p><p>5.2 A mensalidade contempla: hospedagem da plataforma; manutenção técnica da infraestrutura; monitoramento das automações; manutenção da base de dados; manutenção das integrações com serviços externos; e suporte técnico e operacional do sistema.</p>';
+  b+='<h2>6. Continuidade do Projeto</h2><p>6.1 O presente contrato possui prazo mínimo de vigência de '+e(minM)+' (meses), contados a partir da ativação do sistema.</p><p>6.2 Durante esse período deverá ser mantido o pagamento mensal para garantir o funcionamento contínuo da infraestrutura tecnológica.</p><p>6.3 Após o prazo inicial, o contrato será renovado automaticamente por períodos sucessivos de 6 meses, salvo manifestação contrária mediante aviso prévio de 30 dias.</p>';
+  b+='<h2>7. Responsabilidades da Contratante</h2><p>7.1 Fornecer todas as informações necessárias para a implementação do sistema. 7.2 Disponibilizar os acessos técnicos necessários para as integrações. 7.3 Designar um responsável interno para a comunicação com a CONTRATADA.</p>';
+  b+='<h2>8. Proteção de Dados e LGPD</h2><p>8.1 As partes comprometem-se a cumprir a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados). 8.2 A CONTRATANTE atua como controladora dos dados e a CONTRATADA como operadora da infraestrutura tecnológica da plataforma. 8.3 A CONTRATADA utilizará os dados exclusivamente para os fins operacionais necessários à execução deste contrato.</p>';
+  b+='<h2>9. Propriedade Intelectual</h2><p>9.1 A plataforma tecnológica, automações, fluxos, scripts, estrutura de dados e infraestrutura implementada constituem propriedade intelectual da CONTRATADA. 9.2 O presente contrato concede apenas a licença de uso da solução, não transferindo a propriedade da tecnologia à CONTRATANTE.</p>';
+  b+='<h2>10. Rescisão</h2><p>10.1 O contrato poderá ser rescindido mediante aviso prévio de 30 dias. 10.2 A interrupção do pagamento mensal poderá ocasionar a suspensão da infraestrutura tecnológica e do funcionamento da plataforma.</p>';
+  b+='<h2>11. Foro</h2><p>11.1 Para dirimir quaisquer controvérsias decorrentes deste contrato, fica eleito o foro da comarca de '+e(foro)+', com renúncia a qualquer outro, por mais privilegiado que seja.</p>';
+  b+='<div class="sign"><div><div class="sn">CONTRATADA · Brava Company LTDA</div><div class="sr">Assinado Digitalmente por Jhonattan Itiuba<br>Diretor Executivo e Comercial Tecnológico<br>CNPJ 34.454.770/0001-26</div></div>'
+    +'<div><div class="sn">CONTRATANTE · '+e(d.cliente||'')+'</div><div class="sr">'+e(d.repLegal||'Representante legal')+(d.cnpj?('<br>CNPJ '+e(d.cnpj)):'')+'<br>Assinatura: __________________________</div></div></div>';
+  return b;
+}
+
+// Corpo da PROPOSTA (mapeamento → objetivo → resultados → etapas → investimento).
+function propostaBodyHTML(p){
+  const e=_pdfEsc; const inv=p.investimento||{};
+  const setup=Number(inv.setup||0), desc=Number(inv.setupDescPct||0), setupEf=Math.max(0, setup*(1-desc/100)), mensal=Number(inv.mensal||0);
+  let b='';
+  if(p.mapeamento){ b+='<h2>Mapeamento comercial</h2><p>'+e(p.mapeamento)+'</p>'; }
+  if(p.escopoProjeto){ b+='<h2>Escopo do projeto</h2><p>'+e(p.escopoProjeto)+'</p>'; }
+  if(p.objetivo){ b+='<h2>Objetivo</h2><p>'+e(p.objetivo)+'</p>'; }
+  if((p.resultados||[]).length){ b+='<h2>Resultados esperados</h2><ol>'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
+  if((p.etapas||[]).length){ b+='<h2>Escopo de entregáveis</h2><table><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
+    p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
+    b+='</table>'; }
+  b+='<h2>Investimento</h2>';
+  b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
+  let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>Cortesia</b> (100% de desconto)'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
+  b+='<table><tr><th>Item</th><th class="num">Valor</th></tr>'
+    +'<tr><td>Implementação (única) · construção e configuração personalizada</td><td class="num">'+setupCell+'</td></tr>'
+    +'<tr><td>Mensalidade · funcionamento da IA, suporte e manutenção (mínimo '+e(inv.minMeses||3)+' meses)</td><td class="num">'+_orcBRL(mensal)+'</td></tr></table>';
+  b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>';
+  b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.</p>';
+  if(p.evolucao){ b+='<h2>Evolução (fase 2)</h2><p>'+e(p.evolucao)+'</p>'; }
+  if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
+  b+='<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">'+e(p.assinante||'Jhonattan Itiuba · CTO & Diretor Executivo')+'</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta</div></div></div>';
+  return b;
+}
+function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:'Proposta\nComercial', sub:(p.subtitulo||'Sistema de Atendimento Qualificado'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
+function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase() }); }
+function renderPropostaContrato(p){ const inv=p.investimento||{};
+  const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP' });
+  const capa={ tag:'Contrato de Prestação de Serviços', titulo:'Contrato de\nServiços', sub:(p.cliente||''), meta:[ {lbl:'Contratante',val:p.cliente||'-'}, {lbl:'Contratada',val:'Brava Company LTDA'}, {lbl:'Mensalidade',val:_orcBRL(inv.mensal)} ] };
+  bravaPrintDoc({ capa, bodyHTML:body, headerLabel:'CONTRATO · '+String(p.cliente||'').toUpperCase() });
+}
+
+// Template padrão (base p/ escalar) — teor genérico do modelo Garcia Sadler.
+function propostaTemplatePadrao(){ return {
+  subtitulo:'Sistema de Atendimento Qualificado', plano:'Performance', validadeDias:'3',
+  cliente:'', cnpj:'', endereco:'', aosCuidados:'', repLegal:'',
+  assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
+  mapeamento:'Conforme alinhado em reunião, foi identificado que o atendimento via WhatsApp é realizado de forma manual, gerando alto tempo de resposta e sobrecarga da equipe, o que impacta a agilidade e a conversão de oportunidades.',
+  escopoProjeto:'O projeto consiste na automatização do atendimento comercial por meio de um sistema com Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) integrado ao WhatsApp Comercial.',
+  objetivo:'Melhorar a experiência do cliente com atendimento instantâneo pelo WhatsApp, coletando as necessidades, tirando dúvidas e, quando houver real intenção de compra, transferindo o atendimento para um atendente humano de forma rápida e organizada.',
+  resultados:[ 'Atendimento imediato 24 horas por dia pelo WhatsApp, sem filas ou espera.','Redução drástica no tempo de resposta ao cliente.','Triagem e qualificação automática dos contatos.','Aumento na taxa de conversão e nas vendas.','Padronização e organização do processo comercial.','Organização automática das conversas por etiqueta.','Transferência prática para o atendente humano com as informações completas.','Menos trabalho manual, liberando a equipe para o fechamento.','Atendimento de vários clientes ao mesmo tempo.','Geração de dados estratégicos para as decisões comerciais.' ],
+  etapas:[
+    { etapa:'1', cronograma:'1ª semana', realizacao:['Reunião de alinhamento e briefing detalhado','Análise do negócio, público-alvo e concorrentes','Estruturação dos produtos e das ofertas comerciais','Mapeamento da jornada do cliente e definição do fluxo de atendimento'] },
+    { etapa:'2', cronograma:'Até a 2ª semana', realizacao:['Implementação e configuração do "CRM" (sistema que organiza seus clientes)','Integração com o WhatsApp','Definição das regras de qualificação de contatos','Estruturação dos campos de coleta de dados'] },
+    { etapa:'3', cronograma:'Até a 2ª semana', realizacao:['Desenvolvimento e ativação da IA 24/7 no WhatsApp','Treinamento da IA com os produtos, regras e abordagem de vendas','Configuração do fluxo (triagem, qualificação, coleta e transferência)','Plataforma de atendimento com transferência automática'] },
+    { etapa:'4', cronograma:'Até a 3ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
+  ],
+  investimento:{ setup:'2500', setupDescPct:'0', mensal:'2497', minMeses:'3', prazoDias:'15', formasSetup:'Pix (5% de desconto) ou cartão de crédito', formasMensal:'Boleto mensal com data fixa' },
+  evolucao:'', fechamento:'Obrigado por ter chegado até aqui e pela oportunidade de elaborar esta proposta. Ficamos à disposição.',
+  contratoObjetoExtra:'', foro:'Sorocaba/SP',
+}; }
+
+// Semente: proposta do Stefano (Hotel + Restaurante + Casa Stefano · Eventos).
+function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object.assign(t, {
+  id:'prop_stefano', criadoEm:new Date().toISOString(), status:'rascunho',
+  cliente:'Stefano Hotel e Restaurante Ltda', cnpj:'48.333.371/0001-11',
+  endereco:'Avenida Antonio Pannellini, 2635 - Taboão, São Roque/SP, 18.135-131',
+  aosCuidados:'Sócios · Família Stefano', repLegal:'Representante legal',
+  subtitulo:'Atendimento e Reservas com Inteligência Artificial', plano:'Performance',
+  mapeamento:'Conforme conversado, hoje as reservas e o atendimento do hotel, do restaurante e dos eventos são feitos manualmente, pelo WhatsApp e pelo telefone. Isso gera demora nas respostas, acúmulo de trabalho para a equipe e perda de reservas fora do horário de expediente, principalmente à noite e nos fins de semana.',
+  escopoProjeto:'O projeto automatiza o atendimento e as reservas da casa com um assistente de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) com número próprio no WhatsApp, disponível 24 horas por dia.',
+  objetivo:'Oferecer atendimento instantâneo pelo WhatsApp que informa diárias, cardápio e pacotes de casamentos e eventos, tira dúvidas e realiza a reserva na hora, transferindo para a recepção ou o comercial quando for necessário o toque humano.',
+  resultados:[ 'Atendimento imediato 24 horas por dia, todos os dias, pelo WhatsApp, sem filas nem espera.','Reservas de hospedagem, mesa do restaurante e eventos feitas na hora, direto pelo WhatsApp.','Captura de reservas fora do horário e nos fins de semana, sem perder cliente.','Respostas automáticas sobre diárias, cardápio e pacotes de casamentos e eventos.','Qualificação automática dos pedidos de orçamento de casamentos e eventos.','Organização automática das conversas por etiqueta (hospedagem, restaurante, eventos).','Transferência para a recepção ou o comercial com todas as informações já coletadas.','Menos trabalho manual da equipe, que foca no atendimento presencial e no fechamento.','Atendimento de vários clientes ao mesmo tempo, sem sobrecarga.','Relatórios com os dados das reservas e pedidos para apoiar as decisões da casa.' ],
+  etapas:[
+    { etapa:'1', cronograma:'1ª semana', realizacao:['Reunião de alinhamento e briefing detalhado','Análise da casa (hotel, restaurante e eventos), público e diferenciais','Estruturação das diárias, do cardápio e dos pacotes de eventos','Mapeamento da jornada do hóspede e definição do fluxo de atendimento'] },
+    { etapa:'2', cronograma:'Até a 2ª semana', realizacao:['Implementação e configuração do "CRM" (sistema que organiza seus clientes)','Integração com o WhatsApp','Definição das regras de qualificação das reservas','Estruturação dos campos de coleta de dados'] },
+    { etapa:'3', cronograma:'Até a 2ª semana', realizacao:['Desenvolvimento e ativação da IA Stefano 24/7 no WhatsApp','Treinamento da IA com diárias, cardápio, pacotes e regras da casa','Motor de reserva integrado no WhatsApp (hospedagem, mesa e eventos)','Plataforma de atendimento com transferência automática para a equipe'] },
+    { etapa:'4', cronograma:'Até a 3ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e reserva/transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
+  ],
+  investimento:{ setup:'3200', setupDescPct:'100', mensal:'2497', minMeses:'3', prazoDias:'15', formasSetup:'Cortesia (100% de desconto, bônus de parceria)', formasMensal:'Boleto mensal com data fixa, ou Pix' },
+  evolucao:'Como próximo passo (opcional), a casa pode incluir um módulo financeiro que faz a conciliação automática entre os sistemas (pagamentos e reservas), sem intervenção manual: o sinal ou o pagamento da reserva entra e é baixado sozinho, reduzindo conferência e erros.',
+  fechamento:'Prezados sócios da família Stefano, obrigado pela confiança e pela oportunidade de apresentar esta proposta. Estamos à disposição para construir juntos um atendimento à altura da tradição da casa.',
+  contratoObjetoExtra:'A solução inclui um motor de reserva integrado ao WhatsApp para hospedagem, restaurante e eventos, com possibilidade de evolução para conciliação financeira automática entre sistemas.',
+  foro:'Sorocaba/SP', assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
+}); }
+
+const _propTA = {...( _fInp ), height:'auto', padding:'10px 12px', resize:'vertical', lineHeight:1.5};
+function PropostasAdmin(){
+  const { list: clientes } = useClientes();
+  const [lista, setLista] = React.useState(loadPropostas);
+  const [editar, setEditar] = React.useState(null); // objeto (novo/edição)
+  const [ver, setVer] = React.useState(null);
+  React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
+  React.useEffect(()=>{ if(!localStorage.getItem('brava_propostas_seeded')){ const cur=loadPropostas(); if(!cur.length){ const s=buildStefanoProposta(); savePropostas([s]); setLista([s]); } localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  const total=lista.length;
+  const enviadas=lista.filter(p=>p.status==='enviada').length;
+  const aceitas=lista.filter(p=>p.status==='aceita').length;
+  const mensalAceito=lista.filter(p=>p.status==='aceita').reduce((s,p)=>s+Number((p.investimento||{}).mensal||0),0);
+  const salvar=(d)=>{ let l; if(d.id && lista.some(p=>p.id===d.id)){ l=lista.map(p=>p.id===d.id?{...p,...d}:p); } else { const nova={ id:'prop_'+Date.now(), criadoEm:new Date().toISOString(), status:'rascunho', ...d }; l=[nova,...lista]; } savePropostas(l); setLista(l); setEditar(null); showToast('Proposta salva.','success'); };
+  const mudar=(id,status)=>{ const l=lista.map(p=>p.id===id?{...p,status}:p); savePropostas(l); setLista(l); };
+  const apagar=(id)=>{ if(!confirm('Apagar proposta?'))return; const l=lista.filter(p=>p.id!==id); savePropostas(l); setLista(l); };
+  return (
+    <div className="page">
+      <div className="page-head">
+        <div>
+          <div className="page-head__title">Propostas</div>
+          <div className="page-head__sub">Administrativo · proposta comercial e contrato no padrão Brava, prontos para enviar e escalar.</div>
+        </div>
+        <div className="page-head__actions"><button onClick={()=>setEditar(propostaTemplatePadrao())} style={_fBtnPrimary}>+ Nova proposta</button></div>
+      </div>
+      <div className="kpi-grid" style={{marginBottom:18}}>
+        <KpiCard label="Propostas" value={String(total)} icon="FileText" cor="#1E90FF"/>
+        <KpiCard label="Enviadas" value={String(enviadas)} icon="TrendingUp" cor="#BA7517"/>
+        <KpiCard label="Aceitas" value={String(aceitas)} icon="CheckCircle2" cor="#1D9E75"/>
+        <KpiCard label="Mensal aceito" value={_orcBRL(mensalAceito)} icon="Wallet" cor="#1D9E75"/>
+      </div>
+      {total===0 ? (
+        <div className="card" style={{textAlign:'center', padding:40, color:'var(--t3)'}}>Nenhuma proposta ainda. Clique em "Nova proposta" para começar do template.</div>
+      ) : (
+        <div style={{display:'grid', gap:8}}>
+          {lista.map(p=>{ const st=PROP_STATUS[p.status]||PROP_STATUS.rascunho; const inv=p.investimento||{}; return (
+            <div key={p.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 140px 140px auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
+              <div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{p.cliente||'Cliente'}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>Plano {p.plano||'-'} · {_orcBRL(inv.mensal)}/mês</div>
+              </div>
+              <div style={{fontSize:12.5, color:'var(--t2)'}}>{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</div>
+              <select value={p.status} onChange={e=>mudar(p.id,e.target.value)} style={{..._fSel, height:34, fontSize:13, color:st.cor}}>
+                <option value="rascunho">Rascunho</option><option value="enviada">Enviada</option><option value="aceita">Aceita</option><option value="recusada">Recusada</option>
+              </select>
+              <div style={{display:'flex', gap:6, justifyContent:'flex-end', flexWrap:'wrap'}}>
+                <button onClick={()=>setVer(p)} style={_fBtnPrimary}>Abrir</button>
+                <button onClick={()=>setEditar(p)} style={_fBtnGhost}><Icon name="Pencil" size={14}/></button>
+                <button onClick={()=>apagar(p.id)} style={{..._fBtnGhost, color:'#E5544D'}}><Icon name="Trash2" size={14}/></button>
+              </div>
+            </div>
+          ); })}
+        </div>
+      )}
+      {editar && <PropostaEditorModal clientes={clientes} inicial={editar} onClose={()=>setEditar(null)} onSalvar={salvar}/>}
+      {ver && <PropostaVerModal proposta={ver} onClose={()=>setVer(null)} onEditar={()=>{ setVer(null); setEditar(ver); }}/>}
+    </div>
+  );
+}
+function PropostaVerModal({ proposta, onClose, onEditar }){
+  const p=proposta; const inv=p.investimento||{};
+  return (
+    <_FModal title={'Proposta · '+(p.cliente||'')} onClose={onClose} wide>
+      <div style={{background:'#fff', color:'#111', padding:24, borderRadius:8, fontSize:13.5, lineHeight:1.6, maxHeight:'56vh', overflowY:'auto'}}>
+        <div style={{fontSize:12, color:'#666', marginBottom:10}}>Brava Company LTDA · CNPJ 34.454.770/0001-26</div>
+        <div style={{fontWeight:700, fontSize:16, marginBottom:4}}>Proposta Comercial · {p.subtitulo||''}</div>
+        <div style={{fontSize:12.5, color:'#555', marginBottom:14}}>Aos cuidados de: {p.aosCuidados||'-'} · Validade: {p.validadeDias||'3'} dias</div>
+        <p><b>Mapeamento.</b> {p.mapeamento}</p>
+        <p><b>Objetivo.</b> {p.objetivo}</p>
+        <div style={{margin:'12px 0', padding:'12px 14px', background:'#000', color:'#fff', borderRadius:8}}>
+          <div style={{fontSize:11, textTransform:'uppercase', letterSpacing:1, color:'#aaa'}}>Investimento mensal · plano {p.plano}</div>
+          <div style={{fontSize:22, fontWeight:800}}>{_orcBRL(inv.mensal)}</div>
+          <div style={{fontSize:12, color:'#bbb', marginTop:4}}>Implementação: {Number(inv.setupDescPct)>=100 ? ('cortesia (de '+_orcBRL(inv.setup)+' por R$ 0,00)') : _orcBRL(inv.setup)} · mínimo {inv.minMeses||3} meses</div>
+        </div>
+        <div style={{fontSize:12.5, color:'#555'}}>Prévia resumida. Use os botões abaixo para gerar os PDFs completos no padrão Brava.</div>
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:12, flexWrap:'wrap'}}>
+        <button onClick={onEditar} style={_fBtnGhost}><Icon name="Pencil" size={14}/> Editar</button>
+        <button onClick={()=>renderPropostaContrato(p)} style={_fBtnGhost}><Icon name="FileText" size={14}/> Gerar contrato (PDF)</button>
+        <button onClick={()=>renderPropostaDoc(p)} style={_fBtnPrimary}>Imprimir proposta (PDF)</button>
+      </div>
+    </_FModal>
+  );
+}
+function PropostaEditorModal({ clientes, inicial, onClose, onSalvar }){
+  const [f, setF] = React.useState(()=>JSON.parse(JSON.stringify(inicial||propostaTemplatePadrao())));
+  const up=(k,v)=>setF(s=>({...s,[k]:v}));
+  const upInv=(k,v)=>setF(s=>({...s, investimento:{...(s.investimento||{}), [k]:v}}));
+  const upEtapa=(i,k,v)=>setF(s=>({...s, etapas:(s.etapas||[]).map((et,idx)=>idx===i?{...et,[k]:v}:et)}));
+  const addEtapa=()=>setF(s=>({...s, etapas:[...(s.etapas||[]), { etapa:String((s.etapas||[]).length+1), cronograma:'', realizacao:[''] }]}));
+  const delEtapa=(i)=>setF(s=>({...s, etapas:(s.etapas||[]).filter((_,idx)=>idx!==i)}));
+  const inv=f.investimento||{};
+  const salvar=()=>{ if(!String(f.cliente||'').trim()){ showToast('Informe o cliente.','erro'); return; }
+    const limpaLinhas=(v)=>Array.isArray(v)?v:String(v||'').split('\n').map(x=>x.trim()).filter(Boolean);
+    const out={...f, resultados:limpaLinhas(f.resultados), etapas:(f.etapas||[]).map(et=>({...et, realizacao:limpaLinhas(et.realizacao)}))};
+    onSalvar(out);
+  };
+  return (
+    <_FModal title={f.id?'Editar proposta':'Nova proposta'} onClose={onClose} wide>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:12}}>
+        <_FCampo label="Cliente (razão social)">
+          <input list="prop-clientes" value={f.cliente||''} onChange={e=>up('cliente',e.target.value)} placeholder="Nome do cliente" style={_fInp}/>
+          <datalist id="prop-clientes">{(clientes||[]).map(c=><option key={c.id} value={c.nome}/>)}</datalist>
+        </_FCampo>
+        <_FCampo label="CNPJ"><input value={f.cnpj||''} onChange={e=>up('cnpj',e.target.value)} style={_fInp}/></_FCampo>
+      </div>
+      <_FCampo label="Endereço (contratante)"><input value={f.endereco||''} onChange={e=>up('endereco',e.target.value)} style={_fInp}/></_FCampo>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12}}>
+        <_FCampo label="Aos cuidados de"><input value={f.aosCuidados||''} onChange={e=>up('aosCuidados',e.target.value)} style={_fInp}/></_FCampo>
+        <_FCampo label="Plano"><input value={f.plano||''} onChange={e=>up('plano',e.target.value)} style={_fInp}/></_FCampo>
+        <_FCampo label="Validade (dias)"><input value={f.validadeDias||''} onChange={e=>up('validadeDias',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+      </div>
+      <_FCampo label="Subtítulo (capa)"><input value={f.subtitulo||''} onChange={e=>up('subtitulo',e.target.value)} style={_fInp}/></_FCampo>
+      <_FCampo label="Mapeamento comercial (a dor identificada)"><textarea value={f.mapeamento||''} onChange={e=>up('mapeamento',e.target.value)} rows={3} style={_propTA}/></_FCampo>
+      <_FCampo label="Escopo do projeto"><textarea value={f.escopoProjeto||''} onChange={e=>up('escopoProjeto',e.target.value)} rows={2} style={_propTA}/></_FCampo>
+      <_FCampo label="Objetivo"><textarea value={f.objetivo||''} onChange={e=>up('objetivo',e.target.value)} rows={2} style={_propTA}/></_FCampo>
+      <_FCampo label="Resultados esperados (um por linha)"><textarea value={Array.isArray(f.resultados)?f.resultados.join('\n'):(f.resultados||'')} onChange={e=>up('resultados',e.target.value)} rows={5} style={_propTA}/></_FCampo>
+      <div style={{fontSize:12, color:'var(--t3)', margin:'6px 0'}}>Escopo de entregáveis (etapas)</div>
+      <div style={{display:'grid', gap:10, marginBottom:8}}>
+        {(f.etapas||[]).map((et,i)=>(
+          <div key={i} style={{border:'1px solid var(--border)', borderRadius:8, padding:10}}>
+            <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'70px 1fr 34px', gap:8, alignItems:'center', marginBottom:6}}>
+              <input value={et.etapa||''} onChange={e=>upEtapa(i,'etapa',e.target.value)} placeholder="Etapa" style={{..._fInp, textAlign:'center'}}/>
+              <input value={et.cronograma||''} onChange={e=>upEtapa(i,'cronograma',e.target.value)} placeholder="Cronograma (ex.: 1ª semana)" style={_fInp}/>
+              <button onClick={()=>delEtapa(i)} style={{..._fBtnGhost, color:'#E5544D', height:40, padding:0, justifyContent:'center'}}><Icon name="Trash2" size={14}/></button>
+            </div>
+            <textarea value={Array.isArray(et.realizacao)?et.realizacao.join('\n'):(et.realizacao||'')} onChange={e=>upEtapa(i,'realizacao',e.target.value)} rows={3} placeholder="Realização (um item por linha)" style={_propTA}/>
+          </div>
+        ))}
+      </div>
+      <button onClick={addEtapa} style={{..._fBtnGhost, marginBottom:14}}>+ Adicionar etapa</button>
+      <div style={{fontSize:12, color:'var(--t3)', margin:'6px 0'}}>Investimento</div>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12}}>
+        <_FCampo label="Implementação (R$)"><input value={inv.setup||''} onChange={e=>upInv('setup',e.target.value.replace(/[^\d.,]/g,'').replace(',','.'))} style={_fInp}/></_FCampo>
+        <_FCampo label="Desconto do setup (%)"><input value={inv.setupDescPct||''} onChange={e=>upInv('setupDescPct',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+        <_FCampo label="Mensalidade (R$)"><input value={inv.mensal||''} onChange={e=>upInv('mensal',e.target.value.replace(/[^\d.,]/g,'').replace(',','.'))} style={_fInp}/></_FCampo>
+      </div>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <_FCampo label="Mínimo (meses)"><input value={inv.minMeses||''} onChange={e=>upInv('minMeses',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+        <_FCampo label="Prazo de entrega (dias úteis)"><input value={inv.prazoDias||''} onChange={e=>upInv('prazoDias',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
+      </div>
+      <_FCampo label="Formas · implementação"><input value={inv.formasSetup||''} onChange={e=>upInv('formasSetup',e.target.value)} style={_fInp}/></_FCampo>
+      <_FCampo label="Formas · mensalidade"><input value={inv.formasMensal||''} onChange={e=>upInv('formasMensal',e.target.value)} style={_fInp}/></_FCampo>
+      <_FCampo label="Evolução / fase 2 (opcional)"><textarea value={f.evolucao||''} onChange={e=>up('evolucao',e.target.value)} rows={2} style={_propTA}/></_FCampo>
+      <_FCampo label="Fechamento (mensagem final)"><textarea value={f.fechamento||''} onChange={e=>up('fechamento',e.target.value)} rows={2} style={_propTA}/></_FCampo>
+      <_FCampo label="Contrato · complemento do objeto (opcional)"><textarea value={f.contratoObjetoExtra||''} onChange={e=>up('contratoObjetoExtra',e.target.value)} rows={2} style={_propTA}/></_FCampo>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <_FCampo label="Foro (contrato)"><input value={f.foro||''} onChange={e=>up('foro',e.target.value)} style={_fInp}/></_FCampo>
+        <_FCampo label="Assinante (proposta)"><input value={f.assinante||''} onChange={e=>up('assinante',e.target.value)} style={_fInp}/></_FCampo>
+      </div>
+      <div style={{display:'flex', gap:8, justifyContent:'flex-end', marginTop:8}}>
+        <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
+        <button onClick={salvar} style={_fBtnPrimary}>Salvar proposta</button>
       </div>
     </_FModal>
   );
@@ -28955,6 +29226,7 @@ function App() {
           : page === 'drive'    ? <Drive/>
           : page === 'contatos' ? <Contatos/>
           : page === 'orcamentos'? <OrcamentosAdmin/>
+          : page === 'propostas'? <PropostasAdmin/>
           : page === 'atas'     ? <AtasAdmin/>
           : page === 'analytics'? <Analytics/>
           : page === 'chamados' ? <Chamados/>
