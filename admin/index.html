@@ -27743,7 +27743,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
     + "@page{size:A4;margin:14mm 16mm 14mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
     + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
+    + ".cover{position:relative;z-index:2;height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
     + ".cover-logo img{height:26px}"
     + ".cover-body{flex:1;display:flex;flex-direction:column;justify-content:center}"
     + ".cover-tag{font-size:7.5pt;text-transform:uppercase;letter-spacing:2.5px;color:#888;margin-bottom:7mm}"
@@ -27760,6 +27760,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + ".rhd{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm;margin-bottom:7mm}"
     + ".rhd img{height:13px}.rhd .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
     + ".rft{border-top:.5px solid #ddd;padding-top:3mm;margin-top:9mm;font-size:7pt;color:#888;text-align:center}"
+    + ".pagefoot{position:fixed;left:16mm;right:16mm;bottom:7mm;text-align:center;font-size:7pt;color:#888;background:#fff;border-top:.5px solid #ddd;padding-top:2mm;z-index:1}"
     + ".doc{padding:0}"
     + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc;break-after:avoid;page-break-after:avoid}"
     + "p{margin:5px 0;orphans:3;widows:3}b{font-weight:700}"
@@ -27783,10 +27784,10 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + '<div class="cover-foot"><span>Brava Company</span><span>diretoria@brava.company</span><span>brava.software</span></div></div>';
   const rotulo = _pdfEsc(headerLabel || (capa&&capa.tag) || 'Documento');
   const frame = '<table class="frame"><thead><tr><td><div class="rhd"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></td></tr></thead>'
-    + '<tfoot><tr><td><div class="rft">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div></td></tr></tfoot>'
     + '<tbody><tr><td><div class="doc">'+bodyHTML+'</div></td></tr></tbody></table>';
+  const pagefoot = '<div class="pagefoot">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div>';
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
-    + cover + frame + '</body></html>';
+    + cover + frame + pagefoot + '</body></html>';
   w.document.write(html); w.document.close(); w.focus();
   var done=false; var go=function(){ if(done)return; done=true; try{ w.print(); }catch(e){} };
   var imgs=function(){ try{ return Array.prototype.slice.call(w.document.images||[]); }catch(e){ return []; } };
@@ -28440,7 +28441,12 @@ function propostaBodyHTML(p){
   b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>';
   if(p.evolucao){ b+='<h2>Evolução (fase 2):</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
-  b+='<div class="sign"><div><div class="sn">Brava Company LTDA</div><div class="sr">Assinado por '+e(p.assinante||'Jhonattan Itiuba · CTO & Diretor Executivo')+'<br>Carimbo:</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta<br>Assinatura: __________________</div></div></div>';
+  const carimbo='<div style="display:inline-block;border:1.4px solid #111;border-radius:8px;padding:7px 11px;margin-top:5px;text-align:left;line-height:1.35">'
+    +'<div style="font-size:6.5pt;letter-spacing:1.2px;text-transform:uppercase;color:#555;font-weight:700">&#10003; Assinado digitalmente</div>'
+    +'<div style="font-weight:700;font-size:10pt;color:#111;margin-top:1px">Jhonattan Itiuba</div>'
+    +'<div style="font-size:7.5pt;color:#555">CTO e Diretor Executivo</div>'
+    +'<div style="font-size:6.5pt;color:#888;margin-top:3px">Carimbo digital &middot; Brava Company LTDA &middot; CNPJ 34.454.770/0001-26</div></div>';
+  b+='<div class="sign"><div><div class="sn">Brava Company LTDA</div><div class="sr">'+carimbo+'</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta<br><br>Assinatura: __________________</div></div></div>';
   return b;
 }
 function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
