@@ -27741,7 +27741,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   // jogava o rodape pro topo). A capa fica FORA da tabela, entao nao recebe header/rodape.
   // @page :first{margin:0} deixa a capa full-bleed.
   const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
-    + "@page{size:A4;margin:14mm 16mm 14mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
+    + "@page{size:A4;margin:14mm 16mm 14mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;height:100%}"
     + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
     + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
     + ".cover-logo img{height:26px}"
@@ -27755,7 +27755,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + ".cm-val{font-size:9.5pt;font-weight:700;color:#fff;margin-top:2px}"
     + ".cover-foot{font-size:7.5pt;color:#888;display:flex;gap:6mm;padding-top:6mm;border-top:1px solid #1a1a1a}"
     + "thead{display:table-header-group}tfoot{display:table-footer-group}"
-    + ".frame{width:100%;border-collapse:collapse}"
+    + ".frame{width:100%;border-collapse:collapse;height:100%}"
     + ".frame>thead>tr>td,.frame>tbody>tr>td,.frame>tfoot>tr>td{border:0;padding:0;vertical-align:top}"
     + ".rhd{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm;margin-bottom:7mm}"
     + ".rhd img{height:13px}.rhd .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
@@ -28458,7 +28458,7 @@ function propostaTemplatePadrao(){ return {
   cliente:'', cnpj:'', endereco:'', aosCuidados:'', repLegal:'',
   assinante:'Jhonattan Itiuba · CTO & Diretor Executivo', agenteNome:'IA', fluxoFrentes:[],
   mapeamento:'Conforme alinhado em reunião, foi identificado que o atendimento via WhatsApp é realizado de forma manual, gerando alto tempo de resposta e sobrecarga da equipe, o que impacta a agilidade e a conversão de oportunidades.',
-  escopoProjeto:'O projeto consiste na automatização do atendimento comercial por meio de um sistema com Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) integrado ao WhatsApp Comercial.',
+  escopoProjeto:'O projeto entrega uma plataforma automatizada completa, tudo num só lugar: um "CRM" (sistema que organiza os seus clientes), base de dados central, automações, site e agentes de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) integrados ao WhatsApp. A IA é uma das peças: a plataforma organiza toda a operação.',
   objetivo:'Melhorar a experiência do cliente com atendimento instantâneo pelo WhatsApp, coletando as necessidades, tirando dúvidas e, quando houver real intenção de compra, transferindo o atendimento para um atendente humano de forma rápida e organizada.',
   resultados:[ 'Atendimento imediato 24 horas por dia pelo WhatsApp, sem filas ou espera.','Redução drástica no tempo de resposta ao cliente.','Triagem e qualificação automática dos contatos.','Aumento na taxa de conversão e nas vendas.','Padronização e organização do processo comercial.','Organização automática das conversas por etiqueta.','Transferência prática para o atendente humano com as informações completas.','Menos trabalho manual, liberando a equipe para o fechamento.','Atendimento de vários clientes ao mesmo tempo.','Geração de dados estratégicos para as decisões comerciais.' ],
   planoAcao:[ 'Briefing e mapeamento do processo comercial.','Montagem do "CRM" e integração com o WhatsApp.','Ativação da IA e configuração do fluxo de atendimento.','Lançamento, testes e treinamento da equipe.','Acompanhamento e otimização contínuos.' ],
@@ -28488,7 +28488,7 @@ function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object
   ],
   planoAcao:[ 'Briefing e mapeamento da Casa (hotel, restaurante e eventos).','Montagem do "CRM", do WhatsApp e do site de produtos e preços.','Ativação da IA Stefano com o motor de reserva (hospedagem, mesa e eventos).','Lançamento, testes e treinamento da equipe.','Acompanhamento e otimização contínuos.' ],
   mapeamento:'Conforme conversado, hoje as reservas e o atendimento do hotel, do restaurante e dos eventos são feitos manualmente, pelo WhatsApp e pelo telefone. Isso gera demora nas respostas, acúmulo de trabalho para a equipe e perda de reservas fora do horário de expediente, principalmente à noite e nos fins de semana. Nossa equipe testou o número de WhatsApp atualmente em uso e identificou que ele se encontra em estado incompatível com o padrão de demanda de hoje: o atendimento por Inteligência Artificial (o "Agente", um Funcionário de IA) precisa ser humanizado e contar com detecção de intenção ("entender o que o cliente realmente quer") para um atendimento prático e eficaz.',
-  escopoProjeto:'O projeto automatiza o atendimento e as reservas da Casa com um assistente de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) com número próprio no WhatsApp, disponível 24 horas por dia.',
+  escopoProjeto:'O projeto entrega uma plataforma automatizada completa para o atendimento e as reservas da Casa, tudo num só lugar: um "CRM" (sistema que organiza os seus clientes e reservas), base de dados central, motor de reserva integrado ao WhatsApp para hospedagem, restaurante e eventos, um site para o cadastro de produtos e preços, painéis e relatórios, e agentes de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) com número próprio no WhatsApp, 24 horas por dia. A IA é uma das peças: a plataforma organiza toda a operação.',
   objetivo:'Oferecer atendimento instantâneo pelo WhatsApp que informa diárias, cardápio e pacotes de casamentos e eventos, tira dúvidas e realiza a reserva na hora, transferindo para a recepção ou o comercial quando for necessário o toque humano.',
   resultados:[ 'Atendimento imediato 24 horas por dia, todos os dias, pelo WhatsApp, sem filas nem espera.','Reservas de hospedagem, mesa do restaurante e eventos feitas na hora, direto pelo WhatsApp.','Captura de reservas fora do horário e nos fins de semana, sem perder cliente.','Respostas automáticas sobre diárias, cardápio e pacotes de casamentos e eventos.','Qualificação automática dos pedidos de orçamento de casamentos e eventos.','Organização automática das conversas por etiqueta (hospedagem, restaurante, eventos).','Transferência para a recepção ou o comercial com todas as informações já coletadas.','Menos trabalho manual da equipe, que foca no atendimento presencial e no fechamento.','Atendimento de vários clientes ao mesmo tempo, sem sobrecarga.','Relatórios com os dados das reservas e pedidos para apoiar as decisões da Casa.' ],
   etapas:[
@@ -28512,7 +28512,7 @@ function PropostasAdmin(){
   const [editar, setEditar] = React.useState(null); // objeto (novo/edição)
   const [ver, setVer] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='4'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const fresh=buildStefanoProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'); const l=[fresh,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='5'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const fresh=buildStefanoProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'); const l=[fresh,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
