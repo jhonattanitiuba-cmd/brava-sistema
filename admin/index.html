@@ -28363,7 +28363,7 @@ function _contratoServicosBody(d){
     +'<p><b>2.4 Agentes de Inteligência Artificial:</b> agente de triagem (primeiro contato e identificação da necessidade), agente de qualificação (tira as dúvidas do cliente antes da compra) e agente de conversão (valida a intenção e transfere para o atendente humano).</p>';
   b+='<h2>3. Prazo de Implementação</h2><p>3.1 O prazo estimado para a implementação completa da solução é de até '+e(prazo)+' dias úteis, contados a partir da confirmação do pagamento inicial, conforme a proposta comercial apresentada.</p><p>3.2 A CONTRATADA poderá, a seu critério técnico, antecipar a conclusão da implementação, sem alterar as demais condições.</p><p>3.3 O prazo poderá ser prorrogado na mesma proporção de eventuais atrasos no envio de informações, documentos, acessos ou aprovações por parte da CONTRATANTE.</p>';
   b+='<h2>4. Investimento do Projeto</h2>';
-  if(desc>=100){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', concedido como <b>cortesia (100% de desconto)</b> à CONTRATANTE nesta contratação.</p>'; }
+  if(desc>=100){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', integralmente descontado nesta contratação, resultando em '+_orcBRL(0)+'.</p>'; }
   else if(desc>0){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', com desconto de '+e(desc)+'%, resultando em '+_orcBRL(setupEf)+'.</p>'; }
   else if(setup>0){ b+='<p>4.1 O valor total da implementação da infraestrutura tecnológica e da plataforma inteligente de atendimento automatizado é de '+_orcBRL(setup)+'.</p>'; }
   else { b+='<p>4.1 A implementação da infraestrutura tecnológica segue conforme a proposta comercial apresentada.</p>'; }
@@ -28387,24 +28387,24 @@ function propostaBodyHTML(p){
   if(p.mapeamento){ b+='<h2>Mapeamento comercial</h2><p>'+e(p.mapeamento)+'</p>'; }
   if(p.escopoProjeto){ b+='<h2>Escopo do projeto</h2><p>'+e(p.escopoProjeto)+'</p>'; }
   if(p.objetivo){ b+='<h2>Objetivo</h2><p>'+e(p.objetivo)+'</p>'; }
-  if((p.resultados||[]).length){ b+='<h2>Resultados esperados</h2><ol>'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
-  if((p.etapas||[]).length){ b+='<h2>Escopo de entregáveis</h2><table><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
+  if((p.resultados||[]).length){ b+='<h2>Resultados esperados</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
+  if((p.etapas||[]).length){ b+='<div style="page-break-before:always"><h2>Escopo de entregáveis</h2><table style="page-break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
     p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
-    b+='</table>'; }
+    b+='</table></div>'; }
   b+='<h2>Investimento</h2>';
   b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
-  let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>Cortesia</b> (100% de desconto)'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
+  let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
   b+='<table><tr><th>Item</th><th class="num">Valor</th></tr>'
     +'<tr><td>Implementação (única) · construção e configuração personalizada</td><td class="num">'+setupCell+'</td></tr>'
     +'<tr><td>Mensalidade · funcionamento da IA, suporte e manutenção (mínimo '+e(inv.minMeses||3)+' meses)</td><td class="num">'+_orcBRL(mensal)+'</td></tr></table>';
   b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>';
-  b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.</p>';
+  b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p>';
   if(p.evolucao){ b+='<h2>Evolução (fase 2)</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
   b+='<div class="sign"><div><div class="sn">Brava Company</div><div class="sr">'+e(p.assinante||'Jhonattan Itiuba · CTO & Diretor Executivo')+'</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta</div></div></div>';
   return b;
 }
-function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:'Proposta\nComercial', sub:(p.subtitulo||'Sistema de Atendimento Qualificado'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
+function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
 function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase() }); }
 function renderPropostaContrato(p){ const inv=p.investimento||{};
   const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP' });
@@ -28414,7 +28414,7 @@ function renderPropostaContrato(p){ const inv=p.investimento||{};
 
 // Template padrão (base p/ escalar) — teor genérico do modelo Garcia Sadler.
 function propostaTemplatePadrao(){ return {
-  subtitulo:'Sistema de Atendimento Qualificado', plano:'Performance', validadeDias:'3',
+  capaTitulo:'Plataforma Automatizada', subtitulo:'Para Atendimento e Reservas com Inteligência Artificial', plano:'Performance', validadeDias:'3', prazoObs:'',
   cliente:'', cnpj:'', endereco:'', aosCuidados:'', repLegal:'',
   assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
   mapeamento:'Conforme alinhado em reunião, foi identificado que o atendimento via WhatsApp é realizado de forma manual, gerando alto tempo de resposta e sobrecarga da equipe, o que impacta a agilidade e a conversão de oportunidades.',
@@ -28438,21 +28438,22 @@ function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object
   cliente:'Stefano Hotel e Restaurante Ltda', cnpj:'48.333.371/0001-11',
   endereco:'Avenida Antonio Pannellini, 2635 - Taboão, São Roque/SP, 18.135-131',
   aosCuidados:'Sócios · Família Stefano', repLegal:'Representante legal',
-  subtitulo:'Atendimento e Reservas com Inteligência Artificial', plano:'Performance',
-  mapeamento:'Conforme conversado, hoje as reservas e o atendimento do hotel, do restaurante e dos eventos são feitos manualmente, pelo WhatsApp e pelo telefone. Isso gera demora nas respostas, acúmulo de trabalho para a equipe e perda de reservas fora do horário de expediente, principalmente à noite e nos fins de semana.',
-  escopoProjeto:'O projeto automatiza o atendimento e as reservas da casa com um assistente de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) com número próprio no WhatsApp, disponível 24 horas por dia.',
+  capaTitulo:'Plataforma Automatizada', subtitulo:'Para Atendimento e Reservas com Inteligência Artificial', plano:'Performance',
+  mapeamento:'Conforme conversado, hoje as reservas e o atendimento do hotel, do restaurante e dos eventos são feitos manualmente, pelo WhatsApp e pelo telefone. Isso gera demora nas respostas, acúmulo de trabalho para a equipe e perda de reservas fora do horário de expediente, principalmente à noite e nos fins de semana. Nossa equipe testou o número de WhatsApp atualmente em uso e identificou que ele se encontra em estado incompatível com o padrão de demanda de hoje: o atendimento por Inteligência Artificial (o "Agente", um Funcionário de IA) precisa ser humanizado e contar com detecção de intenção ("entender o que o cliente realmente quer") para um atendimento prático e eficaz.',
+  escopoProjeto:'O projeto automatiza o atendimento e as reservas da Casa com um assistente de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) com número próprio no WhatsApp, disponível 24 horas por dia.',
   objetivo:'Oferecer atendimento instantâneo pelo WhatsApp que informa diárias, cardápio e pacotes de casamentos e eventos, tira dúvidas e realiza a reserva na hora, transferindo para a recepção ou o comercial quando for necessário o toque humano.',
-  resultados:[ 'Atendimento imediato 24 horas por dia, todos os dias, pelo WhatsApp, sem filas nem espera.','Reservas de hospedagem, mesa do restaurante e eventos feitas na hora, direto pelo WhatsApp.','Captura de reservas fora do horário e nos fins de semana, sem perder cliente.','Respostas automáticas sobre diárias, cardápio e pacotes de casamentos e eventos.','Qualificação automática dos pedidos de orçamento de casamentos e eventos.','Organização automática das conversas por etiqueta (hospedagem, restaurante, eventos).','Transferência para a recepção ou o comercial com todas as informações já coletadas.','Menos trabalho manual da equipe, que foca no atendimento presencial e no fechamento.','Atendimento de vários clientes ao mesmo tempo, sem sobrecarga.','Relatórios com os dados das reservas e pedidos para apoiar as decisões da casa.' ],
+  resultados:[ 'Atendimento imediato 24 horas por dia, todos os dias, pelo WhatsApp, sem filas nem espera.','Reservas de hospedagem, mesa do restaurante e eventos feitas na hora, direto pelo WhatsApp.','Captura de reservas fora do horário e nos fins de semana, sem perder cliente.','Respostas automáticas sobre diárias, cardápio e pacotes de casamentos e eventos.','Qualificação automática dos pedidos de orçamento de casamentos e eventos.','Organização automática das conversas por etiqueta (hospedagem, restaurante, eventos).','Transferência para a recepção ou o comercial com todas as informações já coletadas.','Menos trabalho manual da equipe, que foca no atendimento presencial e no fechamento.','Atendimento de vários clientes ao mesmo tempo, sem sobrecarga.','Relatórios com os dados das reservas e pedidos para apoiar as decisões da Casa.' ],
   etapas:[
-    { etapa:'1', cronograma:'1ª semana', realizacao:['Reunião de alinhamento e briefing detalhado','Análise da casa (hotel, restaurante e eventos), público e diferenciais','Estruturação das diárias, do cardápio e dos pacotes de eventos','Mapeamento da jornada do hóspede e definição do fluxo de atendimento'] },
-    { etapa:'2', cronograma:'Até a 2ª semana', realizacao:['Implementação e configuração do "CRM" (sistema que organiza seus clientes)','Integração com o WhatsApp','Definição das regras de qualificação das reservas','Estruturação dos campos de coleta de dados'] },
-    { etapa:'3', cronograma:'Até a 2ª semana', realizacao:['Desenvolvimento e ativação da IA Stefano 24/7 no WhatsApp','Treinamento da IA com diárias, cardápio, pacotes e regras da casa','Motor de reserva integrado no WhatsApp (hospedagem, mesa e eventos)','Plataforma de atendimento com transferência automática para a equipe'] },
+    { etapa:'1', cronograma:'1ª semana', realizacao:['Reunião de alinhamento e briefing detalhado','Análise da Casa (hotel, restaurante e eventos), público e diferenciais','Estruturação das diárias, do cardápio e dos pacotes de eventos','Mapeamento da jornada do hóspede e definição do fluxo de atendimento'] },
+    { etapa:'2', cronograma:'Até a 2ª semana', realizacao:['Implementação e configuração do "CRM" (sistema que organiza seus clientes)','Integração com o WhatsApp (até 2 números) e até 10 acessos de atendentes','Site com acesso pela plataforma para o cadastro de produtos e a atualização de preços','Definição das regras de qualificação das reservas e estruturação dos campos de coleta de dados'] },
+    { etapa:'3', cronograma:'Até a 2ª semana', realizacao:['Desenvolvimento e ativação da IA Stefano 24/7 no WhatsApp (Agente humanizado, com detecção de intenção)','Treinamento da IA com diárias, cardápio, pacotes e regras da Casa','Motor de reserva integrado no WhatsApp para 3 frentes: hospedagem, mesa do restaurante e eventos','Plataforma de atendimento com transferência automática para a equipe'] },
     { etapa:'4', cronograma:'Até a 3ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e reserva/transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
   ],
-  investimento:{ setup:'3200', setupDescPct:'100', mensal:'2497', minMeses:'3', prazoDias:'15', formasSetup:'Cortesia (100% de desconto, bônus de parceria)', formasMensal:'Boleto mensal com data fixa, ou Pix' },
-  evolucao:'Como próximo passo (opcional), a casa pode incluir um módulo financeiro que faz a conciliação automática entre os sistemas (pagamentos e reservas), sem intervenção manual: o sinal ou o pagamento da reserva entra e é baixado sozinho, reduzindo conferência e erros.',
-  fechamento:'Prezados sócios da família Stefano, obrigado pela confiança e pela oportunidade de apresentar esta proposta. Estamos à disposição para construir juntos um atendimento à altura da tradição da casa.',
-  contratoObjetoExtra:'A solução inclui um motor de reserva integrado ao WhatsApp para hospedagem, restaurante e eventos, com possibilidade de evolução para conciliação financeira automática entre sistemas.',
+  investimento:{ setup:'3200', setupDescPct:'100', mensal:'2497', minMeses:'3', prazoDias:'30', formasSetup:'Isento nesta contratação', formasMensal:'Boleto mensal com data fixa, ou Pix' },
+  prazoObs:'O prazo pode ser antecipado caso a implementação flua e o Stefano Hotel e Restaurante forneça os acessos necessários: sistema de reservas, o robô ("bot") atual e as contas Google para a integração do "Workspace" (ferramentas Google) e do WhatsApp.',
+  evolucao:'Como próximo passo (fase 2), a plataforma integra o módulo financeiro completo, "plug and play" (conectou, usou): Visão Geral, conciliação via "Open Finance" (conexão segura e automática com o banco), extrato, fluxo de caixa atual e projetado e o "DRE" (demonstração de resultado) com as conciliações. Tudo automático, sem intervenção manual.',
+  fechamento:'Prezados Sócios da Família Stefano, obrigado pela confiança e pela oportunidade de apresentar esta proposta. Estamos à disposição para construir juntos um atendimento à altura da tradição da Casa.',
+  contratoObjetoExtra:'A solução inclui um motor de reserva integrado ao WhatsApp para hospedagem, restaurante e eventos, além de um site com acesso pela plataforma para cadastro de produtos e atualização de preços, com possibilidade de evolução para conciliação financeira automática entre sistemas.',
   foro:'Sorocaba/SP', assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
 }); }
 
@@ -28463,7 +28464,7 @@ function PropostasAdmin(){
   const [editar, setEditar] = React.useState(null); // objeto (novo/edição)
   const [ver, setVer] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ if(!localStorage.getItem('brava_propostas_seeded')){ const cur=loadPropostas(); if(!cur.length){ const s=buildStefanoProposta(); savePropostas([s]); setLista([s]); } localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='2'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const fresh=buildStefanoProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'); const l=[fresh,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
@@ -28527,7 +28528,7 @@ function PropostaVerModal({ proposta, onClose, onEditar }){
         <div style={{margin:'12px 0', padding:'12px 14px', background:'#000', color:'#fff', borderRadius:8}}>
           <div style={{fontSize:11, textTransform:'uppercase', letterSpacing:1, color:'#aaa'}}>Investimento mensal · plano {p.plano}</div>
           <div style={{fontSize:22, fontWeight:800}}>{_orcBRL(inv.mensal)}</div>
-          <div style={{fontSize:12, color:'#bbb', marginTop:4}}>Implementação: {Number(inv.setupDescPct)>=100 ? ('cortesia (de '+_orcBRL(inv.setup)+' por R$ 0,00)') : _orcBRL(inv.setup)} · mínimo {inv.minMeses||3} meses</div>
+          <div style={{fontSize:12, color:'#bbb', marginTop:4}}>Implementação: {Number(inv.setupDescPct)>=100 ? <span><s>{_orcBRL(inv.setup)}</s> R$ 0,00</span> : _orcBRL(inv.setup)} · mínimo {inv.minMeses||3} meses</div>
         </div>
         <div style={{fontSize:12.5, color:'#555'}}>Prévia resumida. Use os botões abaixo para gerar os PDFs completos no padrão Brava.</div>
       </div>
@@ -28567,8 +28568,11 @@ function PropostaEditorModal({ clientes, inicial, onClose, onSalvar }){
         <_FCampo label="Plano"><input value={f.plano||''} onChange={e=>up('plano',e.target.value)} style={_fInp}/></_FCampo>
         <_FCampo label="Validade (dias)"><input value={f.validadeDias||''} onChange={e=>up('validadeDias',e.target.value.replace(/[^\d]/g,''))} style={_fInp}/></_FCampo>
       </div>
-      <_FCampo label="Subtítulo (capa)"><input value={f.subtitulo||''} onChange={e=>up('subtitulo',e.target.value)} style={_fInp}/></_FCampo>
-      <_FCampo label="Mapeamento comercial (a dor identificada)"><textarea value={f.mapeamento||''} onChange={e=>up('mapeamento',e.target.value)} rows={3} style={_propTA}/></_FCampo>
+      <div className="grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:12}}>
+        <_FCampo label="Título da capa (bold)"><input value={f.capaTitulo||''} onChange={e=>up('capaTitulo',e.target.value)} placeholder="Ex.: Plataforma Automatizada" style={_fInp}/></_FCampo>
+        <_FCampo label="Subtítulo (capa)"><input value={f.subtitulo||''} onChange={e=>up('subtitulo',e.target.value)} style={_fInp}/></_FCampo>
+      </div>
+      <_FCampo label="Mapeamento comercial (a dor identificada)"><textarea value={f.mapeamento||''} onChange={e=>up('mapeamento',e.target.value)} rows={4} style={_propTA}/></_FCampo>
       <_FCampo label="Escopo do projeto"><textarea value={f.escopoProjeto||''} onChange={e=>up('escopoProjeto',e.target.value)} rows={2} style={_propTA}/></_FCampo>
       <_FCampo label="Objetivo"><textarea value={f.objetivo||''} onChange={e=>up('objetivo',e.target.value)} rows={2} style={_propTA}/></_FCampo>
       <_FCampo label="Resultados esperados (um por linha)"><textarea value={Array.isArray(f.resultados)?f.resultados.join('\n'):(f.resultados||'')} onChange={e=>up('resultados',e.target.value)} rows={5} style={_propTA}/></_FCampo>
@@ -28598,6 +28602,7 @@ function PropostaEditorModal({ clientes, inicial, onClose, onSalvar }){
       </div>
       <_FCampo label="Formas · implementação"><input value={inv.formasSetup||''} onChange={e=>upInv('formasSetup',e.target.value)} style={_fInp}/></_FCampo>
       <_FCampo label="Formas · mensalidade"><input value={inv.formasMensal||''} onChange={e=>upInv('formasMensal',e.target.value)} style={_fInp}/></_FCampo>
+      <_FCampo label="Observação do prazo (ex.: pode ser antecipado se...)"><textarea value={f.prazoObs||''} onChange={e=>up('prazoObs',e.target.value)} rows={2} style={_propTA}/></_FCampo>
       <_FCampo label="Evolução / fase 2 (opcional)"><textarea value={f.evolucao||''} onChange={e=>up('evolucao',e.target.value)} rows={2} style={_propTA}/></_FCampo>
       <_FCampo label="Fechamento (mensagem final)"><textarea value={f.fechamento||''} onChange={e=>up('fechamento',e.target.value)} rows={2} style={_propTA}/></_FCampo>
       <_FCampo label="Contrato · complemento do objeto (opcional)"><textarea value={f.contratoObjetoExtra||''} onChange={e=>up('contratoObjetoExtra',e.target.value)} rows={2} style={_propTA}/></_FCampo>
