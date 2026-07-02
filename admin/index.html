@@ -28353,28 +28353,39 @@ function _contratoServicosBody(d){
   const objetoExtra = d.objetoExtra ? (' '+e(d.objetoExtra)) : '';
   let b='';
   b+='<p>Pelo presente Instrumento Particular de Contrato de Prestação de Serviços, de um lado <b>'+e(d.cliente||'')+'</b>'+(d.cnpj?(', inscrita no CNPJ nº '+e(d.cnpj)):'')+(d.endereco?(', com sede na '+e(d.endereco)):'')+', doravante <b>CONTRATANTE</b>; e, de outro lado, <b>Brava Company LTDA</b>, inscrita no CNPJ nº 34.454.770/0001-26, com sede na Avenida São Paulo, nº 2233, neste ato representada por Jhonattan Gabriel Itiuba Silva, doravante <b>CONTRATADA</b>, ajustam o presente contrato. A Proposta Comercial apresentada integra este contrato; em caso de divergência, prevalecem as condições comerciais da proposta.</p>';
-  b+='<h2>1. Objeto:</h2><p>1.1 A CONTRATADA prestará à CONTRATANTE serviços de implementação e operação de uma plataforma de atendimento e reservas automatizado, integrada ao WhatsApp e com agentes de Inteligência Artificial (a "IA": um programa que conversa e responde automaticamente), para organizar e agilizar o atendimento.'+objetoExtra+'</p>';
+  const objeto1 = d.objeto ? e(d.objeto) : ('A CONTRATADA prestará à CONTRATANTE serviços de implementação e operação de uma plataforma de atendimento e reservas automatizado, integrada ao WhatsApp e com agentes de Inteligência Artificial (a "IA": um programa que conversa e responde automaticamente), para organizar e agilizar o atendimento.');
+  b+='<h2>1. Objeto:</h2><p>1.1 '+objeto1+objetoExtra+'</p>';
+  const escopo21 = d.escopoItens ? e(d.escopoItens) : ('O serviço inclui: (a) estruturação inicial do atendimento (briefing, organização dos produtos/serviços e dos fluxos); (b) o "CRM" (sistema que organiza os seus clientes) e a base de dados; (c) a plataforma de atendimento com acesso por login, painéis e relatórios; (d) os agentes de IA de triagem, qualificação e transferência para o atendimento humano; (e) o motor de reserva integrado ao WhatsApp para as frentes contratadas; e (f) o site com acesso pela plataforma para cadastro de produtos e atualização de preços.');
   b+='<h2>2. Escopo dos serviços:</h2>'
-    +'<p>2.1 O serviço inclui: (a) estruturação inicial do atendimento (briefing, organização dos produtos/serviços e dos fluxos); (b) o "CRM" (sistema que organiza os seus clientes) e a base de dados; (c) a plataforma de atendimento com acesso por login, painéis e relatórios; (d) os agentes de IA de triagem, qualificação e transferência para o atendimento humano; (e) o motor de reserva integrado ao WhatsApp para as frentes contratadas; e (f) o site com acesso pela plataforma para cadastro de produtos e atualização de preços.</p>'
+    +'<p>2.1 '+escopo21+'</p>'
     +'<p>2.2 O detalhamento, as etapas e o cronograma seguem a Proposta Comercial apresentada.</p>';
   b+='<h2>3. Resultados esperados:</h2><p>3.1 Os resultados citados na proposta (como agilidade no atendimento e aumento de conversão) são estimativas de melhoria, e não constituem garantia de faturamento ou de número de vendas, pois dependem também da operação, dos preços e da atuação da equipe da CONTRATANTE.</p>';
-  b+='<h2>4. Prazo de implementação:</h2><p>4.1 O prazo de implementação é de até '+e(prazo)+' dias úteis, contados a partir da confirmação do pagamento inicial.</p><p>4.2 A CONTRATADA poderá antecipar a entrega, sem alterar as demais condições.</p><p>4.3 O prazo será prorrogado na mesma medida de atrasos da CONTRATANTE no envio de informações, materiais e acessos (por exemplo: sistema de reservas atual, número e robô de WhatsApp e contas Google para integração).</p>';
+  b+='<h2>4. Prazo de implementação:</h2><p>4.1 O prazo de implementação é de até '+e(prazo)+' dias úteis, contados a partir da confirmação do pagamento inicial.</p><p>4.2 A CONTRATADA poderá antecipar a entrega, sem alterar as demais condições.</p><p>4.3 O prazo será prorrogado na mesma medida de atrasos da CONTRATANTE no envio de informações, materiais e acessos (por exemplo: '+e(d.acessosExemplo||'sistema de reservas atual, número e robô de WhatsApp e contas Google para integração')+').</p>';
   b+='<h2>5. Investimento (implementação):</h2>';
   if(desc>=100){ b+='<p>5.1 O valor da implementação é de '+_orcBRL(setup)+', integralmente descontado nesta contratação, resultando em '+_orcBRL(0)+'.</p>'; }
   else if(desc>0){ b+='<p>5.1 O valor da implementação é de '+_orcBRL(setup)+', com desconto de '+e(desc)+'%, resultando em '+_orcBRL(setupEf)+'.</p>'; }
   else if(setup>0){ b+='<p>5.1 O valor da implementação é de '+_orcBRL(setup)+'.</p>'; }
   else { b+='<p>5.1 A implementação segue conforme a Proposta Comercial apresentada.</p>'; }
   b+='<h2>6. Mensalidade:</h2><p>6.1 A mensalidade é de '+_orcBRL(mensal)+' e contempla: hospedagem da plataforma, manutenção técnica, monitoramento das automações, manutenção da base de dados e das integrações, e suporte técnico e operacional.</p><p>6.2 Após 12 meses, a mensalidade será reajustada uma vez por ano pela variação do "IPCA" (índice oficial de inflação) ou de outro índice que venha a substituí-lo.</p>';
-  b+='<h2>7. Vigência, renovação e rescisão:</h2><p>7.1 A vigência mínima é de '+e(minM)+' (três) meses, contados da ativação do sistema.</p><p>7.2 Após o período mínimo, o contrato é renovado automaticamente por períodos de 6 meses, salvo aviso de qualquer das partes com 30 dias de antecedência.</p><p>7.3 Caso a CONTRATANTE encerre antes do fim do período mínimo, ficam devidas as mensalidades restantes desse período.</p><p>7.4 A falta de pagamento autoriza a suspensão da plataforma, sem prejuízo da cobrança.</p>';
+  const minMExt=({1:'um',2:'dois',3:'três',4:'quatro',6:'seis',12:'doze',24:'vinte e quatro'})[Number(minM)]||'';
+  b+='<h2>7. Vigência, renovação e rescisão:</h2><p>7.1 A vigência mínima é de '+e(minM)+(minMExt?(' ('+minMExt+')'):'')+' meses, contados da ativação do sistema.</p><p>7.2 Após o período mínimo, o contrato é renovado automaticamente por períodos de 6 meses, salvo aviso de qualquer das partes com 30 dias de antecedência.</p><p>7.3 Caso a CONTRATANTE encerre antes do fim do período mínimo, ficam devidas as mensalidades restantes desse período.</p><p>7.4 A falta de pagamento autoriza a suspensão da plataforma, sem prejuízo da cobrança.</p>';
   b+='<h2>8. Pagamento e atraso:</h2><p>8.1 A implementação e as mensalidades seguem as formas de pagamento indicadas na proposta. 8.2 O atraso implica multa de 2% e juros de 1% ao mês sobre o valor em aberto. 8.3 O acesso poderá ser suspenso após 10 dias de atraso.</p>';
-  b+='<h2>9. Responsabilidades da CONTRATANTE:</h2><p>9.1 Fornecer as informações e os acessos necessários (inclusive sistema de reservas, número e robô de WhatsApp e contas Google). 9.2 Indicar um responsável para o contato com a CONTRATADA. 9.3 Garantir a veracidade e a atualização do conteúdo fornecido à IA (produtos, preços, diárias, cardápio e pacotes). 9.4 Utilizar o WhatsApp conforme as regras da Meta, sem envio de mensagens não autorizadas ("spam").</p>';
+  const resp9 = d.respItens ? e(d.respItens) : ('9.1 Fornecer as informações e os acessos necessários (inclusive sistema de reservas, número e robô de WhatsApp e contas Google). 9.2 Indicar um responsável para o contato com a CONTRATADA. 9.3 Garantir a veracidade e a atualização do conteúdo fornecido à IA (produtos, preços, diárias, cardápio e pacotes). 9.4 Utilizar o WhatsApp conforme as regras da Meta, sem envio de mensagens não autorizadas ("spam").');
+  b+='<h2>9. Responsabilidades da CONTRATANTE:</h2><p>'+resp9+'</p>';
+  if(d.participacao){ b+='<h2>9A. Evolução e participação:</h2><p>9A.1 '+e(d.participacao)+'</p>'; }
   b+='<h2>10. Serviços de terceiros e integrações:</h2><p>10.1 A solução depende de serviços de terceiros (WhatsApp/Meta, Google e, na fase 2, instituições financeiras via "Open Finance"). 10.2 A CONTRATADA não responde por indisponibilidade, mudança de regras ou políticas, bloqueio ou banimento aplicados por esses terceiros, inclusive eventual bloqueio do número de WhatsApp pela Meta, quando não decorrerem de falha direta da CONTRATADA.</p>';
   b+='<h2>11. Limite de responsabilidade:</h2><p>11.1 A CONTRATADA responde apenas por danos diretos comprovadamente causados por sua culpa, não respondendo por lucros cessantes ou danos indiretos. 11.2 A responsabilidade total fica limitada ao valor pago pela CONTRATANTE nos 3 meses anteriores ao evento.</p>';
   b+='<h2>12. Dados (LGPD) e confidencialidade:</h2><p>12.1 As partes cumprem a Lei nº 13.709/2018 (LGPD): a CONTRATANTE é a controladora dos dados e a CONTRATADA a operadora, utilizando-os apenas para executar este contrato. 12.2 As partes manterão sigilo sobre as informações confidenciais a que tiverem acesso.</p>';
   b+='<h2>13. Propriedade intelectual:</h2><p>13.1 A plataforma, as automações, os fluxos e a tecnologia são de propriedade da CONTRATADA. 13.2 Este contrato concede à CONTRATANTE apenas a licença de uso durante a vigência, sem transferir a propriedade da tecnologia.</p>';
   b+='<h2>14. Disposições finais:</h2><p>14.1 Nenhuma das partes responde por atrasos ou falhas decorrentes de caso fortuito ou força maior. 14.2 Evoluções como o módulo financeiro (fase 2, com conciliação via Open Finance) são opcionais e serão orçadas à parte. 14.3 Fica eleito o foro da comarca de '+e(foro)+' para dirimir as questões deste contrato.</p>';
-  b+='<div class="sign"><div><div class="sn">CONTRATADA · Brava Company LTDA</div><div class="sr">Jhonattan Itiuba · CTO e Diretor Executivo<br>CNPJ 34.454.770/0001-26</div></div>'
-    +'<div><div class="sn">CONTRATANTE · '+e(d.cliente||'')+'</div><div class="sr">'+e(d.repLegal||'Representante legal')+(d.cnpj?('<br>CNPJ '+e(d.cnpj)):'')+'</div></div></div>';
+  const cSigners=(d.assinantes&&d.assinantes.length)?d.assinantes:[{nome:'Jhonattan Itiuba',cargo:'CTO e Diretor Executivo'}];
+  const cRep=(d.repClienteList&&d.repClienteList.length)?d.repClienteList:[d.repLegal||'Representante legal'];
+  b+='<div class="sign"><div><div class="sn">CONTRATADA · Brava Company LTDA</div>'
+    +cSigners.map(function(s){ return '<div class="sr">'+e(s.nome)+(s.cargo?(' · '+e(s.cargo)):'')+'</div>'; }).join('')
+    +'<div class="sr">CNPJ 34.454.770/0001-26</div></div>'
+    +'<div><div class="sn">CONTRATANTE · '+e(d.cliente||'')+'</div>'
+    +cRep.map(function(n){ return '<div class="sr">'+e(n)+'</div>'; }).join('')
+    +(d.cnpj?('<div class="sr">CNPJ '+e(d.cnpj)+'</div>'):'')+'</div></div>';
   return b;
 }
 
@@ -28387,17 +28398,20 @@ function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const f
   const TSVG='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex:none"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
   const transf=function(label){ return '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:5px auto;padding:3px 9px;border:1px solid #111;border-radius:999px;font-size:7.5pt;font-weight:700;background:#eee">'+TSVG+'<span>'+e(label||'Transferência')+'</span></div>'; };
   // Legenda
+  const equipeLbl=p.fluxoEquipeLabel||'Equipe Stefano (pessoas)';
+  const topoSub=p.fluxoTopoSub||'Entra pelo WhatsApp da Casa, a qualquer hora';
+  const frentesSub=p.fluxoFrentesSub||'Cada frente é um núcleo próprio, sempre pelo WhatsApp';
   let f='<div style="display:flex;gap:16px;justify-content:center;margin-bottom:10px;font-size:8pt">'
     +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#000;border:1px solid #111;border-radius:3px;display:inline-block"></span>Automático (IA e sistema)</span>'
-    +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff;border:1px solid #111;border-radius:3px;display:inline-block"></span>Equipe Stefano (pessoas)</span>'
+    +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff;border:1px solid #111;border-radius:3px;display:inline-block"></span>'+e(equipeLbl)+'</span>'
     +'<span style="display:inline-flex;align-items:center;gap:5px">'+TSVG+'Transferência</span></div>';
   // Cadeia automática do topo
   f+='<div style="max-width:400px;margin:0 auto">';
-  f+=node('Cliente','Entra pelo WhatsApp da Casa, a qualquer hora',true);
+  f+=node('Cliente',topoSub,true);
   f+=arrow()+node(ag+' · Agente 24/7','Atende na hora, humanizado e com detecção de intenção',true);
   f+=arrow()+node('Triagem e qualificação','Entende o que a pessoa precisa e organiza o pedido',true);
   f+='</div>';
-  f+='<div style="text-align:center;font-size:8pt;color:#555;margin:8px 0 6px">Cada frente é um núcleo próprio, sempre pelo WhatsApp</div>';
+  f+='<div style="text-align:center;font-size:8pt;color:#555;margin:8px 0 6px">'+e(frentesSub)+'</div>';
   // 3 lanes por frente (dado data-driven em p.fluxoLanes; fallback p/ frentes simples)
   const lanes=(p.fluxoLanes&&p.fluxoLanes.length)?p.fluxoLanes:frentes.map(function(fr){ return { titulo:fr, passos:[{tipo:'auto',t:'Reserva pelo WhatsApp',s:''}] }; });
   if(lanes.length){ f+='<div style="display:flex;gap:8px;align-items:flex-start">';
@@ -28408,11 +28422,15 @@ function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const f
       f+='</div>'; });
     f+='</div>'; }
   // Convergência
-  f+='<div style="max-width:400px;margin:8px auto 0">'+arrow()+node('Relatórios e indicadores','Dados de todas as frentes para as decisões da Casa',true)+'</div>';
-  // Apoios
+  const convergSub=p.fluxoConvergSub||'Dados de todas as frentes para as decisões da Casa';
+  f+='<div style="max-width:400px;margin:8px auto 0">'+arrow()+node('Relatórios e indicadores',convergSub,true)+'</div>';
+  // Apoios (data-driven; fallback p/ o padrão do Stefano)
+  const apoios=(p.fluxoApoios&&p.fluxoApoios.length)?p.fluxoApoios:[
+    { titulo:'Site', texto:'Cadastro de produtos e preços que alimenta a IA' },
+    { titulo:'Fase 2 · Financeiro', texto:'Open Finance e conciliação automática das reservas' },
+  ];
   f+='<div style="display:flex;gap:10px;margin-top:14px;justify-content:center">'
-    +'<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8pt;color:#333"><b>Site</b><br>Cadastro de produtos e preços que alimenta a IA</div>'
-    +'<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8pt;color:#333"><b>Fase 2 &middot; Financeiro</b><br>Open Finance e conciliação automática das reservas</div>'
+    +apoios.map(function(a){ return '<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8pt;color:#333"><b>'+e(a.titulo)+'</b><br>'+e(a.texto)+'</div>'; }).join('')
   +'</div>';
   return f;
 }
@@ -28428,24 +28446,38 @@ function propostaBodyHTML(p){
   if((p.etapas||[]).length){ b+='<div class="brk"></div><div><h2>Escopo de entregáveis:</h2><table style="break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
     p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
     b+='</table></div>'; }
-  b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.</p>'+_fluxoHTML(p)+'</div>';
+  b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">'+e(p.fluxoIntro||'Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.')+'</p>'+_fluxoHTML(p)+'</div>';
   b+='<div class="brk"></div><div><h2>Investimento:</h2>';
   b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
   let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
   b+='<table><tr><th>Item</th><th class="num">Valor</th></tr>'
     +'<tr><td>Implementação (única) · construção e configuração personalizada</td><td class="num">'+setupCell+'</td></tr>'
     +'<tr><td>Mensalidade · funcionamento da IA, suporte e manutenção (mínimo '+e(inv.minMeses||3)+' meses)</td><td class="num">'+_orcBRL(mensal)+'</td></tr></table>';
+  if((p.investDistribuicao||[]).length){
+    const grupos=[]; p.investDistribuicao.forEach(function(d){ let g=grupos.find(function(x){return x.grupo===d.grupo;}); if(!g){ g={grupo:d.grupo, itens:[], sub:0}; grupos.push(g); } g.itens.push(d); g.sub+=Number(d.valor||0); });
+    b+='<p style="margin-top:14px"><b>Como o investimento se distribui.</b> Transparência do que é infraestrutura de tecnologia e do que é trabalho ativo da nossa equipe.</p>';
+    b+='<table><tr><th>Frente</th><th>O que contempla</th><th class="num">Valor</th></tr>';
+    grupos.forEach(function(g){ g.itens.forEach(function(it,i){ b+='<tr>'+(i===0?('<td rowspan="'+g.itens.length+'"><b>'+e(g.grupo)+'</b></td>'):'')+'<td>'+e(it.item||'')+'</td><td class="num">'+_orcBRL(it.valor)+'</td></tr>'; }); b+='<tr><td></td><td class="num"><b>Subtotal '+e(g.grupo)+'</b></td><td class="num"><b>'+_orcBRL(g.sub)+'</b></td></tr>'; });
+    b+='<tr><td colspan="2" class="num"><b>Total mensal</b></td><td class="num"><b>'+_orcBRL(mensal)+'</b></td></tr></table>';
+  }
   b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>';
   b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>';
   if(p.evolucao){ b+='<h2>Evolução (fase 2):</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
-  b+='<div class="sign"><div><div class="sn">Brava Company LTDA</div><div class="sr">Jhonattan Itiuba · CTO e Diretor Executivo</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta</div></div></div>';
+  const bravaSigners=(p.assinantes&&p.assinantes.length)?p.assinantes:[{nome:'Jhonattan Itiuba',cargo:'CTO e Diretor Executivo'}];
+  const clienteSigners=(p.assinantesCliente&&p.assinantesCliente.length)?p.assinantesCliente:[];
+  b+='<div class="sign"><div><div class="sn">Brava Company LTDA</div>'
+    +bravaSigners.map(function(s){ return '<div class="sr">'+e(s.nome)+(s.cargo?(' · '+e(s.cargo)):'')+'</div>'; }).join('')
+    +'</div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div>'
+    +(clienteSigners.length?clienteSigners.map(function(n){ return '<div class="sr">'+e(n)+'</div>'; }).join(''):'<div class="sr">Aceite da proposta</div>')
+    +'</div></div>';
   return b;
 }
 function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
 function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase() }); }
 function renderPropostaContrato(p){ const inv=p.investimento||{};
-  const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP' });
+  const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP',
+    objeto:p.contratoObjeto, escopoItens:p.contratoEscopoItens, respItens:p.contratoRespItens, participacao:p.contratoParticipacao, acessosExemplo:p.contratoAcessosExemplo, assinantes:p.assinantes, repClienteList:p.assinantesCliente });
   const capa={ tag:'Contrato de Prestação de Serviços', titulo:'Contrato de\nServiços', sub:(p.cliente||''), meta:[ {lbl:'Contratante',val:p.cliente||'-'}, {lbl:'Contratada',val:'Brava Company LTDA'}, {lbl:'Mensalidade',val:_orcBRL(inv.mensal)} ] };
   bravaPrintDoc({ capa, bodyHTML:body, headerLabel:'CONTRATO · '+String(p.cliente||'').toUpperCase() });
 }
@@ -28503,6 +28535,62 @@ function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object
   foro:'Sorocaba/SP', assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
 }); }
 
+// Semente: proposta da Clínica Dra Thalita Moreti (plano Enterprise · gestão + tecnologia).
+function buildThalitaProposta(){ const t=propostaTemplatePadrao(); return Object.assign(t, {
+  id:'prop_thalita', criadoEm:new Date().toISOString(), status:'rascunho',
+  cliente:'Clínica Dra Thalita Moreti', cnpj:'',
+  endereco:'Avenida Vital Brasil, 177, 9º andar, Sala 910, Butantã, São Paulo/SP, 05503-001',
+  aosCuidados:'Thalita Moreti e Rafael Barbosa', repLegal:'Thalita Moreti e Rafael Barbosa',
+  capaTitulo:'Parceria de Gestão e Tecnologia', subtitulo:'Centralização da operação, estruturação comercial e crescimento com Inteligência Artificial', plano:'Enterprise', validadeDias:'7',
+  assinantes:[ {nome:'Jhonattan Itiuba', cargo:'CTO e Diretor Executivo'}, {nome:'Priscilla Cardoso', cargo:'Gestão e Consultoria'} ],
+  assinantesCliente:['Thalita Moreti','Rafael Barbosa'],
+  agenteNome:'IA Moreti', fluxoFrentes:['Estética e Cirurgia facial','Odontologia','Comercial e Gestão'],
+  fluxoEquipeLabel:'Equipe da clínica (pessoas)',
+  fluxoTopoSub:'Entra pelo WhatsApp ou por uma campanha, a qualquer hora',
+  fluxoFrentesSub:'Cada frente é um núcleo próprio, sempre organizado no mesmo sistema',
+  fluxoConvergSub:'Dados de todas as frentes para as decisões e as metas da clínica',
+  fluxoIntro:'Veja, de forma simples, como funciona toda a operação, do primeiro contato do paciente até o agendamento e os relatórios.',
+  fluxoApoios:[
+    { titulo:'Campanhas', texto:'Google, Meta e TikTok levando pacientes qualificados para a IA' },
+    { titulo:'Gestão Brava', texto:'Estruturação comercial, financeira e de equipe acompanhando cada fase' },
+  ],
+  fluxoLanes:[
+    { titulo:'Estética e Cirurgia facial', passos:[ {tipo:'auto', t:'IA qualifica', s:'Procedimento, objeção e melhor horário'}, {tipo:'auto', t:'Agenda a consulta', s:'Consulta presencial de avaliação'}, {tipo:'transfer', t:'Intenção → Comercial'}, {tipo:'humano', t:'Consulta e fechamento', s:'Avaliação e saída com data marcada'}, {tipo:'humano', t:'Pós-operatório e retorno', s:'Cuidados e acompanhamento'} ] },
+    { titulo:'Odontologia', passos:[ {tipo:'auto', t:'IA qualifica', s:'Lentes, limpeza ou tratamento'}, {tipo:'auto', t:'Agenda a avaliação', s:'Direto no sistema'}, {tipo:'transfer', t:'Equipe confirma'}, {tipo:'humano', t:'Plano de tratamento', s:'Avaliação e proposta de tratamento'} ] },
+    { titulo:'Comercial e Gestão', passos:[ {tipo:'auto', t:'Organiza no CRM', s:'Cada contato com etiqueta e histórico'}, {tipo:'auto', t:'Indicadores e metas', s:'Conversão, ticket e ocupação'}, {tipo:'transfer', t:'Follow-up → Vendas'}, {tipo:'humano', t:'Equipe fecha', s:'Vendedor conduz e fecha a venda'} ] },
+  ],
+  mapeamento:'Conforme mapeado em reunião, a clínica tem margens altas e forte potencial de crescimento, mas a operação depende muito da rotina da fundadora e de processos ainda informais. O comercial é o principal gargalo: a equipe de atendimento tem perfil de recepção, e não de vendas, o que reduz a conversão das consultas em procedimentos (hoje cerca de cinco fechamentos a cada dez consultas presenciais). A gestão administrativa, o estoque e o financeiro carecem de processos estruturados, e a decisão estratégica está concentrada. Somam-se as objeções recorrentes do público (flexibilidade de horário, medo, estrutura, dúvidas sobre o procedimento, cicatriz e preço), que precisam ser trabalhadas com método e com uma jornada de atendimento clara.',
+  escopoProjeto:'O plano Enterprise entrega, num só lugar, a centralização e a implementação de toda a tecnologia da clínica somadas à gestão ativa da operação. Na frente de tecnologia (infraestrutura): um "CRM" (sistema que organiza os seus pacientes), base de dados central, uma "IA" (programa que conversa e responde sozinho) com número próprio no WhatsApp 24 horas por dia, estruturação digital e site, gestão de campanhas (Google, Meta e TikTok) e o módulo financeiro (fluxo de caixa, "DRE" e indicadores). Na frente de gestão (trabalho ativo da nossa equipe): estruturação de processos, estruturação comercial, gestão de equipe, gestão financeira e direcionamento audiovisual. A IA é uma das peças: a plataforma e a gestão organizam a operação inteira.',
+  objetivo:'Conduzir a clínica da sobrevivência para a escala, com previsibilidade: estruturar o comercial e a gestão, centralizar a operação numa única plataforma e acompanhar o crescimento por fases, transformando a margem alta em faturamento consistente.',
+  resultados:[ 'Atendimento imediato 24 horas por dia pelo WhatsApp, sem filas nem espera.','Mais consultas convertidas em procedimentos, com uma jornada de vendas clara.','Equipe com método e perfil de vendas, preparada para trabalhar as objeções do público.','Agenda mais cheia e melhor ocupação da capacidade produtiva (cirurgia e odontologia).','Campanhas (Google, Meta e TikTok) levando pacientes qualificados para a IA.','Operação centralizada: pacientes, agenda, financeiro e indicadores num só lugar.','Gestão financeira com fluxo de caixa, "DRE" e metas por fase.','Processos, treinamentos e cultura de equipe estruturados.','Decisões baseadas em dados, com relatórios de conversão, ticket e ocupação.','Base pronta para escalar até a trilha de procedimentos e cursos.' ],
+  planoAcao:[ 'Diagnóstico e centralização da operação na plataforma.','Estruturação comercial e dos processos (micro e macro).','Ativação da IA no WhatsApp e das campanhas (Google, Meta e TikTok).','Gestão financeira (fluxo de caixa, "DRE" e indicadores) e gestão de equipe.','Direcionamento audiovisual e desenho da jornada do paciente.','Acompanhamento por fase: sobrevivência, escala e procedimentos com cursos.' ],
+  etapas:[
+    { etapa:'Mês 1', cronograma:'Estruturação', realizacao:['Diagnóstico completo e alinhamento de metas','Centralização da operação na plataforma ("CRM" e base de dados)','Estruturação comercial e mapeamento da jornada do paciente','Configuração da IA no WhatsApp e das campanhas'] },
+    { etapa:'Meses 2 e 3', cronograma:'Fase 1 · Sobrevivência (0 a 90 dias)', realizacao:['Meta de faturamento mínimo de R$ 45.000 por mês','Treinamentos de recepção e comercial','Processos de atendimento, estoque e financeiro','Manual de atendimento, jornada do cliente e indicadores'] },
+    { etapa:'Meses 3 e 4', cronograma:'Fase 2 · Escala (91 a 180 dias)', realizacao:['Meta de R$ 150.000 por mês','Otimização das campanhas e do funil de vendas','Gestão financeira com "DRE" e fluxo de caixa','Cultura de feedback e desenvolvimento da equipe'] },
+    { etapa:'Meses 5 e 6', cronograma:'Fase 3 · Procedimentos e cursos (a partir de 181 dias)', realizacao:['Meta de R$ 250.000 por mês','Trilha de procedimentos e escala da agenda','Estruturação de cursos e mentorias para donos de clínica','Missão, visão e valores consolidados'] },
+  ],
+  investimento:{ setup:'0', setupDescPct:'0', mensal:'4200', minMeses:'6', prazoDias:'30', formasSetup:'Incluída nesta contratação', formasMensal:'Boleto ou Pix, mensal com data fixa' },
+  investDistribuicao:[
+    { grupo:'Infraestrutura tecnológica', item:'Plataforma, "CRM" e base de dados (hospedagem e manutenção)', valor:600 },
+    { grupo:'Infraestrutura tecnológica', item:'IA no WhatsApp 24/7 e automações', valor:500 },
+    { grupo:'Infraestrutura tecnológica', item:'Estruturação digital, site e ferramentas de campanha', valor:300 },
+    { grupo:'Trabalho ativo Brava', item:'Estruturação e gestão comercial', valor:900 },
+    { grupo:'Trabalho ativo Brava', item:'Gestão financeira ("DRE", fluxo de caixa e indicadores)', valor:700 },
+    { grupo:'Trabalho ativo Brava', item:'Gestão de equipe, processos e treinamentos', valor:700 },
+    { grupo:'Trabalho ativo Brava', item:'Direcionamento audiovisual e gestão de campanhas', valor:500 },
+  ],
+  prazoObs:'O prazo pode ser antecipado conforme a clínica fornecer os acessos necessários: contas de WhatsApp, Google e das plataformas de anúncio, além dos dados operacionais e financeiros.',
+  evolucao:'Como evolução (Fases 2 e 3), o crescimento pode ser acompanhado por um modelo de participação sobre o resultado, alinhando o ganho da Brava ao da clínica, e por uma trilha de cursos e mentorias para donos de clínica. Os percentuais e as condições da participação são definidos em conjunto quando a clínica atingir a fase de escala.',
+  fechamento:'Prezados Thalita e Rafael, obrigado pela confiança e pela oportunidade de construir esta parceria. Estamos à disposição para conduzir, juntos, a clínica ao próximo nível.',
+  contratoObjeto:'A CONTRATADA prestará à CONTRATANTE, no plano Enterprise, a implementação e a centralização da tecnologia da clínica (plataforma, "CRM", base de dados, "IA" no WhatsApp, estruturação digital, campanhas e módulo financeiro) somadas à gestão ativa da operação (estruturação de processos, gestão comercial, financeira, de equipe e direcionamento audiovisual).',
+  contratoEscopoItens:'O serviço inclui: (a) centralização e implementação da plataforma, do "CRM" e da base de dados; (b) a "IA" com número próprio no WhatsApp e as automações; (c) a estruturação digital, o site e a gestão de campanhas (Google, Meta e TikTok); (d) o módulo financeiro (fluxo de caixa, "DRE" e indicadores); (e) a estruturação e a gestão comercial, de processos e de equipe; e (f) os entregáveis de estruturação organizacional (manual de atendimento, jornada do cliente, treinamentos, cultura de feedback, mapeamento de perfil e definição de missão, visão e valores).',
+  contratoRespItens:'9.1 Fornecer as informações e os acessos necessários (contas de WhatsApp, Google, plataformas de anúncio, dados operacionais e financeiros). 9.2 Indicar um responsável para o contato com a CONTRATADA. 9.3 Garantir a veracidade e a atualização das informações fornecidas. 9.4 Utilizar o WhatsApp conforme as regras da Meta, sem envio de mensagens não autorizadas ("spam").',
+  contratoParticipacao:'A partir da fase de escala (Fases 2 e 3), as partes poderão pactuar, em aditivo próprio, um modelo de participação sobre o resultado da clínica, com percentual e base definidos em conjunto, além de uma trilha de cursos e mentorias.',
+  contratoAcessosExemplo:'contas de WhatsApp, Google e das plataformas de anúncio, além dos dados operacionais e financeiros',
+  foro:'São Paulo/SP', assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
+}); }
+
 const _propTA = {...( _fInp ), height:'auto', padding:'10px 12px', resize:'vertical', lineHeight:1.5};
 function PropostasAdmin(){
   const { list: clientes } = useClientes();
@@ -28510,7 +28598,7 @@ function PropostasAdmin(){
   const [editar, setEditar] = React.useState(null); // objeto (novo/edição)
   const [ver, setVer] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='5'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const fresh=buildStefanoProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'); const l=[fresh,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='6'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'); const l=[thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
