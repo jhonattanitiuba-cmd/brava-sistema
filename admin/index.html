@@ -27743,7 +27743,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
     + "@page{size:A4;margin:14mm 16mm 14mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
     + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
+    + ".cover{position:relative;z-index:2;height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
     + ".cover-logo img{height:26px}"
     + ".cover-body{flex:1;display:flex;flex-direction:column;justify-content:center}"
     + ".cover-tag{font-size:7.5pt;text-transform:uppercase;letter-spacing:2.5px;color:#888;margin-bottom:7mm}"
@@ -27760,6 +27760,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + ".rhd{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm;margin-bottom:7mm}"
     + ".rhd img{height:13px}.rhd .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
     + ".rft{border-top:.5px solid #ddd;padding-top:3mm;margin-top:9mm;font-size:7pt;color:#888;text-align:center}"
+    + ".pagefoot{position:fixed;left:16mm;right:16mm;bottom:7mm;text-align:center;font-size:7pt;color:#888;background:#fff;border-top:.5px solid #ddd;padding-top:2mm;z-index:1}"
     + ".doc{padding:0}"
     + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc;break-after:avoid;page-break-after:avoid}"
     + "p{margin:5px 0;orphans:3;widows:3}b{font-weight:700}"
@@ -27783,10 +27784,10 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + '<div class="cover-foot"><span>Brava Company</span><span>diretoria@brava.company</span><span>brava.software</span></div></div>';
   const rotulo = _pdfEsc(headerLabel || (capa&&capa.tag) || 'Documento');
   const frame = '<table class="frame"><thead><tr><td><div class="rhd"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></td></tr></thead>'
-    + '<tfoot><tr><td><div class="rft">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div></td></tr></tfoot>'
     + '<tbody><tr><td><div class="doc">'+bodyHTML+'</div></td></tr></tbody></table>';
+  const pagefoot = '<div class="pagefoot">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div>';
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
-    + cover + frame + '</body></html>';
+    + cover + frame + pagefoot + '</body></html>';
   w.document.write(html); w.document.close(); w.focus();
   var done=false; var go=function(){ if(done)return; done=true; try{ w.print(); }catch(e){} };
   var imgs=function(){ try{ return Array.prototype.slice.call(w.document.images||[]); }catch(e){ return []; } };
@@ -28354,28 +28355,34 @@ function _contratoServicosBody(d){
   const mensal=Number(d.mensal||0), minM=d.minMeses||3, prazo=d.prazoDias||15, foro=d.foro||'Sorocaba/SP';
   const objetoExtra = d.objetoExtra ? (' '+e(d.objetoExtra)) : '';
   let b='';
-  b+='<p>Pelo presente Instrumento Particular de Contrato de Prestação de Serviços Tecnológicos, de um lado <b>'+e(d.cliente||'')+'</b>'+(d.cnpj?(', inscrita no CNPJ nº '+e(d.cnpj)):'')+(d.endereco?(', com sede na '+e(d.endereco)):'')+', doravante <b>CONTRATANTE</b>; e, de outro lado, <b>Brava Company LTDA</b>, inscrita no CNPJ nº 34.454.770/0001-26, com sede na Avenida São Paulo, nº 2233, neste ato representada por Jhonattan Gabriel Itiuba Silva, doravante <b>CONTRATADA</b>, resolvem celebrar o presente contrato, que se regerá pelas cláusulas a seguir.</p>';
-  b+='<h2>1. Objeto do Contrato</h2><p>1.1 O presente contrato tem por objeto a implementação de infraestrutura tecnológica e plataforma inteligente de atendimento automatizado, integrada ao WhatsApp e utilizando agentes de Inteligência Artificial, destinada à organização e otimização do atendimento da CONTRATANTE.'+objetoExtra+'</p><p>1.2 A solução envolve a criação de infraestrutura tecnológica, automações, base de dados e sistema de atendimento automatizado integrado ao WhatsApp Comercial.</p>';
-  b+='<h2>2. Escopo dos Serviços</h2>'
-    +'<p><b>2.1 Estruturação inicial do atendimento:</b> reunião de briefing estratégico, alinhamento com a equipe, estruturação dos produtos e serviços, definição de protocolos e fluxos de atendimento.</p>'
-    +'<p><b>2.2 Base de dados e integrações:</b> criação do "CRM" (sistema que organiza os seus clientes), criação da base de dados, configuração da automação, integração entre o CRM e os fluxos de atendimento e preparação da integração com o WhatsApp.</p>'
-    +'<p><b>2.3 Plataforma de atendimento:</b> sistema de acesso por login e senha, painéis e relatórios de indicadores, monitoramento dos atendimentos e gestão de contatos e agendamentos.</p>'
-    +'<p><b>2.4 Agentes de Inteligência Artificial:</b> agente de triagem (primeiro contato e identificação da necessidade), agente de qualificação (tira as dúvidas do cliente antes da compra) e agente de conversão (valida a intenção e transfere para o atendente humano).</p>';
-  b+='<h2>3. Prazo de Implementação</h2><p>3.1 O prazo estimado para a implementação completa da solução é de até '+e(prazo)+' dias úteis, contados a partir da confirmação do pagamento inicial, conforme a proposta comercial apresentada.</p><p>3.2 A CONTRATADA poderá, a seu critério técnico, antecipar a conclusão da implementação, sem alterar as demais condições.</p><p>3.3 O prazo poderá ser prorrogado na mesma proporção de eventuais atrasos no envio de informações, documentos, acessos ou aprovações por parte da CONTRATANTE.</p>';
-  b+='<h2>4. Investimento do Projeto</h2>';
-  if(desc>=100){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', integralmente descontado nesta contratação, resultando em '+_orcBRL(0)+'.</p>'; }
-  else if(desc>0){ b+='<p>4.1 O valor da implementação da infraestrutura tecnológica é de '+_orcBRL(setup)+', com desconto de '+e(desc)+'%, resultando em '+_orcBRL(setupEf)+'.</p>'; }
-  else if(setup>0){ b+='<p>4.1 O valor total da implementação da infraestrutura tecnológica e da plataforma inteligente de atendimento automatizado é de '+_orcBRL(setup)+'.</p>'; }
-  else { b+='<p>4.1 A implementação da infraestrutura tecnológica segue conforme a proposta comercial apresentada.</p>'; }
-  b+='<h2>5. Funcionamento Contínuo do Sistema</h2><p>5.1 O valor da mensalidade referente ao funcionamento da infraestrutura tecnológica do sistema é de '+_orcBRL(mensal)+'.</p><p>5.2 A mensalidade contempla: hospedagem da plataforma; manutenção técnica da infraestrutura; monitoramento das automações; manutenção da base de dados; manutenção das integrações com serviços externos; e suporte técnico e operacional do sistema.</p>';
-  b+='<h2>6. Continuidade do Projeto</h2><p>6.1 O presente contrato possui prazo mínimo de vigência de '+e(minM)+' (meses), contados a partir da ativação do sistema.</p><p>6.2 Durante esse período deverá ser mantido o pagamento mensal para garantir o funcionamento contínuo da infraestrutura tecnológica.</p><p>6.3 Após o prazo inicial, o contrato será renovado automaticamente por períodos sucessivos de 6 meses, salvo manifestação contrária mediante aviso prévio de 30 dias.</p>';
-  b+='<h2>7. Responsabilidades da Contratante</h2><p>7.1 Fornecer todas as informações necessárias para a implementação do sistema. 7.2 Disponibilizar os acessos técnicos necessários para as integrações. 7.3 Designar um responsável interno para a comunicação com a CONTRATADA.</p>';
-  b+='<h2>8. Proteção de Dados e LGPD</h2><p>8.1 As partes comprometem-se a cumprir a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados). 8.2 A CONTRATANTE atua como controladora dos dados e a CONTRATADA como operadora da infraestrutura tecnológica da plataforma. 8.3 A CONTRATADA utilizará os dados exclusivamente para os fins operacionais necessários à execução deste contrato.</p>';
-  b+='<h2>9. Propriedade Intelectual</h2><p>9.1 A plataforma tecnológica, automações, fluxos, scripts, estrutura de dados e infraestrutura implementada constituem propriedade intelectual da CONTRATADA. 9.2 O presente contrato concede apenas a licença de uso da solução, não transferindo a propriedade da tecnologia à CONTRATANTE.</p>';
-  b+='<h2>10. Rescisão</h2><p>10.1 O contrato poderá ser rescindido mediante aviso prévio de 30 dias. 10.2 A interrupção do pagamento mensal poderá ocasionar a suspensão da infraestrutura tecnológica e do funcionamento da plataforma.</p>';
-  b+='<h2>11. Foro</h2><p>11.1 Para dirimir quaisquer controvérsias decorrentes deste contrato, fica eleito o foro da comarca de '+e(foro)+', com renúncia a qualquer outro, por mais privilegiado que seja.</p>';
-  b+='<div class="sign"><div><div class="sn">CONTRATADA · Brava Company LTDA</div><div class="sr">Assinado Digitalmente por Jhonattan Itiuba<br>Diretor Executivo e Comercial Tecnológico<br>CNPJ 34.454.770/0001-26</div></div>'
-    +'<div><div class="sn">CONTRATANTE · '+e(d.cliente||'')+'</div><div class="sr">'+e(d.repLegal||'Representante legal')+(d.cnpj?('<br>CNPJ '+e(d.cnpj)):'')+'<br>Assinatura: __________________________</div></div></div>';
+  b+='<p>Pelo presente Instrumento Particular de Contrato de Prestação de Serviços, de um lado <b>'+e(d.cliente||'')+'</b>'+(d.cnpj?(', inscrita no CNPJ nº '+e(d.cnpj)):'')+(d.endereco?(', com sede na '+e(d.endereco)):'')+', doravante <b>CONTRATANTE</b>; e, de outro lado, <b>Brava Company LTDA</b>, inscrita no CNPJ nº 34.454.770/0001-26, com sede na Avenida São Paulo, nº 2233, neste ato representada por Jhonattan Gabriel Itiuba Silva, doravante <b>CONTRATADA</b>, ajustam o presente contrato. A Proposta Comercial apresentada integra este contrato; em caso de divergência, prevalecem as condições comerciais da proposta.</p>';
+  b+='<h2>1. Objeto:</h2><p>1.1 A CONTRATADA prestará à CONTRATANTE serviços de implementação e operação de uma plataforma de atendimento e reservas automatizado, integrada ao WhatsApp e com agentes de Inteligência Artificial (a "IA": um programa que conversa e responde automaticamente), para organizar e agilizar o atendimento.'+objetoExtra+'</p>';
+  b+='<h2>2. Escopo dos serviços:</h2>'
+    +'<p>2.1 O serviço inclui: (a) estruturação inicial do atendimento (briefing, organização dos produtos/serviços e dos fluxos); (b) o "CRM" (sistema que organiza os seus clientes) e a base de dados; (c) a plataforma de atendimento com acesso por login, painéis e relatórios; (d) os agentes de IA de triagem, qualificação e transferência para o atendimento humano; (e) o motor de reserva integrado ao WhatsApp para as frentes contratadas; e (f) o site com acesso pela plataforma para cadastro de produtos e atualização de preços.</p>'
+    +'<p>2.2 O detalhamento, as etapas e o cronograma seguem a Proposta Comercial apresentada.</p>';
+  b+='<h2>3. Resultados esperados:</h2><p>3.1 Os resultados citados na proposta (como agilidade no atendimento e aumento de conversão) são estimativas de melhoria, e não constituem garantia de faturamento ou de número de vendas, pois dependem também da operação, dos preços e da atuação da equipe da CONTRATANTE.</p>';
+  b+='<h2>4. Prazo de implementação:</h2><p>4.1 O prazo de implementação é de até '+e(prazo)+' dias úteis, contados a partir da confirmação do pagamento inicial.</p><p>4.2 A CONTRATADA poderá antecipar a entrega, sem alterar as demais condições.</p><p>4.3 O prazo será prorrogado na mesma medida de atrasos da CONTRATANTE no envio de informações, materiais e acessos (por exemplo: sistema de reservas atual, número e robô de WhatsApp e contas Google para integração).</p>';
+  b+='<h2>5. Investimento (implementação):</h2>';
+  if(desc>=100){ b+='<p>5.1 O valor da implementação é de '+_orcBRL(setup)+', integralmente descontado nesta contratação, resultando em '+_orcBRL(0)+'.</p>'; }
+  else if(desc>0){ b+='<p>5.1 O valor da implementação é de '+_orcBRL(setup)+', com desconto de '+e(desc)+'%, resultando em '+_orcBRL(setupEf)+'.</p>'; }
+  else if(setup>0){ b+='<p>5.1 O valor da implementação é de '+_orcBRL(setup)+'.</p>'; }
+  else { b+='<p>5.1 A implementação segue conforme a Proposta Comercial apresentada.</p>'; }
+  b+='<h2>6. Mensalidade:</h2><p>6.1 A mensalidade é de '+_orcBRL(mensal)+' e contempla: hospedagem da plataforma, manutenção técnica, monitoramento das automações, manutenção da base de dados e das integrações, e suporte técnico e operacional.</p><p>6.2 Após 12 meses, a mensalidade será reajustada uma vez por ano pela variação do "IPCA" (índice oficial de inflação) ou de outro índice que venha a substituí-lo.</p>';
+  b+='<h2>7. Vigência, renovação e rescisão:</h2><p>7.1 A vigência mínima é de '+e(minM)+' (três) meses, contados da ativação do sistema.</p><p>7.2 Após o período mínimo, o contrato é renovado automaticamente por períodos de 6 meses, salvo aviso de qualquer das partes com 30 dias de antecedência.</p><p>7.3 Caso a CONTRATANTE encerre antes do fim do período mínimo, ficam devidas as mensalidades restantes desse período.</p><p>7.4 A falta de pagamento autoriza a suspensão da plataforma, sem prejuízo da cobrança.</p>';
+  b+='<h2>8. Pagamento e atraso:</h2><p>8.1 A implementação e as mensalidades seguem as formas de pagamento indicadas na proposta. 8.2 O atraso implica multa de 2% e juros de 1% ao mês sobre o valor em aberto. 8.3 O acesso poderá ser suspenso após 10 dias de atraso.</p>';
+  b+='<h2>9. Responsabilidades da CONTRATANTE:</h2><p>9.1 Fornecer as informações e os acessos necessários (inclusive sistema de reservas, número e robô de WhatsApp e contas Google). 9.2 Indicar um responsável para o contato com a CONTRATADA. 9.3 Garantir a veracidade e a atualização do conteúdo fornecido à IA (produtos, preços, diárias, cardápio e pacotes). 9.4 Utilizar o WhatsApp conforme as regras da Meta, sem envio de mensagens não autorizadas ("spam").</p>';
+  b+='<h2>10. Serviços de terceiros e integrações:</h2><p>10.1 A solução depende de serviços de terceiros (WhatsApp/Meta, Google e, na fase 2, instituições financeiras via "Open Finance"). 10.2 A CONTRATADA não responde por indisponibilidade, mudança de regras ou políticas, bloqueio ou banimento aplicados por esses terceiros, inclusive eventual bloqueio do número de WhatsApp pela Meta, quando não decorrerem de falha direta da CONTRATADA.</p>';
+  b+='<h2>11. Limite de responsabilidade:</h2><p>11.1 A CONTRATADA responde apenas por danos diretos comprovadamente causados por sua culpa, não respondendo por lucros cessantes ou danos indiretos. 11.2 A responsabilidade total fica limitada ao valor pago pela CONTRATANTE nos 3 meses anteriores ao evento.</p>';
+  b+='<h2>12. Dados (LGPD) e confidencialidade:</h2><p>12.1 As partes cumprem a Lei nº 13.709/2018 (LGPD): a CONTRATANTE é a controladora dos dados e a CONTRATADA a operadora, utilizando-os apenas para executar este contrato. 12.2 As partes manterão sigilo sobre as informações confidenciais a que tiverem acesso.</p>';
+  b+='<h2>13. Propriedade intelectual:</h2><p>13.1 A plataforma, as automações, os fluxos e a tecnologia são de propriedade da CONTRATADA. 13.2 Este contrato concede à CONTRATANTE apenas a licença de uso durante a vigência, sem transferir a propriedade da tecnologia.</p>';
+  b+='<h2>14. Disposições finais:</h2><p>14.1 Nenhuma das partes responde por atrasos ou falhas decorrentes de caso fortuito ou força maior. 14.2 Evoluções como o módulo financeiro (fase 2, com conciliação via Open Finance) são opcionais e serão orçadas à parte. 14.3 Fica eleito o foro da comarca de '+e(foro)+' para dirimir as questões deste contrato.</p>';
+  const carimbo='<div style="display:inline-block;border:1.4px solid #111;border-radius:8px;padding:7px 11px;margin-top:5px;text-align:left;line-height:1.35">'
+    +'<div style="font-size:6.5pt;letter-spacing:1.2px;text-transform:uppercase;color:#555;font-weight:700">&#10003; Assinado digitalmente</div>'
+    +'<div style="font-weight:700;font-size:10pt;color:#111;margin-top:1px">Jhonattan Itiuba</div>'
+    +'<div style="font-size:7.5pt;color:#555">CTO e Diretor Executivo</div>'
+    +'<div style="font-size:6.5pt;color:#888;margin-top:3px">Carimbo digital &middot; Brava Company LTDA &middot; CNPJ 34.454.770/0001-26</div></div>';
+  b+='<div class="sign"><div><div class="sn">CONTRATADA · Brava Company LTDA</div><div class="sr">'+carimbo+'</div></div>'
+    +'<div><div class="sn">CONTRATANTE · '+e(d.cliente||'')+'</div><div class="sr">'+e(d.repLegal||'Representante legal')+(d.cnpj?('<br>CNPJ '+e(d.cnpj)):'')+'<br><br>Assinatura: __________________________</div></div></div>';
   return b;
 }
 
@@ -28440,7 +28447,12 @@ function propostaBodyHTML(p){
   b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>';
   if(p.evolucao){ b+='<h2>Evolução (fase 2):</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
-  b+='<div class="sign"><div><div class="sn">Brava Company LTDA</div><div class="sr">Assinado por '+e(p.assinante||'Jhonattan Itiuba · CTO & Diretor Executivo')+'<br>Carimbo:</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta<br>Assinatura: __________________</div></div></div>';
+  const carimbo='<div style="display:inline-block;border:1.4px solid #111;border-radius:8px;padding:7px 11px;margin-top:5px;text-align:left;line-height:1.35">'
+    +'<div style="font-size:6.5pt;letter-spacing:1.2px;text-transform:uppercase;color:#555;font-weight:700">&#10003; Assinado digitalmente</div>'
+    +'<div style="font-weight:700;font-size:10pt;color:#111;margin-top:1px">Jhonattan Itiuba</div>'
+    +'<div style="font-size:7.5pt;color:#555">CTO e Diretor Executivo</div>'
+    +'<div style="font-size:6.5pt;color:#888;margin-top:3px">Carimbo digital &middot; Brava Company LTDA &middot; CNPJ 34.454.770/0001-26</div></div>';
+  b+='<div class="sign"><div><div class="sn">Brava Company LTDA</div><div class="sr">'+carimbo+'</div></div><div><div class="sn">'+e(p.cliente||'Cliente')+'</div><div class="sr">Aceite da proposta<br><br>Assinatura: __________________</div></div></div>';
   return b;
 }
 function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
