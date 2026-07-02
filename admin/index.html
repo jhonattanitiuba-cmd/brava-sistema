@@ -28382,21 +28382,38 @@ function _contratoServicosBody(d){
 // Corpo da PROPOSTA (mapeamento → objetivo → resultados → etapas → investimento).
 // Fluxograma da operação (HTML/CSS inline, grayscale, sem libs) — página própria.
 function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const frentes=(p.fluxoFrentes||[]);
-  const node=function(t,s){ return '<div style="border:1px solid #111;border-radius:8px;padding:8px 14px;text-align:center;max-width:440px;margin:0 auto;background:#fff"><div style="font-weight:700;font-size:10pt">'+e(t)+'</div>'+(s?'<div style="font-size:8.5pt;color:#555;margin-top:2px">'+e(s)+'</div>':'')+'</div>'; };
-  const arrow=function(){ return '<div style="text-align:center;color:#999;font-size:13pt;line-height:1;margin:4px 0">&#9660;</div>'; };
-  let f='<div style="max-width:460px;margin:0 auto">';
-  f+=node('Cliente','Entra pelo WhatsApp da Casa, a qualquer hora');
-  f+=arrow()+node(ag+' · Agente 24/7','Atende na hora, humanizado e com detecção de intenção');
-  f+=arrow()+node('Triagem e qualificação','Entende o que a pessoa precisa e organiza o pedido');
-  if(frentes.length){ f+=arrow()+'<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'; frentes.forEach(function(fr){ f+='<div style="flex:1;min-width:120px;border:1px solid #111;border-radius:8px;padding:7px 8px;text-align:center;font-size:9pt;font-weight:600">'+e(fr)+'</div>'; }); f+='</div>'; }
-  f+=arrow()+node('Motor de reserva','Registra a reserva direto pelo WhatsApp');
-  f+=arrow()+node('CRM e base de dados','Organiza o cliente, a reserva e o histórico');
-  f+=arrow()+node('Equipe (recepção e comercial)','Recebe a passagem pronta quando precisa do toque humano');
-  f+=arrow()+node('Relatórios e indicadores','Dados para as decisões da Casa');
+  // node: dark=true -> preto (automático: IA/sistema); dark=false -> branco (equipe humana)
+  const node=function(t,s,dark){ const bg=dark?'#000':'#fff'; const fg=dark?'#fff':'#111'; const sub=dark?'#bbb':'#555'; return '<div style="border:1px solid #111;border-radius:8px;padding:7px 10px;text-align:center;background:'+bg+';color:'+fg+'"><div style="font-weight:700;font-size:9.5pt">'+e(t)+'</div>'+(s?'<div style="font-size:8pt;color:'+sub+';margin-top:2px">'+e(s)+'</div>':'')+'</div>'; };
+  const arrow=function(){ return '<div style="text-align:center;color:#999;font-size:12pt;line-height:1;margin:3px 0">&#9660;</div>'; };
+  const TSVG='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex:none"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
+  const transf=function(label){ return '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:5px auto;padding:3px 9px;border:1px solid #111;border-radius:999px;font-size:7.5pt;font-weight:700;background:#eee">'+TSVG+'<span>'+e(label||'Transferência')+'</span></div>'; };
+  // Legenda
+  let f='<div style="display:flex;gap:16px;justify-content:center;margin-bottom:10px;font-size:8pt">'
+    +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#000;border:1px solid #111;border-radius:3px;display:inline-block"></span>Automático (IA e sistema)</span>'
+    +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff;border:1px solid #111;border-radius:3px;display:inline-block"></span>Equipe Stefano (pessoas)</span>'
+    +'<span style="display:inline-flex;align-items:center;gap:5px">'+TSVG+'Transferência</span></div>';
+  // Cadeia automática do topo
+  f+='<div style="max-width:400px;margin:0 auto">';
+  f+=node('Cliente','Entra pelo WhatsApp da Casa, a qualquer hora',true);
+  f+=arrow()+node(ag+' · Agente 24/7','Atende na hora, humanizado e com detecção de intenção',true);
+  f+=arrow()+node('Triagem e qualificação','Entende o que a pessoa precisa e organiza o pedido',true);
   f+='</div>';
+  f+='<div style="text-align:center;font-size:8pt;color:#555;margin:8px 0 6px">Cada frente é um núcleo próprio, sempre pelo WhatsApp</div>';
+  // 3 lanes por frente (dado data-driven em p.fluxoLanes; fallback p/ frentes simples)
+  const lanes=(p.fluxoLanes&&p.fluxoLanes.length)?p.fluxoLanes:frentes.map(function(fr){ return { titulo:fr, passos:[{tipo:'auto',t:'Reserva pelo WhatsApp',s:''}] }; });
+  if(lanes.length){ f+='<div style="display:flex;gap:8px;align-items:flex-start">';
+    lanes.forEach(function(lane){ f+='<div style="flex:1;min-width:0">'
+      +'<div style="text-align:center;font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #111;padding-bottom:3px;margin-bottom:6px">'+e(lane.titulo||'')+'</div>';
+      let prev=null;
+      (lane.passos||[]).forEach(function(ps,i){ if(ps.tipo==='transfer'){ f+=transf(ps.t); } else { if(i>0 && prev!=='transfer') f+=arrow(); f+=node(ps.t,ps.s,ps.tipo==='auto'); } prev=ps.tipo; });
+      f+='</div>'; });
+    f+='</div>'; }
+  // Convergência
+  f+='<div style="max-width:400px;margin:8px auto 0">'+arrow()+node('Relatórios e indicadores','Dados de todas as frentes para as decisões da Casa',true)+'</div>';
+  // Apoios
   f+='<div style="display:flex;gap:10px;margin-top:14px;justify-content:center">'
-    +'<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8.5pt;color:#333"><b>Site</b><br>Cadastro de produtos e preços que alimenta a IA</div>'
-    +'<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8.5pt;color:#333"><b>Fase 2 &middot; Financeiro</b><br>Open Finance e conciliação automática das reservas</div>'
+    +'<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8pt;color:#333"><b>Site</b><br>Cadastro de produtos e preços que alimenta a IA</div>'
+    +'<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8pt;color:#333"><b>Fase 2 &middot; Financeiro</b><br>Open Finance e conciliação automática das reservas</div>'
   +'</div>';
   return f;
 }
@@ -28447,8 +28464,8 @@ function propostaTemplatePadrao(){ return {
   etapas:[
     { etapa:'1', cronograma:'1ª semana', realizacao:['Reunião de alinhamento e briefing detalhado','Análise do negócio, público-alvo e concorrentes','Estruturação dos produtos e das ofertas comerciais','Mapeamento da jornada do cliente e definição do fluxo de atendimento'] },
     { etapa:'2', cronograma:'Até a 2ª semana', realizacao:['Implementação e configuração do "CRM" (sistema que organiza seus clientes)','Integração com o WhatsApp','Definição das regras de qualificação de contatos','Estruturação dos campos de coleta de dados'] },
-    { etapa:'3', cronograma:'Até a 2ª semana', realizacao:['Desenvolvimento e ativação da IA 24/7 no WhatsApp','Treinamento da IA com os produtos, regras e abordagem de vendas','Configuração do fluxo (triagem, qualificação, coleta e transferência)','Plataforma de atendimento com transferência automática'] },
-    { etapa:'4', cronograma:'Até a 3ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
+    { etapa:'3', cronograma:'Até a 3ª semana', realizacao:['Desenvolvimento e ativação da IA 24/7 no WhatsApp','Treinamento da IA com os produtos, regras e abordagem de vendas','Configuração do fluxo (triagem, qualificação, coleta e transferência)','Plataforma de atendimento com transferência automática'] },
+    { etapa:'4', cronograma:'Até a 4ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
   ],
   investimento:{ setup:'2500', setupDescPct:'0', mensal:'2497', minMeses:'3', prazoDias:'15', formasSetup:'Pix (5% de desconto) ou cartão de crédito', formasMensal:'Boleto mensal com data fixa' },
   evolucao:'', fechamento:'Obrigado por ter chegado até aqui e pela oportunidade de elaborar esta proposta. Ficamos à disposição.',
@@ -28463,6 +28480,11 @@ function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object
   aosCuidados:'Sócios · Família Stefano', repLegal:'Representante legal',
   capaTitulo:'Plataforma Automatizada', subtitulo:'Para Atendimento e Reservas com Inteligência Artificial', plano:'Performance',
   agenteNome:'IA Stefano', fluxoFrentes:['Hospedagem','Restaurante','Eventos e casamentos'],
+  fluxoLanes:[
+    { titulo:'Hospedagem', passos:[ {tipo:'auto', t:'Motor de reserva', s:'Mostra datas e diárias disponíveis'}, {tipo:'transfer', t:'Recepção confirma'}, {tipo:'humano', t:'Recepção confirma', s:'A equipe valida a reserva'}, {tipo:'auto', t:'Registrado no sistema', s:'Entra no CRM e na agenda'} ] },
+    { titulo:'Restaurante', passos:[ {tipo:'auto', t:'Catálogo do restaurante', s:'Cliente escolhe o prato ou a mesa para a data'}, {tipo:'auto', t:'Lançado no sistema', s:'Pedido ou reserva direto no CRM'}, {tipo:'transfer', t:'Equipe confere'}, {tipo:'humano', t:'Equipe confere', s:'Confirma o pedido ou a mesa'} ] },
+    { titulo:'Eventos e casamentos', passos:[ {tipo:'auto', t:'IA qualifica pelo catálogo', s:'Vê se o pacote faz sentido para o cliente'}, {tipo:'transfer', t:'Intenção explícita → Comercial'}, {tipo:'humano', t:'Comercial fecha a venda', s:'Usuário específico assume e negocia'} ] },
+  ],
   planoAcao:[ 'Briefing e mapeamento da Casa (hotel, restaurante e eventos).','Montagem do "CRM", do WhatsApp e do site de produtos e preços.','Ativação da IA Stefano com o motor de reserva (hospedagem, mesa e eventos).','Lançamento, testes e treinamento da equipe.','Acompanhamento e otimização contínuos.' ],
   mapeamento:'Conforme conversado, hoje as reservas e o atendimento do hotel, do restaurante e dos eventos são feitos manualmente, pelo WhatsApp e pelo telefone. Isso gera demora nas respostas, acúmulo de trabalho para a equipe e perda de reservas fora do horário de expediente, principalmente à noite e nos fins de semana. Nossa equipe testou o número de WhatsApp atualmente em uso e identificou que ele se encontra em estado incompatível com o padrão de demanda de hoje: o atendimento por Inteligência Artificial (o "Agente", um Funcionário de IA) precisa ser humanizado e contar com detecção de intenção ("entender o que o cliente realmente quer") para um atendimento prático e eficaz.',
   escopoProjeto:'O projeto automatiza o atendimento e as reservas da Casa com um assistente de Inteligência Artificial (a "IA": um programa que conversa e responde sozinho) com número próprio no WhatsApp, disponível 24 horas por dia.',
@@ -28471,8 +28493,8 @@ function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object
   etapas:[
     { etapa:'1', cronograma:'1ª semana', realizacao:['Reunião de alinhamento e briefing detalhado','Análise da Casa (hotel, restaurante e eventos), público e diferenciais','Estruturação das diárias, do cardápio e dos pacotes de eventos','Mapeamento da jornada do hóspede e definição do fluxo de atendimento'] },
     { etapa:'2', cronograma:'Até a 2ª semana', realizacao:['Implementação e configuração do "CRM" (sistema que organiza seus clientes)','Integração com o WhatsApp (até 2 números) e até 10 acessos de atendentes','Site com acesso pela plataforma para o cadastro de produtos e a atualização de preços','Definição das regras de qualificação das reservas e estruturação dos campos de coleta de dados'] },
-    { etapa:'3', cronograma:'Até a 2ª semana', realizacao:['Desenvolvimento e ativação da IA Stefano 24/7 no WhatsApp (Agente humanizado, com detecção de intenção)','Treinamento da IA com diárias, cardápio, pacotes e regras da Casa','Motor de reserva integrado no WhatsApp para 3 frentes: hospedagem, mesa do restaurante e eventos','Plataforma de atendimento com transferência automática para a equipe'] },
-    { etapa:'4', cronograma:'Até a 3ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e reserva/transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
+    { etapa:'3', cronograma:'Até a 3ª semana', realizacao:['Desenvolvimento e ativação da IA Stefano 24/7 no WhatsApp (Agente humanizado, com detecção de intenção)','Treinamento da IA com diárias, cardápio, pacotes e regras da Casa','Motor de reserva integrado no WhatsApp para 3 frentes: hospedagem, mesa do restaurante e eventos','Plataforma de atendimento com transferência automática para a equipe'] },
+    { etapa:'4', cronograma:'Até a 4ª semana', realizacao:['Ativação do sistema e início da operação','Testes completos do fluxo (entrada, atendimento da IA e reserva/transferência)','Treinamento da equipe','Monitoramento e ajustes com base nos primeiros dados'] },
   ],
   investimento:{ setup:'3200', setupDescPct:'100', mensal:'2497', minMeses:'3', prazoDias:'30', formasSetup:'Isento nesta contratação', formasMensal:'Boleto mensal com data fixa, ou Pix' },
   prazoObs:'O prazo pode ser antecipado caso a implementação flua e o Stefano Hotel e Restaurante forneça os acessos necessários: sistema de reservas, o robô ("bot") atual e as contas Google para a integração do "Workspace" (ferramentas Google) e do WhatsApp.',
@@ -28489,7 +28511,7 @@ function PropostasAdmin(){
   const [editar, setEditar] = React.useState(null); // objeto (novo/edição)
   const [ver, setVer] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='3'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const fresh=buildStefanoProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'); const l=[fresh,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='4'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const fresh=buildStefanoProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'); const l=[fresh,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
