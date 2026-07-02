@@ -27736,14 +27736,17 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   if (!w) { try{ showToast('Permita pop-ups para gerar o PDF.','erro'); }catch(e){} return; }
   const logo = window.location.origin + '/admin/app/brava-logo-white.png';
   const logoDark = window.location.origin + '/admin/app/brava-logo-dark.png';
-  // Cabecalho e rodape corridos via TABELA: <thead> repete no topo e <tfoot> no
-  // rodape de CADA pagina (confiavel no Chrome print; position:fixed bottom:0 falha,
-  // jogava o rodape pro topo). A capa fica FORA da tabela, entao nao recebe header/rodape.
-  // @page :first{margin:0} deixa a capa full-bleed.
+  const pagedSrc = window.location.origin + '/admin/app/paged.polyfill.min.js';
+  // Cabecalho e rodape fixos em TODA pagina via paged.js (@page margin boxes com
+  // position:running). Deterministico: a paginacao vira DOM real, entao a impressao
+  // do navegador bate com o layout (rodape sempre no fundo, inclusive na ultima pagina).
+  // A capa e uma @page nomeada sem cabecalho/rodape (full-bleed).
   const css = "@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap');"
-    + "@page{size:A4;margin:14mm 16mm 14mm}@page :first{margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;height:100%}"
+    + "@page{size:A4;margin:20mm 16mm 16mm;@top-center{content:element(rhead)}@bottom-center{content:element(rfoot)}}"
+    + "@page cover{margin:0;@top-center{content:none}@bottom-center{content:none}}"
+    + "*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff}"
     + "body{font-family:'Montserrat',Arial,sans-serif;color:#111;font-size:10pt;line-height:1.55;-webkit-print-color-adjust:exact;print-color-adjust:exact}"
-    + ".cover{height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;page-break-after:always;display:flex;flex-direction:column;justify-content:space-between}"
+    + ".cover{page:cover;break-after:page;height:297mm;background:#000;color:#fff;padding:14mm 20mm 10mm;display:flex;flex-direction:column;justify-content:space-between}"
     + ".cover-logo img{height:26px}"
     + ".cover-body{flex:1;display:flex;flex-direction:column;justify-content:center}"
     + ".cover-tag{font-size:7.5pt;text-transform:uppercase;letter-spacing:2.5px;color:#888;margin-bottom:7mm}"
@@ -27754,14 +27757,11 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + ".cm-lbl{font-size:7pt;text-transform:uppercase;letter-spacing:1.5px;color:#777}"
     + ".cm-val{font-size:9.5pt;font-weight:700;color:#fff;margin-top:2px}"
     + ".cover-foot{font-size:7.5pt;color:#888;display:flex;gap:6mm;padding-top:6mm;border-top:1px solid #1a1a1a}"
-    + "thead{display:table-header-group}tfoot{display:table-footer-group}"
-    + ".frame{width:100%;border-collapse:collapse;height:100%}"
-    + ".frame>thead>tr>td,.frame>tbody>tr>td,.frame>tfoot>tr>td{border:0;padding:0;vertical-align:top}"
-    + ".rhd{display:flex;align-items:flex-end;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:3mm;margin-bottom:7mm}"
-    + ".rhd img{height:13px}.rhd .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
-    + ".rft{border-top:.5px solid #ddd;padding-top:3mm;margin-top:9mm;font-size:7pt;color:#888;text-align:center}"
-    + ".doc{padding:0}"
-    + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;padding-bottom:4px;border-bottom:.5px solid #ccc;break-after:avoid;page-break-after:avoid}"
+    + ".rhead{position:running(rhead);display:flex;align-items:flex-end;justify-content:space-between;border-bottom:.5px solid #ddd;padding-bottom:2mm}"
+    + ".rhead img{height:13px}.rhead .rlbl{font-size:7pt;font-weight:700;color:#333;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}"
+    + ".rfoot{position:running(rfoot);border-top:.5px solid #ddd;padding-top:2mm;font-size:7pt;color:#888;text-align:center}"
+    + ".doc{padding:0}.brk{break-before:page;height:0}"
+    + "h2{font-size:12pt;font-weight:700;color:#000;margin:16px 0 6px;break-after:avoid;page-break-after:avoid}"
     + "p{margin:5px 0;orphans:3;widows:3}b{font-weight:700}"
     + ".doc table{border-collapse:collapse;width:100%;margin:8px 0}"
     + ".doc th,.doc td{border:1px solid #ddd;padding:6px 8px;font-size:9.5pt;text-align:left;vertical-align:top}"
@@ -27782,17 +27782,14 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + '</div>'
     + '<div class="cover-foot"><span>Brava Company</span><span>diretoria@brava.company</span><span>brava.software</span></div></div>';
   const rotulo = _pdfEsc(headerLabel || (capa&&capa.tag) || 'Documento');
-  const frame = '<table class="frame"><thead><tr><td><div class="rhd"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></td></tr></thead>'
-    + '<tfoot><tr><td><div class="rft">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div></td></tr></tfoot>'
-    + '<tbody><tr><td><div class="doc">'+bodyHTML+'</div></td></tr></tbody></table>';
+  const rhead = '<div class="rhead"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div>';
+  const rfoot = '<div class="rfoot">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div>';
+  const boot = '<script>window.__printed=false;function __goPrint(){if(window.__printed)return;window.__printed=true;try{window.focus();window.print();}catch(e){}}'
+    + 'window.PagedConfig={auto:true,after:function(){setTimeout(__goPrint,300);}};setTimeout(__goPrint,7000);<\/script>'
+    + '<script src="'+pagedSrc+'" onerror="setTimeout(__goPrint,300)"><\/script>';
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
-    + cover + frame + '</body></html>';
+    + cover + rhead + rfoot + '<div class="doc">'+bodyHTML+'</div>' + boot + '</body></html>';
   w.document.write(html); w.document.close(); w.focus();
-  var done=false; var go=function(){ if(done)return; done=true; try{ w.print(); }catch(e){} };
-  var imgs=function(){ try{ return Array.prototype.slice.call(w.document.images||[]); }catch(e){ return []; } };
-  var allReady=function(){ return imgs().every(function(i){ return i.complete; }); };
-  if(allReady()){ setTimeout(go,350); } else { imgs().forEach(function(i){ i.onload=function(){ if(allReady()) setTimeout(go,150); }; i.onerror=function(){ if(allReady()) setTimeout(go,150); }; }); }
-  setTimeout(go,1800);
 }
 
 function ContratoPrintModal({ contrato, onClose }) {
@@ -28427,11 +28424,11 @@ function propostaBodyHTML(p){
   if(p.objetivo){ b+='<h2>Objetivo:</h2><p>'+e(p.objetivo)+'</p>'; }
   if((p.resultados||[]).length){ b+='<h2>Resultados esperados:</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
   if((p.planoAcao||[]).length){ b+='<h2>Plano de ação:</h2><ol style="padding-left:28px">'; p.planoAcao.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
-  if((p.etapas||[]).length){ b+='<div style="page-break-before:always"><h2>Escopo de entregáveis:</h2><table style="page-break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
+  if((p.etapas||[]).length){ b+='<div class="brk"></div><div><h2>Escopo de entregáveis:</h2><table style="break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
     p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
     b+='</table></div>'; }
-  b+='<div style="page-break-before:always"><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.</p>'+_fluxoHTML(p)+'</div>';
-  b+='<div style="page-break-before:always"><h2>Investimento:</h2>';
+  b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.</p>'+_fluxoHTML(p)+'</div>';
+  b+='<div class="brk"></div><div><h2>Investimento:</h2>';
   b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
   let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
   b+='<table><tr><th>Item</th><th class="num">Valor</th></tr>'
