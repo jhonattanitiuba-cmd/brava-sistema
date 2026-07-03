@@ -24928,6 +24928,20 @@ function PipelineProjetos() {
     setMenuColAberto(null);
   };
   const reabrirColuna = async (col) => { await updateCol(col.id, { oculto: false }); };
+  // ✨ Criar nova coluna (plug and play): insere em fin_status_config; realtime atualiza o board.
+  const criarColuna = async () => {
+    const cli = getSupa(); if (!cli) { showToast?.('Sem conexão com banco','error'); return; }
+    const nome = (window.prompt('Nome da nova coluna:', 'Nova fase') || '').trim();
+    if (!nome) return;
+    const existentes = new Set((colunasTodas || []).map(c => c.key));
+    const slug = (nome.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40)) || 'coluna';
+    let key = slug, n = 2; while (existentes.has(key)) { key = slug + '_' + n; n++; }
+    const ordem = Math.max(0, ...(colunasTodas || []).map(c => Number(c.ordem) || 0)) + 1;
+    const cor = PALETA[(colunasTodas || []).length % PALETA.length];
+    const { error } = await cli.from('fin_status_config').insert({ key, label: nome, cor, icone: 'Circle', ordem, oculto: false });
+    if (error) { showToast?.('Erro ao criar coluna: ' + error.message, 'error'); return; }
+    showToast?.(`Coluna "${nome}" criada.`, 'success');
+  };
 
   const moverProjeto = async (projetoId, novoStatus) => {
     const cli = getSupa();
@@ -25161,11 +25175,18 @@ function PipelineProjetos() {
             </button>
           );
         })}
+        <button onClick={criarColuna} title="Criar uma nova coluna no pipeline" style={{
+          padding:'5px 11px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+          background:'rgba(29,158,117,.12)', color:'#1D9E75', border:'1px solid rgba(29,158,117,.4)',
+          display:'inline-flex', alignItems:'center', gap:6, marginLeft:'auto',
+        }}>
+          <Icon name="Plus" size={12}/>Nova coluna
+        </button>
         {colunasOcultas.length > 0 && (
           <button onClick={()=>setMostrarOcultas(s=>!s)} style={{
             padding:'5px 11px', borderRadius:8, fontSize:12, fontWeight:500, cursor:'pointer',
             background:'transparent', color:'var(--t3)', border:'1px dashed var(--border)',
-            display:'inline-flex', alignItems:'center', gap:6, marginLeft:'auto',
+            display:'inline-flex', alignItems:'center', gap:6,
           }}>
             <Icon name="EyeOff" size={12}/>{colunasOcultas.length} coluna{colunasOcultas.length>1?'s':''} oculta{colunasOcultas.length>1?'s':''}
           </button>
@@ -25511,6 +25532,16 @@ function PipelineProjetos() {
             </div>
           );
         })}
+        {/* Tile plug and play: criar nova coluna direto no fim do board */}
+        <button onClick={criarColuna} title="Criar nova coluna" style={{
+          width:200, flexShrink:0, alignSelf:'flex-start', minHeight:120,
+          borderRadius:10, border:'1.5px dashed var(--border)', background:'transparent',
+          color:'var(--t3)', fontSize:13, fontWeight:600, cursor:'pointer',
+          display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:8, transition:'all .15s',
+        }} onMouseEnter={e=>{ e.currentTarget.style.background='var(--bg-2)'; e.currentTarget.style.color='var(--t1)'; e.currentTarget.style.borderColor='var(--blue)'; }}
+           onMouseLeave={e=>{ e.currentTarget.style.background='transparent'; e.currentTarget.style.color='var(--t3)'; e.currentTarget.style.borderColor='var(--border)'; }}>
+          <Icon name="Plus" size={20}/>Nova coluna
+        </button>
       </div>
 
       {clienteDetalhe && !clienteDetalhe._novo && <Cliente360Modal cliente={clienteDetalhe} onClose={()=>setClienteDetalhe(null)}/>}
