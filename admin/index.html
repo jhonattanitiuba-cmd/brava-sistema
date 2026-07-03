@@ -28597,6 +28597,7 @@ function PropostasAdmin(){
   const [lista, setLista] = React.useState(loadPropostas);
   const [editar, setEditar] = React.useState(null); // objeto (novo/edição)
   const [ver, setVer] = React.useState(null);
+  const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
   React.useEffect(()=>{ const SEED_V='6'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'); const l=[thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
@@ -28613,7 +28614,7 @@ function PropostasAdmin(){
           <div className="page-head__title">Propostas</div>
           <div className="page-head__sub">Administrativo · proposta comercial e contrato no padrão Brava, prontos para enviar e escalar.</div>
         </div>
-        <div className="page-head__actions"><button onClick={()=>setEditar(propostaTemplatePadrao())} style={_fBtnPrimary}>+ Nova proposta</button></div>
+        <div className="page-head__actions" style={{display:'flex', gap:8, flexWrap:'wrap'}}><button onClick={()=>setGerar(true)} style={_fBtnGhost}><Icon name="Sparkles" size={14}/> Gerar a partir de transcrição</button><button onClick={()=>setEditar(propostaTemplatePadrao())} style={_fBtnPrimary}>+ Nova proposta</button></div>
       </div>
       <div className="kpi-grid" style={{marginBottom:18}}>
         <KpiCard label="Propostas" value={String(total)} icon="FileText" cor="#1E90FF"/>
@@ -28646,7 +28647,48 @@ function PropostasAdmin(){
       )}
       {editar && <PropostaEditorModal clientes={clientes} inicial={editar} onClose={()=>setEditar(null)} onSalvar={salvar}/>}
       {ver && <PropostaVerModal proposta={ver} onClose={()=>setVer(null)} onEditar={()=>{ setVer(null); setEditar(ver); }}/>}
+      {gerar && <GerarPropostaModal clientes={clientes} onClose={()=>setGerar(false)} onGerada={(p)=>{ setGerar(false); setEditar(p); }}/>}
     </div>
+  );
+}
+function GerarPropostaModal({ clientes, onClose, onGerada }){
+  const [cliente, setCliente] = React.useState('');
+  const [transcricao, setTranscricao] = React.useState('');
+  const [gerando, setGerando] = React.useState(false);
+  const [importar, setImportar] = React.useState(false);
+  const gerarIA = async ()=>{
+    if(transcricao.trim().length<10){ showToast('Cole a transcrição (ou importe do Google) para a IA gerar.','erro'); return; }
+    setGerando(true);
+    try{
+      const { data, error } = await getSupa().functions.invoke('gerar-proposta', { body:{ transcricao, cliente_nome: cliente } });
+      if(error || !(data && data.ok)) throw new Error((data && data.error) || (error && error.message) || 'falha');
+      const p = data.proposta || {};
+      const full = Object.assign(propostaTemplatePadrao(), p, { cliente: (p.cliente || cliente || '') });
+      showToast('Proposta gerada pela IA. Revise antes de salvar.','success');
+      onGerada(full);
+    }catch(e){ showToast('Erro ao gerar: '+(e.message||e),'erro'); }
+    finally{ setGerando(false); }
+  };
+  return (
+    <_FModal title="Gerar proposta a partir de transcrição" onClose={onClose} wide>
+      <div style={{fontSize:12.5, color:'var(--t3)', marginBottom:12}}>Cole a transcrição da reunião (ou importe do Google Meet/Drive). A IA monta a proposta no padrão Brava e abre o editor já preenchido para você revisar, ajustar valores e imprimir.</div>
+      <_FCampo label="Cliente (opcional)">
+        <select value={cliente} onChange={e=>setCliente(e.target.value)} style={_fSel}>
+          <option value="">Sem cliente vinculado (a IA usa o que estiver na transcrição)</option>
+          {(clientes||[]).map(c=>{ const nome=(c && (c.nome||c.razao||c.empresa))||''; return nome?<option key={c.id||nome} value={nome}>{nome}</option>:null; })}
+        </select>
+      </_FCampo>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, margin:'8px 0 5px'}}>
+        <span style={{fontSize:12, color:'var(--t3)'}}>Transcrição da reunião / ligação</span>
+        <button type="button" onClick={()=>setImportar(true)} style={{..._fBtnGhost, height:28, fontSize:12}}><Icon name="Folder" size={13}/> Importar do Google Meet/Drive</button>
+      </div>
+      <textarea value={transcricao} onChange={e=>setTranscricao(e.target.value)} rows={12} placeholder="Cole a transcrição completa, ou importe do Google. A IA extrai diagnóstico, escopo, objetivo, resultados, plano de ação, etapas e investimento." style={_propTA}/>
+      <div style={{display:'flex', justifyContent:'flex-end', gap:8, marginTop:14}}>
+        <button onClick={onClose} style={_fBtnGhost}>Cancelar</button>
+        <button onClick={gerarIA} disabled={gerando} style={{..._fBtnPrimary, opacity:gerando?0.6:1}}>{gerando?'Gerando...':'Gerar proposta com IA'}</button>
+      </div>
+      {importar && <ImportarTranscricaoModal onClose={()=>setImportar(false)} onPick={({texto,nome})=>{ setTranscricao(texto); setImportar(false); showToast('Transcrição importada do Google.','success'); }}/>}
+    </_FModal>
   );
 }
 function PropostaVerModal({ proposta, onClose, onEditar }){
