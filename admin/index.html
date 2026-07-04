@@ -9848,24 +9848,33 @@ function useSupaMessages(chatJid) {
     setMessages([]); setLoading(true); // limpa ao trocar de instancia/chat
     const carregar = async () => {
       try {
+        // DESC + reverse: garante as 300 mais RECENTES (asc + limit devolvia as 300
+        // mais antigas e congelava chats com historico grande, novas msgs ficavam fora)
         const { data, error } = await cli
           .from('wa_mensagens').select('*')
           .eq('instancia_id', activeInstanceId)
           .eq('chat_jid', chatJid)
-          .order('timestamp', { ascending: true })
+          .order('timestamp', { ascending: false })
           .limit(300);
         if (!alive) return;
         if (error) throw error;
-        setMessages(data || []);
+        setMessages((data || []).reverse());
         setError(null);
       } catch (e) { if (alive) setError(e.message || String(e)); }
       finally { if (alive) setLoading(false); }
     };
     carregar();
 
+    // Debounce: colapsa rajadas de INSERTs num refetch so (evita fetches competindo)
+    let debounceT = null;
+    const refetchDebounced = () => { clearTimeout(debounceT); debounceT = setTimeout(carregar, 300); };
+
     const channel = cli
       .channel(`rt:msgs:${activeInstanceId}:${chatJid}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_mensagens', filter: `chat_jid=eq.${chatJid}` }, carregar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'wa_mensagens', filter: `chat_jid=eq.${chatJid}` }, (p) => {
+        const rec = (p && (p.new || p.old)) || null;
+        if (!rec || rec.instancia_id === activeInstanceId) refetchDebounced();
+      })
       .subscribe();
 
     // Evento manual de refresh (botao Atualizar no header)
@@ -9873,6 +9882,7 @@ function useSupaMessages(chatJid) {
 
     return () => {
       alive = false;
+      clearTimeout(debounceT);
       cli.removeChannel(channel);
       window.removeEventListener('brava_wa_refresh', carregar);
     };
