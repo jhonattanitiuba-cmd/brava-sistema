@@ -28492,6 +28492,13 @@ function propostaBodyHTML(p){
     b+='<tr><td colspan="2" class="num"><b>Total mensal</b></td><td class="num"><b>'+_orcBRL(mensal)+'</b></td></tr></table>';
   }
   b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>';
+  if((p.condicoesPagamento||[]).length){
+    b+='<p style="margin-top:14px"><b>Cronograma de pagamento.</b></p>';
+    b+='<table><tr><th>Quando</th><th>Referente</th><th class="num">Valor</th></tr>';
+    p.condicoesPagamento.forEach(function(c){ b+='<tr><td>'+e(c.quando||'')+'</td><td>'+e(c.item||'')+'</td><td class="num">'+_orcBRL(c.valor)+'</td></tr>'; });
+    b+='</table>';
+    if(p.condicoesNota){ b+='<p style="font-size:9pt;color:#555">'+e(p.condicoesNota)+'</p>'; }
+  }
   b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>';
   if(p.evolucao){ b+='<h2>Evolução (fase 2):</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
@@ -28568,7 +28575,7 @@ function buildStefanoProposta(){ const t=propostaTemplatePadrao(); return Object
 
 // Semente: proposta da Clínica Dra Thalita Moreti (plano Enterprise · gestão + tecnologia).
 function buildThalitaProposta(){ const t=propostaTemplatePadrao(); return Object.assign(t, {
-  id:'prop_thalita', criadoEm:new Date().toISOString(), status:'rascunho',
+  id:'prop_thalita', criadoEm:new Date().toISOString(), status:'aceita',
   cliente:'Clínica Dra Thalita Moreti', cnpj:'',
   endereco:'Avenida Vital Brasil, 177, 9º andar, Sala 910, Butantã, São Paulo/SP, 05503-001',
   aosCuidados:'Thalita Moreti e Rafael Barbosa', repLegal:'Thalita Moreti e Rafael Barbosa',
@@ -28601,7 +28608,7 @@ function buildThalitaProposta(){ const t=propostaTemplatePadrao(); return Object
     { etapa:'Meses 3 e 4', cronograma:'Fase 2 · Escala (91 a 180 dias)', realizacao:['Meta de R$ 150.000 por mês','Otimização das campanhas e do funil de vendas','Gestão financeira com "DRE" e fluxo de caixa','Cultura de feedback e desenvolvimento da equipe'] },
     { etapa:'Meses 5 e 6', cronograma:'Fase 3 · Procedimentos e cursos (a partir de 181 dias)', realizacao:['Meta de R$ 250.000 por mês','Trilha de procedimentos e escala da agenda','Estruturação de cursos e mentorias para donos de clínica','Missão, visão e valores consolidados'] },
   ],
-  investimento:{ setup:'0', setupDescPct:'0', mensal:'4200', minMeses:'6', prazoDias:'30', formasSetup:'Incluída nesta contratação', formasMensal:'Boleto ou Pix, mensal com data fixa' },
+  investimento:{ setup:'0', setupDescPct:'0', mensal:'4000', minMeses:'6', prazoDias:'30', formasSetup:'Incluída na infraestrutura mensal (todo dia 20)', formasMensal:'Infraestrutura R$ 1.400 todo dia 20; trabalho ativo R$ 2.600 a partir de 30/08. 1º mês com recarga de R$ 100 (combustível do agente), sem corretagem de crédito' },
   investDistribuicao:[
     { grupo:'Infraestrutura tecnológica', item:'Plataforma, "CRM" e base de dados (hospedagem e manutenção)', valor:600 },
     { grupo:'Infraestrutura tecnológica', item:'IA no WhatsApp 24/7 e automações', valor:500 },
@@ -28610,14 +28617,22 @@ function buildThalitaProposta(){ const t=propostaTemplatePadrao(); return Object
     { grupo:'Trabalho ativo Brava', item:'Gestão financeira ("DRE", fluxo de caixa e indicadores)', valor:700 },
     { grupo:'Trabalho ativo Brava', item:'Gestão de equipe, processos e treinamentos', valor:700 },
     { grupo:'Trabalho ativo Brava', item:'Direcionamento audiovisual e gestão de campanhas', valor:500 },
+    { grupo:'Trabalho ativo Brava', item:'Desconto de fechamento (parceria)', valor:-200 },
   ],
+  condicoesPagamento:[
+    { quando:'1º mês · dia 10', item:'Infraestrutura (parcela 1/2) + recarga do agente', valor:750 },
+    { quando:'1º mês · dia 17', item:'Infraestrutura (parcela 2/2)', valor:750 },
+    { quando:'Todo dia 20 (a partir do 2º mês)', item:'Infraestrutura tecnológica (mensal)', valor:1400 },
+    { quando:'A partir de 30/08', item:'Trabalho ativo Brava (mensal)', valor:2600 },
+  ],
+  condicoesNota:'O 1º mês inclui R$ 100 de recarga (combustível do agente), sem corretagem de crédito. A partir do 2º mês, a infraestrutura é cobrada em parcela única, todo dia 20. O trabalho ativo Brava passa a ser cobrado a partir de 30 de agosto.',
   prazoObs:'O prazo pode ser antecipado conforme a clínica fornecer os acessos necessários: contas de WhatsApp, Google e das plataformas de anúncio, além dos dados operacionais e financeiros.',
-  evolucao:'Como evolução (Fases 2 e 3), o crescimento pode ser acompanhado por um modelo de participação sobre o resultado, alinhando o ganho da Brava ao da clínica, e por uma trilha de cursos e mentorias para donos de clínica. Os percentuais e as condições da participação são definidos em conjunto quando a clínica atingir a fase de escala.',
-  fechamento:'Prezados Thalita e Rafael, obrigado pela confiança e pela oportunidade de construir esta parceria. Estamos à disposição para conduzir, juntos, a clínica ao próximo nível.',
+  evolucao:'A participação passa a valer a partir da Fase 2, quando a fase de sobrevivência (faturamento acima de R$ 45.000 por mês) for alcançada: 10% do lucro líquido da operação, alinhada e projetada dentro do próprio sistema, à vista dos diretores. A parceria também abre a trilha de cursos e mentorias para donos de clínica (Fase 3).',
+  fechamento:'Prezados Thalita e Rafael, é uma honra iniciar esta parceria. Obrigado pela confiança: seguimos juntos para conduzir a clínica ao próximo nível.',
   contratoObjeto:'A CONTRATADA prestará à CONTRATANTE, no plano Enterprise, a implementação e a centralização da tecnologia da clínica (plataforma, "CRM", base de dados, "IA" no WhatsApp, estruturação digital, campanhas e módulo financeiro) somadas à gestão ativa da operação (estruturação de processos, gestão comercial, financeira, de equipe e direcionamento audiovisual).',
   contratoEscopoItens:'O serviço inclui: (a) centralização e implementação da plataforma, do "CRM" e da base de dados; (b) a "IA" com número próprio no WhatsApp e as automações; (c) a estruturação digital, o site e a gestão de campanhas (Google, Meta e TikTok); (d) o módulo financeiro (fluxo de caixa, "DRE" e indicadores); (e) a estruturação e a gestão comercial, de processos e de equipe; e (f) os entregáveis de estruturação organizacional (manual de atendimento, jornada do cliente, treinamentos, cultura de feedback, mapeamento de perfil e definição de missão, visão e valores).',
   contratoRespItens:'9.1 Fornecer as informações e os acessos necessários (contas de WhatsApp, Google, plataformas de anúncio, dados operacionais e financeiros). 9.2 Indicar um responsável para o contato com a CONTRATADA. 9.3 Garantir a veracidade e a atualização das informações fornecidas. 9.4 Utilizar o WhatsApp conforme as regras da Meta, sem envio de mensagens não autorizadas ("spam").',
-  contratoParticipacao:'A partir da fase de escala (Fases 2 e 3), as partes poderão pactuar, em aditivo próprio, um modelo de participação sobre o resultado da clínica, com percentual e base definidos em conjunto, além de uma trilha de cursos e mentorias.',
+  contratoParticipacao:'A partir da Fase 2, uma vez alcançada a fase de sobrevivência (faturamento acima de R$ 45.000 por mês), passa a incidir participação de 10% (dez por cento) sobre o lucro líquido da operação da clínica, apurada e projetada dentro do próprio sistema e alinhada à vista dos diretores. A parceria também contempla a trilha de cursos e mentorias (Fase 3).',
   contratoAcessosExemplo:'contas de WhatsApp, Google e das plataformas de anúncio, além dos dados operacionais e financeiros',
   foro:'São Paulo/SP', assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
 }); }
@@ -28630,7 +28645,7 @@ function PropostasAdmin(){
   const [ver, setVer] = React.useState(null);
   const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='6'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'); const l=[thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='7'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'); const l=[thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
