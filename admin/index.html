@@ -28473,10 +28473,10 @@ function propostaBodyHTML(p){
   let b='';
   if(p.mapeamento){ b+='<h2>Diagnóstico:</h2><p>'+e(p.mapeamento)+'</p>'; }
   if((p.sobre||[]).length){ b+='<h2>Sobre a Brava e o Corpo Docente:</h2>'; p.sobre.forEach(function(par){ b+='<p>'+e(par)+'</p>'; }); }
-  if(p.escopoProjeto){ b+='<h2>Escopo do projeto:</h2><p>'+e(p.escopoProjeto)+'</p>'; }
-  if(p.objetivo){ b+='<h2>Objetivo:</h2><p>'+e(p.objetivo)+'</p>'; }
-  if((p.resultados||[]).length){ b+='<h2>Resultados esperados:</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
-  if((p.planoAcao||[]).length){ b+='<h2>Plano de ação:</h2><ol style="padding-left:28px">'; p.planoAcao.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
+  if(p.escopoProjeto){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Escopo do projeto:</h2><p>'+e(p.escopoProjeto)+'</p></div>'; }
+  if(p.objetivo){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Objetivo:</h2><p>'+e(p.objetivo)+'</p></div>'; }
+  if((p.resultados||[]).length){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Resultados esperados:</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol></div>'; }
+  if((p.planoAcao||[]).length){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Plano de ação:</h2><ol style="padding-left:28px">'; p.planoAcao.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol></div>'; }
   if((p.etapas||[]).length){ b+='<div class="brk"></div><div><h2>Escopo de entregáveis:</h2><table style="break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
     p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
     b+='</table></div>'; }
