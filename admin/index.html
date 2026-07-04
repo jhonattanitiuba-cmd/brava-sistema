@@ -28474,6 +28474,7 @@ function propostaBodyHTML(p){
   if(p.mapeamento){ b+='<h2>Diagnóstico:</h2><p>'+e(p.mapeamento)+'</p>'; }
   if(p.escopoProjeto){ b+='<h2>Escopo do projeto:</h2><p>'+e(p.escopoProjeto)+'</p>'; }
   if(p.objetivo){ b+='<h2>Objetivo:</h2><p>'+e(p.objetivo)+'</p>'; }
+  if((p.sobre||[]).length){ b+='<div class="brk"></div><h2>Sobre a Brava e o Corpo Docente:</h2>'; p.sobre.forEach(function(par){ b+='<p>'+e(par)+'</p>'; }); }
   if((p.resultados||[]).length){ b+='<h2>Resultados esperados:</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
   if((p.planoAcao||[]).length){ b+='<h2>Plano de ação:</h2><ol style="padding-left:28px">'; p.planoAcao.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
   if((p.etapas||[]).length){ b+='<div class="brk"></div><div><h2>Escopo de entregáveis:</h2><table style="break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
@@ -28481,19 +28482,28 @@ function propostaBodyHTML(p){
     b+='</table></div>'; }
   b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">'+e(p.fluxoIntro||'Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.')+'</p>'+_fluxoHTML(p)+'</div>';
   b+='<div class="brk"></div><div><h2>Investimento:</h2>';
-  b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
-  let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
-  b+='<table><tr><th>Item</th><th class="num">Valor</th></tr>'
-    +'<tr><td>Implementação (única) · construção e configuração personalizada</td><td class="num">'+setupCell+'</td></tr>'
-    +'<tr><td>Mensalidade · funcionamento da IA, suporte e manutenção (mínimo '+e(inv.minMeses||3)+' meses)</td><td class="num">'+_orcBRL(mensal)+'</td></tr></table>';
+  const _temTabela=(p.tabelaItens||[]).length>0;
+  const _totalInvest=_temTabela?Number(p.valorGlobal||0):mensal;
+  if(_temTabela){
+    b+='<table><tr><th class="ctr">#</th><th>Capacitação</th><th class="num">Horas</th><th class="num">Valor/h</th><th class="num">Valor/curso</th><th class="ctr">Turmas/ano</th><th class="num">Total/ano</th></tr>';
+    p.tabelaItens.forEach(function(it){ b+='<tr><td class="ctr">'+e(it.n)+'</td><td>'+e(it.nome)+'</td><td class="num">'+e(it.horas)+'</td><td class="num">'+_orcBRL(it.valorHora)+'</td><td class="num">'+_orcBRL(it.valorCurso)+'</td><td class="ctr">'+e(it.turmas)+'</td><td class="num">'+_orcBRL(it.totalAno)+'</td></tr>'; });
+    b+='<tr><td colspan="6" class="num"><b>Valor global anual estimado</b></td><td class="num"><b>'+_orcBRL(p.valorGlobal||0)+'</b></td></tr></table>';
+    b+='<p style="font-size:9pt;color:#555">Valores conforme a tabela do item 1.1 do TR; valor por hora conforme o nivel de especializacao de cada capacitacao; 2 turmas por curso ao ano (uma por semestre). Quantidades sao estimativas do SEBRAE (itens 1.2 e 9.2).</p>';
+  } else {
+    b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
+    let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
+    b+='<table><tr><th>Item</th><th class="num">Valor</th></tr>'
+      +'<tr><td>Implementação (única) · construção e configuração personalizada</td><td class="num">'+setupCell+'</td></tr>'
+      +'<tr><td>Mensalidade · funcionamento da IA, suporte e manutenção (mínimo '+e(inv.minMeses||3)+' meses)</td><td class="num">'+_orcBRL(mensal)+'</td></tr></table>';
+  }
   if((p.investDistribuicao||[]).length){
     const grupos=[]; p.investDistribuicao.forEach(function(d){ let g=grupos.find(function(x){return x.grupo===d.grupo;}); if(!g){ g={grupo:d.grupo, itens:[], sub:0}; grupos.push(g); } g.itens.push(d); g.sub+=Number(d.valor||0); });
-    b+='<p style="margin-top:14px"><b>Como o investimento se distribui.</b> Transparência do que é infraestrutura de tecnologia e do que é trabalho ativo da nossa equipe.</p>';
+    b+='<p style="margin-top:14px"><b>Como o investimento se distribui.</b> Transparência da composição do investimento.</p>';
     b+='<table><tr><th>Frente</th><th>O que contempla</th><th class="num">Valor</th></tr>';
     grupos.forEach(function(g){ g.itens.forEach(function(it,i){ b+='<tr>'+(i===0?('<td rowspan="'+g.itens.length+'"><b>'+e(g.grupo)+'</b></td>'):'')+'<td>'+e(it.item||'')+'</td><td class="num">'+_orcBRL(it.valor)+'</td></tr>'; }); b+='<tr><td></td><td class="num"><b>Subtotal '+e(g.grupo)+'</b></td><td class="num"><b>'+_orcBRL(g.sub)+'</b></td></tr>'; });
-    b+='<tr><td colspan="2" class="num"><b>Total mensal</b></td><td class="num"><b>'+_orcBRL(mensal)+'</b></td></tr></table>';
+    b+='<tr><td colspan="2" class="num"><b>'+(_temTabela?'Total':'Total mensal')+'</b></td><td class="num"><b>'+_orcBRL(_totalInvest)+'</b></td></tr></table>';
   }
-  b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>';
+  if(_temTabela){ b+='<p><b>Pagamento.</b> Apos a execucao, em ate 10 dias uteis da nota fiscal atestada, pelo Sistema Espaco do Fornecedor (item 7 do TR).</p>'; } else { b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>'; }
   if((p.condicoesPagamento||[]).length){
     b+='<p style="margin-top:14px"><b>Cronograma de pagamento.</b></p>';
     b+='<table><tr><th>Quando</th><th>Referente</th><th class="num">Valor</th></tr>';
@@ -28501,7 +28511,7 @@ function propostaBodyHTML(p){
     b+='</table>';
     if(p.condicoesNota){ b+='<p style="font-size:9pt;color:#555">'+e(p.condicoesNota)+'</p>'; }
   }
-  b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>';
+  if(_temTabela){ b+='<p><b>Agendamento:</b> capacitacoes sob demanda, com antecedencia minima de 20 dias, em formato presencial ou online.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>'; } else { b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>'; }
   if(p.evolucao){ b+='<h2>Evolução (fase 2):</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
   const bravaSigners=(p.assinantes&&p.assinantes.length)?p.assinantes:[{nome:'Jhonattan Itiuba',cargo:'CTO e Diretor Executivo'}];
@@ -28639,6 +28649,94 @@ function buildThalitaProposta(){ const t=propostaTemplatePadrao(); return Object
   foro:'São Paulo/SP', assinante:'Jhonattan Itiuba · CTO & Diretor Executivo',
 }); }
 
+// Semente: proposta do SEBRAE-PE (Capacitação Técnica em Audiovisual · Economia Criativa RMR). Formato consultivo, capa sem valor, tabela do item 1.1.
+function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.assign(t, {
+  id:'prop_sebrae', criadoEm:new Date().toISOString(), status:'rascunho',
+  cliente:'SEBRAE-PE', cnpj:'', endereco:'Edifício Alpha Premium · Al. Rio Negro, 503, 23º andar · Alphaville, Barueri/SP',
+  aosCuidados:'Clarissa Novôa · Unidade de Aquisição de Bens e Serviços', repLegal:'Jhonattan Itiuba',
+  capaTitulo:'Capacitação Técnica em Audiovisual', subtitulo:'Formação de profissionais para a economia criativa da Região Metropolitana do Recife', plano:'', validadeDias:'60',
+  assinante:'Jhonattan Itiuba · Diretor', assinantes:[ {nome:'Jhonattan Itiuba', cargo:'Diretor'} ], assinantesCliente:['SEBRAE-PE'], agenteNome:'',
+  mapeamento:'',
+  escopoProjeto:'A Brava, por meio do seu Núcleo Audiovisual, capacita profissionais em todas as etapas da produção audiovisual, da ideia à entrega final. A formação une teoria e prática, conduzida por corpo docente próprio com vivência real de mercado, com foco no que o participante consegue aplicar no dia a dia das produções da região.',
+  objetivo:'Formar profissionais bem preparados nas diferentes funções técnicas do audiovisual, dando ao empreendedor da economia criativa as condições de competir e crescer, no padrão do mercado.',
+  sobre:[
+    'A Brava nasceu no interior de São Paulo e cresceu até se estabelecer em Alphaville, um dos principais polos de tecnologia e negócios do país. Produzindo para marcas e agências e cobrindo grandes eventos, consolidou sólida experiência em produção audiovisual e produção executiva, para projetos de qualquer porte.',
+    'Hoje a Brava é um ecossistema criativo e tecnológico, em três frentes que se conectam: Brava Company (criação e produção audiovisual), Brava Software (tecnologia e dados a serviço da produção) e Brava Blog (formação de profissionais criativos e técnicos).',
+    'À frente do corpo docente está Jhonattan Itiuba, publicitário de trajetória autodidata e prática, com atuação em captação (câmera e drone), direção e pós-produção, em produções de grande alcance, de transmissões ao vivo em rede nacional a bastidores de programas de grande audiência. O repertório reúne marcas como Coca-Cola, Volkswagen, Bayer, Bosch, Scania, EssilorLuxottica e Ray-Ban, emissoras como Globo, Record e SBT, e forte experiência com o setor público (dezenas de prefeituras e iniciativas do SEBRAE).',
+    'Em uma imersão nos Estados Unidos, a Brava foi conhecer de perto o principal centro do audiovisual no mundo: os estúdios da Warner Bros. e da Universal, a sede da Netflix e o Teatro Tudum, o Dolby Theatre (palco do Oscar) e o letreiro de Hollywood. Essa vivência no padrão internacional é o repertório que trazemos para formar profissionais aqui, na mesma direção que o Termo de Referência aponta ao falar em atender padrões internacionais.',
+  ],
+  resultados:[
+    'Profissionais formados nas funções técnicas do audiovisual, prontos para atuar em set.',
+    'Formação prática, unindo teoria e exercícios aplicados à produção real.',
+    'Corpo docente próprio, com domínio técnico e vivência de mercado.',
+    'Capacitações em formato presencial ou online, sob demanda, para turmas de até 30 alunos.',
+    'Material didático próprio, entregue de forma digital ao SEBRAE.',
+    'Fortalecimento da cadeia produtiva local e da economia criativa da RMR.',
+  ],
+  planoAcao:[
+    'Solicitação: o SEBRAE aciona a capacitação sob demanda, definindo curso, formato, data e local na RMR.',
+    'Planejamento: adequação do plano de aula, preparação do material e escala do corpo docente.',
+    'Logística (quando presencial): organização da ida à RMR (equipe, passagens, hospedagem, equipamentos).',
+    'Execução: capacitação conduzida por instrutor próprio, teoria e prática, para até 30 alunos.',
+    'Entrega e acompanhamento: material digital ao SEBRAE, atesto pela fiscalização e correção em até 48 horas.',
+  ],
+  etapas:[
+    { etapa:'Direção e Roteiro', cronograma:'presencial ou online', realizacao:['Direção para Cinema (24h)','Assistente de Direção (18h)','Preparador de Elenco (15h)','Continuísta (15h)','Introdução ao Roteiro e Storytelling (30h)'] },
+    { etapa:'Direção de Arte', cronograma:'presencial ou online', realizacao:['Direção de Arte (24h)','Assistente de Direção de Arte (15h)','Cenógrafo (15h)','Contrarregra (15h)','Figurino (12h)','Maquiagem e Cabelo (12h)'] },
+    { etapa:'Fotografia e Imagem', cronograma:'presencial ou online', realizacao:['Do Zero à Direção de Fotografia (24h)','Assistente de Fotografia (18h)','Iluminação: Eletricista e Maquinista (18h)'] },
+    { etapa:'Produção', cronograma:'presencial ou online', realizacao:['Diretor de Produção (15h)','Produtor Audiovisual (12h)','Assistente de Produção (12h)','Platô (12h)','Produtor Executivo (12h)'] },
+    { etapa:'Som', cronograma:'presencial ou online', realizacao:['Técnico de Som Direto (15h)','Trilha Sonora (15h)'] },
+  ],
+  fluxoIntro:'Veja como conduzimos cada capacitação, do pedido do SEBRAE à entrega, com um responsável claro em cada etapa.',
+  fluxoFrentes:['Solicitação e Planejamento','Execução','Acompanhamento'],
+  fluxoEquipeLabel:'Corpo docente e produção (Brava)',
+  fluxoTopoSub:'O SEBRAE aciona a capacitação sob demanda (mínimo 20 dias), presencial ou online',
+  fluxoFrentesSub:'Cada etapa com um responsável definido, do pedido à entrega',
+  fluxoConvergSub:'Material digital ao SEBRAE, atesto e acompanhamento',
+  fluxoLanes:[
+    { titulo:'Solicitação e Planejamento', passos:[ {tipo:'auto', t:'SEBRAE solicita', s:'Curso, formato, data e local na RMR'}, {tipo:'humano', t:'Brava planeja', s:'Plano de aula, material e escala do docente'}, {tipo:'humano', t:'Logística (presencial)', s:'Passagens SP para PE, hospedagem, equipamentos'} ] },
+    { titulo:'Execução', passos:[ {tipo:'humano', t:'Corpo docente conduz', s:'Teoria e prática, até 30 alunos'}, {tipo:'auto', t:'Material didático', s:'Produção do conteúdo da turma'} ] },
+    { titulo:'Acompanhamento', passos:[ {tipo:'transfer', t:'Entrega ao SEBRAE', s:'Material digital da capacitação'}, {tipo:'humano', t:'Atesto e ajustes', s:'Fiscalização do SEBRAE; correções em até 48h'} ] },
+  ],
+  fluxoApoios:[
+    { titulo:'Corpo docente próprio', texto:'Vínculo societário e contratos de prestação de serviços (item 4.1.3)' },
+    { titulo:'IA aplicada ao audiovisual', texto:'Apoio na pré-produção, na produção e na pós, quando faz sentido' },
+  ],
+  investDistribuicao:[
+    { grupo:'Impostos', item:'Tributos sobre o faturamento', valor:29580 },
+    { grupo:'Administração Central', item:'Gestão, tecnologia, estrutura e controle de qualidade', valor:52200 },
+    { grupo:'Operações e Corpo Docente', item:'Honorários do corpo docente e especialistas, material didático e equipamentos', valor:60900 },
+    { grupo:'Logística das capacitações presenciais', item:'Passagens São Paulo para Pernambuco (2 profissionais: instrução e produção sênior), hospedagem, alimentação e despesas operacionais', valor:31320 },
+  ],
+  valorGlobal:174000,
+  tabelaItens:[
+    {n:1,nome:'Direção de Arte: Construção Visual no Audiovisual',horas:24,valorHora:300,valorCurso:7200,turmas:2,totalAno:14400},
+    {n:2,nome:'Assistente de Direção de Arte',horas:15,valorHora:200,valorCurso:3000,turmas:2,totalAno:6000},
+    {n:3,nome:'Cenógrafo: Espaço e Ambientação',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
+    {n:4,nome:'Contrarregra: Organização e Suporte de Set',horas:15,valorHora:200,valorCurso:3000,turmas:2,totalAno:6000},
+    {n:5,nome:'Figurino: Criação e Construção',horas:12,valorHora:250,valorCurso:3000,turmas:2,totalAno:6000},
+    {n:6,nome:'Maquiagem e Cabelo para o Audiovisual',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
+    {n:7,nome:'Direção para Cinema',horas:24,valorHora:300,valorCurso:7200,turmas:2,totalAno:14400},
+    {n:8,nome:'Assistente de Direção: Organização e Dinâmica de Set',horas:18,valorHora:200,valorCurso:3600,turmas:2,totalAno:7200},
+    {n:9,nome:'Preparador de Elenco',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
+    {n:10,nome:'Continuísta',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
+    {n:11,nome:'Do Zero à Direção de Fotografia',horas:24,valorHora:300,valorCurso:7200,turmas:2,totalAno:14400},
+    {n:12,nome:'Assistente de Fotografia',horas:18,valorHora:200,valorCurso:3600,turmas:2,totalAno:7200},
+    {n:13,nome:'Iluminação: Eletricista e Maquinista no Set',horas:18,valorHora:250,valorCurso:4500,turmas:2,totalAno:9000},
+    {n:14,nome:'Diretor de Produção',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
+    {n:15,nome:'Produtor Audiovisual: Da Rotina à Prática de Set',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
+    {n:16,nome:'Assistente de Produção',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
+    {n:17,nome:'Platô: Dinâmica e Organização do Set',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
+    {n:18,nome:'Produtor Executivo',horas:12,valorHora:300,valorCurso:3600,turmas:2,totalAno:7200},
+    {n:19,nome:'Técnico de Som Direto',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
+    {n:20,nome:'Trilha Sonora',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
+    {n:21,nome:'Introdução ao Roteiro e ao Storytelling',horas:30,valorHora:300,valorCurso:9000,turmas:2,totalAno:18000},
+  ],
+  evolucao:'',
+  fechamento:'Agradecemos a confiança e o interesse em ter a Brava como parceira do SEBRAE-PE neste projeto de fomento à economia criativa da RMR. Seguimos à disposição para uma reunião de alinhamento e para os ajustes que tornem esta proposta ainda mais aderente ao que o SEBRAE busca.',
+  contratoObjetoExtra:'', foro:'Recife/PE',
+}); }
+
 const _propTA = {...( _fInp ), height:'auto', padding:'10px 12px', resize:'vertical', lineHeight:1.5};
 function PropostasAdmin(){
   const { list: clientes } = useClientes();
@@ -28647,7 +28745,7 @@ function PropostasAdmin(){
   const [ver, setVer] = React.useState(null);
   const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='7'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'); const l=[thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='8'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'); const l=[sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
