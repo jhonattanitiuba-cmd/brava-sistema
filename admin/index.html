@@ -28191,6 +28191,8 @@ function OrcamentosAdmin() {
   const [ver, setVer] = React.useState(null);
   const [editor, setEditor] = React.useState(null);
   React.useEffect(()=>{ const h=()=>setOrcs(loadOrcamentos()); window.addEventListener('brava_orcamentos_changed',h); return ()=>window.removeEventListener('brava_orcamentos_changed',h); },[]);
+/* PATCH: carregar Orcamentos tambem do banco (propostas) e mesclar com o localStorage */
+React.useEffect(()=>{ let alive=true; (async()=>{ try{ const cli=(typeof getSupa==='function')?getSupa():null; if(!cli) return; const { data, error }=await cli.from('propostas').select('*').order('created_at',{ascending:false}); if(error||!data||!alive) return; const remotos=data.filter(p=>p&&p.conteudo&&Array.isArray(p.conteudo.itens)&&p.conteudo.itens.length).map(p=>({ id:p.id, cliente:p.cliente_nome||(p.conteudo&&p.conteudo.cliente)||'Cliente', criadoEm:p.created_at||new Date().toISOString(), itens:p.conteudo.itens||[], desconto:(p.conteudo&&p.conteudo.desconto)||'', observacoes:(p.conteudo&&p.conteudo.observacoes)||'', validade:(p.conteudo&&p.conteudo.validade)||'', status:p.status||'rascunho', _remoto:true })); if(!alive) return; setOrcs(prev=>{ const ids=new Set((prev||[]).map(o=>o.id)); return [ ...(prev||[]), ...remotos.filter(r=>!ids.has(r.id)) ]; }); }catch(e){ console.warn('orc remoto falhou', e); } })(); return ()=>{ alive=false; }; },[]);
   const total = orcs.length;
   const enviados = orcs.filter(o=>o.status==='enviado').length;
   const aprovados = orcs.filter(o=>o.status==='aprovado').length;
