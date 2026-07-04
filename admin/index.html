@@ -27762,7 +27762,7 @@ function NovoContratoModal({ clientes, onClose, onSalvar }) {
 // Plug and play: 1 clique gera o documento já no padrão aprovado.
 // Usado por Contrato, Orçamento/Proposta e Ata.
 function _pdfEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
+function bravaPrintDoc({ capa, bodyHTML, headerLabel, capaFechamento }) {
   const w = window.open('', '_blank');
   if (!w) { try{ showToast('Permita pop-ups para gerar o PDF.','erro'); }catch(e){} return; }
   const logo = window.location.origin + '/admin/app/brava-logo-white.png';
@@ -27803,7 +27803,15 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
     + ".box{background:#000;color:#fff;padding:12px 16px;margin:10px 0;break-inside:avoid;page-break-inside:avoid}"
     + ".box .bl2{font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#888}.box .bv{font-size:18pt;font-weight:800}"
     + ".sign{display:flex;gap:32px;margin-top:20mm;break-inside:avoid;page-break-inside:avoid}.sign>div{flex:1;border-top:.5px solid #111;padding-top:6px;font-size:8.5pt}"
-    + ".sn{font-weight:700}.sr{color:#555}";
+    + ".sn{font-weight:700}.sr{color:#555}"
+    // Tabela compacta (listas longas de preço): fonte/padding menores p/ caber numa página; thead real p/ o paged dividir sem engolir linha
+    + ".doc table.tbl-compacta th,.doc table.tbl-compacta td{font-size:8pt;padding:3px 6px;line-height:1.35}"
+    + ".doc thead{break-inside:avoid;page-break-inside:avoid}"
+    // Contracapa de fechamento: all black, logo centralizado, contatos abaixo (sem cabeçalho/rodapé)
+    + ".backcover{page:cover;break-before:page;height:297mm;background:#000;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}"
+    + ".backcover img{height:30px;margin-bottom:16mm}"
+    + ".bc-lbl{font-size:7pt;text-transform:uppercase;letter-spacing:2.5px;color:#777;margin-bottom:2mm}"
+    + ".bc-val{font-size:9.5pt;color:#ddd;margin-bottom:9mm}";
   const meta = ((capa&&capa.meta)||[]).map(function(m){ return '<div><div class="cm-lbl">'+_pdfEsc(m.lbl)+'</div><div class="cm-val">'+_pdfEsc(m.val)+'</div></div>'; }).join('');
   const cover = '<div class="cover"><div class="cover-logo"><img src="'+logo+'" alt="Brava"></div>'
     + '<div class="cover-body">'
@@ -27816,11 +27824,16 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel }) {
   const rotulo = _pdfEsc(headerLabel || (capa&&capa.tag) || 'Documento');
   const rhead = '<div class="rhead"><div class="row"><img src="'+logoDark+'" alt="Brava"><span class="rlbl">'+rotulo+'</span></div></div>';
   const rfoot = '<div class="rfoot">Brava Company LTDA &copy; 2026 - Todos os direitos reservados</div>';
+  // Contracapa de fechamento (padrão Brava): all black, logo centralizado, contatos abaixo
+  const back = capaFechamento ? ('<div class="backcover"><img src="'+logo+'" alt="Brava">'
+    + '<div class="bc-lbl">Comercial</div><div class="bc-val">comercial@brava.company &middot; (11) 96334-2541</div>'
+    + '<div class="bc-lbl">Diretoria</div><div class="bc-val">diretoria@brava.company &middot; jhonattanitiuba@outlook.com.br &middot; (11) 99161-2610</div>'
+    + '</div>') : '';
   const boot = '<script>window.__printed=false;function __goPrint(){if(window.__printed)return;window.__printed=true;try{window.focus();window.print();}catch(e){}}'
     + 'window.PagedConfig={auto:true,after:function(){setTimeout(__goPrint,300);}};setTimeout(__goPrint,7000);<\/script>'
     + '<script src="'+pagedSrc+'" onerror="setTimeout(__goPrint,300)"><\/script>';
   const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
-    + cover + rhead + rfoot + '<div class="doc">'+bodyHTML+'</div>' + boot + '</body></html>';
+    + cover + rhead + rfoot + '<div class="doc">'+bodyHTML+'</div>' + back + boot + '</body></html>';
   w.document.write(html); w.document.close(); w.focus();
 }
 
@@ -28430,19 +28443,23 @@ function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const f
   const arrow=function(){ return '<div style="text-align:center;color:#999;font-size:12pt;line-height:1;margin:3px 0">&#9660;</div>'; };
   const TSVG='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex:none"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
   const transf=function(label){ return '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:5px auto;padding:3px 9px;border:1px solid #111;border-radius:999px;font-size:7.5pt;font-weight:700;background:#eee">'+TSVG+'<span>'+e(label||'Transferência')+'</span></div>'; };
-  // Legenda
+  // Legenda (rótulos data-driven; fallback p/ o padrão SaaS)
   const equipeLbl=p.fluxoEquipeLabel||'Equipe Stefano (pessoas)';
+  const autoLbl=p.fluxoLegendaAuto||'Automático (IA e sistema)';
   const topoSub=p.fluxoTopoSub||'Entra pelo WhatsApp da Casa, a qualquer hora';
   const frentesSub=p.fluxoFrentesSub||'Cada frente é um núcleo próprio, sempre pelo WhatsApp';
   let f='<div style="display:flex;gap:16px;justify-content:center;margin-bottom:10px;font-size:8pt">'
-    +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#000;border:1px solid #111;border-radius:3px;display:inline-block"></span>Automático (IA e sistema)</span>'
+    +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#000;border:1px solid #111;border-radius:3px;display:inline-block"></span>'+e(autoLbl)+'</span>'
     +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff;border:1px solid #111;border-radius:3px;display:inline-block"></span>'+e(equipeLbl)+'</span>'
     +'<span style="display:inline-flex;align-items:center;gap:5px">'+TSVG+'Transferência</span></div>';
-  // Cadeia automática do topo
+  // Cadeia do topo (data-driven em p.fluxoTopo; fallback p/ o padrão SaaS)
+  const topoNodes=(p.fluxoTopo&&p.fluxoTopo.length)?p.fluxoTopo:[
+    { t:'Cliente', s:topoSub, dark:true },
+    { t:ag+' · Agente 24/7', s:'Atende na hora, humanizado e com detecção de intenção', dark:true },
+    { t:'Triagem e qualificação', s:'Entende o que a pessoa precisa e organiza o pedido', dark:true },
+  ];
   f+='<div style="max-width:400px;margin:0 auto">';
-  f+=node('Cliente',topoSub,true);
-  f+=arrow()+node(ag+' · Agente 24/7','Atende na hora, humanizado e com detecção de intenção',true);
-  f+=arrow()+node('Triagem e qualificação','Entende o que a pessoa precisa e organiza o pedido',true);
+  topoNodes.forEach(function(n,i){ if(i>0) f+=arrow(); f+=node(n.t,n.s,n.dark!==false); });
   f+='</div>';
   f+='<div style="text-align:center;font-size:8pt;color:#555;margin:8px 0 6px">'+e(frentesSub)+'</div>';
   // 3 lanes por frente (dado data-driven em p.fluxoLanes; fallback p/ frentes simples)
@@ -28454,9 +28471,9 @@ function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const f
       (lane.passos||[]).forEach(function(ps,i){ if(ps.tipo==='transfer'){ f+=transf(ps.t); } else { if(i>0 && prev!=='transfer') f+=arrow(); f+=node(ps.t,ps.s,ps.tipo==='auto'); } prev=ps.tipo; });
       f+='</div>'; });
     f+='</div>'; }
-  // Convergência
+  // Convergência (título data-driven; fallback p/ o padrão SaaS)
   const convergSub=p.fluxoConvergSub||'Dados de todas as frentes para as decisões da Casa';
-  f+='<div style="max-width:400px;margin:8px auto 0">'+arrow()+node('Relatórios e indicadores',convergSub,true)+'</div>';
+  f+='<div style="max-width:400px;margin:8px auto 0">'+arrow()+node(p.fluxoConvergTitulo||'Relatórios e indicadores',convergSub,true)+'</div>';
   // Apoios (data-driven; fallback p/ o padrão do Stefano)
   const apoios=(p.fluxoApoios&&p.fluxoApoios.length)?p.fluxoApoios:[
     { titulo:'Site', texto:'Cadastro de produtos e preços que alimenta a IA' },
@@ -28473,10 +28490,25 @@ function propostaBodyHTML(p){
   let b='';
   if(p.mapeamento){ b+='<h2>Diagnóstico:</h2><p>'+e(p.mapeamento)+'</p>'; }
   if((p.sobre||[]).length){ b+='<h2>Sobre a Brava e o Corpo Docente:</h2>'; p.sobre.forEach(function(par){ b+='<p>'+e(par)+'</p>'; }); }
-  if(p.escopoProjeto){ b+='<h2>Escopo do projeto:</h2><p>'+e(p.escopoProjeto)+'</p>'; }
-  if(p.objetivo){ b+='<h2>Objetivo:</h2><p>'+e(p.objetivo)+'</p>'; }
-  if((p.resultados||[]).length){ b+='<h2>Resultados esperados:</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
-  if((p.planoAcao||[]).length){ b+='<h2>Plano de ação:</h2><ol style="padding-left:28px">'; p.planoAcao.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol>'; }
+  if(p.escopoProjeto){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Escopo do projeto:</h2><p>'+e(p.escopoProjeto)+'</p></div>'; }
+  if(p.objetivo){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Objetivo:</h2><p>'+e(p.objetivo)+'</p></div>'; }
+  // Diagrama da parceria (de → para): elemento visual compacto, grayscale, no estilo dos nós do fluxo
+  if(p.parceria&&(p.parceria.blocos||[]).length){
+    b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>'+e(p.parceria.titulo||'Como funciona a parceria:')+'</h2>';
+    b+='<div style="display:flex;align-items:stretch;margin-top:8px">';
+    p.parceria.blocos.forEach(function(bl,i){
+      if(i>0){ b+='<div style="display:flex;align-items:center;padding:0 6px;color:#999;font-size:11pt">&#9654;</div>'; }
+      const dk=bl.dark!==false; const bg=dk?'#000':'#fff'; const fg=dk?'#fff':'#111'; const sb=dk?'#bbb':'#555';
+      b+='<div style="flex:1;border:1px solid #111;border-radius:8px;padding:8px 10px;background:'+bg+';color:'+fg+'">'
+        +'<div style="font-weight:700;font-size:9.5pt;text-align:center">'+e(bl.t)+'</div>'
+        +(bl.s?('<div style="font-size:7.5pt;color:'+sb+';text-align:center;margin-top:1px">'+e(bl.s)+'</div>'):'')
+        +'<ul style="margin:6px 0 0;padding-left:14px;font-size:8pt">'+(bl.itens||[]).map(function(x){ return '<li style="margin:2px 0;color:'+fg+'">'+e(x)+'</li>'; }).join('')+'</ul>'
+      +'</div>';
+    });
+    b+='</div></div>';
+  }
+  if((p.resultados||[]).length){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Resultados esperados:</h2><ol style="padding-left:28px">'; p.resultados.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol></div>'; }
+  if((p.planoAcao||[]).length){ b+='<div style="break-inside:avoid;page-break-inside:avoid"><h2>Plano de ação:</h2><ol style="padding-left:28px">'; p.planoAcao.forEach(function(r){ b+='<li>'+e(r)+'</li>'; }); b+='</ol></div>'; }
   if((p.etapas||[]).length){ b+='<div class="brk"></div><div><h2>Escopo de entregáveis:</h2><table style="break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
     p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
     b+='</table></div>'; }
@@ -28485,10 +28517,10 @@ function propostaBodyHTML(p){
   const _temTabela=(p.tabelaItens||[]).length>0;
   const _totalInvest=_temTabela?Number(p.valorGlobal||0):mensal;
   if(_temTabela){
-    b+='<table><tr><th class="ctr">#</th><th>Capacitação</th><th class="num">Horas</th><th class="num">Valor/h</th><th class="num">Valor/curso</th><th class="ctr">Turmas/ano</th><th class="num">Total/ano</th></tr>';
+    b+='<table class="tbl-compacta"><thead><tr><th class="ctr">#</th><th>Capacitação</th><th class="num">Horas</th><th class="num">Valor/h</th><th class="num">Valor/curso</th><th class="ctr">Turmas/ano</th><th class="num">Total/ano</th></tr></thead><tbody>';
     p.tabelaItens.forEach(function(it){ b+='<tr><td class="ctr">'+e(it.n)+'</td><td>'+e(it.nome)+'</td><td class="num">'+e(it.horas)+'</td><td class="num">'+_orcBRL(it.valorHora)+'</td><td class="num">'+_orcBRL(it.valorCurso)+'</td><td class="ctr">'+e(it.turmas)+'</td><td class="num">'+_orcBRL(it.totalAno)+'</td></tr>'; });
-    b+='<tr><td colspan="6" class="num"><b>Valor global anual estimado</b></td><td class="num"><b>'+_orcBRL(p.valorGlobal||0)+'</b></td></tr></table>';
-    b+='<p style="font-size:9pt;color:#555">Valores conforme a tabela do item 1.1 do TR; valor por hora conforme o nivel de especializacao de cada capacitacao; 2 turmas por curso ao ano (uma por semestre). Quantidades sao estimativas do SEBRAE (itens 1.2 e 9.2).</p>';
+    b+='<tr><td colspan="6" class="num"><b>Valor global anual estimado</b></td><td class="num"><b>'+_orcBRL(p.valorGlobal||0)+'</b></td></tr></tbody></table>';
+    b+='<p style="font-size:9pt;color:#555">Valores conforme a tabela do item 1.1 do TR; valor por hora conforme o nível de especialização de cada capacitação; 2 turmas por curso ao ano (uma por semestre). Quantidades são estimativas do SEBRAE (itens 1.2 e 9.2).</p>';
   } else {
     b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
     let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
@@ -28500,10 +28532,12 @@ function propostaBodyHTML(p){
     const grupos=[]; p.investDistribuicao.forEach(function(d){ let g=grupos.find(function(x){return x.grupo===d.grupo;}); if(!g){ g={grupo:d.grupo, itens:[], sub:0}; grupos.push(g); } g.itens.push(d); g.sub+=Number(d.valor||0); });
     b+='<p style="margin-top:14px"><b>Como o investimento se distribui.</b> Transparência da composição do investimento.</p>';
     b+='<table><tr><th>Frente</th><th>O que contempla</th><th class="num">Valor</th></tr>';
-    grupos.forEach(function(g){ var _pct=_totalInvest?Math.round(g.sub/_totalInvest*100):0; g.itens.forEach(function(it,i){ b+='<tr>'+(i===0?('<td rowspan="'+g.itens.length+'"><b>'+e(g.grupo)+'</b><div style="font-size:9pt;color:#555">'+_pct+'% do total</div></td>'):'')+'<td>'+e(it.item||'')+'</td><td class="num">'+_orcBRL(it.valor)+'</td></tr>'; }); b+='<tr><td></td><td class="num"><b>Subtotal '+e(g.grupo)+'</b></td><td class="num"><b>'+_orcBRL(g.sub)+' · '+_pct+'%</b></td></tr>'; });
-    b+='<tr><td colspan="2" class="num"><b>'+(_temTabela?'Total':'Total mensal')+'</b></td><td class="num"><b>'+_orcBRL(_totalInvest)+' · 100%</b></td></tr></table>';
+    grupos.forEach(function(g){ var _pct=_totalInvest?Math.round(g.sub/_totalInvest*100):0;
+      g.itens.forEach(function(it,i){ b+='<tr>'+(i===0?('<td rowspan="'+g.itens.length+'"><b>'+e(g.grupo)+'</b><div style="font-size:8.5pt;color:#555;font-weight:400">'+_pct+'% do total</div></td>'):'')+'<td>'+e(it.item||'')+'</td><td class="num">'+_orcBRL(it.valor)+'</td></tr>'; });
+      if(g.itens.length>1){ b+='<tr><td></td><td class="num">Subtotal '+e(g.grupo)+'</td><td class="num">'+_orcBRL(g.sub)+'</td></tr>'; } });
+    b+='<tr><td colspan="2" class="num"><b>'+(_temTabela?'Total':'Total mensal')+'</b></td><td class="num"><b>'+_orcBRL(_totalInvest)+'</b></td></tr></table>';
   }
-  if(_temTabela){ b+='<p><b>Pagamento.</b> Apos a execucao, em ate 10 dias uteis da nota fiscal atestada, pelo Sistema Espaco do Fornecedor (item 7 do TR).</p>'; } else { b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>'; }
+  if(_temTabela){ b+='<p><b>Pagamento.</b> Após a execução, em até 10 dias úteis da nota fiscal atestada, pelo Sistema Espaço do Fornecedor (item 7 do TR).</p>'; } else { b+='<p><b>Formas de pagamento.</b> Implementação: '+e(inv.formasSetup||'-')+'. Mensalidade: '+e(inv.formasMensal||'-')+'.</p>'; }
   if((p.condicoesPagamento||[]).length){
     b+='<p style="margin-top:14px"><b>Cronograma de pagamento.</b></p>';
     b+='<table><tr><th>Quando</th><th>Referente</th><th class="num">Valor</th></tr>';
@@ -28511,7 +28545,7 @@ function propostaBodyHTML(p){
     b+='</table>';
     if(p.condicoesNota){ b+='<p style="font-size:9pt;color:#555">'+e(p.condicoesNota)+'</p>'; }
   }
-  if(_temTabela){ b+='<p><b>Agendamento:</b> capacitacoes sob demanda, com antecedencia minima de 20 dias, em formato presencial ou online.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>'; } else { b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>'; }
+  if(_temTabela){ b+='<p><b>Agendamento:</b> capacitações sob demanda, com antecedência mínima de 20 dias, em formato presencial ou online.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>'; } else { b+='<p><b>Prazo de entrega:</b> até '+e(inv.prazoDias||15)+' dias úteis após a confirmação.'+(p.prazoObs?(' '+e(p.prazoObs)):'')+'</p></div>'; }
   if(p.evolucao){ b+='<h2>Evolução (fase 2):</h2><p>'+e(p.evolucao)+'</p>'; }
   if(p.fechamento){ b+='<p style="margin-top:12px">'+e(p.fechamento)+'</p>'; }
   const bravaSigners=(p.assinantes&&p.assinantes.length)?p.assinantes:[{nome:'Jhonattan Itiuba',cargo:'CTO e Diretor Executivo'}];
@@ -28524,7 +28558,7 @@ function propostaBodyHTML(p){
   return b;
 }
 function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
-function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase() }); }
+function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase(), capaFechamento:true }); }
 function renderPropostaContrato(p){ const inv=p.investimento||{};
   const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP',
     objeto:p.contratoObjeto, escopoItens:p.contratoEscopoItens, respItens:p.contratoRespItens, participacao:p.contratoParticipacao, acessosExemplo:p.contratoAcessosExemplo, assinantes:p.assinantes, repClienteList:p.assinantesCliente });
@@ -28655,10 +28689,15 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
   cliente:'SEBRAE-PE', cnpj:'', endereco:'Edifício Alpha Premium · Al. Rio Negro, 503, 23º andar · Alphaville, Barueri/SP',
   aosCuidados:'Clarissa Novôa · Unidade de Aquisição de Bens e Serviços', repLegal:'Jhonattan Itiuba',
   capaTitulo:'Capacitação Técnica em Audiovisual', subtitulo:'Formação de profissionais para a economia criativa da Região Metropolitana do Recife', plano:'', validadeDias:'60',
-  assinante:'Jhonattan Itiuba · Diretor', assinantes:[ {nome:'Jhonattan Itiuba', cargo:'Diretor'} ], assinantesCliente:['SEBRAE-PE'], agenteNome:'',
+  assinante:'Jhonattan Itiuba · Diretor Executivo', assinantes:[ {nome:'Jhonattan Itiuba', cargo:'Diretor Executivo'} ], assinantesCliente:[], agenteNome:'',
   mapeamento:'',
   escopoProjeto:'A Brava, por meio do seu Núcleo Audiovisual, capacita profissionais em todas as etapas da produção audiovisual, da ideia à entrega final. A formação une teoria e prática, conduzida por corpo docente próprio com vivência real de mercado, com foco no que o participante consegue aplicar no dia a dia das produções da região.',
   objetivo:'Formar profissionais bem preparados nas diferentes funções técnicas do audiovisual, dando ao empreendedor da economia criativa as condições de competir e crescer, no padrão do mercado.',
+  parceria:{ titulo:'A parceria em uma visão:', blocos:[
+    { t:'SEBRAE-PE', s:'De onde parte a demanda', dark:true, itens:['Aciona a capacitação sob demanda','Define curso, formato, data e local na RMR','Estrutura local e fiscalização do contrato'] },
+    { t:'BRAVA', s:'Quem executa', dark:false, itens:['Corpo docente próprio em todas as áreas','Plano de aula e material didático','Execução presencial ou online, turmas de até 30 alunos','Logística da equipe de São Paulo a Pernambuco'] },
+    { t:'RMR / SEBRAE', s:'Para onde volta o resultado', dark:true, itens:['Profissionais formados, prontos para o set','Material digital entregue ao SEBRAE','Economia criativa da RMR fortalecida'] },
+  ] },
   sobre:[
     'A Brava nasceu no interior de São Paulo e cresceu até se estabelecer em Alphaville, um dos principais polos de tecnologia e negócios do país. Produzindo para marcas e agências, consolidou experiência sólida em produção audiovisual e produção executiva, para projetos de qualquer porte.',
     'Hoje a Brava é um ecossistema criativo e tecnológico, em três frentes que se conectam: Brava Company (criação e produção audiovisual), Brava Software (tecnologia e dados a serviço da produção) e Brava Education (formação de profissionais criativos e técnicos).',
@@ -28683,7 +28722,7 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
     'Entrega e acompanhamento: material digital ao SEBRAE, atesto pela fiscalização e correção em até 48 horas.',
   ],
   etapas:[
-    { etapa:'Direção e Roteiro', cronograma:'presencial ou online', realizacao:['Direção para Cinema (24h)','Assistente de Direção (18h)','Preparador de Elenco (15h)','Continuísta (15h)','Introdução ao Roteiro e Storytelling (30h)'] },
+    { etapa:'Direção e Roteiro', cronograma:'presencial ou online', realizacao:['Direção para Cinema (24h)','Assistente de Direção (18h)','Preparador de Elenco (15h)','Continuísta (15h)','Introdução ao Roteiro e ao Storytelling (30h)'] },
     { etapa:'Direção de Arte', cronograma:'presencial ou online', realizacao:['Direção de Arte (24h)','Assistente de Direção de Arte (15h)','Cenógrafo (15h)','Contrarregra (15h)','Figurino (12h)','Maquiagem e Cabelo (12h)'] },
     { etapa:'Fotografia e Imagem', cronograma:'presencial ou online', realizacao:['Do Zero à Direção de Fotografia (24h)','Assistente de Fotografia (18h)','Iluminação: Eletricista e Maquinista (18h)'] },
     { etapa:'Produção', cronograma:'presencial ou online', realizacao:['Diretor de Produção (15h)','Produtor Audiovisual (12h)','Assistente de Produção (12h)','Platô (12h)','Produtor Executivo (12h)'] },
@@ -28692,6 +28731,9 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
   fluxoIntro:'Veja como conduzimos cada capacitação, do pedido do SEBRAE à entrega, com um responsável claro em cada etapa.',
   fluxoFrentes:['Solicitação e Planejamento','Execução','Acompanhamento'],
   fluxoEquipeLabel:'Corpo docente e produção (Brava)',
+  fluxoLegendaAuto:'SEBRAE e marcos do projeto',
+  fluxoConvergTitulo:'Entrega e atesto',
+  fluxoTopo:[ { t:'SEBRAE', s:'Aciona a capacitação sob demanda (mínimo 20 dias), presencial ou online', dark:true } ],
   fluxoTopoSub:'O SEBRAE aciona a capacitação sob demanda (mínimo 20 dias), presencial ou online',
   fluxoFrentesSub:'Cada etapa com um responsável definido, do pedido à entrega',
   fluxoConvergSub:'Material digital ao SEBRAE, atesto e acompanhamento',
@@ -28702,7 +28744,7 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
   ],
   fluxoApoios:[
     { titulo:'Corpo docente próprio', texto:'Vínculo societário e contratos de prestação de serviços (item 4.1.3)' },
-    { titulo:'IA aplicada ao audiovisual', texto:'Apoio na pré-produção, na produção e na pós, quando faz sentido' },
+    { titulo:'IA aplicada ao audiovisual', texto:'Apoio na pré-produção, na produção e na pós, quando agrega ao processo' },
   ],
   investDistribuicao:[
     { grupo:'Impostos', item:'Tributos sobre o faturamento', valor:29580 },
@@ -28747,7 +28789,7 @@ function PropostasAdmin(){
   const [ver, setVer] = React.useState(null);
   const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='9'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'); const l=[sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='10'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'); const l=[sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
