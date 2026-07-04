@@ -28567,7 +28567,7 @@ function propostaBodyHTML(p){
     +'</div></div>';
   return b;
 }
-function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:((p.validadeDias||'3')+' dias')} ] }; }
+function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:(p.validadeLabel||((p.validadeDias||'3')+' dias'))} ] }; }
 function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase(), capaFechamento:true }); }
 function renderPropostaContrato(p){ const inv=p.investimento||{};
   const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP',
@@ -28698,7 +28698,7 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
   id:'prop_sebrae', criadoEm:new Date().toISOString(), status:'rascunho',
   cliente:'SEBRAE-PE', cnpj:'', endereco:'Edifício Alpha Premium · Al. Rio Negro, 503, 23º andar · Alphaville, Barueri/SP',
   aosCuidados:'Clarissa Novôa · Unidade de Aquisição de Bens e Serviços', repLegal:'Jhonattan Itiuba',
-  capaTitulo:'Capacitação Técnica em Audiovisual', subtitulo:'Formação de profissionais para a economia criativa da Região Metropolitana do Recife', plano:'', validadeDias:'60',
+  capaTitulo:'Capacitação Técnica em Audiovisual', subtitulo:'Formação de profissionais para a economia criativa da Região Metropolitana do Recife', plano:'', validadeDias:'30', validadeLabel:'30 dias úteis',
   assinante:'Jhonattan Itiuba · Diretor Executivo', assinantes:[ {nome:'Jhonattan Itiuba', cargo:'Diretor Executivo'} ], assinantesCliente:[], agenteNome:'',
   mapeamento:'',
   escopoProjeto:'A Brava, por meio do seu Núcleo Audiovisual, capacita profissionais em todas as etapas da produção audiovisual, da ideia à entrega final. A formação une teoria e prática, conduzida por corpo docente próprio com vivência real de mercado, com foco no que o participante consegue aplicar no dia a dia das produções da região.',
@@ -28713,8 +28713,8 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
     'Hoje a Brava é um ecossistema criativo e tecnológico, em três frentes que se conectam: Brava Company (criação e produção audiovisual), Brava Software (tecnologia e dados a serviço da produção) e Brava Education (formação de profissionais criativos e técnicos).',
     'À frente do corpo docente está Jhonattan Itiuba, publicitário de trajetória autodidata e prática, com atuação em lançamentos de projetos, direção e pós-produção, em campanhas, documentários, filmes institucionais e transmissões ao vivo em rede nacional.',
     'O repertório reúne indústrias e marcas como Coca-Cola, Volkswagen, Bayer, Bosch, Scania, Gerdau, Syngenta, EssilorLuxottica, Ray-Ban e Oakley; documentários corporativos para empresas como Sarstedt e Proper Marine; emissoras como Globo, Record e SBT; e atuação no setor público, com o Governo de São Paulo e dezenas de prefeituras da região de Sorocaba.',
-    'A Brava tem afinidade real com o ecossistema SEBRAE. No Sistema SEBRAE-SP, produziu a cobertura audiovisual e o estúdio de podcast da Feira do Empreendedor, com mais de 100 episódios, em parceria com o Escritório Regional de Sorocaba, e participou da arena CRIE, dedicada à economia criativa. Para 2026, é candidata a palestrante na Feira do Empreendedor. É uma proximidade construída pelo trabalho, na mesma agenda de fomento à economia criativa que este projeto representa.',
-    'Em uma imersão nos Estados Unidos, a Brava foi conhecer de perto o principal centro do audiovisual no mundo: os estúdios da Warner Bros. e da Universal, a sede da Netflix e o Teatro Tudum, o Dolby Theatre (palco do Oscar) e o letreiro de Hollywood. Essa vivência no padrão internacional é o repertório que trazemos para formar profissionais aqui, na mesma direção que o Termo de Referência aponta ao falar em atender padrões internacionais.',
+    'A Brava tem afinidade real com o ecossistema SEBRAE. No Sistema SEBRAE-SP, produziu a cobertura audiovisual e o estúdio de podcast da Feira de Negócios da RMS, com mais de 100 episódios, em parceria com o Escritório Regional de Sorocaba, e participou da arena CRIE, dedicada à economia criativa. Para 2026, é candidata a palestrante na Feira do Empreendedor. É uma proximidade construída pelo trabalho, na mesma agenda de fomento à economia criativa que este projeto representa.',
+    'Em uma imersão nos Estados Unidos, a Brava foi conhecer de perto o principal centro do audiovisual no mundo: os estúdios da Warner Bros. e da Universal, a sede da Netflix e o Teatro Tudum, o Dolby Theatre (palco do Oscar) e o letreiro de Hollywood. A vivência nesses polos trouxe uma visão mais aprofundada dos processos criativos, do roteiro à entrega final, e é esse repertório que trazemos para formar profissionais aqui, na mesma direção que o Termo de Referência aponta ao falar em atender padrões internacionais.',
   ],
   resultados:[
     'Profissionais formados nas funções técnicas do audiovisual, prontos para atuar em set.',
@@ -28799,7 +28799,7 @@ function PropostasAdmin(){
   const [ver, setVer] = React.useState(null);
   const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='10'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'); const l=[sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='11'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'); const l=[sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
