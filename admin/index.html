@@ -27772,7 +27772,7 @@ function NovoContratoModal({ clientes, onClose, onSalvar }) {
 // Plug and play: 1 clique gera o documento já no padrão aprovado.
 // Usado por Contrato, Orçamento/Proposta e Ata.
 function _pdfEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function bravaPrintDoc({ capa, bodyHTML, headerLabel, capaFechamento }) {
+function bravaPrintDoc({ capa, bodyHTML, headerLabel, capaFechamento, docTitle }) {
   const w = window.open('', '_blank');
   if (!w) { try{ showToast('Permita pop-ups para gerar o PDF.','erro'); }catch(e){} return; }
   const logo = window.location.origin + '/admin/app/brava-logo-white.png';
@@ -27842,7 +27842,7 @@ function bravaPrintDoc({ capa, bodyHTML, headerLabel, capaFechamento }) {
   const boot = '<script>window.__printed=false;function __goPrint(){if(window.__printed)return;window.__printed=true;try{window.focus();window.print();}catch(e){}}'
     + 'window.PagedConfig={auto:true,after:function(){setTimeout(__goPrint,300);}};setTimeout(__goPrint,7000);<\/script>'
     + '<script src="'+pagedSrc+'" onerror="setTimeout(__goPrint,300)"><\/script>';
-  const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc((capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
+  const html = '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>'+_pdfEsc(docTitle||(capa&&capa.titulo)||'Documento')+'</title><style>'+css+'</style></head><body>'
     + cover + rhead + rfoot + '<div class="doc">'+bodyHTML+'</div>' + back + boot + '</body></html>';
   w.document.write(html); w.document.close(); w.focus();
 }
@@ -28522,7 +28522,7 @@ function propostaBodyHTML(p){
   if((p.etapas||[]).length){ b+='<div class="brk"></div><div><h2>Escopo de entregáveis:</h2><table style="break-inside:avoid"><tr><th class="ctr">Etapa</th><th>Realização</th><th>Cronograma</th></tr>';
     p.etapas.forEach(function(et){ const arr=Array.isArray(et.realizacao)?et.realizacao:String(et.realizacao||'').split('\n'); const real='<ul>'+arr.filter(function(x){return String(x).trim();}).map(function(x){return '<li>'+e(x)+'</li>';}).join('')+'</ul>'; b+='<tr><td class="ctr">'+e(et.etapa||'')+'</td><td>'+real+'</td><td>'+e(et.cronograma||'')+'</td></tr>'; });
     b+='</table></div>'; }
-  b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">'+e(p.fluxoIntro||'Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.')+'</p>'+_fluxoHTML(p)+'</div>';
+  if(!p.semFluxo){ b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">'+e(p.fluxoIntro||'Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.')+'</p>'+_fluxoHTML(p)+'</div>'; }
   b+='<div class="brk"></div><div><h2>Investimento:</h2>';
   const _temTabela=(p.tabelaItens||[]).length>0;
   const _totalInvest=_temTabela?Number(p.valorGlobal||0):mensal;
@@ -28568,7 +28568,7 @@ function propostaBodyHTML(p){
   return b;
 }
 function _propCapa(p){ const dat=p.dataEnvio||new Date(p.criadoEm||Date.now()).toLocaleDateString('pt-BR'); return { tag:'Proposta Comercial', titulo:(p.capaTitulo||'Plataforma Automatizada'), sub:(p.subtitulo||'Para Atendimento e Reservas com Inteligência Artificial'), meta:[ {lbl:'Cliente',val:p.cliente||'-'}, {lbl:'Aos cuidados de',val:p.aosCuidados||'-'}, {lbl:'Data',val:dat}, {lbl:'Validade',val:(p.validadeLabel||((p.validadeDias||'3')+' dias'))} ] }; }
-function renderPropostaDoc(p){ bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase(), capaFechamento:true }); }
+function renderPropostaDoc(p){ const _dt=String(p.capaTitulo||p.cliente||'Proposta')+(p.versao?(' - '+p.versao):''); bravaPrintDoc({ capa:_propCapa(p), bodyHTML:propostaBodyHTML(p), headerLabel:'PROPOSTA · '+String(p.cliente||'').toUpperCase(), capaFechamento:true, docTitle:_dt }); }
 function renderPropostaContrato(p){ const inv=p.investimento||{};
   const body=_contratoServicosBody({ cliente:p.cliente, cnpj:p.cnpj, endereco:p.endereco, repLegal:p.repLegal||p.aosCuidados, setup:inv.setup, setupDescPct:inv.setupDescPct, mensal:inv.mensal, minMeses:inv.minMeses, prazoDias:inv.prazoDias, objetoExtra:p.contratoObjetoExtra, foro:p.foro||'Sorocaba/SP',
     objeto:p.contratoObjeto, escopoItens:p.contratoEscopoItens, respItens:p.contratoRespItens, participacao:p.contratoParticipacao, acessosExemplo:p.contratoAcessosExemplo, assinantes:p.assinantes, repClienteList:p.assinantesCliente });
@@ -28695,7 +28695,7 @@ function buildThalitaProposta(){ const t=propostaTemplatePadrao(); return Object
 
 // Semente: proposta do SEBRAE-PE (Capacitação Técnica em Audiovisual · Economia Criativa RMR). Formato consultivo, capa sem valor, tabela do item 1.1.
 function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.assign(t, {
-  id:'prop_sebrae', criadoEm:new Date().toISOString(), status:'rascunho',
+  id:'prop_sebrae', versao:'Detalhada', criadoEm:new Date().toISOString(), status:'rascunho',
   cliente:'SEBRAE-PE', cnpj:'', endereco:'Edifício Alpha Premium · Al. Rio Negro, 503, 23º andar · Alphaville, Barueri/SP',
   aosCuidados:'Clarissa Novôa · Unidade de Aquisição de Bens e Serviços', repLegal:'Jhonattan Itiuba',
   capaTitulo:'Capacitação Técnica em Audiovisual', subtitulo:'Formação de profissionais para a economia criativa da Região Metropolitana do Recife', plano:'', validadeDias:'30', validadeLabel:'30 dias úteis',
@@ -28791,6 +28791,21 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
   contratoObjetoExtra:'', foro:'Recife/PE',
 }); }
 
+// Versão Objetiva: derivada da Detalhada, direta ao ponto (intro curta + tabela 1.1 + condições), sem fluxo, ementas, sobre, parceria ou distribuição.
+function buildSebraeObjetiva(){ const t=propostaTemplatePadrao(); const full=buildSebraeProposta();
+  return Object.assign(t, {
+    id:'prop_sebrae_obj', versao:'Objetiva', criadoEm:new Date().toISOString(), status:'rascunho',
+    cliente:full.cliente, cnpj:full.cnpj, endereco:full.endereco,
+    aosCuidados:full.aosCuidados, repLegal:full.repLegal,
+    capaTitulo:full.capaTitulo, subtitulo:full.subtitulo, plano:'',
+    validadeDias:full.validadeDias, validadeLabel:full.validadeLabel,
+    assinante:full.assinante, assinantes:full.assinantes, assinantesCliente:full.assinantesCliente, agenteNome:'',
+    mapeamento:'', sobre:[], parceria:null, resultados:[], planoAcao:[], etapas:[], investDistribuicao:[], evolucao:'', semFluxo:true,
+    escopoProjeto:full.escopoProjeto, objetivo:full.objetivo,
+    tabelaItens:full.tabelaItens, valorGlobal:full.valorGlobal,
+    fechamento:full.fechamento, contratoObjetoExtra:'', foro:full.foro,
+  }); }
+
 const _propTA = {...( _fInp ), height:'auto', padding:'10px 12px', resize:'vertical', lineHeight:1.5};
 function PropostasAdmin(){
   const { list: clientes } = useClientes();
@@ -28799,7 +28814,7 @@ function PropostasAdmin(){
   const [ver, setVer] = React.useState(null);
   const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='11'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'); const l=[sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='12'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const sebraeObj=buildSebraeObjetiva(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'&&p.id!=='prop_sebrae_obj'); const l=[sebraeObj,sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
@@ -28829,8 +28844,8 @@ function PropostasAdmin(){
           {lista.map(p=>{ const st=PROP_STATUS[p.status]||PROP_STATUS.rascunho; const inv=p.investimento||{}; return (
             <div key={p.id} className="card grid-m1" style={{display:'grid', gridTemplateColumns:'1fr 140px 140px auto', gap:12, alignItems:'center', padding:'12px 16px'}}>
               <div>
-                <div style={{fontWeight:600, color:'var(--t1)'}}>{p.cliente||'Cliente'}</div>
-                <div style={{fontSize:12, color:'var(--t3)'}}>Plano {p.plano||'-'} · {_orcBRL(inv.mensal)}/mês</div>
+                <div style={{fontWeight:600, color:'var(--t1)'}}>{p.cliente||'Cliente'}{p.versao?' · '+p.versao:''}</div>
+                <div style={{fontSize:12, color:'var(--t3)'}}>{p.versao?(p.capaTitulo||''):('Plano '+(p.plano||'-')+' · '+_orcBRL(inv.mensal)+'/mês')}</div>
               </div>
               <div style={{fontSize:12.5, color:'var(--t2)'}}>{new Date(p.criadoEm).toLocaleDateString('pt-BR')}</div>
               <select value={p.status} onChange={e=>mudar(p.id,e.target.value)} style={{..._fSel, height:34, fontSize:13, color:st.cor}}>
