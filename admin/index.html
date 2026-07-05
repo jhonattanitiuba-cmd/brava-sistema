@@ -24604,6 +24604,10 @@ function CriacaoStudio() {
   const isMobile = useIsMobile();
   const previewBoxRef = React.useRef(null);
   const [scale, setScale] = React.useState(1);
+  const [fullscreen, setFullscreen] = React.useState(false);
+  const [fsScale, setFsScale] = React.useState(1);
+  const fsRootRef = React.useRef(null);
+  const fsBoxRef = React.useRef(null);
 
   // Escala o iframe (viewport lógico fixo) para caber na área do preview, sem cortar.
   React.useEffect(() => {
@@ -24622,6 +24626,43 @@ function CriacaoStudio() {
     ro.observe(el);
     return () => ro.disconnect();
   }, [formato, isMobile]);
+
+  // Escala do preview em TELA CHEIA (recalcula ao girar o celular / redimensionar).
+  React.useEffect(() => {
+    if (!fullscreen || formato === 'livre') return;
+    const el = fsBoxRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const dev = CRIACAO_DEVS[formato];
+    const recompute = () => {
+      const w = el.clientWidth, h = el.clientHeight;
+      if (w <= 0 || h <= 0) return;
+      const s = Math.min(w / dev.w, h / dev.h);
+      if (s > 0) setFsScale(s);
+    };
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    window.addEventListener('orientationchange', recompute);
+    return () => { ro.disconnect(); window.removeEventListener('orientationchange', recompute); };
+  }, [fullscreen, formato]);
+
+  // Abre/sai da tela cheia: tenta o Fullscreen API real (Android/desktop) e cai no overlay fixo.
+  const abrirTelaCheia = () => {
+    setFullscreen(true);
+    setTimeout(() => { try { const el = fsRootRef.current; if (el && el.requestFullscreen) el.requestFullscreen().catch(()=>{}); } catch(e){} }, 40);
+  };
+  const sairTelaCheia = () => {
+    setFullscreen(false);
+    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(()=>{}); } catch(e){}
+  };
+  React.useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e) => { if (e.key === 'Escape') sairTelaCheia(); };
+    const onFsChange = () => { if (!document.fullscreenElement) setFullscreen(false); };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('fullscreenchange', onFsChange); };
+  }, [fullscreen]);
 
   const nomeRef = React.useRef(null);
   const debounceRef = React.useRef(null);
@@ -24871,14 +24912,22 @@ function CriacaoStudio() {
             <div style={{fontSize:12, fontWeight:600, color:'var(--t2)', display:'flex', alignItems:'center', gap:6}}>
               <Icon name="Eye" size={13}/>Preview
             </div>
-            <div style={{display:'flex', gap:3, background:'var(--bg-3)', borderRadius:8, padding:3}}>
-              {[{k:'livre', l:'Livre'}, {k:'v', l:'9:16'}, {k:'h', l:'16:9'}].map(o => (
-                <button key={o.k} onClick={()=>setFormato(o.k)} title={o.k==='v'?'Vertical (celular)':o.k==='h'?'Horizontal (tela larga)':'Ajusta ao espaço'}
-                  style={{padding:'5px 12px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'var(--f-b)',
-                    background: formato===o.k ? 'var(--purple)' : 'transparent', color: formato===o.k ? '#fff' : 'var(--t2)', transition:'background .15s,color .15s'}}>
-                  {o.l}
-                </button>
-              ))}
+            <div style={{display:'flex', alignItems:'center', gap:8}}>
+              <div style={{display:'flex', gap:3, background:'var(--bg-3)', borderRadius:8, padding:3}}>
+                {[{k:'livre', l:'Livre'}, {k:'v', l:'9:16'}, {k:'h', l:'16:9'}].map(o => (
+                  <button key={o.k} onClick={()=>setFormato(o.k)} title={o.k==='v'?'Vertical (celular)':o.k==='h'?'Horizontal (tela larga)':'Ajusta ao espaço'}
+                    style={{padding:'5px 12px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12, fontWeight:600, fontFamily:'var(--f-b)',
+                      background: formato===o.k ? 'var(--purple)' : 'transparent', color: formato===o.k ? '#fff' : 'var(--t2)', transition:'background .15s,color .15s'}}>
+                    {o.l}
+                  </button>
+                ))}
+              </div>
+              <button onClick={abrirTelaCheia} title="Abrir em tela cheia"
+                style={{padding:'6px 8px', borderRadius:8, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', cursor:'pointer', display:'inline-flex', alignItems:'center'}}
+                onMouseEnter={e=>{e.currentTarget.style.color='var(--t1)'; e.currentTarget.style.borderColor='var(--purple)';}}
+                onMouseLeave={e=>{e.currentTarget.style.color='var(--t2)'; e.currentTarget.style.borderColor='var(--border)';}}>
+                <Icon name="Maximize2" size={14}/>
+              </button>
             </div>
           </div>
           <div ref={previewBoxRef} style={{flex:1, padding:12, minHeight:0, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden'}}>
@@ -24899,6 +24948,40 @@ function CriacaoStudio() {
         </div>
 
       </div>
+
+      {/* ── Tela cheia: roda o HTML no formato selecionado; adapta ao girar o celular ── */}
+      {fullscreen && (
+        <div ref={fsRootRef} style={{position:'fixed', inset:0, zIndex:100000, background:'#0a0a0b', display:'flex', flexDirection:'column'}}>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, padding:'10px 14px', background:'rgba(0,0,0,.45)', flexShrink:0}}>
+            <div style={{display:'flex', gap:3, background:'var(--bg-3)', borderRadius:8, padding:3}}>
+              {[{k:'livre', l:'Livre'}, {k:'v', l:'9:16'}, {k:'h', l:'16:9'}].map(o => (
+                <button key={o.k} onClick={()=>setFormato(o.k)}
+                  style={{padding:'6px 14px', borderRadius:6, border:'none', cursor:'pointer', fontSize:12.5, fontWeight:600, fontFamily:'var(--f-b)',
+                    background: formato===o.k ? 'var(--purple)' : 'transparent', color: formato===o.k ? '#fff' : 'var(--t2)'}}>
+                  {o.l}
+                </button>
+              ))}
+            </div>
+            <button onClick={sairTelaCheia} title="Sair da tela cheia (Esc)"
+              style={{display:'inline-flex', alignItems:'center', gap:7, padding:'8px 14px', borderRadius:9, border:'1px solid rgba(255,255,255,.18)', background:'rgba(255,255,255,.06)', color:'#fff', fontSize:13, fontWeight:600, cursor:'pointer'}}>
+              <Icon name="X" size={15}/>Sair da tela cheia
+            </button>
+          </div>
+          <div ref={fsBoxRef} style={{flex:1, minHeight:0, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', padding: formato==='livre'?0:16}}>
+            {formato === 'livre' ? (
+              <iframe title="preview-fs" srcDoc={previewHtml} sandbox="allow-scripts allow-same-origin"
+                style={{display:'block', width:'100%', height:'100%', border:'none', background:'#fff'}}/>
+            ) : (
+              <div style={{ width: Math.round(CRIACAO_DEVS[formato].w * fsScale), height: Math.round(CRIACAO_DEVS[formato].h * fsScale), flexShrink:0,
+                position:'relative', overflow:'hidden', borderRadius:16, background:'#fff', boxShadow:'0 24px 70px -24px rgba(0,0,0,.85)' }}>
+                <iframe title="preview-fs" srcDoc={previewHtml} sandbox="allow-scripts allow-same-origin"
+                  style={{ position:'absolute', top:0, left:0, width:CRIACAO_DEVS[formato].w, height:CRIACAO_DEVS[formato].h, border:'none', background:'#fff',
+                    transform:`scale(${fsScale})`, transformOrigin:'top left' }}/>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
