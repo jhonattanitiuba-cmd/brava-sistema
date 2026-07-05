@@ -36,7 +36,13 @@
   var st=document.createElement('style');st.textContent=css;document.head.appendChild(st);
 })();
 </script>
-<link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png"/>
+<link rel="icon" type="image/png" href="/clientes/_logos/brava-app-192.png"/>
+<link rel="apple-touch-icon" href="/clientes/_logos/brava-app-180.png"/>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<meta name="theme-color" content="#0A0A0B"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Brava"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -3749,7 +3755,7 @@ function AIChat() {
             {/* Avatar: logo Brava (fundo preto) pra bot, iniciais do user */}
             {m.from === 'ai' ? (
               <div style={{
-                width:28, height:28, borderRadius:'50%', flexShrink:0,
+                width:28, height:28, borderRadius:'24%', flexShrink:0,
                 background:'#000', border:'1px solid rgba(123,63,228,.35)',
                 display:'flex', alignItems:'center', justifyContent:'center',
                 overflow:'hidden',
@@ -3792,7 +3798,7 @@ function AIChat() {
         {loading && (
           <div style={{display:'flex',gap:10,alignItems:'flex-end'}}>
             <div style={{
-              width:28, height:28, borderRadius:'50%',
+              width:28, height:28, borderRadius:'24%',
               background:'#000', border:'1px solid rgba(123,63,228,.35)',
               display:'flex', alignItems:'center', justifyContent:'center',
               overflow:'hidden',
@@ -3915,7 +3921,7 @@ function TypingBubble({ side = 'in', showAvatar = false, contato = null, usandoR
       {/* Avatar IA (se out) */}
       {isOut && showAvatar && (
         <div title="IA digitando" style={{
-          width:28, height:28, borderRadius:'50%', background:'#000',
+          width:28, height:28, borderRadius:'24%', background:'#000',
           display:'flex', alignItems:'center', justifyContent:'center',
           flexShrink:0, marginBottom:4, padding:5,
           border:'1px solid rgba(255,255,255,.08)', overflow:'hidden',
@@ -5007,7 +5013,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
             {/* Avatar central: foto do perfil WhatsApp da instancia ativa,
                 fallback pra logo Brava se nao tiver foto */}
             <div style={{
-              width:120, height:120, borderRadius:'50%',
+              width:120, height:120, borderRadius:'24%',
               background:'#000', display:'flex', alignItems:'center', justifyContent:'center',
               padding: activeInstance?.profile_pic_url ? 0 : 24, marginBottom:28,
               border:'1px solid rgba(255,255,255,.06)',
@@ -5311,7 +5317,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
               {/* Avatar da IA nas msgs OUT (logo Brava em circulo preto) */}
               {m.from==='out' && m.ia && (
                 <div title="Mensagem enviada pela IA Brava" style={{
-                  width:28, height:28, borderRadius:'50%',
+                  width:28, height:28, borderRadius:'24%',
                   background:'#000',
                   display:'flex', alignItems:'center', justifyContent:'center',
                   flexShrink:0, marginBottom:4, padding:5,
