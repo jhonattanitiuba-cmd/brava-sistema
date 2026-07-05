@@ -79,6 +79,8 @@ const LoginScreen = ({ onContinue, onNav }) => {
     setInstalavel(false);
     setInstalando(false);
   };
+  // Clique do botão fixo: instala direto se o navegador permitir, senão mostra o passo a passo.
+  const onInstalarClick = () => { if (window.__bravaInstall) instalarApp(); else setMostrarIOS(v => !v); };
 
   // Lê dados vindos do checkout (Stripe)
   const urlParams      = new URLSearchParams(window.location.search);
@@ -342,40 +344,53 @@ const LoginScreen = ({ onContinue, onNav }) => {
             </>
           )}
 
-          {!jaInstalado && instalavel && (
-            <button type="button" onClick={instalarApp} disabled={instalando} style={{
-              width:'100%', height:46, marginTop:12, display:'flex', alignItems:'center', justifyContent:'center', gap:9,
-              background:'var(--brava-grad-soft, rgba(123,63,228,.12))', color:'var(--brava-purple, #7B3FE4)',
-              border:'1px solid rgba(123,63,228,.5)', borderRadius:10, fontSize:14, fontWeight:600, cursor: instalando?'wait':'pointer', fontFamily:'inherit',
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>
-              {instalando ? 'Instalando…' : 'Baixar o app'}
-            </button>
-          )}
-
-          {!jaInstalado && !instalavel && ehIOS && (
-            <div style={{marginTop:12}}>
-              <button type="button" onClick={()=>setMostrarIOS(v=>!v)} style={{
-                width:'100%', height:46, display:'flex', alignItems:'center', justifyContent:'center', gap:9,
-                background:'var(--brava-grad-soft, rgba(123,63,228,.12))', color:'var(--brava-purple, #7B3FE4)',
-                border:'1px solid rgba(123,63,228,.5)', borderRadius:10, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'inherit',
+          {!jaInstalado && (
+            <>
+              <button type="button" onClick={onInstalarClick} disabled={instalando} aria-label="Instalar app" style={{
+                position:'fixed', left:'50%', transform:'translateX(-50%)',
+                bottom:'calc(16px + env(safe-area-inset-bottom, 0px))', zIndex:9999,
+                display:'inline-flex', alignItems:'center', gap:8, height:44, padding:'0 20px',
+                borderRadius:999, background:'#000', color:'#fff', border:'1px solid rgba(255,255,255,.16)',
+                fontSize:13.5, fontWeight:600, fontFamily:'inherit', cursor: instalando?'wait':'pointer',
+                boxShadow:'0 10px 30px rgba(0,0,0,.45)',
               }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M8 7l4-4 4 4M6 12v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-7"/></svg>
-                Instalar no iPhone
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"/></svg>
+                {instalando ? 'Instalando…' : 'Instalar app'}
               </button>
               {mostrarIOS && (
-                <div style={{marginTop:10, padding:'12px 14px', borderRadius:10, background:'var(--brava-grad-soft, rgba(123,63,228,.08))', border:'1px solid rgba(123,63,228,.25)', fontSize:13, color:'var(--text-2, #556)', lineHeight:1.7}}>
-                  <div style={{display:'flex', alignItems:'center', gap:8}}>
-                    <span style={{display:'inline-flex', width:20, height:20, borderRadius:'50%', background:'rgba(123,63,228,.18)', color:'var(--brava-purple,#7B3FE4)', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>1</span>
-                    Toque em <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brava-blue,#1E90FF)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:'-3px', margin:'0 1px'}}><path d="M12 3v12M8 7l4-4 4 4M6 12v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-7"/></svg> (Compartilhar) na barra do Safari.
-                  </div>
-                  <div style={{display:'flex', alignItems:'center', gap:8, marginTop:8}}>
-                    <span style={{display:'inline-flex', width:20, height:20, borderRadius:'50%', background:'rgba(123,63,228,.18)', color:'var(--brava-purple,#7B3FE4)', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>2</span>
-                    Escolha <b style={{margin:'0 3px'}}>"Adicionar à Tela de Início"</b>.
-                  </div>
+                <div style={{
+                  position:'fixed', left:'50%', transform:'translateX(-50%)',
+                  bottom:'calc(72px + env(safe-area-inset-bottom, 0px))', zIndex:9999,
+                  width:'min(340px, 92vw)', padding:'14px 16px', borderRadius:12,
+                  background:'#0E0E14', border:'1px solid rgba(255,255,255,.12)', color:'#C7C7D2',
+                  fontSize:13, lineHeight:1.7, boxShadow:'0 16px 40px rgba(0,0,0,.5)',
+                }}>
+                  {ehIOS ? (
+                    <>
+                      <div style={{display:'flex', alignItems:'center', gap:8}}>
+                        <span style={{display:'inline-flex', width:20, height:20, borderRadius:'50%', background:'rgba(255,255,255,.1)', color:'#fff', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>1</span>
+                        Toque em <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1E90FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{verticalAlign:'-3px', margin:'0 1px'}}><path d="M12 3v12M8 7l4-4 4 4M6 12v7a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-7"/></svg> (Compartilhar) no Safari.
+                      </div>
+                      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:8}}>
+                        <span style={{display:'inline-flex', width:20, height:20, borderRadius:'50%', background:'rgba(255,255,255,.1)', color:'#fff', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>2</span>
+                        Escolha <b style={{color:'#fff', margin:'0 3px'}}>"Adicionar à Tela de Início"</b>.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{display:'flex', alignItems:'center', gap:8}}>
+                        <span style={{display:'inline-flex', width:20, height:20, borderRadius:'50%', background:'rgba(255,255,255,.1)', color:'#fff', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>1</span>
+                        Abra o menu do navegador (⋮).
+                      </div>
+                      <div style={{display:'flex', alignItems:'center', gap:8, marginTop:8}}>
+                        <span style={{display:'inline-flex', width:20, height:20, borderRadius:'50%', background:'rgba(255,255,255,.1)', color:'#fff', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0}}>2</span>
+                        Escolha <b style={{color:'#fff', margin:'0 3px'}}>"Instalar app"</b> ou "Adicionar à tela inicial".
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           <footer className="auth-form__foot">
