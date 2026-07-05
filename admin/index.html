@@ -3051,6 +3051,9 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
   const { list: statusConfig } = useStatusConfig();
   const equipeReal = useEquipeReal();
 
+  // Privacidade do widget de recorrência: desfocado por padrão a cada entrada (login). Não persiste.
+  const [valorOculto, setValorOculto] = React.useState(true);
+
   // MRR total ativo (status_fase = ativo, fonte unificada)
   const mrrTotalAtivo = React.useMemo(() => {
     return recorrencia
@@ -3220,7 +3223,15 @@ function Dashboard({ onImpersonate, pipelineCols, setPage, onNovoCliente, onExpo
               <Icon name="TrendingUp" size={17} style={{color:'var(--blue)'}}/>
             </div>
           </div>
-          <div className="kpi__value" style={{fontSize:26, color:'var(--t1)'}}>R$ {mrr.toLocaleString('pt-BR')}</div>
+          <div className="kpi__value" style={{fontSize:26, color:'var(--t1)', display:'flex', alignItems:'center', gap:8}}>
+            <span style={valorOculto ? {filter:'blur(9px)', userSelect:'none', transition:'filter .18s'} : {transition:'filter .18s'}}>R$ {mrr.toLocaleString('pt-BR')}</span>
+            <button type="button" onClick={(e)=>{ e.stopPropagation(); setValorOculto(v=>!v); }}
+              title={valorOculto ? 'Mostrar valor' : 'Ocultar valor'} aria-label={valorOculto ? 'Mostrar valor' : 'Ocultar valor'}
+              style={{background:'transparent', border:'none', padding:4, cursor:'pointer', color:'var(--t3)', display:'inline-flex', borderRadius:6, flexShrink:0}}
+              onMouseEnter={e=>e.currentTarget.style.color='var(--t1)'} onMouseLeave={e=>e.currentTarget.style.color='var(--t3)'}>
+              <Icon name={valorOculto ? 'EyeOff' : 'Eye'} size={16}/>
+            </button>
+          </div>
           <div className="kpi__delta up"><Icon name="TrendingUp" size={12}/>receita recorrente ativa</div>
         </div>
 
