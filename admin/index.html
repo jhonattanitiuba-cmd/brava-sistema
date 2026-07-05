@@ -24575,6 +24575,9 @@ function usePrototipos() {
   return list;
 }
 
+// Viewport lógico por formato de preview (9:16 e 16:9 exatos) — o iframe renderiza
+// nessa largura de referência e é escalado (transform:scale) para caber na moldura.
+const CRIACAO_DEVS = { v:{ w:390, h:694 }, h:{ w:1280, h:720 } };
 function CriacaoStudio() {
   const lista = usePrototipos();
   const [selId, setSelId]       = React.useState(null);   // protótipo aberto (null = novo)
@@ -24588,6 +24591,26 @@ function CriacaoStudio() {
   const [previewHtml, setPreviewHtml] = React.useState(''); // debounced
   const [formato, setFormato]   = React.useState('livre'); // 'livre' | 'v' (9:16) | 'h' (16:9)
   const isMobile = useIsMobile();
+  const previewBoxRef = React.useRef(null);
+  const [scale, setScale] = React.useState(1);
+
+  // Escala o iframe (viewport lógico fixo) para caber na área do preview, sem cortar.
+  React.useEffect(() => {
+    if (formato === 'livre') return;
+    const el = previewBoxRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const dev = CRIACAO_DEVS[formato];
+    const recompute = () => {
+      const w = el.clientWidth - 24, h = el.clientHeight - 24; // padding 12*2
+      if (w <= 0 || h <= 0) return;
+      const s = Math.min(w / dev.w, h / dev.h);
+      if (s > 0) setScale(s);
+    };
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [formato, isMobile]);
 
   const nomeRef = React.useRef(null);
   const debounceRef = React.useRef(null);
@@ -24847,16 +24870,20 @@ function CriacaoStudio() {
               ))}
             </div>
           </div>
-          <div style={{flex:1, padding:12, minHeight:0, display:'flex', alignItems:'center', justifyContent:'center', overflow:'auto'}}>
-            <div style={formato==='v'
-                ? {height:'100%', aspectRatio:'9 / 16', maxWidth:'100%'}
-                : formato==='h'
-                ? {width:'100%', aspectRatio:'16 / 9', maxHeight:'100%'}
-                : {width:'100%', height:'100%'}}>
+          <div ref={previewBoxRef} style={{flex:1, padding:12, minHeight:0, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden'}}>
+            {formato === 'livre' ? (
               <iframe title="preview" srcDoc={previewHtml}
                 sandbox="allow-scripts allow-same-origin"
                 style={{display:'block', width:'100%', height:'100%', border:'1px solid var(--border)', borderRadius:9, background:'#fff'}}/>
-            </div>
+            ) : (
+              <div style={{ width: Math.round(CRIACAO_DEVS[formato].w * scale), height: Math.round(CRIACAO_DEVS[formato].h * scale), flexShrink:0,
+                position:'relative', overflow:'hidden', borderRadius:12, border:'1px solid var(--border)', background:'#fff', boxShadow:'0 10px 34px -14px rgba(0,0,0,.55)' }}>
+                <iframe title="preview" srcDoc={previewHtml}
+                  sandbox="allow-scripts allow-same-origin"
+                  style={{ position:'absolute', top:0, left:0, width:CRIACAO_DEVS[formato].w, height:CRIACAO_DEVS[formato].h, border:'none', background:'#fff',
+                    transform:`scale(${scale})`, transformOrigin:'top left' }}/>
+              </div>
+            )}
           </div>
         </div>
 
