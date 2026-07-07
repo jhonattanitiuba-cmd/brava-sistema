@@ -164,9 +164,9 @@
         } else {
           console.log('[Brava] wa_instancias criada:', instance.id);
           // Sincroniza profile (foto, nome real do WhatsApp) em background
-          fetch('https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-instance-admin', {
+          fetch('https://cryinggazelle-supabase.cloudfy.live/functions/v1/wa-instance-admin', {
             method: 'POST',
-            headers: {'content-type':'application/json', 'apikey': 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT'},
+            headers: {'content-type':'application/json', 'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgzMzU1NzU2LCJleHAiOjE4MTQ4OTE3NTZ9.kD6Lh8oDxhpai5PwYijapL95zRPVkOesH6Ow86Hnn-4'},
             body: JSON.stringify({action: 'fetchInfo', instanceName: data.evolutionInstanceName}),
           }).catch(() => {});
         }
