@@ -8517,8 +8517,8 @@ function useActiveInstanceId() {
 }
 
 const SUPA_CFG = {
-  url: 'https://buvduumggjpybhzbdqzm.supabase.co',
-  publishableKey: 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT',
+  url: 'https://cryinggazelle-supabase.cloudfy.live',
+  publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgzMzU1NzU2LCJleHAiOjE4MTQ4OTE3NTZ9.kD6Lh8oDxhpai5PwYijapL95zRPVkOesH6Ow86Hnn-4',
   // Getter dinamico: le do localStorage. Permite trocar de instancia sem reload.
   get instanciaId() { return getActiveInstanceId(); },
 };
@@ -10206,7 +10206,7 @@ const BRAVA_INSTANCE_TEMPLATE = {
   // requests sem ele (retorna 401). Sem o token, nada e gravado no banco.
   webhook: {
     enabled: true,
-    url: 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-webhook?token=brava_wh_a7k9m2x5q8z3p1',
+    url: 'https://cryinggazelle-supabase.cloudfy.live/functions/v1/wa-webhook?token=brava_wh_a7k9m2x5q8z3p1',
     byEvents: false,    // todos eventos numa unica URL (wa-webhook desambigua)
     base64: false,      // mesmo padrao da Brava Principal (que ja funciona)
     events: [
