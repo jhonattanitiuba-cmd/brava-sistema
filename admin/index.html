@@ -2865,7 +2865,7 @@ function GerarOnboardingModal({ clientes, onClose }) {
     const body = { modo, plano, slug: sl };
     if (modoCliente === 'existente') body.cliente_id = clienteId; else body.cliente_nome = clienteNome.trim();
     try {
-      const { data } = await getSupa().functions.invoke('gerar-onboarding', { body });
+      const { data } = await getSupaFn().functions.invoke('gerar-onboarding', { body });
       setGerando(false);
       if (data && data.ok) { setResultado(data); showToast?.('Onboarding gerado', 'success'); window.dispatchEvent(new Event('brava:cliente_changed')); }
       else if (data?.error === 'slug_em_uso') showToast?.('Esse slug já está em uso, escolha outro', 'erro');
@@ -4229,7 +4229,7 @@ function Conversas({ pipelineCols, moverNoPipeline }) {
     while (!isDone && safety < 100) {
       safety++;
       try {
-        const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-sync-history`, {
+        const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/wa-sync-history`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ instanceName, daysBack: days, offset, batchSize: 15 }),
@@ -7799,9 +7799,9 @@ function ConviteCard({ convite, podeGerenciar }) {
       const cli = getSupa();
       const { data: sess } = await cli.auth.getSession();
       const token = sess?.session?.access_token;
-      const res = await fetch(`${SUPA_CFG.url}/functions/v1/invite-user`, {
+      const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/invite-user`, {
         method:'POST',
-        headers:{'content-type':'application/json', 'apikey':SUPA_CFG.publishableKey, 'authorization':`Bearer ${token}`},
+        headers:{'content-type':'application/json', 'apikey':SUPA_CFG.funcKey, 'authorization':`Bearer ${token}`},
         body: JSON.stringify({ email: convite.email, role: convite.role, workspace_id: convite.workspace_id }),
       });
       const data = await res.json();
@@ -7860,9 +7860,9 @@ function ConvidarMembroModal({ onClose }) {
       const workspace_id = ws?.workspace_id;
       if (!workspace_id) throw new Error('Workspace não encontrado');
 
-      const res = await fetch(`${SUPA_CFG.url}/functions/v1/invite-user`, {
+      const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/invite-user`, {
         method:'POST',
-        headers:{'content-type':'application/json', 'apikey':SUPA_CFG.publishableKey, 'authorization':`Bearer ${token}`},
+        headers:{'content-type':'application/json', 'apikey':SUPA_CFG.funcKey, 'authorization':`Bearer ${token}`},
         body: JSON.stringify({ email: email.toLowerCase().trim(), role, workspace_id }),
       });
       const data = await res.json();
@@ -8551,6 +8551,10 @@ function useActiveInstanceId() {
 const SUPA_CFG = {
   url: 'https://cryinggazelle-supabase.cloudfy.live',
   publishableKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgzMzU1NzU2LCJleHAiOjE4MTQ4OTE3NTZ9.kD6Lh8oDxhpai5PwYijapL95zRPVkOesH6Ow86Hnn-4',
+  // PONTE: as edge functions ainda rodam no Supabase antigo (mas gravam no banco novo).
+  // O BANCO/auth/storage usam url+publishableKey (cryinggazelle). As FUNCOES usam funcUrl+funcKey (antigo).
+  funcUrl: 'https://buvduumggjpybhzbdqzm.supabase.co',
+  funcKey: 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT',
   // Getter dinamico: le do localStorage. Permite trocar de instancia sem reload.
   get instanciaId() { return getActiveInstanceId(); },
 };
@@ -8570,6 +8574,18 @@ function getSupa() {
     realtime: { params: { eventsPerSecond: 20 } },
   });
   return _supa;
+}
+
+// PONTE: client dedicado SO pra chamar edge functions no Supabase antigo (onde elas rodam,
+// gravando no banco novo). Nao persiste sessao. Usado por getSupaFn().functions.invoke(...).
+let _supaFn = null;
+function getSupaFn() {
+  if (_supaFn) return _supaFn;
+  if (typeof window.supabase === 'undefined') return null;
+  _supaFn = window.supabase.createClient(SUPA_CFG.funcUrl, SUPA_CFG.funcKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return _supaFn;
 }
 
 // ✨ Hook: garante que ha uma sessao Supabase Auth ativa.
@@ -8809,7 +8825,7 @@ async function supaProxyCall({ path, method = 'GET', body, instanceId }) {
   // Snapshot da instancia ativa no momento da chamada
   const instanciaIdAtCall = instanceId || SUPA_CFG.instanciaId;
   // ✨ Pega JWT da sessao Supabase Auth (precisa ser JWT real, nao publishable key)
-  let bearer = SUPA_CFG.publishableKey;
+  let bearer = SUPA_CFG.funcKey;
   try {
     const cli = getSupa();
     if (cli) {
@@ -8817,11 +8833,11 @@ async function supaProxyCall({ path, method = 'GET', body, instanceId }) {
       if (data?.session?.access_token) bearer = data.session.access_token;
     }
   } catch {}
-  const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-proxy`, {
+  const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/wa-proxy`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'apikey': SUPA_CFG.publishableKey,
+      'apikey': SUPA_CFG.funcKey,
       'authorization': `Bearer ${bearer}`,
     },
     body: JSON.stringify({ instancia_id: instanciaIdAtCall, path, method, body }),
@@ -10254,11 +10270,11 @@ const evo = {
    Evolution, o front nao tem essa key (seguranca). Em vez disso, chama essa
    Edge Function que vive no Supabase e tem a master key como secret. */
 async function evoAdminCall(action, instanceName, payload) {
-  const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-instance-admin`, {
+  const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/wa-instance-admin`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'apikey': SUPA_CFG.publishableKey,
+      'apikey': SUPA_CFG.funcKey,
     },
     body: JSON.stringify({ action, instanceName, payload }),
   });
@@ -10282,9 +10298,9 @@ const evoAdmin = {
   setSettings: (name, settings)=> evoAdminCall('setSettings', name, settings),
   // Busca dados de perfil (ownerJid, profileName, profilePicUrl) da instancia
   // via /instance/fetchInstances. Usado pos-pareamento pra sincronizar com o banco.
-  fetchInfo:   (name)          => fetch(`${SUPA_CFG.url}/functions/v1/wa-instance-admin`, {
+  fetchInfo:   (name)          => fetch(`${SUPA_CFG.funcUrl}/functions/v1/wa-instance-admin`, {
     method:'POST',
-    headers:{'content-type':'application/json','apikey':SUPA_CFG.publishableKey},
+    headers:{'content-type':'application/json','apikey':SUPA_CFG.funcKey},
     body: JSON.stringify({ action:'fetchInfo', instanceName: name }),
   }).then(r => r.ok ? r.json() : null).catch(() => null),
 };
@@ -10299,7 +10315,7 @@ const BRAVA_INSTANCE_TEMPLATE = {
   // requests sem ele (retorna 401). Sem o token, nada e gravado no banco.
   webhook: {
     enabled: true,
-    url: 'https://cryinggazelle-supabase.cloudfy.live/functions/v1/wa-webhook?token=brava_wh_a7k9m2x5q8z3p1',
+    url: 'https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/wa-webhook?token=brava_wh_a7k9m2x5q8z3p1',
     byEvents: false,    // todos eventos numa unica URL (wa-webhook desambigua)
     base64: false,      // mesmo padrao da Brava Principal (que ja funciona)
     events: [
@@ -11678,7 +11694,7 @@ function ConfigIntegracoesTab() {
 
   const recarregarGoogle = React.useCallback(() => {
     let vivo = true;
-    getSupa().functions.invoke('google-conta', { body: { action: 'status' } })
+    getSupaFn().functions.invoke('google-conta', { body: { action: 'status' } })
       .then(({ data, error }) => { if (vivo) setGStatus(error ? { ok:false, conectado:false } : data); })
       .catch(() => { if (vivo) setGStatus({ ok:false, conectado:false }); });
     return () => { vivo = false; };
@@ -11686,7 +11702,7 @@ function ConfigIntegracoesTab() {
 
   useEffect(() => {
     let vivo = true;
-    getSupa().functions.invoke('google-conta', { body: { action: 'status' } })
+    getSupaFn().functions.invoke('google-conta', { body: { action: 'status' } })
       .then(({ data, error }) => { if (vivo) setGStatus(error ? { ok:false, conectado:false } : data); })
       .catch(() => { if (vivo) setGStatus({ ok:false, conectado:false }); });
     return () => { vivo = false; };
@@ -11697,7 +11713,7 @@ function ConfigIntegracoesTab() {
 
   async function desconectarGoogle() {
     try {
-      const { data, error } = await getSupa().functions.invoke('google-conta', { body: { action: 'desconectar' } });
+      const { data, error } = await getSupaFn().functions.invoke('google-conta', { body: { action: 'desconectar' } });
       if (error || !data?.ok) throw new Error();
       showToast?.('Google desconectado', 'success');
       setGStatus(null);
@@ -11966,9 +11982,9 @@ function ConfigIATab() {
       // Por seguranca a key nao esta no browser, entao chamamos via wa-proxy "fake":
       // criamos uma rota especial que faz isso. Por enquanto: salva e testa via WhatsApp real.
       // Workaround: simula chamando o wa-ia-responder com um payload fake.
-      const res = await fetch(`${SUPA_CFG.url}/functions/v1/wa-ia-responder`, {
+      const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/wa-ia-responder`, {
         method: 'POST',
-        headers: { 'content-type':'application/json', apikey: SUPA_CFG.publishableKey, authorization: `Bearer ${SUPA_CFG.publishableKey}` },
+        headers: { 'content-type':'application/json', apikey: SUPA_CFG.funcKey, authorization: `Bearer ${SUPA_CFG.funcKey}` },
         body: JSON.stringify({
           record: {
             instancia_id: SUPA_CFG.instanciaId,
@@ -14969,10 +14985,10 @@ async function sincronizarBtg(dias = 30, startDate = null, endDate = null) {
     const body = startDate && endDate
       ? { startDate, endDate, tipo: 'manual' }
       : { dias, tipo: 'manual' };
-    const res = await fetch(`${SUPA_CFG.url}/functions/v1/btg-sync`, {
+    const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/btg-sync`, {
       method: 'POST',
       headers: {
-        'apikey':        SUPA_CFG.publishableKey,
+        'apikey':        SUPA_CFG.funcKey,
         'authorization': `Bearer ${token}`,
         'content-type':  'application/json',
       },
@@ -16244,7 +16260,7 @@ function BTGPagamentos() {
   const gerarTeste = async () => {
     setErro(''); setResultado(null); setGerando(true);
     try {
-      const { data } = await getSupa().functions.invoke('btg-cobranca', { body: { action:'criar', valor: 1.00 } });
+      const { data } = await getSupaFn().functions.invoke('btg-cobranca', { body: { action:'criar', valor: 1.00 } });
       setGerando(false);
       if (data && data.ok) setResultado(data);
       else if (data?.error === 'nao_conectado' || data?.error === 'reconectar') setErro('Conecte o BTG primeiro (botão "Conectar BTG" acima).');
@@ -17242,10 +17258,10 @@ async function trocarCodigoBTG(code) {
   const token = sess?.session?.access_token;
   if (!token) return { ok: false, erro: 'Sessao expirada' };
   try {
-    const res = await fetch(`${SUPA_CFG.url}/functions/v1/btg-oauth-exchange`, {
+    const res = await fetch(`${SUPA_CFG.funcUrl}/functions/v1/btg-oauth-exchange`, {
       method: 'POST',
       headers: {
-        'apikey':        SUPA_CFG.publishableKey,
+        'apikey':        SUPA_CFG.funcKey,
         'authorization': `Bearer ${token}`,
         'content-type':  'application/json',
       },
@@ -21267,7 +21283,7 @@ function ProjetoChecklistsSection({ projetoId, projetoServico, dataBase }) {
 function _gcall(fn, body) {
   const cli = (typeof getSupa === 'function') ? getSupa() : null;
   if (!cli) return Promise.resolve({ ok:false, error:'sem_cliente' });
-  return cli.functions.invoke(fn, { body }).then(r => r?.data || { ok:false, error:'sem_resposta' }).catch(() => ({ ok:false, error:'excecao' }));
+  return getSupaFn().functions.invoke(fn, { body }).then(r => r?.data || { ok:false, error:'sem_resposta' }).catch(() => ({ ok:false, error:'excecao' }));
 }
 // Recarrega quando o usuario volta pra aba/janela (mantem "ao vivo" sem polling pesado).
 function useRefocus(cb) {
@@ -24792,7 +24808,7 @@ function CriacaoStudio() {
     try {
       const body = { prompt };
       if (ehRefino && html) body.html_atual = html; // refinamento reusa a mesma edge
-      const { data, error } = await cli.functions.invoke('gerar-prototipo', { body });
+      const { data, error } = await getSupaFn().functions.invoke('gerar-prototipo', { body });
       if (error) { showToast?.('Erro na geração: '+error.message,'erro'); return; }
       if (!data || !data.ok) { showToast?.('Falha: '+(data?.error || 'sem resposta'),'erro'); return; }
       setHtml(data.html || '');
@@ -26543,7 +26559,7 @@ function Contatos() {
     const cli = (typeof getSupa === 'function') ? getSupa() : null;
     if (!cli) { setStatus('erro'); return; }
     try {
-      const { data: d } = await cli.functions.invoke('contatos-conciliar', { body: {} });
+      const { data: d } = await getSupaFn().functions.invoke('contatos-conciliar', { body: {} });
       if (d && d.ok) { setStatus('pronto'); setContatos(d.contatos || []); setResumo(d.resumo || null); setTruncado(!!d.truncado); }
       else setStatus('erro');
     } catch (_e) { setStatus('erro'); }
@@ -26676,7 +26692,7 @@ function Drive() {
   const call = React.useCallback(async (body) => {
     const cli = (typeof getSupa === 'function') ? getSupa() : null;
     if (!cli) return { ok:false, error:'sem_cliente' };
-    try { const { data } = await cli.functions.invoke('google-drive', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    try { const { data } = await getSupaFn().functions.invoke('google-drive', { body }); return data || { ok:false, error:'sem_resposta' }; }
     catch (_e) { return { ok:false, error:'excecao' }; }
   }, []);
 
@@ -26810,7 +26826,7 @@ function Email() {
   const call = React.useCallback(async (body) => {
     const cli = (typeof getSupa === 'function') ? getSupa() : null;
     if (!cli) return { ok:false, error:'sem_cliente' };
-    try { const { data } = await cli.functions.invoke('google-gmail', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    try { const { data } = await getSupaFn().functions.invoke('google-gmail', { body }); return data || { ok:false, error:'sem_resposta' }; }
     catch (_e) { return { ok:false, error:'excecao' }; }
   }, []);
 
@@ -26964,7 +26980,7 @@ function Tarefas() {
   const call = React.useCallback(async (body) => {
     const cli = (typeof getSupa === 'function') ? getSupa() : null;
     if (!cli) return { ok:false, error:'sem_cliente' };
-    try { const { data } = await cli.functions.invoke('google-tasks', { body }); return data || { ok:false, error:'sem_resposta' }; }
+    try { const { data } = await getSupaFn().functions.invoke('google-tasks', { body }); return data || { ok:false, error:'sem_resposta' }; }
     catch (_e) { return { ok:false, error:'excecao' }; }
   }, []);
 
@@ -27181,7 +27197,7 @@ function AgendaEventoModal({ ev, onClose, gConectado, recarregarGoogle }) {
         const convs = String(form.convidados||'').split(/[,;\s]+/).map(s=>s.trim()).filter(s=>s.includes('@'));
         if (convs.length) payload.convidados = convs;
         if (form.criarMeet) payload.criarMeet = true;
-        const { data } = await getSupa().functions.invoke('google-calendar', { body: payload });
+        const { data } = await getSupaFn().functions.invoke('google-calendar', { body: payload });
         if (!data || !data.ok) { showToast?.('Erro ao salvar no Google', 'erro'); return; }
         showToast?.(novo ? 'Evento criado no Google' : 'Evento atualizado no Google', 'success');
         recarregarGoogle && recarregarGoogle();
@@ -27199,7 +27215,7 @@ function AgendaEventoModal({ ev, onClose, gConectado, recarregarGoogle }) {
     if (!confirm(`Excluir "${ev.titulo}"?`)) return;
     if (ev.fonte === 'google') {
       try {
-        const { data } = await getSupa().functions.invoke('google-calendar', { body: { action: 'delete', id: ev.gid } });
+        const { data } = await getSupaFn().functions.invoke('google-calendar', { body: { action: 'delete', id: ev.gid } });
         if (!data || !data.ok) { showToast?.('Erro ao excluir no Google', 'erro'); return; }
         showToast?.('Evento excluido do Google', 'success'); recarregarGoogle && recarregarGoogle(); onClose(); return;
       } catch (_e) { showToast?.('Erro ao excluir no Google', 'erro'); return; }
@@ -27610,7 +27626,7 @@ function Agenda() {
   const carregarGoogle = React.useCallback(async () => {
     try {
       const cli = (typeof getSupa === 'function') ? getSupa() : null; if (!cli) { setGStatus('erro'); return; }
-      const { data } = await cli.functions.invoke('google-calendar', { body: { action: 'list' } });
+      const { data } = await getSupaFn().functions.invoke('google-calendar', { body: { action: 'list' } });
       if (data && data.ok) {
         setGStatus('conectado');
         const pad = n => String(n).padStart(2,'0');
@@ -28506,7 +28522,7 @@ function NovoOrcamentoModal({ clientes, onClose, onSalvar }) {
     if(contextoIA.trim().length<10){ showToast('Cole um contexto pra IA gerar.','erro'); return; }
     setGerandoIA(true);
     try{
-      const { data, error } = await getSupa().functions.invoke('gerar-orcamento', { body:{ contexto: contextoIA, cliente_nome: cliente } });
+      const { data, error } = await getSupaFn().functions.invoke('gerar-orcamento', { body:{ contexto: contextoIA, cliente_nome: cliente } });
       if(error || !(data && data.ok)) throw new Error((data && data.error) || (error && error.message) || 'falha');
       const o = data.orcamento || {};
       if(Array.isArray(o.itens) && o.itens.length) setItens(o.itens.map(i=>({ descricao:String(i.descricao||''), qtd:String(i.qtd||1), valorUnit:String(i.valorUnit||'') })));
@@ -29099,7 +29115,7 @@ function GerarPropostaModal({ clientes, onClose, onGerada }){
     if(transcricao.trim().length<10){ showToast('Cole a transcrição (ou importe do Google) para a IA gerar.','erro'); return; }
     setGerando(true);
     try{
-      const { data, error } = await getSupa().functions.invoke('gerar-proposta', { body:{ transcricao, cliente_nome: cliente } });
+      const { data, error } = await getSupaFn().functions.invoke('gerar-proposta', { body:{ transcricao, cliente_nome: cliente } });
       if(error || !(data && data.ok)) throw new Error((data && data.error) || (error && error.message) || 'falha');
       const p = data.proposta || {};
       const full = Object.assign(propostaTemplatePadrao(), p, { cliente: (p.cliente || cliente || '') });
@@ -29287,7 +29303,7 @@ async function _ataEnviarWhatsapp(ata, numero){ await _ensureHtml2Pdf();
   const blob=await window.html2pdf().set(opt).from(el).outputPdf('blob');
   const b64=await _blobToB64(blob);
   const cap='*'+(ata.titulo||'Ata')+'*\nSegue a ata em anexo.';
-  const { data, error }=await getSupa().functions.invoke('enviar-ata-wa',{ body:{ pdf_base64:b64, filename:_ataFilename(ata), numero:numero, caption:cap } });
+  const { data, error }=await getSupaFn().functions.invoke('enviar-ata-wa',{ body:{ pdf_base64:b64, filename:_ataFilename(ata), numero:numero, caption:cap } });
   if(error||!(data&&data.ok)) throw new Error((data&&data.error)||(error&&error.message)||'falha no envio');
 }
 // Serializa/parseia uma secao p/ edicao em textarea
@@ -29319,7 +29335,7 @@ function AtasAdmin() {
   const passos = atas.reduce((s,a)=>{ const c=a.conteudo||{}; const sec=(c.secoes||[]).find(x=>x.tipo==='destaque_tabela'); return s+((sec&&sec.linhas&&sec.linhas.length)||0); },0);
   const apagar = async (a)=>{ if(!confirm('Apagar esta ata?'))return; const { error }=await getSupa().from('atas').delete().eq('id',a.id); if(error) showToast('Erro: '+error.message,'erro'); else showToast('Ata apagada.','success'); };
   const regerar = async (a)=>{ if(!a.transcricao){ showToast('Sem transcrição salva para regerar.','erro'); return; } setBusy(a.id);
-    try{ const cli=getSupa(); const { data:resp, error }=await cli.functions.invoke('gerar-ata',{ body:{ transcricao:a.transcricao, cliente_nome:a.cliente_nome, tipo:a.tipo, tema:a.tema, data:'', participantes:a.participantes, marca:a.marca, correcoes:a.correcoes } });
+    try{ const cli=getSupa(); const { data:resp, error }=await getSupaFn().functions.invoke('gerar-ata',{ body:{ transcricao:a.transcricao, cliente_nome:a.cliente_nome, tipo:a.tipo, tema:a.tema, data:'', participantes:a.participantes, marca:a.marca, correcoes:a.correcoes } });
       if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
       if(a.tema&&a.tema.trim()&&resp.conteudo.capa){ resp.conteudo.capa.titulo=a.tema.trim(); } // titulo da capa = exatamente o tema
       const titulo=(resp.conteudo.capa&&resp.conteudo.capa.titulo)?String(resp.conteudo.capa.titulo).replace(/\n/g,' '):a.titulo;
@@ -29378,7 +29394,7 @@ function ImportarTranscricaoModal({ onClose, onPick }){
   const [lista,setLista]=React.useState([]);
   const [status,setStatus]=React.useState('carregando'); // carregando|ok|vazio|desconectado|sem_escopo|erro
   const [baixando,setBaixando]=React.useState('');
-  const call=React.useCallback(async function(body){ const cli=(typeof getSupa==='function')?getSupa():null; if(!cli) return {ok:false,error:'sem_cliente'}; try{ const r=await cli.functions.invoke('google-drive',{body:body}); return r.data||{ok:false,error:'sem_resposta'}; }catch(_e){ return {ok:false,error:'excecao'}; } },[]);
+  const call=React.useCallback(async function(body){ const cli=(typeof getSupa==='function')?getSupa():null; if(!cli) return {ok:false,error:'sem_cliente'}; try{ const r=await getSupaFn().functions.invoke('google-drive',{body:body}); return r.data||{ok:false,error:'sem_resposta'}; }catch(_e){ return {ok:false,error:'excecao'}; } },[]);
   const carregar=React.useCallback(async function(termo){ setStatus('carregando'); const d=await call({action:'docs', busca:termo||undefined});
     if(d.ok){ const a=d.arquivos||[]; setLista(a); setStatus(a.length?'ok':'vazio'); }
     else if(d.error==='sem_escopo') setStatus('sem_escopo');
@@ -29440,7 +29456,7 @@ function NovaAtaModal({ clientes, onClose, onCriada }) {
     setGerando(true);
     try{
       const cli=getSupa();
-      const { data:resp, error } = await cli.functions.invoke('gerar-ata',{ body:{ transcricao, cliente_nome:(clienteSel?clienteSel.nome:''), tipo, tema, data, participantes, marca:(marca||(clienteSel?clienteSel.nome:'Brava')), correcoes } });
+      const { data:resp, error } = await getSupaFn().functions.invoke('gerar-ata',{ body:{ transcricao, cliente_nome:(clienteSel?clienteSel.nome:''), tipo, tema, data, participantes, marca:(marca||(clienteSel?clienteSel.nome:'Brava')), correcoes } });
       if(error||!(resp&&resp.ok)) throw new Error((resp&&resp.error)||(error&&error.message)||'falha ao gerar');
       const conteudo=resp.conteudo;
       if(tema&&tema.trim()&&conteudo.capa){ conteudo.capa.titulo=tema.trim(); } // titulo da capa = exatamente o tema digitado
@@ -29560,7 +29576,7 @@ function PassosModal({ atas, onClose }){
       const dISO=datas[p.key];
       const due=dISO ? new Date(dISO+'T12:00:00').toISOString() : undefined;
       const notas='Origem: ata "'+p.ataTitulo+'"'+(p.cliente?(' · Cliente: '+p.cliente):'')+(p.responsavel?(' · Responsável: '+p.responsavel):'')+(p.prazo?(' · Prazo: '+p.prazo):'');
-      const { data, error }=await getSupa().functions.invoke('google-tasks',{ body:{ action:'create', titulo:p.acao, notas:notas, due:due } });
+      const { data, error }=await getSupaFn().functions.invoke('google-tasks',{ body:{ action:'create', titulo:p.acao, notas:notas, due:due } });
       if(error||!(data&&data.ok)){
         const er=(data&&data.error)||(error&&error.message)||'falha';
         if(er==='sem_escopo'||er==='nao_conectado'||er==='sem_refresh') throw new Error('Conecte o Google primeiro (tela Agenda ou Tarefas).');
@@ -29710,7 +29726,7 @@ function App() {
         u.searchParams.delete('code'); u.searchParams.delete('state'); u.searchParams.delete('scope');
         window.history.replaceState({}, '', u.pathname + (u.search || '') + u.hash);
         const cli = (typeof getSupa === 'function') ? getSupa() : null;
-        if (cli) cli.functions.invoke('btg-oauth-callback', { body: { code } }).then(({ data }) => {
+        if (cli) getSupaFn().functions.invoke('btg-oauth-callback', { body: { code } }).then(({ data }) => {
           if (data && data.ok) showToast?.('BTG conectado! Vá em Financeiro → Pagamentos BTG.', 'success');
           else showToast?.('Falha ao conectar o BTG: ' + (data?.detalhe ? JSON.stringify(data.detalhe).slice(0,120) : (data?.error || '')), 'erro');
         });

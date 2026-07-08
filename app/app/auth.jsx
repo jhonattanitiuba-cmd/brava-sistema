@@ -122,7 +122,7 @@ const LoginScreen = ({ onContinue, onNav }) => {
           .select('role, workspaces(id, slug, name, plan)')
           .eq('user_id', sessionUser.id).limit(1);
         if (members && members.length > 0 && members[0].workspaces) { irParaAdmin(sessionUser, members[0].workspaces, members[0]); return; }
-        const { data: bs } = await window.supabase.functions.invoke('auth-bootstrap');
+        const { data: bs } = await (window.supabaseFn || window.supabase).functions.invoke('auth-bootstrap');
         if (bs && bs.ok && bs.workspace) { irParaAdmin(sessionUser, bs.workspace, bs.member); return; }
         onContinue && onContinue('onboarding');
       } catch (_e) { feito = false; }
