@@ -38,5 +38,13 @@
     },
   });
 
+  // PONTE: client separado SO pra edge functions, que ainda rodam no Supabase antigo
+  // (mas gravam no banco novo). O client de BANCO acima segue no cryinggazelle.
+  window.supabaseFn = createClient(
+    'https://buvduumggjpybhzbdqzm.supabase.co',
+    'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT',
+    { auth: { persistSession: false, autoRefreshToken: false } }
+  );
+
   console.log('[Brava] Supabase client pronto:', SUPABASE_URL);
 })();

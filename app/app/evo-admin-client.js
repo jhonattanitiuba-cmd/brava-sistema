@@ -11,8 +11,9 @@
 // ═══════════════════════════════════════════════════════════
 
 (function () {
-  const SUPA_URL = 'https://cryinggazelle-supabase.cloudfy.live';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzgzMzU1NzU2LCJleHAiOjE4MTQ4OTE3NTZ9.kD6Lh8oDxhpai5PwYijapL95zRPVkOesH6Ow86Hnn-4';
+  // PONTE: edge functions rodam no Supabase antigo (gravam no banco novo). URL+key do ANTIGO.
+  const SUPA_URL = 'https://buvduumggjpybhzbdqzm.supabase.co';
+  const SUPA_KEY = 'sb_publishable_j4V4fiVSYHgMS4fu_RnScw_vZOr0KBT';
 
   async function call(action, instanceName, payload) {
     const res = await fetch(`${SUPA_URL}/functions/v1/wa-instance-admin`, {
