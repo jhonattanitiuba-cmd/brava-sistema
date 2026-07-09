@@ -8573,7 +8573,62 @@ function getSupa() {
     },
     realtime: { params: { eventsPerSecond: 20 } },
   });
+  installRealtimeFallback(_supa);
   return _supa;
+}
+
+/* ─── Fallback de Realtime (ponte Cloudfy) ───────────────────────────────
+   O Realtime do Supabase self-hosted (Cloudfy) pode ficar indisponivel (503).
+   Quando isso acontece, os ~40 canais postgres_changes param de chamar seus
+   refetch (load/carregar/refresh) e a tela "nao se move" ao conciliar/mover.
+   Este fallback:
+   1. Captura, de forma transparente, todo handler postgres_changes registrado.
+   2. window.bravaResync() re-invoca todos com um payload SINTETICO seguro
+      (eventType:'SYNC', new:{}, old:{}) -> handlers de notificacao dao early-return
+      pelos guards (p.new?.x undefined) e os de dados so refazem o SELECT.
+   3. Rede de seguranca: a cada 12s, SE o socket realtime estiver desconectado,
+      dispara um resync. Quando o Cloudfy restaurar o Realtime, isConnected()
+      volta true e o poll fica quieto (zero overhead). Sem refazer canais. */
+const RT_HANDLERS = new Set();
+const RT_SYNTH = { eventType:'SYNC', new:{}, old:{}, schema:'public', table:null, commit_timestamp:null, errors:null };
+let _rtFallbackInstalled = false;
+let _resyncTimer = null;
+function _bravaResyncNow() {
+  RT_HANDLERS.forEach(cb => { try { cb(RT_SYNTH); } catch (e) {} });
+}
+function installRealtimeFallback(cli) {
+  if (!cli || _rtFallbackInstalled) return;
+  _rtFallbackInstalled = true;
+  // Wrapper transparente do .channel: registra handlers postgres_changes sem alterar o fluxo.
+  const _origChannel = cli.channel.bind(cli);
+  cli.channel = function (name, opts) {
+    const ch = opts !== undefined ? _origChannel(name, opts) : _origChannel(name);
+    const _origOn = ch.on.bind(ch);
+    ch.on = function (type, filter, cb) {
+      if (type === 'postgres_changes' && typeof cb === 'function') {
+        RT_HANDLERS.add(cb);
+        (ch.__bravaCbs || (ch.__bravaCbs = [])).push(cb);
+      }
+      return _origOn(type, filter, cb); // retorna o proprio canal (chainable)
+    };
+    return ch;
+  };
+  const _origRemove = cli.removeChannel.bind(cli);
+  cli.removeChannel = function (ch) {
+    try { (ch && ch.__bravaCbs || []).forEach(cb => RT_HANDLERS.delete(cb)); } catch (e) {}
+    return _origRemove(ch);
+  };
+  // Resync global debounced (usado apos mutacoes e pelo poll).
+  window.bravaResync = function () {
+    clearTimeout(_resyncTimer);
+    _resyncTimer = setTimeout(_bravaResyncNow, 250);
+  };
+  // Rede de seguranca: poll gated na saude do socket realtime.
+  setInterval(() => {
+    let connected = false;
+    try { connected = !!(cli.realtime && cli.realtime.isConnected()); } catch (e) {}
+    if (!connected) _bravaResyncNow();
+  }, 12000);
 }
 
 // PONTE: client dedicado SO pra chamar edge functions no Supabase antigo (onde elas rodam,
@@ -14226,6 +14281,7 @@ async function vincularExtratoComPagamento(extratoId, pagamentoId) {
     conciliado_despesa_pagamento_id: null,
     conciliado_caixa_id: null,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function vincularExtratoComDespesaPag(extratoId, despesaPagId) {
@@ -14235,6 +14291,7 @@ async function vincularExtratoComDespesaPag(extratoId, despesaPagId) {
     conciliado_despesa_pagamento_id: despesaPagId,
     conciliado_caixa_id: null,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function vincularExtratoComCaixa(extratoId, caixaId) {
@@ -14244,6 +14301,7 @@ async function vincularExtratoComCaixa(extratoId, caixaId) {
     conciliado_despesa_pagamento_id: null,
     conciliado_caixa_id: caixaId,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function desvincularExtrato(extratoId) {
@@ -14253,6 +14311,7 @@ async function desvincularExtrato(extratoId) {
     conciliado_despesa_pagamento_id: null,
     conciliado_caixa_id: null,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function marcarExtratoIgnorado(extratoId, ignorado = true) {
@@ -14782,6 +14841,7 @@ async function vincularExtratoAoProjeto(extratoId, projetoId, opts = {}) {
   }).eq('id', extratoId);
   _bravaEmit('extrato', { op:'vincular', id: extratoId, projeto_id: proj.id });
   _bravaEmit('caixa', { op:'insert', id: caixa.id });
+  window.bravaResync?.();
   return { ok:true };
 }
 
@@ -14855,6 +14915,7 @@ async function confirmarSugestaoConciliacao(sugestaoId) {
   const userId = sess?.session?.user?.id;
   const { data, error } = await cli.rpc('fin_confirmar_sugestao', { p_sugestao_id: sugestaoId, p_user_id: userId, p_aprender: true });
   if (error) return { ok:false, erro: error.message };
+  window.bravaResync?.(); // ponte: realtime pode estar fora -> forca refetch local
   return data || { ok:true };
 }
 
@@ -14862,6 +14923,7 @@ async function confirmarSugestaoConciliacao(sugestaoId) {
 async function rejeitarSugestaoConciliacao(sugestaoId) {
   const cli = getSupa(); if (!cli) return;
   await cli.from('fin_conciliacao_sugestao').update({ status:'rejeitada', resolvido_em: new Date().toISOString() }).eq('id', sugestaoId);
+  window.bravaResync?.();
 }
 
 // Vincula manualmente um lançamento (cria alias automaticamente pra próxima vez)
@@ -14878,6 +14940,7 @@ async function vincularManualConciliar(extratoId, tipo, clienteId, despesaId, ob
     p_user_id: userId,
   });
   if (error) return { ok:false, erro: error.message };
+  window.bravaResync?.();
   return data || { ok:true };
 }
 
@@ -14885,6 +14948,7 @@ async function vincularManualConciliar(extratoId, tipo, clienteId, despesaId, ob
 async function ignorarLancamentoExtrato(extratoId) {
   const cli = getSupa(); if (!cli) return;
   await cli.from('fin_extrato_bancario').update({ ignorado: true }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 // Salva o rateio de um lançamento (1 pagamento -> N destinos). origem = {extrato_id} ou {caixa_id}.
@@ -14908,6 +14972,7 @@ async function salvarRateio(origem, linhas) {
     const { error } = await cli.from('fin_rateios').insert(rows);
     if (error) { showToast?.('Erro: '+error.message,'error'); return; }
   }
+  window.bravaResync?.();
   showToast?.('Rateio salvo','success');
 }
 
@@ -16912,6 +16977,7 @@ function CategorizarExtratoModal({ lanc, onClose }) {
         dia_vencimento: new Date(lanc.data).getDate(),
       });
     }
+    window.bravaResync?.();
     showToast?.(`✓ ${descricao} categorizada como ${categoria}`,'success');
     setSalvando(false); onClose();
   };
