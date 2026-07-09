@@ -18646,7 +18646,7 @@ function EscolherCliente({ isEntrada, recorrencia, despesas, onCancelar, onEscol
 // ═══════════════════════════════════════════════════════════════
 // CLIENTES CRM - página principal de cadastro/gestão de clientes
 // ═══════════════════════════════════════════════════════════════
-function ClientesCRM() {
+function ClientesCRM({ busca: buscaExterna = '', setBusca: setBuscaExterna } = {}) {
   const isMobile = useIsMobile();
   const { list: clientes, loading } = useClientes();
   const { list: statusConfig } = useStatusConfig();
@@ -18656,6 +18656,10 @@ function ClientesCRM() {
   const [filtroCompleto, setFiltroCompleto] = React.useState('todos');
   const [mostrarIncompletos, setMostrarIncompletos] = React.useState(false);
   const [view, setView] = React.useState('cards'); // cards | tabela
+  // Busca efetiva: a caixinha interna tem prioridade; senao usa a barra de busca do topo (header).
+  const buscaEfetiva = busca.trim() ? busca : (buscaExterna || '');
+  const temBusca = buscaEfetiva.trim() !== '';
+  const limparBusca = () => { setBusca(''); setBuscaExterna?.(''); };
 
   // Estatísticas dos clientes (projetos + MRR) - buscamos uma vez via SQL
   const recorrencia = useRecorrencia();
@@ -18680,10 +18684,17 @@ function ClientesCRM() {
   }, [statusConfig]);
 
   const filtrados = React.useMemo(() => {
-    let arr = [...clientes].filter(c => !clienteEstaIncompleto(c)); // incompletos ficam em seção separada
+    let arr;
+    if (filtroCompleto === 'incompleto') {
+      arr = [...clientes].filter(c => clienteEstaIncompleto(c));     // filtro "Incompletos" ativo: só os incompletos
+    } else if (temBusca) {
+      arr = [...clientes];                                           // com busca: inclui todos pra achar qualquer cliente
+    } else {
+      arr = [...clientes].filter(c => !clienteEstaIncompleto(c));    // padrão: incompletos ficam na seção separada
+    }
     if (filtroStatus !== 'todos') arr = arr.filter(c => c.status === filtroStatus);
-    if (busca.trim()) {
-      const q = busca.toLowerCase();
+    if (temBusca) {
+      const q = buscaEfetiva.toLowerCase();
       arr = arr.filter(c =>
         (c.nome || '').toLowerCase().includes(q) ||
         (c.nome_fantasia || '').toLowerCase().includes(q) ||
@@ -18701,7 +18712,7 @@ function ClientesCRM() {
       return (a.nome || '').localeCompare(b.nome || '');
     });
     return arr;
-  }, [clientes, busca, filtroStatus, filtroCompleto, cfgByKey]);
+  }, [clientes, buscaEfetiva, temBusca, filtroStatus, filtroCompleto, cfgByKey]);
 
   const stats = React.useMemo(() => ({
     total: clientes.length,
@@ -18800,12 +18811,12 @@ function ClientesCRM() {
         <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
           <Icon name="UsersRound" size={36} style={{color:'var(--t3)', opacity:.4, marginBottom:10}}/>
           <div style={{fontSize:14, color:'var(--t2)', marginBottom:6}}>
-            {busca || filtroStatus !== 'todos' || filtroCompleto !== 'todos'
+            {temBusca || filtroStatus !== 'todos' || filtroCompleto !== 'todos'
               ? 'Nenhum cliente encontrado nesses filtros'
               : 'Você ainda não cadastrou nenhum cliente'}
           </div>
-          {busca || filtroStatus !== 'todos' || filtroCompleto !== 'todos' ? (
-            <button onClick={()=>{setBusca(''); setFiltroStatus('todos'); setFiltroCompleto('todos');}} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', textDecoration:'underline', fontSize:13}}>Limpar filtros</button>
+          {temBusca || filtroStatus !== 'todos' || filtroCompleto !== 'todos' ? (
+            <button onClick={()=>{limparBusca(); setFiltroStatus('todos'); setFiltroCompleto('todos');}} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', textDecoration:'underline', fontSize:13}}>Limpar filtros</button>
           ) : (
             <button onClick={()=>setEditando({})} className="btn btn-primary" style={{marginTop:8}}>
               <Icon name="Plus" size={13}/>Cadastrar primeiro cliente
@@ -18876,8 +18887,9 @@ function ClientesCRM() {
         </div>
       )}
 
-      {/* Seção de incompletos — oculta por padrão; expande automaticamente se há busca ativa */}
-      {stats.incompletos > 0 && (
+      {/* Seção de incompletos — só quando NAO ha busca e o filtro Incompletos nao esta ativo
+          (nesses casos os incompletos ja entram na lista principal, evita duplicar). */}
+      {stats.incompletos > 0 && !temBusca && filtroCompleto !== 'incompleto' && (
         <div style={{marginTop:10}}>
           <button
             onClick={()=>setMostrarIncompletos(v=>!v)}
@@ -18896,12 +18908,12 @@ function ClientesCRM() {
               {mostrarIncompletos ? 'Ocultar' : 'Ver'} incompletos ({stats.incompletos})
             </span>
           </button>
-          {(mostrarIncompletos || busca.trim() !== '') && (
+          {mostrarIncompletos && (
             <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8, animation:'fade-in .2s ease'}}>
               {clientes.filter(c => {
                 if (!clienteEstaIncompleto(c)) return false;
-                if (!busca.trim()) return true;
-                const q = busca.toLowerCase();
+                if (!buscaEfetiva.trim()) return true;
+                const q = buscaEfetiva.toLowerCase();
                 return (c.nome||'').toLowerCase().includes(q)
                     || (c.contato_email||'').toLowerCase().includes(q)
                     || (c.contato_telefone||'').includes(q.replace(/\D/g,''))
@@ -22504,7 +22516,8 @@ function Mini({ label, value, cor }) {
 // ─── TAB: Pagamentos ───
 function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
   const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '-';
+  // robusto: casa tanto pelo projeto_id da view quanto pelo id da tabela projetos
+  const projetoNome = (id) => { const p = projetos.find(x => x.projeto_id === id || x.id === id); return p?.projeto_nome || p?.projeto || '-'; };
   const [editandoId, setEditandoId] = React.useState(null);
 
   if (extrato.length === 0) {
@@ -22541,7 +22554,10 @@ function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
             </div>
             <div style={{display:'flex', flexDirection:'column', gap:5}}>
               {lancs.map(e => (
-                <div key={e.id} style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div key={e.id} onClick={()=>setEditandoId(e.id)} title="Clique para vincular / mover de projeto"
+                  style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer', transition:'background .15s'}}
+                  onMouseEnter={ev=>ev.currentTarget.style.background='rgba(255,255,255,.04)'}
+                  onMouseLeave={ev=>ev.currentTarget.style.background='var(--bg-2)'}>
                   <div style={{minWidth:0, flex:1}}>
                     <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.descricao}</div>
                     <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
@@ -22550,7 +22566,7 @@ function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
                   </div>
                   <div style={{display:'flex', gap:8, alignItems:'center'}}>
                     {projId === 'sem_projeto' && (
-                      <button onClick={()=>setEditandoId(e.id)} style={{padding:'4px 8px', borderRadius:6, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)', color:'var(--blue)', fontSize:11, cursor:'pointer'}}>
+                      <button onClick={(ev)=>{ev.stopPropagation(); setEditandoId(e.id);}} style={{padding:'4px 8px', borderRadius:6, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)', color:'var(--blue)', fontSize:11, cursor:'pointer'}}>
                         Vincular projeto
                       </button>
                     )}
@@ -29923,7 +29939,7 @@ function App() {
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
           : page === 'mrr'      ? <Financeiro/>
           : page === 'pipeline' ? <PipelineProjetos/>
-          : page === 'clientes_crm' ? <ClientesCRM/>
+          : page === 'clientes_crm' ? <ClientesCRM busca={busca} setBusca={setBusca}/>
           : page === 'projetos' ? <ProjetosCRM/>
           : page === 'canvas'   ? <CanvasFluxos/>
           : page === 'mapa'     ? <MapaBrava/>
