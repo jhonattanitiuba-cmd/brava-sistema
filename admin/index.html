@@ -8573,7 +8573,62 @@ function getSupa() {
     },
     realtime: { params: { eventsPerSecond: 20 } },
   });
+  installRealtimeFallback(_supa);
   return _supa;
+}
+
+/* ─── Fallback de Realtime (ponte Cloudfy) ───────────────────────────────
+   O Realtime do Supabase self-hosted (Cloudfy) pode ficar indisponivel (503).
+   Quando isso acontece, os ~40 canais postgres_changes param de chamar seus
+   refetch (load/carregar/refresh) e a tela "nao se move" ao conciliar/mover.
+   Este fallback:
+   1. Captura, de forma transparente, todo handler postgres_changes registrado.
+   2. window.bravaResync() re-invoca todos com um payload SINTETICO seguro
+      (eventType:'SYNC', new:{}, old:{}) -> handlers de notificacao dao early-return
+      pelos guards (p.new?.x undefined) e os de dados so refazem o SELECT.
+   3. Rede de seguranca: a cada 12s, SE o socket realtime estiver desconectado,
+      dispara um resync. Quando o Cloudfy restaurar o Realtime, isConnected()
+      volta true e o poll fica quieto (zero overhead). Sem refazer canais. */
+const RT_HANDLERS = new Set();
+const RT_SYNTH = { eventType:'SYNC', new:{}, old:{}, schema:'public', table:null, commit_timestamp:null, errors:null };
+let _rtFallbackInstalled = false;
+let _resyncTimer = null;
+function _bravaResyncNow() {
+  RT_HANDLERS.forEach(cb => { try { cb(RT_SYNTH); } catch (e) {} });
+}
+function installRealtimeFallback(cli) {
+  if (!cli || _rtFallbackInstalled) return;
+  _rtFallbackInstalled = true;
+  // Wrapper transparente do .channel: registra handlers postgres_changes sem alterar o fluxo.
+  const _origChannel = cli.channel.bind(cli);
+  cli.channel = function (name, opts) {
+    const ch = opts !== undefined ? _origChannel(name, opts) : _origChannel(name);
+    const _origOn = ch.on.bind(ch);
+    ch.on = function (type, filter, cb) {
+      if (type === 'postgres_changes' && typeof cb === 'function') {
+        RT_HANDLERS.add(cb);
+        (ch.__bravaCbs || (ch.__bravaCbs = [])).push(cb);
+      }
+      return _origOn(type, filter, cb); // retorna o proprio canal (chainable)
+    };
+    return ch;
+  };
+  const _origRemove = cli.removeChannel.bind(cli);
+  cli.removeChannel = function (ch) {
+    try { (ch && ch.__bravaCbs || []).forEach(cb => RT_HANDLERS.delete(cb)); } catch (e) {}
+    return _origRemove(ch);
+  };
+  // Resync global debounced (usado apos mutacoes e pelo poll).
+  window.bravaResync = function () {
+    clearTimeout(_resyncTimer);
+    _resyncTimer = setTimeout(_bravaResyncNow, 250);
+  };
+  // Rede de seguranca: poll gated na saude do socket realtime.
+  setInterval(() => {
+    let connected = false;
+    try { connected = !!(cli.realtime && cli.realtime.isConnected()); } catch (e) {}
+    if (!connected) _bravaResyncNow();
+  }, 12000);
 }
 
 // PONTE: client dedicado SO pra chamar edge functions no Supabase antigo (onde elas rodam,
@@ -14226,6 +14281,7 @@ async function vincularExtratoComPagamento(extratoId, pagamentoId) {
     conciliado_despesa_pagamento_id: null,
     conciliado_caixa_id: null,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function vincularExtratoComDespesaPag(extratoId, despesaPagId) {
@@ -14235,6 +14291,7 @@ async function vincularExtratoComDespesaPag(extratoId, despesaPagId) {
     conciliado_despesa_pagamento_id: despesaPagId,
     conciliado_caixa_id: null,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function vincularExtratoComCaixa(extratoId, caixaId) {
@@ -14244,6 +14301,7 @@ async function vincularExtratoComCaixa(extratoId, caixaId) {
     conciliado_despesa_pagamento_id: null,
     conciliado_caixa_id: caixaId,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function desvincularExtrato(extratoId) {
@@ -14253,6 +14311,7 @@ async function desvincularExtrato(extratoId) {
     conciliado_despesa_pagamento_id: null,
     conciliado_caixa_id: null,
   }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 async function marcarExtratoIgnorado(extratoId, ignorado = true) {
@@ -14782,6 +14841,7 @@ async function vincularExtratoAoProjeto(extratoId, projetoId, opts = {}) {
   }).eq('id', extratoId);
   _bravaEmit('extrato', { op:'vincular', id: extratoId, projeto_id: proj.id });
   _bravaEmit('caixa', { op:'insert', id: caixa.id });
+  window.bravaResync?.();
   return { ok:true };
 }
 
@@ -14855,6 +14915,7 @@ async function confirmarSugestaoConciliacao(sugestaoId) {
   const userId = sess?.session?.user?.id;
   const { data, error } = await cli.rpc('fin_confirmar_sugestao', { p_sugestao_id: sugestaoId, p_user_id: userId, p_aprender: true });
   if (error) return { ok:false, erro: error.message };
+  window.bravaResync?.(); // ponte: realtime pode estar fora -> forca refetch local
   return data || { ok:true };
 }
 
@@ -14862,6 +14923,7 @@ async function confirmarSugestaoConciliacao(sugestaoId) {
 async function rejeitarSugestaoConciliacao(sugestaoId) {
   const cli = getSupa(); if (!cli) return;
   await cli.from('fin_conciliacao_sugestao').update({ status:'rejeitada', resolvido_em: new Date().toISOString() }).eq('id', sugestaoId);
+  window.bravaResync?.();
 }
 
 // Vincula manualmente um lançamento (cria alias automaticamente pra próxima vez)
@@ -14878,6 +14940,7 @@ async function vincularManualConciliar(extratoId, tipo, clienteId, despesaId, ob
     p_user_id: userId,
   });
   if (error) return { ok:false, erro: error.message };
+  window.bravaResync?.();
   return data || { ok:true };
 }
 
@@ -14885,6 +14948,7 @@ async function vincularManualConciliar(extratoId, tipo, clienteId, despesaId, ob
 async function ignorarLancamentoExtrato(extratoId) {
   const cli = getSupa(); if (!cli) return;
   await cli.from('fin_extrato_bancario').update({ ignorado: true }).eq('id', extratoId);
+  window.bravaResync?.();
 }
 
 // Salva o rateio de um lançamento (1 pagamento -> N destinos). origem = {extrato_id} ou {caixa_id}.
@@ -14908,6 +14972,7 @@ async function salvarRateio(origem, linhas) {
     const { error } = await cli.from('fin_rateios').insert(rows);
     if (error) { showToast?.('Erro: '+error.message,'error'); return; }
   }
+  window.bravaResync?.();
   showToast?.('Rateio salvo','success');
 }
 
@@ -16912,6 +16977,7 @@ function CategorizarExtratoModal({ lanc, onClose }) {
         dia_vencimento: new Date(lanc.data).getDate(),
       });
     }
+    window.bravaResync?.();
     showToast?.(`✓ ${descricao} categorizada como ${categoria}`,'success');
     setSalvando(false); onClose();
   };
@@ -18580,7 +18646,7 @@ function EscolherCliente({ isEntrada, recorrencia, despesas, onCancelar, onEscol
 // ═══════════════════════════════════════════════════════════════
 // CLIENTES CRM - página principal de cadastro/gestão de clientes
 // ═══════════════════════════════════════════════════════════════
-function ClientesCRM() {
+function ClientesCRM({ busca: buscaExterna = '', setBusca: setBuscaExterna } = {}) {
   const isMobile = useIsMobile();
   const { list: clientes, loading } = useClientes();
   const { list: statusConfig } = useStatusConfig();
@@ -18590,6 +18656,10 @@ function ClientesCRM() {
   const [filtroCompleto, setFiltroCompleto] = React.useState('todos');
   const [mostrarIncompletos, setMostrarIncompletos] = React.useState(false);
   const [view, setView] = React.useState('cards'); // cards | tabela
+  // Busca efetiva: a caixinha interna tem prioridade; senao usa a barra de busca do topo (header).
+  const buscaEfetiva = busca.trim() ? busca : (buscaExterna || '');
+  const temBusca = buscaEfetiva.trim() !== '';
+  const limparBusca = () => { setBusca(''); setBuscaExterna?.(''); };
 
   // Estatísticas dos clientes (projetos + MRR) - buscamos uma vez via SQL
   const recorrencia = useRecorrencia();
@@ -18614,10 +18684,17 @@ function ClientesCRM() {
   }, [statusConfig]);
 
   const filtrados = React.useMemo(() => {
-    let arr = [...clientes].filter(c => !clienteEstaIncompleto(c)); // incompletos ficam em seção separada
+    let arr;
+    if (filtroCompleto === 'incompleto') {
+      arr = [...clientes].filter(c => clienteEstaIncompleto(c));     // filtro "Incompletos" ativo: só os incompletos
+    } else if (temBusca) {
+      arr = [...clientes];                                           // com busca: inclui todos pra achar qualquer cliente
+    } else {
+      arr = [...clientes].filter(c => !clienteEstaIncompleto(c));    // padrão: incompletos ficam na seção separada
+    }
     if (filtroStatus !== 'todos') arr = arr.filter(c => c.status === filtroStatus);
-    if (busca.trim()) {
-      const q = busca.toLowerCase();
+    if (temBusca) {
+      const q = buscaEfetiva.toLowerCase();
       arr = arr.filter(c =>
         (c.nome || '').toLowerCase().includes(q) ||
         (c.nome_fantasia || '').toLowerCase().includes(q) ||
@@ -18635,7 +18712,7 @@ function ClientesCRM() {
       return (a.nome || '').localeCompare(b.nome || '');
     });
     return arr;
-  }, [clientes, busca, filtroStatus, filtroCompleto, cfgByKey]);
+  }, [clientes, buscaEfetiva, temBusca, filtroStatus, filtroCompleto, cfgByKey]);
 
   const stats = React.useMemo(() => ({
     total: clientes.length,
@@ -18734,12 +18811,12 @@ function ClientesCRM() {
         <div className="card" style={{padding:40, textAlign:'center', color:'var(--t3)'}}>
           <Icon name="UsersRound" size={36} style={{color:'var(--t3)', opacity:.4, marginBottom:10}}/>
           <div style={{fontSize:14, color:'var(--t2)', marginBottom:6}}>
-            {busca || filtroStatus !== 'todos' || filtroCompleto !== 'todos'
+            {temBusca || filtroStatus !== 'todos' || filtroCompleto !== 'todos'
               ? 'Nenhum cliente encontrado nesses filtros'
               : 'Você ainda não cadastrou nenhum cliente'}
           </div>
-          {busca || filtroStatus !== 'todos' || filtroCompleto !== 'todos' ? (
-            <button onClick={()=>{setBusca(''); setFiltroStatus('todos'); setFiltroCompleto('todos');}} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', textDecoration:'underline', fontSize:13}}>Limpar filtros</button>
+          {temBusca || filtroStatus !== 'todos' || filtroCompleto !== 'todos' ? (
+            <button onClick={()=>{limparBusca(); setFiltroStatus('todos'); setFiltroCompleto('todos');}} style={{background:'none', border:'none', color:'var(--blue)', cursor:'pointer', textDecoration:'underline', fontSize:13}}>Limpar filtros</button>
           ) : (
             <button onClick={()=>setEditando({})} className="btn btn-primary" style={{marginTop:8}}>
               <Icon name="Plus" size={13}/>Cadastrar primeiro cliente
@@ -18810,8 +18887,9 @@ function ClientesCRM() {
         </div>
       )}
 
-      {/* Seção de incompletos — oculta por padrão; expande automaticamente se há busca ativa */}
-      {stats.incompletos > 0 && (
+      {/* Seção de incompletos — só quando NAO ha busca e o filtro Incompletos nao esta ativo
+          (nesses casos os incompletos ja entram na lista principal, evita duplicar). */}
+      {stats.incompletos > 0 && !temBusca && filtroCompleto !== 'incompleto' && (
         <div style={{marginTop:10}}>
           <button
             onClick={()=>setMostrarIncompletos(v=>!v)}
@@ -18830,12 +18908,12 @@ function ClientesCRM() {
               {mostrarIncompletos ? 'Ocultar' : 'Ver'} incompletos ({stats.incompletos})
             </span>
           </button>
-          {(mostrarIncompletos || busca.trim() !== '') && (
+          {mostrarIncompletos && (
             <div style={{display:'flex', flexDirection:'column', gap:6, marginTop:8, animation:'fade-in .2s ease'}}>
               {clientes.filter(c => {
                 if (!clienteEstaIncompleto(c)) return false;
-                if (!busca.trim()) return true;
-                const q = busca.toLowerCase();
+                if (!buscaEfetiva.trim()) return true;
+                const q = buscaEfetiva.toLowerCase();
                 return (c.nome||'').toLowerCase().includes(q)
                     || (c.contato_email||'').toLowerCase().includes(q)
                     || (c.contato_telefone||'').includes(q.replace(/\D/g,''))
@@ -22438,7 +22516,8 @@ function Mini({ label, value, cor }) {
 // ─── TAB: Pagamentos ───
 function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
   const fmt = (v) => Number(v||0).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  const projetoNome = (id) => projetos.find(p => p.projeto_id === id)?.projeto_nome || '-';
+  // robusto: casa tanto pelo projeto_id da view quanto pelo id da tabela projetos
+  const projetoNome = (id) => { const p = projetos.find(x => x.projeto_id === id || x.id === id); return p?.projeto_nome || p?.projeto || '-'; };
   const [editandoId, setEditandoId] = React.useState(null);
 
   if (extrato.length === 0) {
@@ -22475,7 +22554,10 @@ function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
             </div>
             <div style={{display:'flex', flexDirection:'column', gap:5}}>
               {lancs.map(e => (
-                <div key={e.id} style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <div key={e.id} onClick={()=>setEditandoId(e.id)} title="Clique para vincular / mover de projeto"
+                  style={{padding:'9px 12px', background:'var(--bg-2)', border:'1px solid var(--border)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center', cursor:'pointer', transition:'background .15s'}}
+                  onMouseEnter={ev=>ev.currentTarget.style.background='rgba(255,255,255,.04)'}
+                  onMouseLeave={ev=>ev.currentTarget.style.background='var(--bg-2)'}>
                   <div style={{minWidth:0, flex:1}}>
                     <div style={{fontSize:12.5, color:'var(--t1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{e.descricao}</div>
                     <div style={{fontSize:11, color:'var(--t3)', marginTop:1}}>
@@ -22484,7 +22566,7 @@ function Cliente360TabPagamentos({ cliente, extrato, projetos }) {
                   </div>
                   <div style={{display:'flex', gap:8, alignItems:'center'}}>
                     {projId === 'sem_projeto' && (
-                      <button onClick={()=>setEditandoId(e.id)} style={{padding:'4px 8px', borderRadius:6, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)', color:'var(--blue)', fontSize:11, cursor:'pointer'}}>
+                      <button onClick={(ev)=>{ev.stopPropagation(); setEditandoId(e.id);}} style={{padding:'4px 8px', borderRadius:6, border:'1px solid var(--blue)', background:'rgba(30,144,255,.10)', color:'var(--blue)', fontSize:11, cursor:'pointer'}}>
                         Vincular projeto
                       </button>
                     )}
@@ -29857,7 +29939,7 @@ function App() {
           : page === 'clientes' ? <Conversas pipelineCols={pipelineCols} moverNoPipeline={moverNoPipeline}/>
           : page === 'mrr'      ? <Financeiro/>
           : page === 'pipeline' ? <PipelineProjetos/>
-          : page === 'clientes_crm' ? <ClientesCRM/>
+          : page === 'clientes_crm' ? <ClientesCRM busca={busca} setBusca={setBusca}/>
           : page === 'projetos' ? <ProjetosCRM/>
           : page === 'canvas'   ? <CanvasFluxos/>
           : page === 'mapa'     ? <MapaBrava/>
