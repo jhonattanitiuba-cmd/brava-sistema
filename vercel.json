@@ -8,8 +8,8 @@
   "cleanUrls": false,
   "trailingSlash": true,
   "rewrites": [
-    { "source": "/auth/google/callback/", "destination": "https://cryinggazelle-supabase.cloudfy.live/functions/v1/google-oauth-callback" },
-    { "source": "/auth/google/callback",  "destination": "https://cryinggazelle-supabase.cloudfy.live/functions/v1/google-oauth-callback" }
+    { "source": "/auth/google/callback/", "destination": "https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback" },
+    { "source": "/auth/google/callback",  "destination": "https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback" }
   ],
   "headers": [
     {
