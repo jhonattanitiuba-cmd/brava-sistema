@@ -8595,6 +8595,8 @@ let _rtFallbackInstalled = false;
 let _resyncTimer = null;
 function _bravaResyncNow() {
   RT_HANDLERS.forEach(cb => { try { cb(RT_SYNTH); } catch (e) {} });
+  // sinaliza pro RealtimeIndicator que o fallback sincronizou (pill "Auto" pisca)
+  try { window.dispatchEvent(new Event('brava_resync_tick')); } catch (e) {}
 }
 function installRealtimeFallback(cli) {
   if (!cli || _rtFallbackInstalled) return;
@@ -14368,15 +14370,24 @@ function RealtimeIndicator() {
     ch.subscribe((status) => {
       setConectado(status === 'SUBSCRIBED');
     });
-    return () => { cli.removeChannel(ch); };
+    // Fallback (Realtime do Cloudfy caido): a cada resync o pill pisca -> mostra que esta vivo
+    const onTick = () => { setPiscando(true); setTimeout(() => setPiscando(false), 700); };
+    window.addEventListener('brava_resync_tick', onTick);
+    return () => { cli.removeChannel(ch); window.removeEventListener('brava_resync_tick', onTick); };
   }, []);
-  const cor = !conectado ? '#6E6E78' : (piscando ? '#1D9E75' : '#1D9E75');
+  // Estados honestos: conectado = realtime nativo ao vivo (verde); senao = fallback cobrindo (ambar "Auto").
+  const cor = conectado ? '#1D9E75' : '#BA7517';
+  const label = conectado ? 'Ao vivo' : 'Auto';
+  const tip = conectado
+    ? (ultima ? `Tempo real conectado · última mudança: ${ultima}` : 'Tempo real conectado')
+    : 'Tempo real do servidor indisponível. O sistema atualiza sozinho a cada ~12s.';
   return (
-    <div title={conectado ? (ultima ? `Última mudança: ${ultima}` : 'Sincronizando em tempo real') : 'Desconectado do realtime'}
+    <div title={tip}
       style={{
         display:'flex', alignItems:'center', gap:6, padding:'4px 10px',
-        borderRadius:999, background:'rgba(29,158,117,.08)',
-        border:'1px solid rgba(29,158,117,.20)',
+        borderRadius:999,
+        background: conectado ? 'rgba(29,158,117,.08)' : 'rgba(186,117,23,.10)',
+        border: `1px solid ${conectado ? 'rgba(29,158,117,.20)' : 'rgba(186,117,23,.30)'}`,
         marginRight:8, marginLeft:6, transition:'all .3s',
       }}>
       <span style={{
@@ -14386,7 +14397,7 @@ function RealtimeIndicator() {
         transform: piscando ? 'scale(1.3)' : 'scale(1)',
       }}/>
       <span style={{fontSize:10.5, color:'#F5F5F7', fontWeight:600, letterSpacing:.3}}>
-        {conectado ? 'Estável' : 'Off'}
+        {label}
       </span>
     </div>
   );
@@ -26542,8 +26553,47 @@ function gmailDataCurta(d) {
     : dt.toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit' });
 }
 
+// Prepara o HTML do e-mail pra render seguro no iframe sandboxed (sem allow-scripts):
+// - remove <script> (defensivo) e desmonta <noscript> (origem do "O JavaScript nao esta
+//   habilitado... nao e possivel abrir este arquivo" que o Google injeta como fallback);
+// - remove embeds que dependem de JS (<iframe>) e coleta os links de Google Docs/Drive
+//   pra oferecer um botao "Abrir no Google Docs" FORA do iframe (abre em nova aba).
+function prepararEmailHtml(html) {
+  if (!html) return { html: '', docLinks: [] };
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const docLinks = [];
+    const vistos = new Set();
+    const ehGoogleDoc = (u) => /docs\.google\.com|drive\.google\.com|\/document\/|\/spreadsheets\/|\/presentation\//i.test(u || '');
+    const addLink = (href, label) => {
+      if (!href || vistos.has(href)) return;
+      vistos.add(href);
+      let tipo = 'Google Docs';
+      if (/spreadsheets/i.test(href)) tipo = 'Google Planilhas';
+      else if (/presentation/i.test(href)) tipo = 'Google Apresentacoes';
+      else if (/drive\.google/i.test(href)) tipo = 'Google Drive';
+      const txt = (label || '').replace(/\s+/g, ' ').trim();
+      docLinks.push({ href, label: txt ? txt.slice(0, 60) : ('Abrir no ' + tipo) });
+    };
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const href = a.getAttribute('href');
+      if (ehGoogleDoc(href)) addLink(href, a.textContent);
+    });
+    doc.querySelectorAll('iframe').forEach(f => {
+      const src = f.getAttribute('src');
+      if (ehGoogleDoc(src)) addLink(src, f.getAttribute('title'));
+      f.remove();                       // iframes de e-mail dependem de JS -> tira todos
+    });
+    doc.querySelectorAll('script, noscript').forEach(n => n.remove());
+    return { html: doc.body ? doc.body.innerHTML : html, docLinks };
+  } catch (_e) {
+    return { html, docLinks: [] };
+  }
+}
+
 function EmailLeitor({ email, labels, onClose, onResponder, onArquivar, onMover, onExcluir }) {
   const [moverAberto, setMoverAberto] = React.useState(false);
+  const { html: htmlLimpo, docLinks } = React.useMemo(() => prepararEmailHtml(email.html), [email.html]);
   const _ico = { display:'inline-flex', alignItems:'center', gap:5, padding:'7px 11px', borderRadius:7, border:'1px solid var(--border)', background:'transparent', color:'var(--t2)', fontSize:12.5, fontWeight:600, cursor:'pointer' };
   return (
     <div onClick={onClose} style={{position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20}}>
@@ -26574,9 +26624,19 @@ function EmailLeitor({ email, labels, onClose, onResponder, onArquivar, onMover,
           </div>
           <button style={{..._ico, marginLeft:'auto', color:'#E5544D', borderColor:'transparent'}} onClick={()=>onExcluir(email)}><Icon name="Trash2" size={13}/>Lixeira</button>
         </div>
+        {docLinks.length > 0 && (
+          <div style={{padding:'10px 22px', borderBottom:'1px solid var(--border-soft)', display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', background:'var(--bg-2)'}}>
+            <span style={{fontSize:11.5, color:'var(--t3)'}}>Anexo Google:</span>
+            {docLinks.map((d, i) => (
+              <a key={i} href={d.href} target="_blank" rel="noopener noreferrer" style={{..._ico, borderColor:'var(--blue)', color:'var(--blue)', textDecoration:'none'}}>
+                <Icon name="ExternalLink" size={13}/>{d.label}
+              </a>
+            ))}
+          </div>
+        )}
         <div style={{flex:1, overflow:'auto', background:'#fff'}}>
-          {email.html
-            ? <iframe title="email" sandbox="" srcDoc={email.html} style={{width:'100%', height:'58vh', border:'none', background:'#fff'}}/>
+          {htmlLimpo
+            ? <iframe title="email" sandbox="allow-popups allow-popups-to-escape-sandbox" srcDoc={htmlLimpo} style={{width:'100%', height:'58vh', border:'none', background:'#fff'}}/>
             : <pre style={{margin:0, padding:'18px 22px', whiteSpace:'pre-wrap', wordBreak:'break-word', fontFamily:'inherit', fontSize:13.5, color:'#1a1a1a'}}>{email.texto || email.snippet || '(sem conteúdo)'}</pre>}
         </div>
       </div>
