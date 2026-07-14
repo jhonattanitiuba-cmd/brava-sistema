@@ -28907,12 +28907,13 @@ function propostaBodyHTML(p){
   if(!p.semFluxo){ b+='<div class="brk"></div><div><h2>Fluxo da operação:</h2><p style="margin-bottom:10px">'+e(p.fluxoIntro||'Veja, de forma simples, como funciona toda a operação, do primeiro contato do cliente até a reserva e os relatórios.')+'</p>'+_fluxoHTML(p)+'</div>'; }
   b+='<div class="brk"></div><div><h2>Investimento:</h2>';
   const _temTabela=(p.tabelaItens||[]).length>0;
-  const _totalInvest=_temTabela?Number(p.valorGlobal||0):mensal;
+  const _globalTabela=_temTabela?p.tabelaItens.reduce(function(s,it){return s+Number(it.valorCurso||0)*Number(it.turmas||0);},0):0;
+  const _totalInvest=_temTabela?(_globalTabela||Number(p.valorGlobal||0)):mensal;
   if(_temTabela){
-    b+='<table class="tbl-compacta"><thead><tr><th class="ctr">#</th><th>Capacitação</th><th class="num">Horas</th><th class="num">Valor/h</th><th class="num">Valor/curso</th><th class="ctr">Turmas/ano</th><th class="num">Total/ano</th></tr></thead><tbody>';
-    p.tabelaItens.forEach(function(it){ b+='<tr><td class="ctr">'+e(it.n)+'</td><td>'+e(it.nome)+'</td><td class="num">'+e(it.horas)+'</td><td class="num">'+_orcBRL(it.valorHora)+'</td><td class="num">'+_orcBRL(it.valorCurso)+'</td><td class="ctr">'+e(it.turmas)+'</td><td class="num">'+_orcBRL(it.totalAno)+'</td></tr>'; });
-    b+='<tr><td colspan="6" class="num"><b>Valor global anual estimado</b></td><td class="num"><b>'+_orcBRL(p.valorGlobal||0)+'</b></td></tr></tbody></table>';
-    b+='<p style="font-size:9pt;color:#555">Valores conforme a tabela do item 1.1 do TR; valor por hora conforme o nível de especialização de cada capacitação; 2 turmas por curso ao ano (uma por semestre). Quantidades são estimativas do SEBRAE (itens 1.2 e 9.2).</p>';
+    b+='<table class="tbl-compacta"><thead><tr><th class="ctr">#</th><th>Capacitação</th><th class="num">Horas</th><th class="num">Valor/h</th><th class="num">Valor/curso</th><th class="ctr">Turmas</th><th class="num">Total</th></tr></thead><tbody>';
+    p.tabelaItens.forEach(function(it){ var _tot=Number(it.valorCurso||0)*Number(it.turmas||0); b+='<tr><td class="ctr">'+e(it.n)+'</td><td>'+e(it.nome)+'</td><td class="num">'+e(it.horas)+'</td><td class="num">'+_orcBRL(it.valorHora)+'</td><td class="num">'+_orcBRL(it.valorCurso)+'</td><td class="ctr">'+e(it.turmas)+'</td><td class="num">'+_orcBRL(_tot)+'</td></tr>'; });
+    b+='<tr><td colspan="6" class="num"><b>Valor global estimado (vigência de 12 meses)</b></td><td class="num"><b>'+_orcBRL(_globalTabela)+'</b></td></tr></tbody></table>';
+    b+='<p style="font-size:9pt;color:#555">Valores conforme a tabela do item 1.1 do TR; valor por hora conforme o nível de especialização de cada capacitação; 3 turmas por curso na vigência contratual de 12 meses (item 1.1 do TR). Quantidades são estimativas do SEBRAE (itens 1.2 e 9.2).</p>';
   } else {
     b+='<div class="box"><div class="bl2">Investimento mensal · plano '+e(p.plano||'')+'</div><div class="bv">'+_orcBRL(mensal)+'</div></div>';
     let setupCell; if(desc>=100){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(0)+'</b>'; } else if(desc>0){ setupCell='<s>'+_orcBRL(setup)+'</s> &nbsp;<b>'+_orcBRL(setupEf)+'</b> ('+e(desc)+'% de desconto)'; } else { setupCell=_orcBRL(setup); }
@@ -29139,34 +29140,34 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
     { titulo:'IA aplicada ao audiovisual', texto:'Apoio na pré-produção, na produção e na pós, quando agrega ao processo' },
   ],
   investDistribuicao:[
-    { grupo:'Impostos', item:'Tributos sobre o faturamento', valor:29580 },
-    { grupo:'Administração Central', item:'Gestão, tecnologia, estrutura e controle de qualidade', valor:52200 },
-    { grupo:'Operações e Corpo Docente', item:'Honorários do corpo docente e especialistas, material didático e equipamentos', valor:60900 },
-    { grupo:'Logística das capacitações presenciais', item:'Passagens São Paulo para Pernambuco (2 profissionais: instrução e produção sênior), hospedagem, alimentação e despesas operacionais', valor:31320 },
+    { grupo:'Impostos', item:'Tributos sobre o faturamento', valor:44370 },
+    { grupo:'Administração Central', item:'Gestão, tecnologia, estrutura e controle de qualidade', valor:78300 },
+    { grupo:'Operações e Corpo Docente', item:'Honorários do corpo docente e especialistas, material didático e equipamentos', valor:91350 },
+    { grupo:'Logística das capacitações presenciais', item:'Passagens São Paulo para Pernambuco (2 profissionais: instrução e produção sênior), hospedagem, alimentação e despesas operacionais', valor:46980 },
   ],
-  valorGlobal:174000,
+  valorGlobal:261000,
   tabelaItens:[
-    {n:1,nome:'Direção de Arte: Construção Visual no Audiovisual',horas:24,valorHora:300,valorCurso:7200,turmas:2,totalAno:14400},
-    {n:2,nome:'Assistente de Direção de Arte',horas:15,valorHora:200,valorCurso:3000,turmas:2,totalAno:6000},
-    {n:3,nome:'Cenógrafo: Espaço e Ambientação',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
-    {n:4,nome:'Contrarregra: Organização e Suporte de Set',horas:15,valorHora:200,valorCurso:3000,turmas:2,totalAno:6000},
-    {n:5,nome:'Figurino: Criação e Construção',horas:12,valorHora:250,valorCurso:3000,turmas:2,totalAno:6000},
-    {n:6,nome:'Maquiagem e Cabelo para o Audiovisual',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
-    {n:7,nome:'Direção para Cinema',horas:24,valorHora:300,valorCurso:7200,turmas:2,totalAno:14400},
-    {n:8,nome:'Assistente de Direção: Organização e Dinâmica de Set',horas:18,valorHora:200,valorCurso:3600,turmas:2,totalAno:7200},
-    {n:9,nome:'Preparador de Elenco',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
-    {n:10,nome:'Continuísta',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
-    {n:11,nome:'Do Zero à Direção de Fotografia',horas:24,valorHora:300,valorCurso:7200,turmas:2,totalAno:14400},
-    {n:12,nome:'Assistente de Fotografia',horas:18,valorHora:200,valorCurso:3600,turmas:2,totalAno:7200},
-    {n:13,nome:'Iluminação: Eletricista e Maquinista no Set',horas:18,valorHora:250,valorCurso:4500,turmas:2,totalAno:9000},
-    {n:14,nome:'Diretor de Produção',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
-    {n:15,nome:'Produtor Audiovisual: Da Rotina à Prática de Set',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
-    {n:16,nome:'Assistente de Produção',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
-    {n:17,nome:'Platô: Dinâmica e Organização do Set',horas:12,valorHora:200,valorCurso:2400,turmas:2,totalAno:4800},
-    {n:18,nome:'Produtor Executivo',horas:12,valorHora:300,valorCurso:3600,turmas:2,totalAno:7200},
-    {n:19,nome:'Técnico de Som Direto',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
-    {n:20,nome:'Trilha Sonora',horas:15,valorHora:250,valorCurso:3750,turmas:2,totalAno:7500},
-    {n:21,nome:'Introdução ao Roteiro e ao Storytelling',horas:30,valorHora:300,valorCurso:9000,turmas:2,totalAno:18000},
+    {n:1,nome:'Direção de Arte: Construção Visual no Audiovisual',horas:24,valorHora:300,valorCurso:7200,turmas:3,totalAno:14400},
+    {n:2,nome:'Assistente de Direção de Arte',horas:15,valorHora:200,valorCurso:3000,turmas:3,totalAno:6000},
+    {n:3,nome:'Cenógrafo: Espaço e Ambientação',horas:15,valorHora:250,valorCurso:3750,turmas:3,totalAno:7500},
+    {n:4,nome:'Contrarregra: Organização e Suporte de Set',horas:15,valorHora:200,valorCurso:3000,turmas:3,totalAno:6000},
+    {n:5,nome:'Figurino: Criação e Construção',horas:12,valorHora:250,valorCurso:3000,turmas:3,totalAno:6000},
+    {n:6,nome:'Maquiagem e Cabelo para o Audiovisual',horas:12,valorHora:200,valorCurso:2400,turmas:3,totalAno:4800},
+    {n:7,nome:'Direção para Cinema',horas:24,valorHora:300,valorCurso:7200,turmas:3,totalAno:14400},
+    {n:8,nome:'Assistente de Direção: Organização e Dinâmica de Set',horas:18,valorHora:200,valorCurso:3600,turmas:3,totalAno:7200},
+    {n:9,nome:'Preparador de Elenco',horas:15,valorHora:250,valorCurso:3750,turmas:3,totalAno:7500},
+    {n:10,nome:'Continuísta',horas:15,valorHora:250,valorCurso:3750,turmas:3,totalAno:7500},
+    {n:11,nome:'Do Zero à Direção de Fotografia',horas:24,valorHora:300,valorCurso:7200,turmas:3,totalAno:14400},
+    {n:12,nome:'Assistente de Fotografia',horas:18,valorHora:200,valorCurso:3600,turmas:3,totalAno:7200},
+    {n:13,nome:'Iluminação: Eletricista e Maquinista no Set',horas:18,valorHora:250,valorCurso:4500,turmas:3,totalAno:9000},
+    {n:14,nome:'Diretor de Produção',horas:15,valorHora:250,valorCurso:3750,turmas:3,totalAno:7500},
+    {n:15,nome:'Produtor Audiovisual: Da Rotina à Prática de Set',horas:12,valorHora:200,valorCurso:2400,turmas:3,totalAno:4800},
+    {n:16,nome:'Assistente de Produção',horas:12,valorHora:200,valorCurso:2400,turmas:3,totalAno:4800},
+    {n:17,nome:'Platô: Dinâmica e Organização do Set',horas:12,valorHora:200,valorCurso:2400,turmas:3,totalAno:4800},
+    {n:18,nome:'Produtor Executivo',horas:12,valorHora:300,valorCurso:3600,turmas:3,totalAno:7200},
+    {n:19,nome:'Técnico de Som Direto',horas:15,valorHora:250,valorCurso:3750,turmas:3,totalAno:7500},
+    {n:20,nome:'Trilha Sonora',horas:15,valorHora:250,valorCurso:3750,turmas:3,totalAno:7500},
+    {n:21,nome:'Introdução ao Roteiro e ao Storytelling',horas:30,valorHora:300,valorCurso:9000,turmas:3,totalAno:18000},
   ],
   evolucao:'',
   fechamento:'Agradecemos a confiança e o interesse em ter a Brava como parceira do SEBRAE-PE neste projeto de fomento à economia criativa da RMR. Seguimos à disposição para uma reunião de alinhamento e para os ajustes que tornem esta proposta ainda mais aderente ao que o SEBRAE busca.',
@@ -29196,7 +29197,7 @@ function PropostasAdmin(){
   const [ver, setVer] = React.useState(null);
   const [gerar, setGerar] = React.useState(false);
   React.useEffect(()=>{ const h=()=>setLista(loadPropostas()); window.addEventListener('brava_propostas_changed',h); return ()=>window.removeEventListener('brava_propostas_changed',h); },[]);
-  React.useEffect(()=>{ const SEED_V='12'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const sebraeObj=buildSebraeObjetiva(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'&&p.id!=='prop_sebrae_obj'); const l=[sebraeObj,sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
+  React.useEffect(()=>{ const SEED_V='13'; if(localStorage.getItem('brava_propostas_seed_v')!==SEED_V){ const cur=loadPropostas(); const stef=buildStefanoProposta(); const thal=buildThalitaProposta(); const sebrae=buildSebraeProposta(); const sebraeObj=buildSebraeObjetiva(); const others=cur.filter(p=>p.id!=='prop_stefano'&&p.id!=='prop_thalita'&&p.id!=='prop_sebrae'&&p.id!=='prop_sebrae_obj'); const l=[sebraeObj,sebrae,thal,stef,...others]; savePropostas(l); setLista(l); localStorage.setItem('brava_propostas_seed_v',SEED_V); localStorage.setItem('brava_propostas_seeded','1'); } },[]);
   const total=lista.length;
   const enviadas=lista.filter(p=>p.status==='enviada').length;
   const aceitas=lista.filter(p=>p.status==='aceita').length;
