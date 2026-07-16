@@ -28830,17 +28830,22 @@ function _contratoServicosBody(d){
 // Corpo da PROPOSTA (mapeamento → objetivo → resultados → etapas → investimento).
 // Fluxograma da operação (HTML/CSS inline, grayscale, sem libs) — página própria.
 function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const frentes=(p.fluxoFrentes||[]);
+  // Modo ampliado (p.fluxoGrande): tipografia e espaços maiores p/ o fluxo preencher a página inteira
+  const G=!!p.fluxoGrande;
+  const _ft=G?'11pt':'9.5pt', _fs=G?'9pt':'8pt', _pd=G?'10px 14px':'7px 10px', _mw=G?'520px':'400px';
+  const _leg=G?'9.5pt':'8pt', _lt=G?'10pt':'8.5pt', _ap=G?'9pt':'8pt', _apw=G?'290px':'220px';
+  const _ar=G?'14pt':'12pt', _arm=G?'7px 0':'3px 0', _gap=G?'12px':'8px', _tr=G?'8.5pt':'7.5pt';
   // node: dark=true -> preto (automático: IA/sistema); dark=false -> branco (equipe humana)
-  const node=function(t,s,dark){ const bg=dark?'#000':'#fff'; const fg=dark?'#fff':'#111'; const sub=dark?'#bbb':'#555'; return '<div style="border:1px solid #111;border-radius:8px;padding:7px 10px;text-align:center;background:'+bg+';color:'+fg+'"><div style="font-weight:700;font-size:9.5pt">'+e(t)+'</div>'+(s?'<div style="font-size:8pt;color:'+sub+';margin-top:2px">'+e(s)+'</div>':'')+'</div>'; };
-  const arrow=function(){ return '<div style="text-align:center;color:#999;font-size:12pt;line-height:1;margin:3px 0">&#9660;</div>'; };
+  const node=function(t,s,dark){ const bg=dark?'#000':'#fff'; const fg=dark?'#fff':'#111'; const sub=dark?'#bbb':'#555'; return '<div style="border:1px solid #111;border-radius:8px;padding:'+_pd+';text-align:center;background:'+bg+';color:'+fg+'"><div style="font-weight:700;font-size:'+_ft+'">'+e(t)+'</div>'+(s?'<div style="font-size:'+_fs+';color:'+sub+';margin-top:2px">'+e(s)+'</div>':'')+'</div>'; };
+  const arrow=function(){ return '<div style="text-align:center;color:#999;font-size:'+_ar+';line-height:1;margin:'+_arm+'">&#9660;</div>'; };
   const TSVG='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex:none"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>';
-  const transf=function(label){ return '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:5px auto;padding:3px 9px;border:1px solid #111;border-radius:999px;font-size:7.5pt;font-weight:700;background:#eee">'+TSVG+'<span>'+e(label||'Transferência')+'</span></div>'; };
+  const transf=function(label){ return '<div style="display:flex;align-items:center;justify-content:center;gap:5px;margin:5px auto;padding:3px 9px;border:1px solid #111;border-radius:999px;font-size:'+_tr+';font-weight:700;background:#eee">'+TSVG+'<span>'+e(label||'Transferência')+'</span></div>'; };
   // Legenda (rótulos data-driven; fallback p/ o padrão SaaS)
   const equipeLbl=p.fluxoEquipeLabel||'Equipe Stefano (pessoas)';
   const autoLbl=p.fluxoLegendaAuto||'Automático (IA e sistema)';
   const topoSub=p.fluxoTopoSub||'Entra pelo WhatsApp da Casa, a qualquer hora';
   const frentesSub=p.fluxoFrentesSub||'Cada frente é um núcleo próprio, sempre pelo WhatsApp';
-  let f='<div style="display:flex;gap:16px;justify-content:center;margin-bottom:10px;font-size:8pt">'
+  let f='<div style="display:flex;gap:16px;justify-content:center;margin-bottom:'+(G?'16px':'10px')+';font-size:'+_leg+'">'
     +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#000;border:1px solid #111;border-radius:3px;display:inline-block"></span>'+e(autoLbl)+'</span>'
     +'<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:#fff;border:1px solid #111;border-radius:3px;display:inline-block"></span>'+e(equipeLbl)+'</span>'
     +'<span style="display:inline-flex;align-items:center;gap:5px">'+TSVG+'Transferência</span></div>';
@@ -28850,29 +28855,29 @@ function _fluxoHTML(p){ const e=_pdfEsc; const ag=e(p.agenteNome||'IA'); const f
     { t:ag+' · Agente 24/7', s:'Atende na hora, humanizado e com detecção de intenção', dark:true },
     { t:'Triagem e qualificação', s:'Entende o que a pessoa precisa e organiza o pedido', dark:true },
   ];
-  f+='<div style="max-width:400px;margin:0 auto">';
+  f+='<div style="max-width:'+_mw+';margin:0 auto">';
   topoNodes.forEach(function(n,i){ if(i>0) f+=arrow(); f+=node(n.t,n.s,n.dark!==false); });
   f+='</div>';
-  f+='<div style="text-align:center;font-size:8pt;color:#555;margin:8px 0 6px">'+e(frentesSub)+'</div>';
+  f+='<div style="text-align:center;font-size:'+_fs+';color:#555;margin:'+(G?'14px 0 10px':'8px 0 6px')+'">'+e(frentesSub)+'</div>';
   // 3 lanes por frente (dado data-driven em p.fluxoLanes; fallback p/ frentes simples)
   const lanes=(p.fluxoLanes&&p.fluxoLanes.length)?p.fluxoLanes:frentes.map(function(fr){ return { titulo:fr, passos:[{tipo:'auto',t:'Reserva pelo WhatsApp',s:''}] }; });
-  if(lanes.length){ f+='<div style="display:flex;gap:8px;align-items:flex-start">';
+  if(lanes.length){ f+='<div style="display:flex;gap:'+_gap+';align-items:flex-start">';
     lanes.forEach(function(lane){ f+='<div style="flex:1;min-width:0">'
-      +'<div style="text-align:center;font-weight:700;font-size:8.5pt;text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #111;padding-bottom:3px;margin-bottom:6px">'+e(lane.titulo||'')+'</div>';
+      +'<div style="display:flex;align-items:center;gap:6px;font-weight:700;font-size:'+_lt+';text-transform:uppercase;letter-spacing:.4px;border-bottom:2px solid #111;padding-bottom:3px;margin-bottom:6px"><span style="width:10px;height:10px;min-width:10px;background:#22C55E;border-radius:999px;display:inline-block"></span><span>'+e(lane.titulo||'')+'</span></div>';
       let prev=null;
       (lane.passos||[]).forEach(function(ps,i){ if(ps.tipo==='transfer'){ f+=transf(ps.t); } else { if(i>0 && prev!=='transfer') f+=arrow(); f+=node(ps.t,ps.s,ps.tipo==='auto'); } prev=ps.tipo; });
       f+='</div>'; });
     f+='</div>'; }
   // Convergência (título data-driven; fallback p/ o padrão SaaS)
   const convergSub=p.fluxoConvergSub||'Dados de todas as frentes para as decisões da Casa';
-  f+='<div style="max-width:400px;margin:8px auto 0">'+arrow()+node(p.fluxoConvergTitulo||'Relatórios e indicadores',convergSub,true)+'</div>';
+  f+='<div style="max-width:'+_mw+';margin:'+(G?'14px':'8px')+' auto 0">'+arrow()+node(p.fluxoConvergTitulo||'Relatórios e indicadores',convergSub,true)+'</div>';
   // Apoios (data-driven; fallback p/ o padrão do Stefano)
   const apoios=(p.fluxoApoios&&p.fluxoApoios.length)?p.fluxoApoios:[
     { titulo:'Site', texto:'Cadastro de produtos e preços que alimenta a IA' },
     { titulo:'Fase 2 · Financeiro', texto:'Open Finance e conciliação automática das reservas' },
   ];
-  f+='<div style="display:flex;gap:10px;margin-top:14px;justify-content:center">'
-    +apoios.map(function(a){ return '<div style="flex:1;max-width:220px;border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:8pt;color:#333"><b>'+e(a.titulo)+'</b><br>'+e(a.texto)+'</div>'; }).join('')
+  f+='<div style="display:flex;gap:10px;margin-top:'+(G?'20px':'14px')+';justify-content:center">'
+    +apoios.map(function(a){ return '<div style="flex:1;max-width:'+_apw+';border:1px dashed #777;border-radius:8px;padding:8px 10px;font-size:'+_ap+';color:#333"><b>'+e(a.titulo)+'</b><br>'+e(a.texto)+'</div>'; }).join('')
   +'</div>';
   return f;
 }
@@ -29122,18 +29127,22 @@ function buildSebraeProposta(){ const t=propostaTemplatePadrao(); return Object.
     { etapa:'Som', cronograma:'presencial ou online', realizacao:['Técnico de Som Direto (15h)','Trilha Sonora (15h)'] },
   ],
   fluxoIntro:'Veja como conduzimos cada capacitação, do pedido do SEBRAE à entrega, com um responsável claro em cada etapa.',
-  fluxoFrentes:['Solicitação e Planejamento','Execução','Acompanhamento'],
+  fluxoFrentes:['Planejamento','Execução','Acompanhamento'],
   fluxoEquipeLabel:'Corpo docente e produção (Brava)',
   fluxoLegendaAuto:'SEBRAE e marcos do projeto',
-  fluxoConvergTitulo:'Entrega e atesto',
-  fluxoTopo:[ { t:'SEBRAE', s:'Aciona a capacitação sob demanda (mínimo 20 dias), presencial ou online', dark:true } ],
+  fluxoConvergTitulo:'Capacitação concluída',
+  fluxoTopo:[
+    { t:'SEBRAE', s:'Aciona a capacitação sob demanda, com antecedência mínima de 20 dias', dark:true },
+    { t:'Alinhamento', s:'Curso, formato presencial ou online, data e local na RMR', dark:true },
+    { t:'Turma confirmada', s:'Demanda registrada e agenda definida em conjunto', dark:true },
+  ],
   fluxoTopoSub:'O SEBRAE aciona a capacitação sob demanda (mínimo 20 dias), presencial ou online',
   fluxoFrentesSub:'Cada etapa com um responsável definido, do pedido à entrega',
-  fluxoConvergSub:'Material digital ao SEBRAE, atesto e acompanhamento',
+  fluxoConvergSub:'Profissionais formados e material digital entregue ao SEBRAE',
   fluxoLanes:[
-    { titulo:'Solicitação e Planejamento', passos:[ {tipo:'auto', t:'SEBRAE solicita', s:'Curso, formato, data e local na RMR'}, {tipo:'humano', t:'Brava planeja', s:'Plano de aula, material e escala do docente'}, {tipo:'humano', t:'Logística (presencial)', s:'Passagens SP para PE, hospedagem, equipamentos'} ] },
+    { titulo:'Planejamento', passos:[ {tipo:'humano', t:'Brava planeja', s:'Plano de aula, material e escala do docente'}, {tipo:'humano', t:'Logística (presencial)', s:'Passagens SP para PE, hospedagem, equipamentos'} ] },
     { titulo:'Execução', passos:[ {tipo:'humano', t:'Corpo docente conduz', s:'Teoria e prática, até 30 alunos'}, {tipo:'auto', t:'Material didático', s:'Produção do conteúdo da turma'} ] },
-    { titulo:'Acompanhamento', passos:[ {tipo:'transfer', t:'Entrega ao SEBRAE', s:'Material digital da capacitação'}, {tipo:'humano', t:'Atesto e ajustes', s:'Fiscalização do SEBRAE; correções em até 48h'} ] },
+    { titulo:'Acompanhamento', passos:[ {tipo:'transfer', t:'Entrega ao SEBRAE'}, {tipo:'humano', t:'Atesto e ajustes', s:'Fiscalização do SEBRAE; correções em até 48h'} ] },
   ],
   fluxoApoios:[
     { titulo:'Corpo docente próprio', texto:'Vínculo societário e contratos de prestação de serviços (item 4.1.3)' },
@@ -29183,7 +29192,10 @@ function buildSebraeObjetiva(){ const t=propostaTemplatePadrao(); const full=bui
     capaTitulo:full.capaTitulo, subtitulo:full.subtitulo, plano:'',
     validadeDias:full.validadeDias, validadeLabel:full.validadeLabel,
     assinante:full.assinante, assinantes:full.assinantes, assinantesCliente:full.assinantesCliente, agenteNome:'',
-    mapeamento:'', sobre:[], parceria:full.parceria, resultados:[], planoAcao:[], etapas:[], investDistribuicao:[], evolucao:'', semFluxo:true,
+    mapeamento:'', sobre:[], parceria:full.parceria, resultados:[], planoAcao:[], etapas:[], investDistribuicao:[], evolucao:'',
+    fluxoGrande:true, fluxoIntro:full.fluxoIntro, fluxoFrentes:full.fluxoFrentes, fluxoEquipeLabel:full.fluxoEquipeLabel, fluxoLegendaAuto:full.fluxoLegendaAuto,
+    fluxoConvergTitulo:full.fluxoConvergTitulo, fluxoConvergSub:full.fluxoConvergSub, fluxoTopo:full.fluxoTopo, fluxoTopoSub:full.fluxoTopoSub,
+    fluxoFrentesSub:full.fluxoFrentesSub, fluxoLanes:full.fluxoLanes, fluxoApoios:full.fluxoApoios,
     escopoProjeto:full.escopoProjeto, objetivo:full.objetivo,
     tabelaItens:full.tabelaItens, valorGlobal:full.valorGlobal,
     fechamento:full.fechamento, contratoObjetoExtra:'', foro:full.foro,
