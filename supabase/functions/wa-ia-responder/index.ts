@@ -65,6 +65,49 @@ const cors = {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'content-type': 'application/json' } });
 
+// 🔒 Autenticação do webhook (segredo compartilhado).
+//    Sem isso, qualquer um pode forjar um POST e injetar mensagens falsas
+//    e/ou acionar o Copiloto operador (execução de SQL, envio de mensagens).
+//    O segredo deve ser configurado como env var no Supabase (WA_WEBHOOK_SECRET)
+//    e enviado pelo chamador legítimo (Database Webhook) no header 'x-webhook-secret'
+//    ou 'Authorization: Bearer <segredo>'.
+const WEBHOOK_SECRET = (Deno.env.get('WA_WEBHOOK_SECRET') || '').trim();
+
+// Comparação de tempo constante — evita timing attack na verificação do segredo.
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  // Compara sempre o mesmo número de bytes pra não vazar o tamanho no tempo.
+  const len = Math.max(ab.length, bb.length);
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < len; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  return diff === 0;
+}
+
+// Extrai o segredo enviado pelo chamador. Prioriza o header customizado
+// 'x-webhook-secret' (não colide com o Authorization usado pelo JWT da plataforma).
+function extrairSegredoWebhook(req: Request): string {
+  const custom = (req.headers.get('x-webhook-secret') || '').trim();
+  if (custom) return custom;
+  const auth = req.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : '';
+}
+
+// Retorna null se autorizado; caso contrário, a Response de erro a devolver.
+function checarAutenticacaoWebhook(req: Request): Response | null {
+  // Fail-closed: sem segredo configurado, recusa tudo (não abre em modo inseguro).
+  if (!WEBHOOK_SECRET) {
+    console.error('[wa-ia-responder] WA_WEBHOOK_SECRET não configurado — recusando a requisição.');
+    return json(503, { error: 'webhook_secret_not_configured' });
+  }
+  if (!timingSafeEqual(extrairSegredoWebhook(req), WEBHOOK_SECRET)) {
+    return json(401, { error: 'unauthorized' });
+  }
+  return null;
+}
+
 async function enviarPresencaDigitando(inst: any, number: string, durationMs: number) {
   try {
     const url = inst.evolution_url.replace(/\/+$/, '') + `/chat/sendPresence/${encodeURIComponent(inst.evolution_instance_name)}`;
@@ -870,6 +913,10 @@ async function processarCopiloto(record: any, inst: any, desdeTs: string | null)
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
+
+  // 🔒 Autentica o webhook antes de qualquer processamento ou acesso ao banco.
+  const authErr = checarAutenticacaoWebhook(req);
+  if (authErr) return authErr;
 
   let payload: any;
   try { payload = await req.json(); } catch { return json(400, { error: 'invalid_json' }); }
