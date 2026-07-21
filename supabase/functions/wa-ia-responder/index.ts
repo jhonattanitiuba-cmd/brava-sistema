@@ -65,6 +65,74 @@ const cors = {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'content-type': 'application/json' } });
 
+// 🔒 Autenticação do webhook (segredo compartilhado).
+//    Sem isso, qualquer um pode forjar um POST e injetar mensagens falsas
+//    e/ou acionar o Copiloto operador (execução de SQL, envio de mensagens).
+//    O segredo deve ser configurado como env var no Supabase (WA_WEBHOOK_SECRET)
+//    e enviado pelo chamador legítimo (Database Webhook) no header 'x-webhook-secret'
+//    ou 'Authorization: Bearer <segredo>'.
+const WEBHOOK_SECRET = (Deno.env.get('WA_WEBHOOK_SECRET') || '').trim();
+
+// Comparação de tempo constante — evita timing attack na verificação do segredo.
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  // Compara sempre o mesmo número de bytes pra não vazar o tamanho no tempo.
+  const len = Math.max(ab.length, bb.length);
+  let diff = ab.length ^ bb.length;
+  for (let i = 0; i < len; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  return diff === 0;
+}
+
+// Extrai o segredo enviado pelo chamador. Prioriza o header customizado
+// 'x-webhook-secret' (não colide com o Authorization usado pelo JWT da plataforma).
+function extrairSegredoWebhook(req: Request): string {
+  const custom = (req.headers.get('x-webhook-secret') || '').trim();
+  if (custom) return custom;
+  const auth = req.headers.get('authorization') || '';
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  return m ? m[1].trim() : '';
+}
+
+// Retorna null se autorizado; caso contrário, a Response de erro a devolver.
+function checarAutenticacaoWebhook(req: Request): Response | null {
+  // Fail-closed: sem segredo configurado, recusa tudo (não abre em modo inseguro).
+  if (!WEBHOOK_SECRET) {
+    console.error('[wa-ia-responder] WA_WEBHOOK_SECRET não configurado — recusando a requisição.');
+    return json(503, { error: 'webhook_secret_not_configured' });
+  }
+  if (!timingSafeEqual(extrairSegredoWebhook(req), WEBHOOK_SECRET)) {
+    return json(401, { error: 'unauthorized' });
+  }
+  return null;
+}
+
+// --- Endurecimento do Copiloto operador ---
+// Sessão do copiloto tem duração máxima absoluta; depois exige reativação com PIN.
+const COPILOT_SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12h
+
+// Throttle best-effort de tentativas de PIN por remetente (barreira contra brute force).
+// Nota: edge functions são efêmeras e multi-instância, então este contador é por
+// instância — não é um lockout global forte. O controle real do acesso continua sendo
+// o PIN obrigatório (fail-closed) + a allowlist de operadores (BRAVA_OPERADOR_JIDS).
+const PIN_MAX_ATTEMPTS = 5;
+const PIN_WINDOW_MS = 10 * 60 * 1000; // 10 min
+const pinAttempts = new Map<string, { count: number; first: number }>();
+
+// Registra uma tentativa; retorna false quando o remetente estourou o limite na janela.
+function registrarTentativaPin(sender: string): boolean {
+  const now = Date.now();
+  const rec = pinAttempts.get(sender);
+  if (!rec || now - rec.first > PIN_WINDOW_MS) {
+    pinAttempts.set(sender, { count: 1, first: now });
+    return true;
+  }
+  rec.count++;
+  return rec.count <= PIN_MAX_ATTEMPTS;
+}
+function limparTentativasPin(sender: string) { pinAttempts.delete(sender); }
+
 async function enviarPresencaDigitando(inst: any, number: string, durationMs: number) {
   try {
     const url = inst.evolution_url.replace(/\/+$/, '') + `/chat/sendPresence/${encodeURIComponent(inst.evolution_instance_name)}`;
@@ -871,6 +939,10 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' });
 
+  // 🔒 Autentica o webhook antes de qualquer processamento ou acesso ao banco.
+  const authErr = checarAutenticacaoWebhook(req);
+  if (authErr) return authErr;
+
   let payload: any;
   try { payload = await req.json(); } catch { return json(400, { error: 'invalid_json' }); }
 
@@ -922,12 +994,30 @@ Deno.serve(async (req) => {
     }
 
     if (ehComandoAtivar) {
-      const pinOk = !PIN || txt.includes(PIN);
+      // Fail-closed: sem PIN configurado, o copiloto NÃO pode ser ativado.
+      if (!PIN) {
+        console.error('[wa-ia-responder] BRAVA_COPILOT_PIN não configurado — ativação recusada.');
+        // @ts-ignore
+        EdgeRuntime.waitUntil(enviarMensagemEvolution(inst, numeroEnvio, 'Copiloto indisponível: PIN não configurado. Fale com o administrador.').catch(() => {}));
+        return json(200, { ok: true, mode: 'copiloto_indisponivel' });
+      }
+      // Throttle de tentativas por remetente (barreira contra brute force).
+      if (!registrarTentativaPin(senderNum)) {
+        // @ts-ignore
+        EdgeRuntime.waitUntil(enviarMensagemEvolution(inst, numeroEnvio, 'Muitas tentativas. Aguarde alguns minutos antes de tentar novamente.').catch(() => {}));
+        return json(200, { ok: true, mode: 'copiloto_rate_limited' });
+      }
+      // Comparação EXATA do PIN (não mais substring), em tempo constante.
+      // Extrai o que veio depois do comando "brava copilot".
+      const mPin = txt.match(/brava\s*copilot[\s:]*(.*)$/is);
+      const pinInformado = (mPin ? mPin[1] : '').trim();
+      const pinOk = timingSafeEqual(pinInformado, PIN);
       if (!pinOk) {
         // @ts-ignore
-        EdgeRuntime.waitUntil(enviarMensagemEvolution(inst, numeroEnvio, 'Pra ativar o copiloto, envie *Brava Copilot* seguido do seu PIN.').catch(() => {}));
+        EdgeRuntime.waitUntil(enviarMensagemEvolution(inst, numeroEnvio, 'PIN inválido. Envie *Brava Copilot* seguido do seu PIN.').catch(() => {}));
         return json(200, { ok: true, mode: 'copiloto_pin_invalido' });
       }
+      limparTentativasPin(senderNum);
       const agora = new Date().toISOString();
       await supa.from('copiloto_estado').upsert(
         { instancia_id: record.instancia_id, chat_jid: chatJid, ativo: true, ativado_em: agora, updated_at: agora },
@@ -941,6 +1031,16 @@ Deno.serve(async (req) => {
     const { data: est } = await supa.from('copiloto_estado')
       .select('ativo, ativado_em').eq('instancia_id', record.instancia_id).eq('chat_jid', chatJid).maybeSingle();
     if (est && est.ativo) {
+      // Expira a sessão após a duração máxima → exige reativação com PIN.
+      const ativadoMs = est.ativado_em ? Date.parse(est.ativado_em) : 0;
+      if (!ativadoMs || (Date.now() - ativadoMs) > COPILOT_SESSION_TTL_MS) {
+        await supa.from('copiloto_estado').upsert(
+          { instancia_id: record.instancia_id, chat_jid: chatJid, ativo: false, updated_at: new Date().toISOString() },
+          { onConflict: 'instancia_id,chat_jid' });
+        // @ts-ignore
+        EdgeRuntime.waitUntil(enviarMensagemEvolution(inst, numeroEnvio, 'Sua sessão do copiloto expirou. Envie *Brava Copilot* seguido do seu PIN pra reativar.').catch(() => {}));
+        return json(200, { ok: true, mode: 'copiloto_sessao_expirada' });
+      }
       // @ts-ignore
       EdgeRuntime.waitUntil(processarCopiloto(record, inst, est.ativado_em || null));
       return json(200, { ok: true, queued: true, mode: 'copiloto', message_id: record.message_id });
