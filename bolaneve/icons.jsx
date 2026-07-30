@@ -44,6 +44,7 @@ const ICON_PATHS = {
   ArrowRight: 'M5 12h14M12 5l7 7-7 7',
   ArrowLeft: 'M19 12H5M12 19l-7-7 7-7',
   Menu: 'M4 6h16M4 12h16M4 18h16',
+  MoreVertical: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zM12 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2z',
   X: 'M18 6 6 18M6 6l12 12',
 
   // dados / status

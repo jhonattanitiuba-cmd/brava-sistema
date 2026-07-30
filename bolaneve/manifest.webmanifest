@@ -2,13 +2,14 @@
   "name": "Bola de Neve Sorocaba",
   "short_name": "Bola de Neve",
   "description": "O ecossistema digital da Bola de Neve Sorocaba.",
-  "start_url": "/bolaneve/",
-  "scope": "/bolaneve/",
+  "start_url": "/boladeneve/",
+  "scope": "/boladeneve/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#06070A",
   "theme_color": "#06070A",
   "icons": [
+    { "src": "/bolaneve/assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/bolaneve/assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "/bolaneve/assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]

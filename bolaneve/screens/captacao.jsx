@@ -6,6 +6,71 @@
   const KEY = 'bn_cadastro';
   const PASSOS = ['Contato', 'Identidade', 'Endereco', 'Pronto'];
 
+  function detectarPlataforma() {
+    const ua = (navigator.userAgent || '').toLowerCase();
+    const iOS = /iphone|ipad|ipod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const android = /android/.test(ua);
+    const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+    return { iOS, android, standalone };
+  }
+
+  // Instrucoes de instalacao por sistema (iPhone x Android x desktop).
+  function InstallCard({ canInstall, onInstall }) {
+    const { iOS, android, standalone } = detectarPlataforma();
+
+    if (standalone) {
+      return (
+        <Card className="bn-install ok">
+          <div className="bn-row" style={{ gap: 'var(--sp-2)' }}>
+            <Icon name="CheckCircle2" size={18} style={{ color: 'var(--bn-good)' }} />
+            <span className="bn-sm" style={{ fontWeight: 'var(--fw-strong)' }}>App instalado</span>
+          </div>
+          <p className="bn-sm bn-muted" style={{ marginTop: 6 }}>Voce ja esta usando pela tela inicial. Tudo certo.</p>
+        </Card>
+      );
+    }
+
+    let passos = null;
+    if (iOS) {
+      passos = [
+        ['Share', 'Toque no botao Compartilhar, na barra do Safari.'],
+        ['Plus', 'Escolha Adicionar a Tela de Inicio.'],
+        ['Check', 'Confirme em Adicionar. O icone aparece na tela.'],
+      ];
+    } else if (!canInstall) {
+      passos = [
+        ['MoreVertical', 'Abra o menu do navegador (tres pontos).'],
+        ['Download', 'Toque em Instalar app ou Adicionar a tela inicial.'],
+        ['Check', 'Confirme. O icone aparece na tela inicial.'],
+      ];
+    }
+
+    return (
+      <Card className="bn-install">
+        <div className="bn-eyebrow" style={{ marginBottom: 'var(--sp-3)' }}><span className="dot" />Instalar como app</div>
+        {canInstall && !iOS ? (
+          <div>
+            <p className="bn-sm bn-muted" style={{ marginBottom: 'var(--sp-4)' }}>Um toque e o app fica na tela inicial, com icone proprio.</p>
+            <Button variant="primary" icon="Download" className="block" onClick={onInstall}>Instalar o app</Button>
+          </div>
+        ) : (
+          <div className="bn-install-steps">
+            {(passos || []).map((p, i) => (
+              <div key={i} className="bn-install-step">
+                <span className="bn-install-ico"><Icon name={p[0]} size={16} /></span>
+                <span className="bn-sm">{p[1]}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="bn-row" style={{ gap: 'var(--sp-2)', marginTop: 'var(--sp-4)' }}>
+          <Icon name="Smartphone" size={14} style={{ color: 'var(--bn-text-3)' }} />
+          <span className="bn-sm bn-faint">{iOS ? 'iPhone' : android ? 'Android' : 'Celular ou desktop'}</span>
+        </div>
+      </Card>
+    );
+  }
+
   function CaptacaoScreen({ navigate }) {
     const M = window.MOCK;
     const [step, setStep] = useState(0);
@@ -49,6 +114,7 @@
                 </div>
               ))}
             </div>
+            <InstallCard canInstall={canInstall} onInstall={install} />
           </div>
 
           <Card className="bn-capt-form">
@@ -108,7 +174,7 @@
                 <div className="bn-row" style={{ gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
                   {canInstall
                     ? <Button variant="primary" icon="Download" onClick={install}>Instalar o app</Button>
-                    : <Chip icon="Smartphone">App pronto para instalar</Chip>}
+                    : <Chip icon="Smartphone">Veja como instalar no passo a passo</Chip>}
                   <Button variant="default" icon="BookOpen" onClick={() => navigate('biblia')}>Abrir a Biblia</Button>
                   <Button variant="ghost" onClick={() => { try { localStorage.removeItem(KEY); } catch (e) {} setForm({ email: '', telefone: '', nome: '', bairro: '' }); setStep(0); }}>Fazer outro</Button>
                 </div>
