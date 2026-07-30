@@ -9,7 +9,10 @@
   "trailingSlash": true,
   "rewrites": [
     { "source": "/auth/google/callback/", "destination": "https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback" },
-    { "source": "/auth/google/callback",  "destination": "https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback" }
+    { "source": "/auth/google/callback",  "destination": "https://buvduumggjpybhzbdqzm.supabase.co/functions/v1/google-oauth-callback" },
+    { "source": "/boladeneve", "destination": "/bolaneve/index.html" },
+    { "source": "/boladeneve/(.*)", "destination": "/bolaneve/index.html" },
+    { "source": "/bolaneve/(.*)", "destination": "/bolaneve/index.html" }
   ],
   "headers": [
     {

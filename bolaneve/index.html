@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Bola de Neve Sorocaba</title>
+<meta name="description" content="O ecossistema digital da Bola de Neve Sorocaba: painel do rebanho, acolhimento, mapa das celulas, Biblia inteligente e devocionais." />
+<meta name="theme-color" content="#06070A" />
+
+<!-- PWA -->
+<link rel="manifest" href="/bolaneve/manifest.webmanifest" />
+<link rel="icon" href="/bolaneve/assets/mark.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/bolaneve/assets/mark.svg" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Bola de Neve" />
+
+<!-- Fonte unica -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<!-- Design system -->
+<link rel="stylesheet" href="/bolaneve/tokens.css" />
+<link rel="stylesheet" href="/bolaneve/screens.css" />
+
+<!-- Captura do prompt de instalacao (baixar o app) + service worker -->
+<script>
+(function () {
+  window.__bnInstall = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__bnInstall = e;
+    window.dispatchEvent(new Event('bn-installable'));
+  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/bolaneve/sw.js').catch(function () {}); });
+  }
+})();
+</script>
+</head>
+<body>
+<div id="bn-root"></div>
+
+<!-- React 18 UMD + Babel Standalone (mesmo padrao do repo, sem build step) -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<!-- Dados e utilitarios -->
+<script src="/bolaneve/mock-data.js"></script>
+<script src="/bolaneve/sound.js"></script>
+
+<!-- UI (transpilado no navegador) -->
+<script type="text/babel" src="/bolaneve/icons.jsx"></script>
+<script type="text/babel" src="/bolaneve/shell.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/hub.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/painel.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/acolhimento.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/celulas.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/biblia.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/devocionais.jsx"></script>
+<script type="text/babel" src="/bolaneve/screens/captacao.jsx"></script>
+
+<!-- Bootstrap: monta o App apos os scripts babel compilarem -->
+<script type="text/babel" data-presets="react">
+  (function mount() {
+    if (!window.BN_App || !window.BN_SCREENS || !window.BN_SCREENS.hub) {
+      return setTimeout(mount, 30);
+    }
+    const root = ReactDOM.createRoot(document.getElementById('bn-root'));
+    root.render(React.createElement(window.BN_App));
+  })();
+</script>
+</body>
+</html>
