@@ -9,7 +9,7 @@
   "background_color": "#06070A",
   "theme_color": "#06070A",
   "icons": [
-    { "src": "/bolaneve/assets/mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/bolaneve/assets/mark.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "/bolaneve/assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/bolaneve/assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

@@ -147,7 +147,7 @@ function Sidebar({ screen, base, navigate, collapsed, setCollapsed, mobileOpen, 
   return (
     <aside className={`bn-sidebar ${collapsed ? 'mini' : ''} ${mobileOpen ? 'open' : ''}`}>
       <div className="bn-side-brand" onClick={() => go('hub')} role="button">
-        <span className="bn-mark"><Icon name="Sparkles" size={18} /></span>
+        <img className="bn-mark-img" src="/bolaneve/assets/emblem-white.png" alt="Bola de Neve Church" width="38" height="38" />
         {!collapsed && (
           <span className="bn-brandtext">
             <strong>Bola de Neve</strong>

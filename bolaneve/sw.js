@@ -1,5 +1,5 @@
 // Bola de Neve · service worker de cache basico (demo, offline-friendly).
-const CACHE = 'bolaneve-v1';
+const CACHE = 'bolaneve-v2';
 const ASSETS = [
   '/bolaneve/',
   '/bolaneve/index.html',
@@ -16,7 +16,9 @@ const ASSETS = [
   '/bolaneve/screens/biblia.jsx',
   '/bolaneve/screens/devocionais.jsx',
   '/bolaneve/screens/captacao.jsx',
-  '/bolaneve/assets/mark.svg',
+  '/bolaneve/assets/emblem-white.png',
+  '/bolaneve/assets/wordmark-white.png',
+  '/bolaneve/assets/app-icon-512.png',
 ];
 
 self.addEventListener('install', (e) => {

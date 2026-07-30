@@ -18,6 +18,7 @@
     radial-gradient(120% 140% at 0% 0%, var(--bn-accent-soft), transparent 46%),
     var(--bn-surface);
 }
+.bn-hub-logo { height: 30px; width: auto; margin-bottom: var(--sp-5); opacity: 0.96; }
 .bn-hub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); margin-top: var(--sp-5); }
 .bn-hub-card { display: flex; gap: var(--sp-4); align-items: flex-start; cursor: pointer; }
 .bn-hub-ico {

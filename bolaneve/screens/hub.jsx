@@ -7,6 +7,7 @@
     return (
       <Screen>
         <div className="bn-hub-hero">
+          <img className="bn-hub-logo" src="/bolaneve/assets/wordmark-white.png" alt="Bola de Neve Church" />
           <div className="bn-eyebrow"><span className="dot" />Ecossistema digital da igreja</div>
           <h1 className="bn-display" style={{ maxWidth: 760, marginTop: 'var(--sp-4)' }}>
             Toda a igreja em um lugar so.
