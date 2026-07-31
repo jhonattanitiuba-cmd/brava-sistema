@@ -36,6 +36,13 @@
   --bn-alert:       #E86F6F;
   --bn-alert-soft:  rgba(232, 111, 111, 0.14);
 
+  /* ---- Cor: campanha Em Marcha (dourado/ambar da igreja) ---- */
+  --bn-gold:        #E9B15C;
+  --bn-gold-2:      #C98F3A;
+  --bn-gold-soft:   rgba(233, 177, 92, 0.14);
+  --bn-gold-line:   rgba(233, 177, 92, 0.34);
+  --bn-gold-glow:   radial-gradient(circle at 0% 0%, rgba(233, 177, 92, 0.20), transparent 55%);
+
   /* ---- Cor: nucleos (bolinhas do mapa, legenda por cor) ---- */
   --bn-nucleo-louvor:     #7CC4FF;
   --bn-nucleo-tecnologia: #9E7CFF;

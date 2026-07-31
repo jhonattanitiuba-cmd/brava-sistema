@@ -6,6 +6,54 @@
   display: inline-flex; align-items: center; padding: 3px 9px; border-radius: var(--r-pill);
   font-size: var(--fs-micro); font-weight: var(--fw-strong); letter-spacing: 0.02em; width: fit-content;
 }
+
+/* ═══════════════ Contribua / Em Marcha ═══════════════ */
+.bn-marcha {
+  position: relative; overflow: hidden;
+  border-color: var(--bn-gold-line);
+  background: var(--bn-gold-glow), var(--bn-surface);
+}
+.bn-marcha-body { position: relative; z-index: 1; }
+.bn-marcha-title {
+  font-weight: var(--fw-black); font-size: clamp(40px, 7vw, 76px);
+  letter-spacing: -0.04em; line-height: 0.94; text-transform: uppercase;
+  color: var(--bn-gold);
+}
+.bn-marcha-lema {
+  font-size: var(--fs-xs); letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--bn-text-2); margin-top: var(--sp-3);
+}
+.bn-marcha-grito { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-top: var(--sp-4); }
+.bn-marcha-grito span {
+  font-weight: var(--fw-strong); font-size: var(--fs-h3);
+  color: var(--bn-text); letter-spacing: -0.01em;
+}
+.bn-marcha-grito span:last-child { color: var(--bn-gold); }
+
+.bn-give-ico {
+  width: 38px; height: 38px; border-radius: var(--r-sm); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--bn-gold); background: var(--bn-gold-soft); border: 1px solid var(--bn-gold-line);
+}
+.bn-copyrow {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3); border-radius: var(--r-sm);
+  background: var(--bn-bg-2); border: 1px solid var(--bn-border); margin-bottom: var(--sp-2);
+}
+.bn-copy-ico { color: var(--bn-text-3); display: flex; flex-shrink: 0; }
+.bn-copy-btn {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 8px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--bn-gold-line); color: var(--bn-gold); background: var(--bn-gold-soft);
+  font-weight: var(--fw-medium); transition: all var(--dur-fast) var(--ease);
+}
+.bn-copy-btn:hover { filter: brightness(1.1); }
+.bn-copy-btn.ok { color: var(--bn-good); border-color: var(--bn-good-soft); background: var(--bn-good-soft); }
+.bn-give-hint { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-4); }
+.bn-give-note {
+  display: flex; align-items: center; gap: var(--sp-3);
+  margin-top: var(--sp-4); background: var(--bn-bg-2);
+}
 .bn-info { display: flex; align-items: center; gap: var(--sp-3); color: var(--bn-text-2); }
 .bn-info > svg { color: var(--bn-text-3); flex-shrink: 0; }
 .bn-clamp { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }

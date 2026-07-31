@@ -121,6 +121,18 @@ window.MOCK = (function () {
     { id: 'p3', nome: 'Primeiros passos na fe', progresso: 7, total: 14, ativo: false },
   ];
 
+  // Contribua / Faca Parte (campanha Em Marcha da igreja). Dados do cartaz oficial.
+  const contribuicao = {
+    campanha: 'Em Marcha',
+    lema: 'Juntos rumo a promessa',
+    grito: ['Nao paramos.', 'Nao voltamos.', 'Estamos em marcha.'],
+    texto: 'Esse e o chamado de uma igreja que decidiu continuar avancando em unidade, fe e obediencia a direcao de Deus. Estamos vivendo um tempo de travessia, crescimento e construcao. Como povo, seguimos juntos rumo a promessa, confiando que aquele que comecou a obra e fiel para completar.',
+    chamada: 'Contribua com seus dizimos e ofertas para o avanco da igreja.',
+    pixTipo: 'CNPJ',
+    pixChave: 'tesouraria.sorocaba@boladeneve.com',
+    banco: { titular: 'Igreja Bola de Neve Sorocaba', agencia: '3393-6', conta: '132484-5' },
+  };
+
   // Ambientes do ecossistema (usado no hub e na sidebar).
   const ambientes = [
     { id: 'painel',      rota: 'painel',      nome: 'Painel',       icon: 'LayoutDashboard', desc: 'O olhar do pastor sobre o rebanho inteiro, em numeros vivos.' },
@@ -128,10 +140,11 @@ window.MOCK = (function () {
     { id: 'celulas',     rota: 'celulas',     nome: 'Mapa',         icon: 'MapPin',          desc: 'A geografia do rebanho: onde cada pessoa esta.' },
     { id: 'biblia',      rota: 'biblia',      nome: 'Biblia',       icon: 'BookOpen',        desc: 'A Palavra no dia a dia: leitura, grifos e devocional.' },
     { id: 'devocionais', rota: 'devocionais', nome: 'Devocionais',  icon: 'Sparkles',        desc: 'A caminhada com Deus: planos e reflexao gerada da leitura.' },
+    { id: 'contribua',   rota: 'contribua',   nome: 'Contribua',    icon: 'HeartHandshake',  desc: 'Faca parte da campanha Em Marcha com seus dizimos e ofertas.' },
   ];
 
   return {
     igreja, nucleos, nucleoById, painel, celulas, visitantes, momentos,
-    conversaAcolhimento, bibliaLivros, bibliaTexto, devocionais, planos, ambientes,
+    conversaAcolhimento, bibliaLivros, bibliaTexto, devocionais, planos, contribuicao, ambientes,
   };
 })();

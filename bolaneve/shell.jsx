@@ -9,7 +9,7 @@ const { useState, useEffect, useRef, useCallback, createElement } = React;
 const Icon = window.Icon;
 
 // ---- Rotas ----
-const ROUTES = ['hub', 'painel', 'acolhimento', 'celulas', 'biblia', 'devocionais', 'baixar', 'cadastro'];
+const ROUTES = ['hub', 'painel', 'acolhimento', 'celulas', 'biblia', 'devocionais', 'contribua', 'baixar', 'cadastro'];
 const ROUTE_ALIAS = { baixar: 'captacao', cadastro: 'captacao', hub: 'hub' };
 
 function parseLocation() {
