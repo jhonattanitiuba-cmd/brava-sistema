@@ -3,64 +3,73 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
-<title>Silvana Félix · App do paciente (demo)</title>
+<title>Silvana Felix · App do paciente</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#04140b">
+<meta name="theme-color" content="#0e7c6e">
 <link rel="manifest" href="/silvananutri/app/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/silvananutri/app/icon.svg">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%2337b26b'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%230e7c6e'/></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-:root{ --acc:#37b26b; --acc2:#5fd08a; --bg:#05130c; --card:#0b1a12; --line:#173225; --ink:#eaf5ee; --mut:#8fae9d; --wa:#25d366; }
+:root{ --bg:#f3efe7; --card:#ffffff; --ink:#1e2b27; --mut:#6f8078; --teal:#0e7c6e; --teal-d:#0a5c51; --mint:#14a58f; --soft:#e9f4f0; --line:#e8e2d6; --wa:#25d366; --sh:0 10px 26px -14px rgba(14,80,60,.28); }
 *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
-body{ font-family:'Montserrat',Arial,sans-serif; background:#000; color:var(--ink); }
-/* frame: no desktop mostra "celular"; no mobile ocupa a tela */
-.frame{ max-width:430px; margin:0 auto; min-height:100dvh; background:linear-gradient(180deg,#06170e,#03100a 40%,#000); position:relative; display:flex; flex-direction:column; }
-@media(min-width:520px){ .frame{ margin:24px auto; min-height:0; height:calc(100dvh - 48px); border:1px solid var(--line); border-radius:30px; overflow:hidden; box-shadow:0 40px 90px -40px rgba(0,0,0,.8); } }
-.scroll{ flex:1; overflow-y:auto; padding:16px 16px 92px; }
+html,body{ height:100%; }
+body{ font-family:'Montserrat',Arial,sans-serif; background:#dfe7e2; color:var(--ink); font-weight:400; touch-action:manipulation; }
+h1,h2,h3,.big,.nm b{ font-weight:700; letter-spacing:-.01em; }
+.frame{ max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg); position:relative; display:flex; flex-direction:column; overflow:hidden; }
+@media(min-width:520px){ .frame{ margin:22px auto; height:calc(100dvh - 44px); min-height:0; border-radius:34px; box-shadow:0 40px 90px -40px rgba(20,60,50,.5); } }
+.scroll{ flex:1; overflow-y:auto; padding:16px 15px 96px; -webkit-overflow-scrolling:touch; }
 .scroll::-webkit-scrollbar{ display:none }
-/* topo */
-.hd{ display:flex; align-items:center; gap:12px; padding:6px 2px 12px; }
-.hd .av{ width:46px;height:46px;border-radius:50%;background:var(--acc);color:#04140b;display:grid;place-items:center;font-weight:700; }
-.hd .nm{ font-size:12px;color:var(--mut) } .hd .nm b{ display:block;font-size:17px;color:#fff;font-weight:700 }
-.hd .streak{ margin-left:auto;font-size:11px;font-weight:700;color:#04140b;background:var(--acc2);border-radius:40px;padding:6px 11px }
-.card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:15px; margin-top:12px; animation:rise .5s both; }
-.kk{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--acc2); font-weight:700 }
-h2{ font-size:16px; margin-top:2px } h3{ font-size:14px } p{ font-size:13px; color:#c4d6cb; line-height:1.5 }
-.big{ font-size:34px; font-weight:700; letter-spacing:-.02em }
+.hd{ display:flex; align-items:center; gap:12px; padding:8px 2px 10px; }
+.hd .av{ width:46px;height:46px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:700; box-shadow:var(--sh) }
+.hd .nm{ font-size:12px;color:var(--mut) } .hd .nm b{ display:block;font-size:17px;color:var(--ink) }
+.hd .streak{ margin-left:auto;font-size:11px;font-weight:700;color:#fff;background:var(--mint);border-radius:40px;padding:7px 12px; box-shadow:var(--sh) }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; margin-top:13px; box-shadow:var(--sh); animation:rise .5s both; }
+.kk{ font-size:10px; letter-spacing:.15em; text-transform:uppercase; color:var(--teal); font-weight:700 }
+h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; color:#586863; line-height:1.5 }
+.big{ font-size:34px; color:var(--teal); }
 @keyframes rise{ from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:none} }
 .card:nth-child(2){animation-delay:.05s}.card:nth-child(3){animation-delay:.1s}.card:nth-child(4){animation-delay:.15s}.card:nth-child(5){animation-delay:.2s}.card:nth-child(6){animation-delay:.25s}
-/* refeições */
 .meal{ display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--line) }
 .meal:first-of-type{ border-top:none }
-.meal .em{ width:34px;height:34px;border-radius:10px;background:#0e2418;display:grid;place-items:center;font-size:17px;flex:none }
+.meal .em{ width:36px;height:36px;border-radius:11px;background:var(--soft);display:grid;place-items:center;font-size:17px;flex:none }
 .meal .t{ flex:1 } .meal .t b{ font-size:13.5px } .meal .t span{ font-size:11.5px;color:var(--mut);display:block }
-.chk{ width:26px;height:26px;border-radius:50%;border:2px solid #2c5540;display:grid;place-items:center;flex:none;cursor:pointer;transition:.15s;color:transparent;font-weight:700 }
-.chk.on{ background:var(--acc);border-color:var(--acc);color:#04140b }
-/* água */
+.chk{ width:27px;height:27px;border-radius:50%;border:2px solid #cfe3db;display:grid;place-items:center;flex:none;cursor:pointer;transition:.15s;color:transparent;font-weight:700 }
+.chk:active{ transform:scale(.9) } .chk.on{ background:var(--teal);border-color:var(--teal);color:#fff }
 .water{ display:flex; gap:6px; margin-top:10px }
-.cup{ flex:1;height:34px;border-radius:8px;border:1px solid #234; background:#07140d; cursor:pointer; transition:.15s }
-.cup.on{ background:linear-gradient(180deg,#4bd6e6,#1f9fb0); border-color:#4bd6e6 }
-/* progress */
-.bar{ height:9px;border-radius:20px;background:#0e2418;overflow:hidden;margin-top:8px } .bar i{ display:block;height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2)); width:0; transition:width 1.1s cubic-bezier(.2,.7,.2,1) }
-.mood{ display:flex; gap:8px; margin-top:10px } .mood button{ flex:1; font-size:22px; background:#07140d; border:1px solid var(--line); border-radius:12px; padding:8px 0; cursor:pointer; transition:.15s } .mood button.on{ background:#123; border-color:var(--acc); transform:translateY(-2px) }
-/* svg chart */
+.cup{ flex:1;height:36px;border-radius:9px;border:1px solid #cfe3db; background:#f4faf8; cursor:pointer; transition:.15s } .cup:active{transform:scale(.94)}
+.cup.on{ background:linear-gradient(180deg,#4fc3d8,#1f9fb0); border-color:#4fc3d8 }
+.bar{ height:10px;border-radius:20px;background:var(--soft);overflow:hidden;margin-top:8px } .bar i{ display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--mint)); width:0; transition:width 1.1s cubic-bezier(.2,.7,.2,1) }
+.mood{ display:flex; gap:8px; margin-top:10px } .mood button{ flex:1; font-size:22px; background:#f4faf8; border:1px solid var(--line); border-radius:13px; padding:9px 0; cursor:pointer; transition:.15s } .mood button:active{transform:scale(.93)} .mood button.on{ background:var(--soft); border-color:var(--teal); transform:translateY(-2px) }
 .chart{ width:100%; height:120px; margin-top:6px }
-.row{ display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-top:1px solid var(--line); font-size:13px } .row:first-child{border-top:none} .row b{ color:#fff }
-.tag{ font-size:11px;font-weight:600;color:#bfe7cd;border:1px solid #22422f;background:#0a140d;border-radius:40px;padding:4px 10px }
-.btn{ display:block; text-align:center; font-weight:700; font-size:14px; border:none; border-radius:14px; padding:13px; margin-top:12px; cursor:pointer; font-family:inherit }
-.btn-wa{ background:var(--wa); color:#fff } .btn-acc{ background:var(--acc); color:#04140b } .btn-gh{ background:transparent;border:1px solid var(--line);color:#cde }
-/* nav */
-.nav{ position:absolute; bottom:0; left:0; right:0; display:flex; background:rgba(4,16,10,.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); padding:8px 6px calc(8px + env(safe-area-inset-bottom)) }
-.nav button{ flex:1; background:none; border:none; color:var(--mut); font-family:inherit; font-size:10px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0 }
-.nav button .i{ font-size:20px } .nav button.on{ color:var(--acc2) }
+.row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-top:1px solid var(--line); font-size:13px } .row:first-child{border-top:none} .row b{ color:var(--ink) }
+.tag{ font-size:11px;font-weight:600;color:var(--teal-d);border:1px solid #bfe0d6;background:var(--soft);border-radius:40px;padding:5px 11px }
+.btn{ display:block; text-align:center; font-weight:700; font-size:14px; border:none; border-radius:14px; padding:14px; margin-top:13px; cursor:pointer; font-family:inherit; transition:transform .12s, filter .12s; }
+.btn:active{ transform:scale(.97); filter:brightness(1.06) }
+.btn-wa{ background:var(--wa); color:#fff; box-shadow:0 8px 20px -8px rgba(37,211,102,.6) } .btn-acc{ background:var(--teal); color:#fff; box-shadow:var(--sh) } .btn-gh{ background:#fff;border:1px solid var(--line);color:var(--teal-d) }
+.nav{ position:absolute; bottom:0; left:0; right:0; display:flex; background:rgba(255,255,255,.96); backdrop-filter:blur(10px); border-top:1px solid var(--line); padding:8px 6px calc(9px + env(safe-area-inset-bottom)) }
+.nav button{ flex:1; background:none; border:none; color:var(--mut); font-family:inherit; font-size:10px; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:4px 0; transition:.12s } .nav button:active{ transform:scale(.9) }
+.nav button .i{ font-size:20px } .nav button.on{ color:var(--teal) }
 .hide{ display:none }
-/* install banner */
-.inst{ position:absolute; left:12px; right:12px; bottom:78px; background:var(--card); border:1px solid var(--acc); border-radius:14px; padding:10px 12px; display:flex; align-items:center; gap:10px; font-size:12.5px; box-shadow:0 12px 30px rgba(0,0,0,.5) }
-.inst b{ color:#fff } .inst .x{ margin-left:auto; color:var(--mut); cursor:pointer; font-size:16px }
+.inst{ position:absolute; left:12px; right:12px; bottom:80px; background:#fff; border:1px solid var(--mint); border-radius:15px; padding:11px 13px; display:flex; align-items:center; gap:10px; font-size:12.5px; box-shadow:0 14px 34px -12px rgba(14,80,60,.4) }
+.inst b{ color:var(--ink) } .inst .x{ margin-left:auto; color:var(--mut); cursor:pointer; font-size:16px }
+/* loading */
+#load{ position:fixed; inset:0; z-index:100; background:linear-gradient(160deg,#0e7c6e,#0a5c51); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; color:#fff; transition:opacity .5s; padding:30px }
+#load .ring{ width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 1s linear infinite }
+@keyframes spin{ to{ transform:rotate(360deg) } }
+#load .lg{ font-weight:700; font-size:20px; letter-spacing:.02em } #load .lg span{ color:#bff3e6 }
+#load .msg{ font-size:14px; color:#d8f5ec; min-height:20px; text-align:center; transition:opacity .3s }
+#load.out{ opacity:0; pointer-events:none }
 </style>
 </head>
 <body>
+
+<div id="load">
+  <div class="lg">Silvana <span>Félix</span></div>
+  <div class="ring"></div>
+  <div class="msg" id="lmsg">Preparando seu acompanhamento...</div>
+</div>
+
 <div class="frame">
   <div class="scroll" id="scroll">
     <div class="hd">
@@ -69,14 +78,12 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14px } p{ font-size:13px; col
       <div class="streak">🔥 12 dias</div>
     </div>
 
-    <!-- ===== HOJE ===== -->
     <div id="tab-hoje">
       <div class="card">
         <div class="kk">Meta da semana</div>
-        <div style="display:flex;align-items:flex-end;gap:10px"><div class="big">86%</div><p style="padding-bottom:6px">de adesão · segue firme 💚</p></div>
+        <div style="display:flex;align-items:flex-end;gap:10px"><div class="big">86%</div><p style="padding-bottom:6px">de adesão, segue firme 💚</p></div>
         <div class="bar"><i id="ade"></i></div>
       </div>
-
       <div class="card">
         <div class="kk">Refeições de hoje</div>
         <h2 style="margin-bottom:4px">Marque conforme comer</h2>
@@ -85,91 +92,54 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14px } p{ font-size:13px; col
         <div class="meal"><div class="em">🍎</div><div class="t"><b>Lanche</b><span>Fruta + oleaginosas (ou iogurte natural)</span></div><div class="chk" onclick="this.classList.toggle('on');this.textContent=this.classList.contains('on')?'✓':''"></div></div>
         <div class="meal"><div class="em">🐟</div><div class="t"><b>Jantar</b><span>Proteína leve + legumes cozidos</span></div><div class="chk" onclick="this.classList.toggle('on');this.textContent=this.classList.contains('on')?'✓':''"></div></div>
       </div>
-
       <div class="card">
         <div class="kk">Água</div>
         <h2 style="margin-bottom:4px" id="wtxt">6 de 8 copos</h2>
         <div class="water" id="water"></div>
       </div>
-
       <div class="card">
         <div class="kk">Como você está hoje?</div>
-        <div class="mood" id="mood">
-          <button data-m="😴">😴</button><button data-m="😐">😐</button><button class="on" data-m="🙂">🙂</button><button data-m="😄">😄</button><button data-m="🔥">🔥</button>
-        </div>
-        <p style="margin-top:8px;font-size:12px">A Dra vê seu humor e energia junto com a alimentação, comportamento também é tratado.</p>
+        <div class="mood" id="mood"><button data-m="😴">😴</button><button data-m="😐">😐</button><button class="on" data-m="🙂">🙂</button><button data-m="😄">😄</button><button data-m="🔥">🔥</button></div>
+        <p style="margin-top:8px;font-size:12px">A Dra vê seu humor e energia junto com a alimentação. Comportamento também é tratado.</p>
       </div>
-
       <button class="btn btn-wa" onclick="location.href='https://wa.me/5511991612610?text=Oi%20Dra%2C%20tenho%20uma%20d%C3%BAvida%20do%20meu%20plano%20%5Bcamp:silvananutri%5D'">💬 Falar com a Dra</button>
     </div>
 
-    <!-- ===== PLANO ===== -->
     <div id="tab-plano" class="hide">
-      <div class="card">
-        <div class="kk">Seu plano</div>
-        <h2>Qualitativo, não contar caloria</h2>
-        <p>O foco é aprender <b>como</b> comer. Cada refeição tem um princípio e opções de troca pra caber na sua rotina.</p>
-      </div>
+      <div class="card"><div class="kk">Seu plano</div><h2>Qualitativo, não contar caloria</h2><p>O foco é aprender <b>como</b> comer. Cada refeição tem um princípio e opções de troca pra caber na sua rotina.</p></div>
       <div class="card"><div class="kk">Café da manhã</div><h3>Proteína + fruta + gordura boa</h3><p>Ex.: ovos mexidos + mamão + 1 col. de pasta de amendoim.</p><div style="margin-top:8px"><span class="tag">Troca: iogurte natural + chia + fruta</span></div></div>
-      <div class="card"><div class="kk">Almoço</div><h3>Metade do prato de vegetais</h3><p>Ex.: folhas + legumes + proteína (frango/peixe/ovo) + 1 porção de carboidrato de verdade.</p><div style="margin-top:8px"><span class="tag">Troca: arroz → batata-doce/mandioca</span></div></div>
+      <div class="card"><div class="kk">Almoço</div><h3>Metade do prato de vegetais</h3><p>Ex.: folhas + legumes + proteína (frango/peixe/ovo) + 1 porção de carboidrato de verdade.</p><div style="margin-top:8px"><span class="tag">Troca: arroz por batata-doce/mandioca</span></div></div>
       <div class="card"><div class="kk">Lanche</div><h3>Segurar a fome sem exagero</h3><p>Ex.: fruta + castanhas, ou iogurte natural.</p><div style="margin-top:8px"><span class="tag">Evitar: ultraprocessado/biscoito</span></div></div>
       <div class="card"><div class="kk">Jantar</div><h3>Leve e cedo</h3><p>Ex.: proteína + legumes cozidos. Ajuda o sono (importante no climatério).</p><div style="margin-top:8px"><span class="tag">Troca: sopa de legumes com proteína</span></div></div>
       <button class="btn btn-gh" onclick="location.href='https://wa.me/5511991612610?text=Dra%2C%20quero%20trocar%20um%20item%20do%20plano%20%5Bcamp:silvananutri%5D'">Pedir uma substituição</button>
     </div>
 
-    <!-- ===== EVOLUÇÃO ===== -->
     <div id="tab-evolucao" class="hide">
       <div class="card">
         <div class="kk">Peso</div>
-        <div style="display:flex;align-items:flex-end;gap:10px"><div class="big" style="color:var(--acc2)">-1,6 kg</div><p style="padding-bottom:6px">em 4 semanas</p></div>
+        <div style="display:flex;align-items:flex-end;gap:10px"><div class="big">-1,6 kg</div><p style="padding-bottom:6px">em 4 semanas</p></div>
         <svg class="chart" viewBox="0 0 300 120" preserveAspectRatio="none">
-          <polyline fill="none" stroke="#37b26b" stroke-width="3" stroke-linecap="round" points="10,30 70,42 130,55 190,70 250,86 290,92"/>
-          <polygon fill="url(#g)" opacity=".25" points="10,30 70,42 130,55 190,70 250,86 290,92 290,120 10,120"/>
-          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#37b26b"/><stop offset="1" stop-color="#37b26b" stop-opacity="0"/></linearGradient></defs>
+          <polyline fill="none" stroke="#0e7c6e" stroke-width="3" stroke-linecap="round" points="10,30 70,42 130,55 190,70 250,86 290,92"/>
+          <polygon fill="url(#g)" opacity=".2" points="10,30 70,42 130,55 190,70 250,86 290,92 290,120 10,120"/>
+          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e7c6e"/><stop offset="1" stop-color="#0e7c6e" stop-opacity="0"/></linearGradient></defs>
         </svg>
-        <div class="row"><span>Sem 1</span><b>78,0 kg</b></div>
-        <div class="row"><span>Hoje</span><b style="color:var(--acc2)">76,4 kg</b></div>
+        <div class="row"><span>Semana 1</span><b>78,0 kg</b></div>
+        <div class="row"><span>Hoje</span><b style="color:var(--teal)">76,4 kg</b></div>
       </div>
-      <div class="card">
-        <div class="kk">Medidas</div>
-        <div class="row"><span>Cintura</span><b>92 → 88 cm <span style="color:var(--acc2)">(-4)</span></b></div>
-        <div class="row"><span>Quadril</span><b>106 → 104 cm <span style="color:var(--acc2)">(-2)</span></b></div>
-      </div>
-      <div class="card">
-        <div class="kk">Adesão do plano</div>
-        <h2 style="margin-bottom:2px">Últimas 4 semanas</h2>
-        <div class="bar"><i id="ade2"></i></div>
-        <p style="margin-top:8px">Constância é o que faz durar. A Dra ajusta com base nestes números.</p>
-      </div>
-      <div class="card" style="border-color:var(--acc)">
+      <div class="card"><div class="kk">Medidas</div><div class="row"><span>Cintura</span><b>92 → 88 cm <span style="color:var(--teal)">(-4)</span></b></div><div class="row"><span>Quadril</span><b>106 → 104 cm <span style="color:var(--teal)">(-2)</span></b></div></div>
+      <div class="card"><div class="kk">Adesão do plano</div><h2 style="margin-bottom:2px">Últimas 4 semanas</h2><div class="bar"><i id="ade2"></i></div><p style="margin-top:8px">Constância é o que faz durar. A Dra ajusta com base nestes números.</p></div>
+      <div class="card" style="border-color:var(--mint)">
         <div class="kk">Próxima avaliação corporal</div>
-        <h2>31 de agosto · Chá com a Dra</h2>
+        <h2>31 de agosto, Chá com a Dra</h2>
         <p>Avaliação corporal presencial na Clínica Lotus. Confirme sua presença.</p>
         <button class="btn btn-acc" onclick="location.href='https://wa.me/5511991612610?text=Quero%20confirmar%20presen%C3%A7a%20no%20Ch%C3%A1%20com%20a%20Dra%20%2831%2F08%29%20%5Bcamp:cha-dra-ago%5D'" style="margin-top:10px">Confirmar presença</button>
       </div>
     </div>
 
-    <!-- ===== CONSULTAS ===== -->
     <div id="tab-consultas" class="hide">
-      <div class="card" style="border-color:var(--acc)">
-        <div class="kk">Próximo retorno</div>
-        <h2>Quinta, 14 de agosto · 15h</h2>
-        <p>Teleconsulta de acompanhamento com a Dra Silvana.</p>
-        <button class="btn btn-gh" onclick="location.href='https://wa.me/5511991612610?text=Dra%2C%20sobre%20meu%20retorno%20%5Bcamp:silvananutri%5D'" style="margin-top:10px">Remarcar / dúvidas</button>
-      </div>
-      <div class="card">
-        <div class="kk">Teste genético</div>
-        <div class="row"><span>Coleta</span><b>Feita ✓</b></div>
-        <div class="row"><span>Resultado</span><b style="color:var(--acc2)">em ~30 dias</b></div>
-        <p style="margin-top:8px">O laudo do seu DNA vai orientar os ajustes finos do plano (tireoide, resistência à insulina, resposta à dieta).</p>
-      </div>
-      <div class="card">
-        <div class="kk">Histórico</div>
-        <div class="row"><span>17/07 · 1ª consulta + anamnese</span><b>✓</b></div>
-        <div class="row"><span>24/07 · Retorno semanal</span><b>✓</b></div>
-        <div class="row"><span>31/07 · Retorno semanal</span><b>✓</b></div>
-        <div class="row"><span>07/08 · Retorno semanal</span><b>✓</b></div>
-      </div>
+      <div class="card" style="border-color:var(--mint)"><div class="kk">Próximo retorno</div><h2>Quinta, 14 de agosto, 15h</h2><p>Teleconsulta de acompanhamento com a Dra Silvana.</p><button class="btn btn-gh" onclick="location.href='https://wa.me/5511991612610?text=Dra%2C%20sobre%20meu%20retorno%20%5Bcamp:silvananutri%5D'" style="margin-top:10px">Remarcar / dúvidas</button></div>
+      <div class="card"><div class="kk">Teste genético</div><div class="row"><span>Coleta</span><b>Feita ✓</b></div><div class="row"><span>Resultado</span><b style="color:var(--teal)">em ~30 dias</b></div><p style="margin-top:8px">O laudo do seu DNA vai orientar os ajustes finos do plano (tireoide, resistência à insulina, resposta à dieta).</p></div>
+      <div class="card"><div class="kk">Histórico</div><div class="row"><span>17/07, 1ª consulta + anamnese</span><b>✓</b></div><div class="row"><span>24/07, retorno semanal</span><b>✓</b></div><div class="row"><span>31/07, retorno semanal</span><b>✓</b></div><div class="row"><span>07/08, retorno semanal</span><b>✓</b></div></div>
       <button class="btn btn-wa" onclick="location.href='https://wa.me/5511991612610?text=Quero%20agendar%20uma%20consulta%20%5Bcamp:silvananutri%5D'">Agendar consulta</button>
     </div>
   </div>
@@ -177,7 +147,7 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14px } p{ font-size:13px; col
   <div class="inst hide" id="inst">
     <span>📲 <b>Instale o app</b> e tenha a Dra no seu bolso.</span>
     <span class="x" id="instx">✕</span>
-    <button class="btn btn-acc" id="instbtn" style="margin:0;padding:8px 12px;font-size:12px">Instalar</button>
+    <button class="btn btn-acc" id="instbtn" style="margin:0;padding:9px 13px;font-size:12px">Instalar</button>
   </div>
 
   <div class="nav">
@@ -189,26 +159,22 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14px } p{ font-size:13px; col
 </div>
 
 <script>
-// tabs
+// loading com mensagens-chave
+const LMSGS=['Preparando seu acompanhamento...','Carregando seu plano alimentar...','Sincronizando sua evolução...','Conectando com a Dra Silvana...'];
+const lmsg=document.getElementById('lmsg'); let li=0;
+const lint=setInterval(()=>{ li=(li+1)%LMSGS.length; lmsg.style.opacity=0; setTimeout(()=>{ lmsg.textContent=LMSGS[li]; lmsg.style.opacity=1; },200); },900);
+setTimeout(()=>{ clearInterval(lint); const l=document.getElementById('load'); l.classList.add('out'); setTimeout(()=>l.remove(),500); }, 2600);
+
 const tabs=['hoje','plano','evolucao','consultas'];
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{
-  const t=b.dataset.t;
-  document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x===b));
-  tabs.forEach(x=>document.getElementById('tab-'+x).classList.toggle('hide',x!==t));
-  document.getElementById('scroll').scrollTop=0;
-});
-// água
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{ const t=b.dataset.t; document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('on',x===b)); tabs.forEach(x=>document.getElementById('tab-'+x).classList.toggle('hide',x!==t)); document.getElementById('scroll').scrollTop=0; });
 const water=document.getElementById('water'), wtxt=document.getElementById('wtxt'); let cups=6;
-for(let i=0;i<8;i++){ const c=document.createElement('div'); c.className='cup'+(i<cups?' on':''); c.onclick=()=>{ cups=i+ (c.classList.contains('on')&&i+1===cups?0:1); draw(); }; water.appendChild(c); }
+for(let i=0;i<8;i++){ const c=document.createElement('div'); c.className='cup'+(i<cups?' on':''); c.onclick=()=>{ cups=(c.classList.contains('on')&&i+1===cups)?i:i+1; draw(); }; water.appendChild(c); }
 function draw(){ [...water.children].forEach((c,i)=>c.classList.toggle('on',i<cups)); wtxt.textContent=cups+' de 8 copos'; }
-// mood
 document.getElementById('mood').addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b)return; document.querySelectorAll('#mood button').forEach(x=>x.classList.toggle('on',x===b)); });
-// barras animam ao carregar
-setTimeout(()=>{ document.getElementById('ade').style.width='86%'; const a2=document.getElementById('ade2'); if(a2)a2.style.width='86%'; },300);
-// PWA install
+setTimeout(()=>{ document.getElementById('ade').style.width='86%'; const a2=document.getElementById('ade2'); if(a2)a2.style.width='86%'; },3000);
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('/silvananutri/app/sw.js').catch(()=>{}); }
 let deferred=null;
-window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e; document.getElementById('inst').classList.remove('hide'); });
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferred=e; setTimeout(()=>document.getElementById('inst').classList.remove('hide'),3000); });
 document.getElementById('instbtn').onclick=async()=>{ if(deferred){ deferred.prompt(); await deferred.userChoice; } document.getElementById('inst').classList.add('hide'); };
 document.getElementById('instx').onclick=()=>document.getElementById('inst').classList.add('hide');
 </script>
