@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<title>Meu Agente · Dra Silvana (plug and play)</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0e7c6e">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%230e7c6e'/></svg>">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+:root{ --bg:#f3efe7; --card:#ffffff; --ink:#1e2b27; --mut:#6f8078; --teal:#0e7c6e; --teal-d:#0a5c51; --mint:#14a58f; --soft:#e9f4f0; --line:#e8e2d6; --wa:#25d366; --sh:0 12px 30px -18px rgba(14,80,60,.34); }
+*{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+body{ font-family:'Montserrat',Arial,sans-serif; background:var(--bg); color:var(--ink); font-weight:400; touch-action:manipulation; padding-bottom:96px; }
+h1,h2,h3,label b,.kk{ font-weight:700; letter-spacing:-.01em }
+.wrap{ max-width:760px; margin:0 auto; padding:20px 5% }
+.head{ display:flex; align-items:center; gap:13px; margin-bottom:6px }
+.head .ic{ width:52px;height:52px;border-radius:15px;background:var(--teal);display:grid;place-items:center;color:#fff;font-size:24px;box-shadow:var(--sh) }
+.head h1{ font-size:20px } .head p{ font-size:13px; color:var(--mut) }
+.card{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; margin-top:16px; box-shadow:var(--sh) }
+.kk{ font-size:15px; display:flex; align-items:center; gap:8px }
+.desc{ font-size:12.5px; color:var(--mut); margin:3px 0 14px }
+.inp{ width:100%; font-family:inherit; font-size:14px; border:1px solid var(--line); background:#f8f6f1; border-radius:12px; padding:13px 14px; color:var(--ink) }
+.inp:focus{ outline:none; border-color:var(--mint); background:#fff }
+/* tools */
+.tool{ display:flex; align-items:center; gap:14px; padding:13px 0; border-top:1px solid var(--line) } .tool:first-of-type{ border-top:none }
+.tool .t{ flex:1 } .tool .t b{ font-size:14px } .tool .t span{ display:block; font-size:12px; color:var(--mut) }
+.sw{ width:44px;height:26px;border-radius:40px;background:#d7ddd6;position:relative;cursor:pointer;flex:none;transition:.18s } .sw::after{ content:''; position:absolute; top:3px; left:3px; width:20px;height:20px;border-radius:50%;background:#fff;transition:.18s; box-shadow:0 1px 3px rgba(0,0,0,.2) } .sw.on{ background:var(--teal) } .sw.on::after{ left:21px } .sw:active::after{ width:24px }
+/* prompt blocos */
+.blk{ border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:12px } .blk .hd2{ display:flex; align-items:center; justify-content:space-between; gap:8px }
+.blk b{ font-size:13.5px } .blk .hint{ font-size:11.5px; color:var(--mut); margin:2px 0 8px }
+.blk textarea{ width:100%; min-height:96px; resize:vertical; font-family:inherit; font-size:12.5px; line-height:1.55; border:1px solid var(--line); background:#f8f6f1; border-radius:10px; padding:11px 12px; color:#2d3a35 } .blk textarea:focus{ outline:none; border-color:var(--mint); background:#fff }
+.blk .foot{ text-align:right; font-size:10px; color:var(--mut); margin-top:5px }
+.edited{ font-size:9px; font-weight:700; color:#fff; background:var(--mint); border-radius:40px; padding:2px 7px }
+.rest{ font-size:11px; font-weight:600; color:var(--teal-d); border:1px solid var(--line); background:#fff; border-radius:40px; padding:5px 11px; cursor:pointer }
+/* testar */
+.testrow{ display:flex; gap:8px } .testrow .inp{ flex:1 }
+.btn{ font-family:inherit; font-weight:700; font-size:14px; border:none; border-radius:12px; padding:13px 18px; cursor:pointer; transition:transform .12s, filter .12s } .btn:active{ transform:scale(.96); filter:brightness(1.06) }
+.btn-teal{ background:var(--teal); color:#fff; box-shadow:var(--sh) } .btn-gh{ background:#fff; border:1px solid var(--line); color:var(--teal-d) }
+.reply{ margin-top:12px; display:none; flex-direction:column; gap:7px }
+.rmsg{ align-self:flex-start; max-width:88%; background:var(--soft); border:1px solid #cfe7de; border-radius:12px; border-top-left-radius:3px; padding:9px 12px; font-size:13px; animation:pop .3s both } @keyframes pop{ from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+/* salvar */
+.savebar{ position:fixed; left:0; right:0; bottom:0; padding:12px 5% calc(12px + env(safe-area-inset-bottom)); background:linear-gradient(180deg,rgba(243,239,231,0),var(--bg) 30%); }
+.savebar .btn{ width:100%; max-width:760px; margin:0 auto; display:flex; align-items:center; justify-content:center; gap:9px; padding:16px }
+.toast{ position:fixed; left:50%; bottom:84px; transform:translateX(-50%) translateY(20px); background:var(--teal); color:#fff; font-weight:700; font-size:14px; padding:12px 20px; border-radius:40px; box-shadow:var(--sh); opacity:0; transition:.3s; z-index:60 } .toast.on{ opacity:1; transform:translateX(-50%) translateY(0) }
+#load{ position:fixed; inset:0; z-index:100; background:linear-gradient(160deg,#0e7c6e,#0a5c51); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; color:#fff; transition:opacity .5s; padding:30px } #load .ring{ width:60px;height:60px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 1s linear infinite } @keyframes spin{ to{ transform:rotate(360deg) } } #load .lg{ font-weight:700;font-size:19px } #load .msg{ font-size:14px;color:#d8f5ec;min-height:20px;transition:opacity .3s } #load.out{ opacity:0;pointer-events:none }
+</style>
+</head>
+<body>
+<div id="load"><div class="lg">Meu Agente</div><div class="ring"></div><div class="msg" id="lmsg">Carregando seu agente de IA...</div></div>
+
+<div class="wrap">
+  <div class="head">
+    <div class="ic">🤖</div>
+    <div><h1>Meu Agente</h1><p>Sua atendente virtual, plug and play. Edite, teste e salve, vale na hora.</p></div>
+  </div>
+
+  <div class="card">
+    <div class="kk">🔔 Notificação de lead</div>
+    <div class="desc">Quando a IA qualifica ou fecha, ela transfere e avisa este WhatsApp (com som, na hora).</div>
+    <input class="inp" value="5515981358035" inputmode="numeric">
+  </div>
+
+  <div class="card">
+    <div class="kk">🛠️ Ferramentas da IA</div>
+    <div class="desc">Ligue/desligue o que a atendente pode fazer. Muda na hora.</div>
+    <div id="tools"></div>
+  </div>
+
+  <div class="card">
+    <div class="kk">📝 Prompt da atendente</div>
+    <div class="desc">É o que ela lê antes de responder. Cada caixa é uma parte do atendimento. Campo em branco usa o padrão. <b>Treine um pouco por dia e salve.</b></div>
+    <div id="blocos"></div>
+  </div>
+
+  <div class="card">
+    <div class="kk">▶️ Testar antes de salvar</div>
+    <div class="desc">Roda aqui na tela, sem enviar nada pro WhatsApp de ninguém.</div>
+    <div class="testrow">
+      <input class="inp" id="tin" value="Oi, tenho 43 anos e não consigo emagrecer">
+      <button class="btn btn-teal" id="tbtn">Testar</button>
+    </div>
+    <div class="reply" id="reply"></div>
+  </div>
+</div>
+
+<div class="savebar"><button class="btn btn-teal" id="save">💾 Salvar configurações</button></div>
+<div class="toast" id="toast">✓ Configurações salvas, valem na próxima mensagem</div>
+
+<script>
+// loading
+const LMSGS=['Carregando seu agente de IA...','Conectando ferramentas...','Sincronizando agenda Google...','Preparando o painel...'];
+const lmsg=document.getElementById('lmsg'); let li=0;
+const lint=setInterval(()=>{ li=(li+1)%LMSGS.length; lmsg.style.opacity=0; setTimeout(()=>{ lmsg.textContent=LMSGS[li]; lmsg.style.opacity=1; },200); },800);
+setTimeout(()=>{ clearInterval(lint); const l=document.getElementById('load'); l.classList.add('out'); setTimeout(()=>l.remove(),500); }, 2200);
+
+// tools (realidade da Dra)
+const TOOLS=[
+ ['buscar_planos','Buscar planos e pacotes','A IA consulta os planos de acompanhamento e valores.',true],
+ ['enviar_material','Enviar material','Manda cardápio exemplo, tabela de planos ou antes/depois.',true],
+ ['avaliar_teste','Indicar teste genético','Identifica quando o teste faz sentido (sinais + histórico familiar).',true],
+ ['montar_proposta','Montar proposta','Monta consulta + teste + acompanhamento e apresenta.',true],
+ ['agendar_consulta','Agendar consulta','Oferece horário e pré-agenda consulta ou retorno.',true],
+ ['transferir_dra','Transferir para a Dra','Pausa a IA e passa pra Dra com o resumo do paciente.',true],
+ ['consultar_agenda','Consultar agenda (interno)','Modo Copilot: consulta agenda e pacientes pra você.',false],
+];
+const toolsEl=document.getElementById('tools');
+TOOLS.forEach(([k,label,desc,on])=>{ const d=document.createElement('div'); d.className='tool'; d.innerHTML='<div class="t"><b>'+label+'</b><span>'+desc+'</span></div><div class="sw'+(on?' on':'')+'" data-k="'+k+'"></div>'; toolsEl.appendChild(d); });
+toolsEl.addEventListener('click',e=>{ const s=e.target.closest('.sw'); if(s) s.classList.toggle('on'); });
+
+// blocos do prompt (nutrição, SPIN, saúde) — pré-preenchidos e editáveis
+const BLOCOS=[
+ ['identidade','Identidade e tom','Quem ela é, a Dra e o público.','Você é a atendente virtual da *Dra Silvana Félix*, nutricionista clínica em São Roque (CRN 74408P). Foco em *saúde e comportamento*, não estética. Atende principalmente mulheres 35+ com dificuldade de emagrecer, climatério, tireoide, compulsão. Acolhe, investiga antes de oferecer e conduz até a consulta e o acompanhamento.'],
+ ['estilo','Estilo e formatação','Tamanho, negrito e emoji. O sistema já ajusta a saída.','ESTILO (WhatsApp): mensagens CURTAS e humanas, PT-BR. Não despeje tudo de uma vez, conduza. Use *um asterisco* para negrito, nunca **. No máximo 1 ou 2 emojis funcionais (💚 🧬 📅). Nada de travessão.'],
+ ['abertura','Abertura','Como recebe a primeira mensagem.','ABERTURA: acolha e faça UMA pergunta pra entender a queixa/objetivo. Se a pessoa já trouxe uma dor (ex.: "não emagreço"), NÃO mande menu, investigue direto. Nunca ignore o que ela disse.'],
+ ['fluxo','Fluxo da venda (SPIN)','O método de investigação até a proposta.','MÉTODO SPIN: Situação → Problema → Implicação → Need-payoff.\n1) Situação: idade, rotina, tentativas.\n2) Problema: cansaço, sono, TPM, humor (sinais de climatério).\n3) Implicação: histórico familiar (tireoide/diabetes/autoimune), impacto na saúde.\n4) Solução: apresente o *teste genético* quando indicado (cotonete, 3 min, DNA não muda, investimento único) + *consulta → acompanhamento semanal qualitativo*. Nunca "consulta mágica".'],
+ ['faq','Dúvidas frequentes','Fatos que ela pode responder de cabeça.','- Teste genético: cotonete na bochecha, 3 min, resultado em ~30 dias. Diz sobre tireoide, resistência à insulina e resposta à dieta.\n- Plano: qualitativo, você aprende a comer (sem contar caloria).\n- Acompanhamento: semanal pelo app.\n- Atendimento: presencial em São Roque e teleconsulta.\n- Valores: a Dra confirma na consulta (não invente preço).'],
+ ['midia','Áudio e material','Como trata áudio e envio de material.','ÁUDIO: se a paciente mandar áudio, você recebe a transcrição, responda normal. MATERIAL: quando fizer sentido, use enviar_material (cardápio exemplo, tabela de planos, antes/depois).'],
+ ['regras','Regras de segurança','O que ela nunca pode fazer.','NUNCA prometa cura ou resultado garantido. NUNCA dê diagnóstico médico nem prescreva remédio. Foque em saúde e reeducação. Se pedirem uma pessoa, ou ao fechar, use transferir_dra e passe o resumo. Nunca invente preço ou promessa.'],
+ ['extras','Orientações extras','Campo livre: promoção do mês, evento, avisos.','Evento *Chá com a Dra* dia 31/08 na Clínica Lotus (avaliação corporal). Se a paciente demonstrar interesse, convide.'],
+];
+const store={}; const bEl=document.getElementById('blocos');
+BLOCOS.forEach(([id,titulo,hint,padrao])=>{ store[id]=padrao;
+  const d=document.createElement('div'); d.className='blk';
+  d.innerHTML='<div class="hd2"><b>'+titulo+' <span class="edited" style="display:none" id="ed-'+id+'">editado</span></b><span class="rest" style="display:none" id="rs-'+id+'">Restaurar padrão</span></div><div class="hint">'+hint+'</div><textarea id="tx-'+id+'"></textarea><div class="foot"><span id="ct-'+id+'">0</span>/4000 · <span id="us-'+id+'">usando o padrão</span></div>';
+  bEl.appendChild(d);
+  const tx=d.querySelector('#tx-'+id); tx.value=padrao;
+  const upd=()=>{ const cust=tx.value!==padrao; document.getElementById('ed-'+id).style.display=cust?'inline-block':'none'; document.getElementById('rs-'+id).style.display=cust?'inline-block':'none'; document.getElementById('us-'+id).textContent=cust?'personalizado':'usando o padrão'; document.getElementById('ct-'+id).textContent=tx.value.length; store[id]=tx.value; };
+  tx.addEventListener('input',upd); document.getElementById('rs-'+id).onclick=()=>{ tx.value=padrao; upd(); }; upd();
+});
+
+// testar (encenado, reflete o que foi editado)
+document.getElementById('tbtn').onclick=()=>{
+  const q=document.getElementById('tin').value.toLowerCase();
+  const r=document.getElementById('reply'); r.innerHTML=''; r.style.display='flex';
+  let msgs;
+  if(/emagrec|peso|dieta|gord/.test(q)){
+    msgs=['Oi! Que bom te ver por aqui 💚 Antes de falar de dieta, eu preciso te entender.','Além da dificuldade de emagrecer, você tem sentido mais cansaço, sono ruim ou TPM mais forte ultimamente?'];
+  } else if(/teste|gen[eé]tico|dna/.test(q)){
+    msgs=['O teste genético é só um cotonete na bochecha, 3 minutinhos 🧬','Ele lê o seu DNA e mostra por que seu corpo trava, tendência pra tireoide e o que funciona pra você. Seu DNA não muda, é um investimento uma vez na vida.'];
+  } else if(/pre[çc]o|valor|quanto/.test(q)){
+    msgs=['O valor certinho a Dra confirma na consulta, porque depende do que você precisa 💚','Posso te explicar como funciona: consulta com anamnese, teste genético e acompanhamento semanal. Quer que eu te mostre?'];
+  } else {
+    msgs=['Oi! Como posso te ajudar? 💚','Me conta um pouco do seu objetivo com a saúde que eu já te oriento.'];
+  }
+  msgs.forEach((m,i)=>{ setTimeout(()=>{ const b=document.createElement('div'); b.className='rmsg'; b.textContent=m; r.appendChild(b); },i*550); });
+};
+
+// salvar (feedback plug-and-play)
+document.getElementById('save').onclick=()=>{ const t=document.getElementById('toast'); t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2200); };
+</script>
+</body>
+</html>
