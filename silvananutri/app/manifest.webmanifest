@@ -1,0 +1,15 @@
+{
+  "name": "Silvana Félix · Nutrição",
+  "short_name": "Silvana Félix",
+  "description": "Seu plano, evolução e a Dra no seu bolso.",
+  "start_url": "/silvananutri/app/",
+  "scope": "/silvananutri/app/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#04140b",
+  "theme_color": "#04140b",
+  "icons": [
+    { "src": "/silvananutri/app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/silvananutri/app/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
