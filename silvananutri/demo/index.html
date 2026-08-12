@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Atendimento IA · Silvana Felix (demo)</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#0e7c6e">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%230e7c6e'/></svg>">
+<meta name="theme-color" content="#5f6f2e">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%235f6f2e'/></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-:root{ --bg:#f3efe7; --card:#ffffff; --ink:#1e2b27; --mut:#6f8078; --teal:#0e7c6e; --teal-d:#0a5c51; --mint:#14a58f; --soft:#e9f4f0; --line:#e8e2d6; --wa:#25d366; --sh:0 10px 26px -14px rgba(14,80,60,.28); }
+:root{ --bg:#f3efe7; --card:#ffffff; --ink:#1e2b27; --mut:#6f8078; --teal:#5f6f2e; --teal-d:#3f4b1e; --mint:#b8901c; --soft:#eef0e0; --line:#e8e2d6; --wa:#25d366; --sh:0 10px 26px -14px rgba(14,80,60,.28); }
 *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 body{ font-family:'Montserrat',Arial,sans-serif; background:var(--bg); color:var(--ink); font-weight:400; touch-action:manipulation; min-height:100dvh; }
 h1,h2,strong,.stage,.tool .tx b{ font-weight:700 }
@@ -40,16 +40,16 @@ h1,h2,strong,.stage,.tool .tx b{ font-weight:700 }
 .panel .sub{ font-size:12px; color:var(--mut); margin:2px 0 16px }
 .feed{ display:flex; flex-direction:column; gap:10px }
 .stage{ font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin-top:8px; display:flex; align-items:center; gap:8px; animation:pop .3s both }
-.stage::before{ content:''; height:1px; flex:1; background:linear-gradient(90deg,#bfe0d6,transparent) }
-.tool{ display:flex; gap:10px; align-items:flex-start; background:var(--soft); border:1px solid #cfe7de; border-radius:12px; padding:10px 12px; animation:pop .3s both }
+.stage::before{ content:''; height:1px; flex:1; background:linear-gradient(90deg,#d7d9bd,transparent) }
+.tool{ display:flex; gap:10px; align-items:flex-start; background:var(--soft); border:1px solid #dcdcc4; border-radius:12px; padding:10px 12px; animation:pop .3s both }
 .tool .toolic{ width:26px;height:26px;border-radius:8px;background:var(--teal);color:#fff;display:grid;place-items:center;flex:none }
 .tool .tx b{ font-size:13px; color:var(--ink) } .tool .tx p{ font-size:12px; color:var(--mut); margin-top:1px }
 .legend{ margin-top:18px; padding-top:14px; border-top:1px solid var(--line); font-size:11.5px; color:var(--mut) } .legend b{ color:var(--ink) }
-.pill{ display:inline-block; font-size:11px; color:var(--teal-d); border:1px solid #bfe0d6; background:var(--soft); border-radius:40px; padding:3px 9px; margin:3px 4px 0 0 }
-#load{ position:fixed; inset:0; z-index:100; background:linear-gradient(160deg,#0e7c6e,#0a5c51); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; color:#fff; transition:opacity .5s; padding:30px }
+.pill{ display:inline-block; font-size:11px; color:var(--teal-d); border:1px solid #d7d9bd; background:var(--soft); border-radius:40px; padding:3px 9px; margin:3px 4px 0 0 }
+#load{ position:fixed; inset:0; z-index:100; background:linear-gradient(160deg,#5f6f2e,#3f4b1e); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; color:#fff; transition:opacity .5s; padding:30px }
 #load .ring{ width:60px;height:60px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 1s linear infinite } @keyframes spin{ to{ transform:rotate(360deg) } }
-#load .lg{ font-weight:700; font-size:19px } #load .lg span{ color:#bff3e6 }
-#load .msg2{ font-size:14px; color:#d8f5ec; min-height:20px; text-align:center; transition:opacity .3s }
+#load .lg{ font-weight:700; font-size:19px } #load .lg span{ color:#e6dca6 }
+#load .msg2{ font-size:14px; color:#eef0d8; min-height:20px; text-align:center; transition:opacity .3s }
 #load.out{ opacity:0; pointer-events:none }
 .ic{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.16em;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}.ic use{pointer-events:none}</style>
 </head>

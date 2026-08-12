@@ -5,13 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <title>Silvana Felix · App do paciente</title>
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#0e7c6e">
+<meta name="theme-color" content="#5f6f2e">
 <link rel="manifest" href="/silvananutri/app/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/silvananutri/app/icon.svg">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%230e7c6e'/></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='%235f6f2e'/></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
-:root{ --bg:#f3efe7; --card:#ffffff; --ink:#1e2b27; --mut:#6f8078; --teal:#0e7c6e; --teal-d:#0a5c51; --mint:#14a58f; --soft:#e9f4f0; --line:#e8e2d6; --wa:#25d366; --sh:0 10px 26px -14px rgba(14,80,60,.28); }
+:root{ --bg:#f3efe7; --card:#ffffff; --ink:#1e2b27; --mut:#6f8078; --teal:#5f6f2e; --teal-d:#3f4b1e; --mint:#b8901c; --soft:#eef0e0; --line:#e8e2d6; --wa:#25d366; --sh:0 10px 26px -14px rgba(14,80,60,.28); }
 *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
 html,body{ height:100%; }
 body{ font-family:'Montserrat',Arial,sans-serif; background:#dfe7e2; color:var(--ink); font-weight:400; touch-action:manipulation; }
@@ -34,16 +34,16 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; c
 .meal:first-of-type{ border-top:none }
 .meal .em{ width:36px;height:36px;border-radius:11px;background:var(--soft);display:grid;place-items:center;font-size:17px;flex:none }
 .meal .t{ flex:1 } .meal .t b{ font-size:13.5px } .meal .t span{ font-size:11.5px;color:var(--mut);display:block }
-.chk{ width:27px;height:27px;border-radius:50%;border:2px solid #cfe3db;display:grid;place-items:center;flex:none;cursor:pointer;transition:.15s;color:transparent;font-weight:700 }
+.chk{ width:27px;height:27px;border-radius:50%;border:2px solid #d7d9bd;display:grid;place-items:center;flex:none;cursor:pointer;transition:.15s;color:transparent;font-weight:700 }
 .chk:active{ transform:scale(.9) } .chk.on{ background:var(--teal);border-color:var(--teal);color:#fff }
 .water{ display:flex; gap:6px; margin-top:10px }
-.cup{ flex:1;height:36px;border-radius:9px;border:1px solid #cfe3db; background:#f4faf8; cursor:pointer; transition:.15s } .cup:active{transform:scale(.94)}
+.cup{ flex:1;height:36px;border-radius:9px;border:1px solid #d7d9bd; background:#f4faf8; cursor:pointer; transition:.15s } .cup:active{transform:scale(.94)}
 .cup.on{ background:linear-gradient(180deg,#4fc3d8,#1f9fb0); border-color:#4fc3d8 }
 .bar{ height:10px;border-radius:20px;background:var(--soft);overflow:hidden;margin-top:8px } .bar i{ display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--mint)); width:0; transition:width 1.1s cubic-bezier(.2,.7,.2,1) }
 .mood{ display:flex; gap:8px; margin-top:10px } .mood button{ flex:1; font-size:22px; background:#f4faf8; border:1px solid var(--line); border-radius:13px; padding:9px 0; cursor:pointer; transition:.15s } .mood button:active{transform:scale(.93)} .mood button.on{ background:var(--soft); border-color:var(--teal); transform:translateY(-2px) }
 .chart{ width:100%; height:120px; margin-top:6px }
 .row{ display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-top:1px solid var(--line); font-size:13px } .row:first-child{border-top:none} .row b{ color:var(--ink) }
-.tag{ font-size:11px;font-weight:600;color:var(--teal-d);border:1px solid #bfe0d6;background:var(--soft);border-radius:40px;padding:5px 11px }
+.tag{ font-size:11px;font-weight:600;color:var(--teal-d);border:1px solid #d7d9bd;background:var(--soft);border-radius:40px;padding:5px 11px }
 .btn{ display:block; text-align:center; font-weight:700; font-size:14px; border:none; border-radius:14px; padding:14px; margin-top:13px; cursor:pointer; font-family:inherit; transition:transform .12s, filter .12s; }
 .btn:active{ transform:scale(.97); filter:brightness(1.06) }
 .btn-wa{ background:var(--wa); color:#fff; box-shadow:0 8px 20px -8px rgba(37,211,102,.6) } .btn-acc{ background:var(--teal); color:#fff; box-shadow:var(--sh) } .btn-gh{ background:#fff;border:1px solid var(--line);color:var(--teal-d) }
@@ -54,11 +54,11 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; c
 .inst{ position:absolute; left:12px; right:12px; bottom:80px; background:#fff; border:1px solid var(--mint); border-radius:15px; padding:11px 13px; display:flex; align-items:center; gap:10px; font-size:12.5px; box-shadow:0 14px 34px -12px rgba(14,80,60,.4) }
 .inst b{ color:var(--ink) } .inst .x{ margin-left:auto; color:var(--mut); cursor:pointer; font-size:16px }
 /* loading */
-#load{ position:fixed; inset:0; z-index:100; background:linear-gradient(160deg,#0e7c6e,#0a5c51); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; color:#fff; transition:opacity .5s; padding:30px }
+#load{ position:fixed; inset:0; z-index:100; background:linear-gradient(160deg,#5f6f2e,#3f4b1e); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px; color:#fff; transition:opacity .5s; padding:30px }
 #load .ring{ width:64px;height:64px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:spin 1s linear infinite }
 @keyframes spin{ to{ transform:rotate(360deg) } }
-#load .lg{ font-weight:700; font-size:20px; letter-spacing:.02em } #load .lg span{ color:#bff3e6 }
-#load .msg{ font-size:14px; color:#d8f5ec; min-height:20px; text-align:center; transition:opacity .3s }
+#load .lg{ font-weight:700; font-size:20px; letter-spacing:.02em } #load .lg span{ color:#e6dca6 }
+#load .msg{ font-size:14px; color:#eef0d8; min-height:20px; text-align:center; transition:opacity .3s }
 #load.out{ opacity:0; pointer-events:none }
 .ic{width:1.1em;height:1.1em;display:inline-block;vertical-align:-.16em;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}.ic use{pointer-events:none}</style>
 </head>
@@ -103,7 +103,7 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; c
         <div class="mood" id="mood"><button data-m="1"><svg class="ic "><use href="#ic-m-sleepy"/></svg></button><button data-m="2"><svg class="ic "><use href="#ic-m-neutral"/></svg></button><button class="on" data-m="3"><svg class="ic "><use href="#ic-m-ok"/></svg></button><button data-m="4"><svg class="ic "><use href="#ic-m-happy"/></svg></button><button data-m="5"><svg class="ic "><use href="#ic-star"/></svg></button></div>
         <p style="margin-top:8px;font-size:12px">A Dra vê seu humor e energia junto com a alimentação. Comportamento também é tratado.</p>
       </div>
-      <button class="btn btn-wa" onclick="location.href='https://wa.me/5511991612610?text=Oi%20Dra%2C%20tenho%20uma%20d%C3%BAvida%20do%20meu%20plano%20%5Bcamp:silvananutri%5D'"><svg class="ic "><use href="#ic-message"/></svg> Falar com a Dra</button>
+      <button class="btn btn-wa" onclick="location.href='https://wa.me/5511975535556?text=Oi%20Dra%2C%20tenho%20uma%20d%C3%BAvida%20do%20meu%20plano%20%5Bcamp:silvananutri%5D'"><svg class="ic "><use href="#ic-message"/></svg> Falar com a Dra</button>
     </div>
 
     <div id="tab-plano" class="hide">
@@ -112,7 +112,7 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; c
       <div class="card"><div class="kk">Almoço</div><h3>Metade do prato de vegetais</h3><p>Ex.: folhas + legumes + proteína (frango/peixe/ovo) + 1 porção de carboidrato de verdade.</p><div style="margin-top:8px"><span class="tag">Troca: arroz por batata-doce/mandioca</span></div></div>
       <div class="card"><div class="kk">Lanche</div><h3>Segurar a fome sem exagero</h3><p>Ex.: fruta + castanhas, ou iogurte natural.</p><div style="margin-top:8px"><span class="tag">Evitar: ultraprocessado/biscoito</span></div></div>
       <div class="card"><div class="kk">Jantar</div><h3>Leve e cedo</h3><p>Ex.: proteína + legumes cozidos. Ajuda o sono (importante no climatério).</p><div style="margin-top:8px"><span class="tag">Troca: sopa de legumes com proteína</span></div></div>
-      <button class="btn btn-gh" onclick="location.href='https://wa.me/5511991612610?text=Dra%2C%20quero%20trocar%20um%20item%20do%20plano%20%5Bcamp:silvananutri%5D'">Pedir uma substituição</button>
+      <button class="btn btn-gh" onclick="location.href='https://wa.me/5511975535556?text=Dra%2C%20quero%20trocar%20um%20item%20do%20plano%20%5Bcamp:silvananutri%5D'">Pedir uma substituição</button>
     </div>
 
     <div id="tab-evolucao" class="hide">
@@ -120,9 +120,9 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; c
         <div class="kk">Peso</div>
         <div style="display:flex;align-items:flex-end;gap:10px"><div class="big">-1,6 kg</div><p style="padding-bottom:6px">em 4 semanas</p></div>
         <svg class="chart" viewBox="0 0 300 120" preserveAspectRatio="none">
-          <polyline fill="none" stroke="#0e7c6e" stroke-width="3" stroke-linecap="round" points="10,30 70,42 130,55 190,70 250,86 290,92"/>
+          <polyline fill="none" stroke="#5f6f2e" stroke-width="3" stroke-linecap="round" points="10,30 70,42 130,55 190,70 250,86 290,92"/>
           <polygon fill="url(#g)" opacity=".2" points="10,30 70,42 130,55 190,70 250,86 290,92 290,120 10,120"/>
-          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0e7c6e"/><stop offset="1" stop-color="#0e7c6e" stop-opacity="0"/></linearGradient></defs>
+          <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5f6f2e"/><stop offset="1" stop-color="#5f6f2e" stop-opacity="0"/></linearGradient></defs>
         </svg>
         <div class="row"><span>Semana 1</span><b>78,0 kg</b></div>
         <div class="row"><span>Hoje</span><b style="color:var(--teal)">76,4 kg</b></div>
@@ -133,15 +133,15 @@ h2{ font-size:16px; margin-top:2px } h3{ font-size:14.5px } p{ font-size:13px; c
         <div class="kk">Próxima avaliação corporal</div>
         <h2>31 de agosto, Chá com a Dra</h2>
         <p>Avaliação corporal presencial na Clínica Lotus. Confirme sua presença.</p>
-        <button class="btn btn-acc" onclick="location.href='https://wa.me/5511991612610?text=Quero%20confirmar%20presen%C3%A7a%20no%20Ch%C3%A1%20com%20a%20Dra%20%2831%2F08%29%20%5Bcamp:cha-dra-ago%5D'" style="margin-top:10px">Confirmar presença</button>
+        <button class="btn btn-acc" onclick="location.href='https://wa.me/5511975535556?text=Quero%20confirmar%20presen%C3%A7a%20no%20Ch%C3%A1%20com%20a%20Dra%20%2831%2F08%29%20%5Bcamp:cha-dra-ago%5D'" style="margin-top:10px">Confirmar presença</button>
       </div>
     </div>
 
     <div id="tab-consultas" class="hide">
-      <div class="card" style="border-color:var(--mint)"><div class="kk">Próximo retorno</div><h2>Quinta, 14 de agosto, 15h</h2><p>Teleconsulta de acompanhamento com a Dra Silvana.</p><button class="btn btn-gh" onclick="location.href='https://wa.me/5511991612610?text=Dra%2C%20sobre%20meu%20retorno%20%5Bcamp:silvananutri%5D'" style="margin-top:10px">Remarcar / dúvidas</button></div>
+      <div class="card" style="border-color:var(--mint)"><div class="kk">Próximo retorno</div><h2>Quinta, 14 de agosto, 15h</h2><p>Teleconsulta de acompanhamento com a Dra Silvana.</p><button class="btn btn-gh" onclick="location.href='https://wa.me/5511975535556?text=Dra%2C%20sobre%20meu%20retorno%20%5Bcamp:silvananutri%5D'" style="margin-top:10px">Remarcar / dúvidas</button></div>
       <div class="card"><div class="kk">Teste genético</div><div class="row"><span>Coleta</span><b>Feita ✓</b></div><div class="row"><span>Resultado</span><b style="color:var(--teal)">em ~30 dias</b></div><p style="margin-top:8px">O laudo do seu DNA vai orientar os ajustes finos do plano (tireoide, resistência à insulina, resposta à dieta).</p></div>
       <div class="card"><div class="kk">Histórico</div><div class="row"><span>17/07, 1ª consulta + anamnese</span><b>✓</b></div><div class="row"><span>24/07, retorno semanal</span><b>✓</b></div><div class="row"><span>31/07, retorno semanal</span><b>✓</b></div><div class="row"><span>07/08, retorno semanal</span><b>✓</b></div></div>
-      <button class="btn btn-wa" onclick="location.href='https://wa.me/5511991612610?text=Quero%20agendar%20uma%20consulta%20%5Bcamp:silvananutri%5D'">Agendar consulta</button>
+      <button class="btn btn-wa" onclick="location.href='https://wa.me/5511975535556?text=Quero%20agendar%20uma%20consulta%20%5Bcamp:silvananutri%5D'">Agendar consulta</button>
     </div>
   </div>
 
