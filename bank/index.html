@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Brava Bank · Demo</title>
+<meta name="description" content="Brava Bank - ambiente de demonstracao: PIX e repasses emulados para colaboradores, associados ABC e socios." />
+<link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --purple:#7B3FE4; --blue:#1E90FF; --grad:linear-gradient(90deg,#7B3FE4,#1E90FF);
+    --bg:#05080F; --bg2:#0A0D18; --card:#10141E; --card2:#141926;
+    --border:rgba(255,255,255,.08); --t1:#F5F5F7; --t2:#A0A0AA; --t3:#6E6E78;
+    --green:#2ecc71; --red:#ff5c6c; --r:14px; --r-lg:22px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Montserrat',system-ui,sans-serif;background:var(--bg);color:var(--t1);-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1160px;margin:0 auto;padding:0 20px}
+  .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .demo{background:linear-gradient(90deg,rgba(123,63,228,.2),rgba(30,144,255,.2));border-bottom:1px solid var(--border);text-align:center;font-size:12.5px;color:#d8d2ff;padding:7px 12px;letter-spacing:.03em}
+  header{position:sticky;top:0;z-index:20;background:rgba(5,8,15,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:var(--grad);display:inline-block}
+  .brand small{font-weight:500;color:var(--t2);font-size:12px}
+  .btn{border:0;cursor:pointer;font-family:inherit;font-weight:600;border-radius:999px;padding:11px 20px;font-size:14px;transition:.2s;color:#fff;background:var(--grad);box-shadow:0 6px 22px rgba(123,63,228,.3)}
+  .btn:hover{transform:translateY(-1px)}
+  .btn.ghost{background:transparent;border:1px solid var(--border);box-shadow:none;color:var(--t1)}
+  .btn.ghost:hover{border-color:var(--purple)}
+  .btn.sm{padding:8px 14px;font-size:13px}
+  .hero{padding:26px 0 8px}
+  .balcard{background:linear-gradient(135deg,#161a2b,#0d1019);border:1px solid var(--border);border-radius:var(--r-lg);padding:26px 28px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:16px;position:relative;overflow:hidden}
+  .balcard::after{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;background:radial-gradient(closest-side,rgba(123,63,228,.35),transparent);filter:blur(10px)}
+  .balcard .lbl{color:var(--t2);font-size:13px;letter-spacing:.04em}
+  .balcard .big{font-size:40px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
+  .balcard .who{position:relative;z-index:1}
+  .tabs{display:flex;gap:8px;margin:22px 0 18px;flex-wrap:wrap}
+  .tab{padding:9px 16px;border-radius:999px;border:1px solid var(--border);color:var(--t2);cursor:pointer;font-size:14px;font-weight:500;background:var(--card)}
+  .tab.on{color:#fff;background:var(--grad);border-color:transparent}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .acc{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px}
+  .acc .top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .av{width:38px;height:38px;border-radius:50%;background:var(--card2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;border:1px solid var(--border)}
+  .acc .nome{font-weight:600;font-size:15px}
+  .acc .tipo{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.06em}
+  .acc .saldo{font-size:22px;font-weight:700;margin-top:4px}
+  .acc .pix{font-size:12px;color:var(--t2);margin-top:2px}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;max-width:620px}
+  .panel h3{font-size:18px;margin-bottom:4px}
+  .panel p.hint{color:var(--t2);font-size:13px;margin-bottom:18px}
+  label{display:block;font-size:13px;color:var(--t2);margin:12px 0 6px}
+  select,input{width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--t1);border-radius:10px;padding:12px 14px;font-family:inherit;font-size:15px}
+  select:focus,input:focus{outline:none;border-color:var(--purple)}
+  .row{display:flex;gap:12px}.row>*{flex:1}
+  .extrato{display:flex;flex-direction:column;gap:8px}
+  .tx{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px}
+  .tx .ic{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .tx .desc{flex:1}.tx .desc b{font-weight:600;font-size:14px}.tx .desc small{display:block;color:var(--t3);font-size:12px}
+  .tx .val{font-weight:700;font-size:15px;white-space:nowrap}
+  .in{color:var(--green)}.out{color:var(--red)}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#151a29;border:1px solid var(--border);border-radius:12px;padding:14px 20px;font-size:14px;opacity:0;transition:.3s;z-index:50;box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .muted{color:var(--t3);font-size:12px;margin-top:14px}
+  h2.sec{font-size:15px;color:var(--t2);font-weight:600;margin:26px 0 12px;letter-spacing:.04em}
+  @media(max-width:600px){.balcard .big{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="demo">AMBIENTE DE DEMONSTRACAO · PIX e repasses sao emulados, sem dinheiro real · dados fictícios sobre a base Brava</div>
+<header>
+  <div class="wrap">
+    <div class="brand"><span class="dot"></span> Brava <span class="grad">Bank</span> <small>holding de vendas</small></div>
+    <button class="btn ghost sm" onclick="resetDemo()">Resetar demo</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="balcard">
+      <div class="who">
+        <div class="lbl">Conta Holding · Brava Company</div>
+        <div class="big" id="holdingSaldo">R$ 0,00</div>
+        <div class="lbl" id="holdingPix">pix: financeiro@brava.company</div>
+      </div>
+      <div style="display:flex;gap:10px;position:relative;z-index:1">
+        <button class="btn" onclick="go('pix')">Enviar PIX</button>
+        <button class="btn ghost" onclick="go('repasses')">Repasses</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="tabs">
+    <div class="tab on" data-t="contas" onclick="go('contas')">Contas</div>
+    <div class="tab" data-t="pix" onclick="go('pix')">Enviar PIX</div>
+    <div class="tab" data-t="repasses" onclick="go('repasses')">Repasses ABC</div>
+    <div class="tab" data-t="folha" onclick="go('folha')">Folha</div>
+    <div class="tab" data-t="extrato" onclick="go('extrato')">Extrato</div>
+  </div>
+
+  <section id="view-contas">
+    <h2 class="sec">SOCIOS</h2><div class="grid" id="gridSocios"></div>
+    <h2 class="sec">COLABORADORES</h2><div class="grid" id="gridColab"></div>
+    <h2 class="sec">CONVENIADOS / ASSOCIADOS ABC</h2><div class="grid" id="gridAssoc"></div>
+  </section>
+
+  <section id="view-pix" hidden>
+    <div class="panel">
+      <h3>Enviar PIX</h3><p class="hint">Transferencia instantanea emulada entre contas da base.</p>
+      <label>De</label><select id="pixDe"></select>
+      <label>Para</label><select id="pixPara"></select>
+      <div class="row"><div><label>Valor (R$)</label><input id="pixValor" type="number" min="0" step="0.01" placeholder="0,00"></div><div><label>Descricao</label><input id="pixDesc" placeholder="ex.: adiantamento"></div></div>
+      <div style="margin-top:20px"><button class="btn" onclick="enviarPix()">Enviar PIX</button></div>
+    </div>
+  </section>
+
+  <section id="view-repasses" hidden>
+    <div class="panel">
+      <h3>Repasses ABC (corretagem)</h3><p class="hint">Distribui um valor de corretagem da holding para os associados/socios conforme o split.</p>
+      <label>Valor de corretagem a distribuir (R$)</label><input id="repValor" type="number" min="0" step="0.01" placeholder="ex.: 5000">
+      <label>Distribuir para</label>
+      <select id="repGrupo"><option value="socios">Socios (igualitario)</option><option value="assoc">Conveniados/Associados (por indicacao)</option></select>
+      <div style="margin-top:20px"><button class="btn" onclick="rodarRepasse()">Distribuir repasse</button></div>
+      <p class="muted">O split usa percentuais de exemplo; na producao vem das regras de corretagem (ver ABC_MODELO_DE_DADOS).</p>
+    </div>
+  </section>
+
+  <section id="view-folha" hidden>
+    <div class="panel">
+      <h3>Folha · colaboradores</h3><p class="hint">Paga a folha da holding para os colaboradores cadastrados (emulado).</p>
+      <div id="folhaLista" class="extrato" style="margin-bottom:18px"></div>
+      <button class="btn" onclick="pagarFolha()">Pagar folha agora</button>
+    </div>
+  </section>
+
+  <section id="view-extrato" hidden>
+    <h2 class="sec">EXTRATO (mais recentes)</h2>
+    <div class="extrato" id="extratoLista"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BRL = (n) => 'R$ ' + Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const KEY = 'bravabank_v1';
+const seed = () => ({
+  contas: [
+    {id:'holding', nome:'Brava Company', tipo:'holding', pix:'financeiro@brava.company', saldo:50000},
+    {id:'s1', nome:'Hiperplay', tipo:'socio', pix:'hiperplay@brava.company', saldo:8200},
+    {id:'s2', nome:'AILogicHub', tipo:'socio', pix:'ailogic@brava.company', saldo:6400},
+    {id:'s3', nome:'Asas Pelo Mundo', tipo:'socio', pix:'asas@brava.company', saldo:5100},
+    {id:'s4', nome:'Gabinete Pro', tipo:'socio', pix:'gabinete@brava.company', saldo:4300},
+    {id:'c1', nome:'Estefany', tipo:'colaborador', pix:'estefany@brava.company', saldo:1200},
+    {id:'c2', nome:'Tacio', tipo:'colaborador', pix:'tacio@brava.company', saldo:980},
+    {id:'c3', nome:'Miqueias', tipo:'colaborador', pix:'miqueias@brava.company', saldo:1100},
+    {id:'c4', nome:'Giovana', tipo:'colaborador', pix:'giovana@brava.company', saldo:760},
+    {id:'c5', nome:'Gabriel Marcelo', tipo:'colaborador', pix:'gabriel@brava.company', saldo:4000},
+    {id:'a1', nome:'Casa Stefano', tipo:'associado', pix:'stefano@abc.brava', saldo:640},
+    {id:'a2', nome:'Clinica Moreti', tipo:'associado', pix:'moreti@abc.brava', saldo:1220},
+    {id:'a3', nome:'EstacionePark', tipo:'associado', pix:'estacione@abc.brava', saldo:980},
+    {id:'a4', nome:'Garcia Sadler', tipo:'associado', pix:'garcia@abc.brava', saldo:1400},
+  ],
+  tx: [],
+  salarios: { c1:2200, c2:1900, c3:2100, c4:1600, c5:4000 },
+});
+let st = load();
+function load(){ try{ const s=JSON.parse(localStorage.getItem(KEY)); return s&&s.contas?s:seed(); }catch(e){ return seed(); } }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} }
+function resetDemo(){ st=seed(); save(); render(); toast('Demo resetada'); }
+const acc = (id)=> st.contas.find(c=>c.id===id);
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+function addTx(deId, paraId, valor, tipo, desc){
+  st.tx.unshift({ id:Date.now()+Math.random(), ts:new Date().toISOString(), de:deId, para:paraId, valor, tipo, desc });
+}
+function transferir(deId, paraId, valor, tipo, desc){
+  const de=acc(deId), pa=acc(paraId);
+  if(!de||!pa) return 'Conta invalida';
+  if(valor<=0||isNaN(valor)) return 'Valor invalido';
+  if(de.saldo < valor) return 'Saldo insuficiente em '+de.nome;
+  de.saldo-=valor; pa.saldo+=valor; addTx(deId,paraId,valor,tipo,desc); save(); return null;
+}
+
+function enviarPix(){
+  const de=document.getElementById('pixDe').value, pa=document.getElementById('pixPara').value;
+  const v=parseFloat(document.getElementById('pixValor').value), d=document.getElementById('pixDesc').value||'PIX';
+  if(de===pa){ toast('Escolha contas diferentes'); return; }
+  const err=transferir(de,pa,v,'pix',d);
+  if(err){ toast(err); return; }
+  document.getElementById('pixValor').value=''; document.getElementById('pixDesc').value='';
+  render(); toast('PIX de '+BRL(v)+' enviado'); go('extrato');
+}
+function rodarRepasse(){
+  const v=parseFloat(document.getElementById('repValor').value);
+  const grupo=document.getElementById('repGrupo').value;
+  if(!(v>0)){ toast('Informe o valor'); return; }
+  if(acc('holding').saldo < v){ toast('Holding sem saldo'); return; }
+  const alvos = st.contas.filter(c=> grupo==='socios'? c.tipo==='socio' : c.tipo==='associado');
+  const pesos = alvos.map(()=>1); const soma=pesos.reduce((a,b)=>a+b,0);
+  alvos.forEach((c,i)=>{ const parte=Math.round((v*pesos[i]/soma)*100)/100; transferir('holding',c.id,parte,'repasse','Repasse corretagem ABC'); });
+  render(); toast('Repasse de '+BRL(v)+' distribuido'); go('extrato');
+}
+function pagarFolha(){
+  let total=0;
+  Object.entries(st.salarios).forEach(([id,val])=>{ if(transferir('holding',id,val,'folha','Salario '+acc(id).nome)===null) total+=val; });
+  render(); toast('Folha paga: '+BRL(total)); go('extrato');
+}
+
+function initium(nome){ return nome.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function accCard(c){
+  return `<div class="acc"><div class="top"><div class="av">${initium(c.nome)}</div><div><div class="nome">${c.nome}</div><div class="tipo">${c.tipo}</div></div></div>
+  <div class="saldo">${BRL(c.saldo)}</div><div class="pix">pix: ${c.pix}</div></div>`;
+}
+function fillSelect(el){ el.innerHTML = st.contas.map(c=>`<option value="${c.id}">${c.nome} (${BRL(c.saldo)})</option>`).join(''); }
+const txMeta = { pix:{i:'↔',c:''}, repasse:{i:'↑',c:''}, folha:{i:'💼',c:''} };
+function render(){
+  document.getElementById('holdingSaldo').textContent = BRL(acc('holding').saldo);
+  document.getElementById('holdingPix').textContent = 'pix: '+acc('holding').pix;
+  document.getElementById('gridSocios').innerHTML = st.contas.filter(c=>c.tipo==='socio').map(accCard).join('');
+  document.getElementById('gridColab').innerHTML = st.contas.filter(c=>c.tipo==='colaborador').map(accCard).join('');
+  document.getElementById('gridAssoc').innerHTML = st.contas.filter(c=>c.tipo==='associado').map(accCard).join('');
+  fillSelect(document.getElementById('pixDe')); fillSelect(document.getElementById('pixPara'));
+  document.getElementById('pixPara').selectedIndex = 1;
+  document.getElementById('folhaLista').innerHTML = Object.entries(st.salarios).map(([id,v])=>`<div class="tx"><div class="ic" style="background:rgba(123,63,228,.2)">💼</div><div class="desc"><b>${acc(id).nome}</b><small>colaborador</small></div><div class="val">${BRL(v)}</div></div>`).join('');
+  const ex=document.getElementById('extratoLista');
+  ex.innerHTML = st.tx.length? st.tx.slice(0,60).map(t=>{
+    const de=acc(t.de), pa=acc(t.para); const dt=new Date(t.ts);
+    const hora=dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const ic = t.tipo==='folha'?'💼':(t.tipo==='repasse'?'↑':'↔');
+    return `<div class="tx"><div class="ic" style="background:rgba(30,144,255,.18)">${ic}</div>
+    <div class="desc"><b>${t.desc}</b><small>${de.nome} → ${pa.nome} · ${hora}</small></div>
+    <div class="val out">- ${BRL(t.valor)}</div></div>`;
+  }).join('') : '<p class="muted">Nenhuma transacao ainda. Envie um PIX ou rode um repasse.</p>';
+}
+function go(t){
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on', x.dataset.t===t));
+  ['contas','pix','repasses','folha','extrato'].forEach(v=>{ document.getElementById('view-'+v).hidden = (v!==t); });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+render();
+</script>
+</body>
+</html>
