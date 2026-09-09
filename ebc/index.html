@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EBC · Ecossistema Brava Company</title>
+<meta name="description" content="EBC - Ecossistema Brava Company: mapa visual navegável dos núcleos, produtos, clientes, jurídico e infraestrutura." />
+<link rel="icon" type="image/png" href="/clientes/_logos/faveicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{--purple:#7B3FE4;--blue:#1E90FF;--grad:linear-gradient(90deg,#7B3FE4,#1E90FF);--bg:#05080F;--bg2:#0A0D18;--card:#10141E;--border:rgba(255,255,255,.08);--t1:#F5F5F7;--t2:#A0A0AA;--t3:#6E6E78;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Montserrat',system-ui,sans-serif;background:radial-gradient(ellipse at 50% 40%,#0c1020,#05080F 70%);color:var(--t1);overflow:hidden}
+  a{color:inherit;text-decoration:none}
+  .grad{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  header{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;justify-content:space-between;padding:16px 24px;pointer-events:none}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
+  .brand .dot{width:24px;height:24px;border-radius:7px;background:var(--grad)}
+  .brand small{font-weight:500;color:var(--t2);font-size:11px;letter-spacing:.08em}
+  .filters{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:10;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:94vw}
+  .chip{pointer-events:auto;cursor:pointer;font-size:12.5px;font-weight:600;padding:8px 15px;border-radius:999px;border:1px solid var(--border);background:rgba(16,20,30,.8);backdrop-filter:blur(8px);color:var(--t2);transition:.2s}
+  .chip:hover{color:#fff;border-color:var(--purple)}
+  .chip.on{color:#fff;background:var(--grad);border-color:transparent}
+  #stage{position:fixed;inset:0}
+  svg{width:100%;height:100%;display:block}
+  .link{stroke:rgba(255,255,255,.09);stroke-width:1;transition:.3s}
+  .node{cursor:pointer;transition:opacity .3s}
+  .node circle{transition:.2s}
+  .node text{font-size:11px;fill:var(--t1);font-weight:500;pointer-events:none}
+  .node.dim{opacity:.12}
+  .node:hover circle{filter:brightness(1.3)}
+  .center-label{font-size:15px;font-weight:700;fill:#fff}
+  /* painel */
+  #panel{position:fixed;top:0;right:0;height:100%;width:min(380px,88vw);background:rgba(10,13,24,.96);backdrop-filter:blur(16px);border-left:1px solid var(--border);z-index:20;transform:translateX(100%);transition:.35s cubic-bezier(.4,0,.2,1);padding:70px 26px 26px;overflow-y:auto}
+  #panel.open{transform:translateX(0)}
+  #panel .tag{display:inline-block;font-size:10.5px;text-transform:uppercase;letter-spacing:.12em;padding:4px 10px;border-radius:999px;color:#fff;margin-bottom:14px}
+  #panel h2{font-size:22px;font-weight:700;margin-bottom:6px;line-height:1.2}
+  #panel .sub{color:var(--t2);font-size:13px;margin-bottom:18px}
+  #panel .detail{font-size:14px;line-height:1.6;color:#d8d8de}
+  #panel .detail b{color:#fff}
+  #panel .detail .row{padding:9px 0;border-bottom:1px solid var(--border)}
+  #panel .detail .k{color:var(--t3);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+  #panel .close{position:absolute;top:20px;right:20px;cursor:pointer;color:var(--t2);font-size:22px;line-height:1}
+  #panel .close:hover{color:#fff}
+  .hint{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:5;color:var(--t3);font-size:12px;pointer-events:none;transition:opacity .5s}
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="https://brava.company" style="pointer-events:auto"><span class="dot"></span> EBC <small>ECOSSISTEMA BRAVA COMPANY</small></a>
+  <div style="color:var(--t3);font-size:11px">clique nos nós · filtre por camada</div>
+</header>
+<div class="hint" id="hint">Explore o ecossistema — clique em qualquer nó</div>
+<div id="stage"><svg id="svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet"></svg></div>
+
+<div class="filters" id="filters"></div>
+
+<div id="panel">
+  <div class="close" onclick="closePanel()">✕</div>
+  <span class="tag" id="p-tag"></span>
+  <h2 id="p-title"></h2>
+  <div class="sub" id="p-sub"></div>
+  <div class="detail" id="p-detail"></div>
+</div>
+
+<script>
+const CAM = {
+  juridico:{nome:'Jurídico / CNPJs', cor:'#e5e7eb'},
+  nucleo:{nome:'Núcleos', cor:'#8b8f9c'},
+  produto:{nome:'Produtos', cor:'#7B3FE4'},
+  pessoa:{nome:'Pessoas', cor:'#f0a020'},
+  cliente:{nome:'Clientes', cor:'#1E90FF'},
+  infra:{nome:'Infra & Fluxo', cor:'#22c55e'},
+};
+// hubs (orbita 1) + filhos (orbita 2). cor por nucleo/camada.
+const NODES = [
+  {id:'brava', label:'BRAVA COMPANY', layer:'nucleo', hub:true, center:true, cor:'#ffffff',
+   sub:'Holding · indústria tecnológica-criativa',
+   detail:'<div class="detail"><div class="row"><div class="k">O que é</div>Centro do ecossistema: holding que reúne os núcleos (Diretoria, Comercial, Tecnologia, Audiovisual, Financeiro, Education) e os produtos.</div><div class="row"><div class="k">Dois motores</div><b>Serviço</b> (projetos sob medida por núcleo) + <b>Produto</b> (SaaS recorrente).</div></div>'},
+
+  // NUCLEOS
+  {id:'diretoria', label:'Diretoria', layer:'nucleo', hub:true, cor:'#e5e7eb', parent:'brava', sub:'Estratégia e relacionamento'},
+  {id:'comercial', label:'Comercial', layer:'nucleo', hub:true, cor:'#10b981', parent:'brava', sub:'Propostas e orçamentos'},
+  {id:'tecnologia', label:'Tecnologia', layer:'nucleo', hub:true, cor:'#3b82f6', parent:'brava', sub:'Brava Software · SaaS + sob medida'},
+  {id:'audiovisual', label:'Audiovisual', layer:'nucleo', hub:true, cor:'#9333ea', parent:'brava', sub:'Produção e conteúdo'},
+  {id:'financeiro', label:'Financeiro', layer:'nucleo', hub:true, cor:'#22c55e', parent:'brava', sub:'Pagamentos e organização'},
+  {id:'education', label:'Education', layer:'nucleo', hub:true, cor:'#eab308', parent:'brava', sub:'Cursos e lançamentos'},
+
+  // JURIDICO
+  {id:'jur_hub', label:'Jurídico', layer:'juridico', hub:true, cor:'#e5e7eb', parent:'brava', sub:'CNPJs e entidades'},
+  {id:'bravaltda', label:'Brava Company LTDA', layer:'juridico', parent:'jur_hub', cor:'#e5e7eb',
+   sub:'CNPJ 34.454.770/0001-26',
+   detail:'<div class="detail"><div class="row"><div class="k">Situação</div>Em transformação de <b>EI/MEI → LTDA</b>. Capital <b>R$ 10.000.000</b>. Registrado na JUCESP (protocolo 2.541.704/26-4).</div><div class="row"><div class="k">Atenção</div>Na Receita ainda consta como <b>"JHONATTAN GABRIEL ITIUBA SILVA"</b> (Empresário Individual) — a transformação não caiu no cadastro federal. Contratos .com.br e bancos exigem o nome atual do CNPJ.</div><div class="row"><div class="k">Razões usadas</div>5 variações em contratos antigos (Brava Company LTDA, Marketing Company, Grupo Brava Publicidade ME...) — padronizar.</div></div>'},
+  {id:'suksess', label:'Suksess Interm.', layer:'juridico', parent:'jur_hub', cor:'#c9ccd3',
+   sub:'CNPJ 26.460.981/0001-43',
+   detail:'<div class="detail"><div class="row"><div class="k">Suksess Intermediação de Negócios LTDA</div>Mesmo endereço da Brava. Entidade paralela/parceira — definir papel no ecossistema.</div></div>'},
+  {id:'outroscnpj', label:'+ outros CNPJs', layer:'juridico', parent:'jur_hub', cor:'#9aa0ab',
+   sub:'8 identificados', detail:'<div class="detail"><div class="row"><div class="k">Mapa completo</div>8 CNPJs identificados no Drive (próprios, parceiros e familiares). Ver <b>Ecossistema CNPJs.md</b> para o quadro completo e resolução de "quem é quem".</div></div>'},
+
+  // PRODUTOS
+  {id:'bravasoftware', label:'brava.software', layer:'produto', parent:'tecnologia', cor:'#7B3FE4',
+   sub:'SaaS white-label · CRM+WhatsApp+IA',
+   detail:'<div class="detail"><div class="row"><div class="k">Produto-mãe</div>SaaS multi-tenant em produção: CRM, inbox WhatsApp, agentes de IA, pipeline, financeiro, analytics. Cada cliente = workspace com seu logo.</div><div class="row"><div class="k">Stack</div>React (CDN) + Supabase + Evolution (WhatsApp) + BTG + Claude. Backend migrando p/ Cloudfy (~36 funções).</div></div>'},
+  {id:'abc', label:'ABC · Associados', layer:'produto', parent:'tecnologia', cor:'#7B3FE4',
+   sub:'Conveniados · holding de vendas',
+   detail:'<div class="detail"><div class="row"><div class="k">Associados Brava Company</div>Convênio recorrente (mantém o custo) + <b>corretagem</b> sobre vendas (o "deixa" pro resultado). Camadas Operação + Vitrine.</div><div class="row"><div class="k">Legal</div>Contrato de adesão, Termos, Privacidade (minutas prontas). Contabilidade: Franco (Talita).</div></div>'},
+  {id:'gabinetepro', label:'Gabinete Pro', layer:'produto', parent:'tecnologia', cor:'#7B3FE4',
+   sub:'Gestão política · IA + disparos',
+   detail:'<div class="detail"><div class="row"><div class="k">Produto político</div>CRM eleitoral, agentes de IA no WhatsApp, mapa de eleitores, disparos com custo real + taxa. Sob a Brava Company.</div><div class="row"><div class="k">Contrato ativo</div>Murilo Inocencio (Dep. Estadual/PDT) — R$ 30.000 à vista.</div></div>'},
+  {id:'bravabank', label:'Brava Bank', layer:'produto', parent:'financeiro', cor:'#22c55e',
+   sub:'Holding de vendas · PIX/repasses',
+   detail:'<div class="detail"><div class="row"><div class="k">Status real</div><b>Cash-in BTG: LIVE</b> (recebe PIX + lê extrato). <b>Cash-out / split / repasse: PENDENTE</b> — o BTG hoje não tem escopo de saída. Precisa de escopo cash-out do BTG ou gateway com split.</div><div class="row"><div class="k">Reaproveita</div>btg_accounts (saldo real), fin_extrato, motor de conciliação, cobrança. Demo em /bank.</div></div>'},
+  {id:'boladeneve', label:'Bola de Neve', layer:'produto', parent:'tecnologia', cor:'#7B3FE4',
+   sub:'PWA Igreja BDN Sorocaba', detail:'<div class="detail"><div class="row"><div class="k">App próprio</div>PWA para a Igreja Bola de Neve Sorocaba (Pastor Igor).</div></div>'},
+  {id:'verticais', label:'Verticais', layer:'produto', parent:'tecnologia', cor:'#7B3FE4',
+   sub:'GTM por nicho', detail:'<div class="detail"><div class="row"><div class="k">Verticalização</div>Páginas /nicho + campanha + SDR + case: clínica estética, silvananutri, ldccell...</div></div>'},
+
+  // PESSOAS
+  {id:'pess_hub', label:'Pessoas', layer:'pessoa', hub:true, cor:'#f0a020', parent:'brava', sub:'Diretoria e equipe'},
+  {id:'jhonattan', label:'Jhonattan', layer:'pessoa', parent:'pess_hub', cor:'#f0a020', sub:'CEO · Estratégia/Tech', detail:'<div class="detail"><div class="row"><div class="k">CEO & Diretor</div>Estratégia, expansão, tecnologia e articulação comercial. Titular do CNPJ Brava.</div></div>'},
+  {id:'brenna', label:'Brenna', layer:'pessoa', parent:'pess_hub', cor:'#f0a020', sub:'CMO · Marca', detail:'<div class="detail"><div class="row"><div class="k">CMO</div>Comunicação corporativa, marca, internacionalização.</div></div>'},
+  {id:'marcio', label:'Márcio', layer:'pessoa', parent:'pess_hub', cor:'#f0a020', sub:'COO · Operações', detail:'<div class="detail"><div class="row"><div class="k">COO</div>Operações e audiovisual.</div></div>'},
+  {id:'vecchi', label:'C. Vecchi', layer:'pessoa', parent:'pess_hub', cor:'#f0a020', sub:'CFO · Financeiro (BPO)', detail:'<div class="detail"><div class="row"><div class="k">CFO</div>Estratégia financeira e capitalização.</div></div>'},
+  {id:'estefany', label:'Estefany', layer:'pessoa', parent:'pess_hub', cor:'#f0a020', sub:'Chefe ADM · 3% ABC', detail:'<div class="detail"><div class="row"><div class="k">Gestão/ADM</div>Secretária executiva → chefe administrativo. Participação ABC: <b>3%</b>.</div></div>'},
+  {id:'gabriel', label:'Gabriel', layer:'pessoa', parent:'pess_hub', cor:'#f0a020', sub:'Dev Sênior · 2% ABC', detail:'<div class="detail"><div class="row"><div class="k">Tecnologia</div>Desenvolvedor sênior, setor de Engenharia e Desenvolvimento. Participação ABC: <b>2%</b>.</div></div>'},
+
+  // CLIENTES
+  {id:'cli_hub', label:'Clientes', layer:'cliente', hub:true, cor:'#1E90FF', parent:'brava', sub:'Carteira ativa'},
+  {id:'estacionepark', label:'EstacionePark', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Estacionamento · inadimplente', detail:'<div class="detail"><div class="row"><div class="k">Status</div>Inadimplente — notificação extrajudicial emitida (principal R$ 3.717,33, serviço separado do tráfego).</div></div>'},
+  {id:'stefano', label:'Casa Stefano', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Hotelaria · R$1.297', detail:'<div class="detail"><div class="row"><div class="k">Ativo</div>Hotel & Restaurante. CRM + IA WhatsApp + CloudBeds.</div></div>'},
+  {id:'moreti', label:'Clínica Moreti', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Estética · Enterprise', detail:'<div class="detail"><div class="row"><div class="k">Ativo</div>Dra. Thalita. Enterprise. (MRR a confirmar — divergência 1.000/4.000/4.500.)</div></div>'},
+  {id:'garcia', label:'Garcia Sadler', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Construção · R$1.400', detail:'<div class="detail"><div class="row"><div class="k">Ativo</div>Agente de qualificação (v5).</div></div>'},
+  {id:'politihub', label:'PolitiHub', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Político · R$1.500', detail:'<div class="detail"><div class="row"><div class="k">Ativo</div>Wanderley. Migração + IA + MicroSaaS.</div></div>'},
+  {id:'hiperplay', label:'Hiperplay', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Indústria · sócio ABC', detail:'<div class="detail"><div class="row"><div class="k">Sócio fundador ABC</div>Playgrounds. App próprio + agente SARAH.</div></div>'},
+  {id:'ailogic', label:'AILogicHub', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Imobiliário · sócio ABC', detail:'<div class="detail"><div class="row"><div class="k">Sócio fundador ABC</div>Alessandro. Hub imobiliário multi-tenant.</div></div>'},
+  {id:'asas', label:'Asas Pelo Mundo', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Turismo · sócio ABC', detail:'<div class="detail"><div class="row"><div class="k">Sócio fundador ABC</div>Parceria (fechada 25/07).</div></div>'},
+  {id:'vapo', label:'VapoCamping', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Turismo · R$800', detail:'<div class="detail"><div class="row"><div class="k">Ativo</div>Site + CRM no ar.</div></div>'},
+  {id:'murilo', label:'Murilo Inocencio', layer:'cliente', parent:'cli_hub', cor:'#1E90FF', sub:'Gabinete Pro · R$30k', detail:'<div class="detail"><div class="row"><div class="k">Gabinete Pro</div>Candidato Dep. Estadual (PDT). Contrato R$ 30.000 à vista.</div></div>'},
+
+  // INFRA
+  {id:'infra_hub', label:'Infra & Fluxo', layer:'infra', hub:true, cor:'#22c55e', parent:'brava', sub:'Domínios, nuvem, banco'},
+  {id:'dominios', label:'Domínios', layer:'infra', parent:'infra_hub', cor:'#22c55e', sub:'brava.software / .company', detail:'<div class="detail"><div class="row"><div class="k">Domínios</div>brava.software (SaaS), brava.company (hub), + subdomínios por produto/cliente (education, teleprompter, goodfly, ldccell...).</div></div>'},
+  {id:'vercel', label:'Vercel', layer:'infra', parent:'infra_hub', cor:'#22c55e', sub:'Frontend · 20+ projetos', detail:'<div class="detail"><div class="row"><div class="k">Vercel</div>Deploy do frontend (conta jhonattanitiuba-1818). 20+ projetos ativos.</div></div>'},
+  {id:'cloudfy', label:'Cloudfy', layer:'infra', parent:'infra_hub', cor:'#22c55e', sub:'Backend dedicado por cliente', detail:'<div class="detail"><div class="row"><div class="k">Cloudfy</div>Infra dedicada por tenant: Supabase self-hosted + Evolution + n8n + Chatwoot + Redis.</div></div>'},
+  {id:'btg', label:'BTG', layer:'infra', parent:'infra_hub', cor:'#22c55e', sub:'Rail financeiro (cash-in)', detail:'<div class="detail"><div class="row"><div class="k">BTG Empresas</div>Cash-in (PIX cobrança) + extrato LIVE. Cash-out/split ainda não (ver Brava Bank).</div></div>'},
+  {id:'supabase', label:'Supabase', layer:'infra', parent:'infra_hub', cor:'#22c55e', sub:'Banco + Auth + Realtime', detail:'<div class="detail"><div class="row"><div class="k">Supabase</div>Postgres + Auth + Realtime + Edge Functions. Plataforma-mãe + projeto por cliente.</div></div>'},
+];
+
+const svg = document.getElementById('svg');
+const CX=600, CY=400;
+const byId = Object.fromEntries(NODES.map(n=>[n.id,n]));
+const hubs = NODES.filter(n=>n.hub && !n.center);
+// posiciona hubs em círculo
+const R1=210;
+hubs.forEach((h,i)=>{ const a=(i/hubs.length)*Math.PI*2 - Math.PI/2; h.x=CX+Math.cos(a)*R1; h.y=CY+Math.sin(a)*R1; h.ang=a; });
+byId.brava.x=CX; byId.brava.y=CY;
+// posiciona filhos em leque para fora do hub
+const children = NODES.filter(n=>!n.hub && !n.center);
+const grp={}; children.forEach(c=>{ (grp[c.parent]=grp[c.parent]||[]).push(c); });
+Object.entries(grp).forEach(([pid,arr])=>{
+  const h=byId[pid]; const base=h.ang; const big=arr.length>6;
+  const spread=Math.min(2.1, 0.30*arr.length); const R2=135+arr.length*4;
+  arr.forEach((c,i)=>{ const off=arr.length===1?0:(i/(arr.length-1)-0.5)*spread; const a=base+off; const rr=R2+(big&&i%2?70:0); c.x=h.x+Math.cos(a)*rr; c.y=h.y+Math.sin(a)*rr; });
+});
+
+function draw(){
+  let s='';
+  // links
+  NODES.forEach(n=>{ if(n.parent){ const p=byId[n.parent]; s+=`<line class="link" data-a="${n.id}" data-b="${n.parent}" x1="${p.x}" y1="${p.y}" x2="${n.x}" y2="${n.y}"/>`; }});
+  // nodes
+  NODES.forEach(n=>{
+    const r = n.center?38 : n.hub?13 : 7;
+    const fs = n.center?15 : n.hub?12.5:11;
+    const ly = n.center?0 : (r+13);
+    const lw = n.center? '' : `font-weight:${n.hub?600:500}`;
+    s+=`<g class="node" data-id="${n.id}" data-layer="${n.layer}" onclick="openNode('${n.id}')">
+      <circle cx="${n.x}" cy="${n.y}" r="${r}" fill="${n.center?'url(#gc)':n.cor}" ${n.center?'':`fill-opacity="${n.hub?.95:.85}"`} stroke="${n.center?'rgba(255,255,255,.5)':'rgba(255,255,255,.25)'}" stroke-width="${n.center?2:1}"/>
+      <text x="${n.x}" y="${n.y+ly}" text-anchor="middle" ${n.center?'class="center-label" dy="4"':''} style="font-size:${fs}px;${lw}">${n.label}</text>
+    </g>`;
+  });
+  svg.innerHTML=`<defs><radialGradient id="gc"><stop offset="0%" stop-color="#9a5cf0"/><stop offset="100%" stop-color="#1E90FF"/></radialGradient></defs>`+s;
+}
+draw();
+
+// filtros
+const fbox=document.getElementById('filters');
+let active='tudo';
+const chips=[['tudo','Tudo']].concat(Object.entries(CAM).map(([k,v])=>[k,v.nome]));
+fbox.innerHTML=chips.map(([k,l])=>`<div class="chip ${k==='tudo'?'on':''}" data-f="${k}" onclick="setFilter('${k}')">${l}</div>`).join('');
+function setFilter(f){
+  active=f; document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.f===f));
+  document.querySelectorAll('.node').forEach(g=>{
+    const n=byId[g.dataset.id];
+    const show = f==='tudo' || n.center || n.layer===f || (n.hub && f==='nucleo' && n.layer==='nucleo');
+    g.classList.toggle('dim', !show);
+  });
+  document.querySelectorAll('.link').forEach(l=>{ l.style.opacity = f==='tudo'?1:.25; });
+}
+// painel
+function openNode(id){
+  const n=byId[id]; const cam=CAM[n.layer];
+  document.getElementById('hint').style.opacity=0;
+  const tag=document.getElementById('p-tag'); tag.textContent=cam.nome; tag.style.background=n.cor==='#ffffff'?'linear-gradient(90deg,#7B3FE4,#1E90FF)':n.cor; tag.style.color=(n.cor==='#e5e7eb'||n.cor==='#eab308'||n.cor==='#f0a020')?'#05080F':'#fff';
+  document.getElementById('p-title').textContent=n.label;
+  document.getElementById('p-sub').textContent=n.sub||'';
+  document.getElementById('p-detail').innerHTML=n.detail||'<div class="detail" style="color:var(--t3)">Núcleo do ecossistema.</div>';
+  document.getElementById('panel').classList.add('open');
+}
+function closePanel(){ document.getElementById('panel').classList.remove('open'); }
+svg.addEventListener('click',e=>{ if(e.target===svg) closePanel(); });
+</script>
+</body>
+</html>
