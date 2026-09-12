@@ -8927,6 +8927,27 @@ const supa = {
       method: 'POST',
       body: { number, audio: base64 },
     }),
+  // ── Leitura (via wa-proxy: sem CORS e sem apikey no browser) ──
+  findChats: () => supaProxyCall({
+    path: `/chat/findChats/{{instance}}`,
+    method: 'POST',
+    body: {},
+  }),
+  findMessages: (remoteJid, limit = 50) => supaProxyCall({
+    path: `/chat/findMessages/{{instance}}`,
+    method: 'POST',
+    body: { where: { key: { remoteJid } }, limit },
+  }),
+  findContacts: () => supaProxyCall({
+    path: `/chat/findContacts/{{instance}}`,
+    method: 'POST',
+    body: { where: {} },
+  }),
+  fetchProfilePicture: (number) => supaProxyCall({
+    path: `/chat/fetchProfilePictureUrl/{{instance}}`,
+    method: 'POST',
+    body: { number },
+  }),
 };
 
 /* ── Hooks Realtime: chats e mensagens do banco com push automatico ── */
@@ -10430,7 +10451,7 @@ async function evoEnsurePic(remoteJid) {
   }
   try {
     const number = remoteJid.replace('@s.whatsapp.net','').replace('@c.us','').replace('@g.us','');
-    const data = await evo.fetchProfilePicture(number);
+    const data = await supa.fetchProfilePicture(number);
     // Se trocou de instancia durante o fetch, descarta (vai ser limpo pelo listener mesmo)
     const cfgAfter = getEvoConfig();
     if (!cfgAfter || cfgAfter.instance !== cfgAtCall.instance) {
@@ -10550,7 +10571,7 @@ async function evoLoadContacts(force = false) {
   _evoContacts.loading = true;
   const instanceAtCall = cfg.instance; // snapshot
   try {
-    const data = await evo.findContacts();
+    const data = await supa.findContacts();
     // Verifica se a instancia ainda eh a mesma (usuario pode ter trocado no meio)
     const cfgAfter = getEvoConfig();
     if (!cfgAfter || cfgAfter.instance !== instanceAtCall) {
@@ -11303,7 +11324,7 @@ function useEvoChats(intervalMs = 15000) {
       try {
         // Garante contatos antes pra resolver @lid -> telefone no normalizer
         if (!_evoContacts.loaded && !_evoContacts.loading) await evoLoadContacts();
-        const data = await evo.findChats();
+        const data = await supa.findChats();
         if (!alive) return;
         // Se trocou de instancia no meio, descarta o response
         const cfgAfter = getEvoConfig();
@@ -11410,7 +11431,7 @@ function useEvoMessages(remoteJid, intervalMs = 12000) {
     const tick = async () => {
       if (!alive) return;
       try {
-        const data = await evo.findMessages(remoteJid, 100);
+        const data = await supa.findMessages(remoteJid, 100);
         if (!alive) return;
         // Descarta response se trocou de instancia
         const cfgAfter = getEvoConfig();

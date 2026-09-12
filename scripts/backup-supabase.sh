@@ -34,11 +34,15 @@ DB_FILE="$DB_DIR/$DATA.sql.gz"
 
 # --schema-only seria so estrutura; queremos tudo
 # --no-owner / --no-acl removem refs a roles especificos do Supabase
+# IMPORTANTE: NAO incluir o schema 'auth'. Ele contem hashes de senha, e-mails
+# e tokens; como este dump e commitado no git (historico imutavel), incluir
+# 'auth' vazaria credenciais permanentemente. Backup de usuarios do Auth deve
+# ser feito por fora, em storage privado (nunca no repositorio).
 pg_dump "$SUPABASE_DB_URL" \
   --no-owner \
   --no-acl \
   --schema=public \
-  --schema=auth \
+  --exclude-schema=auth \
   --exclude-schema=storage \
   --exclude-schema=realtime \
   --exclude-schema=supabase_functions \
@@ -94,7 +98,7 @@ Project ref: \`$SUPABASE_PROJECT_REF\`
 
 ## Conteudo
 
-- \`database/YYYY-MM-DD.sql.gz\` — dump completo (schema public + auth, sem storage/realtime), rotacao de 30 dias
+- \`database/YYYY-MM-DD.sql.gz\` — dump do schema public (SEM auth/storage/realtime), rotacao de 30 dias. O schema auth (hashes de senha) NAO e incluido de proposito, pois este dump vai pro git.
 - \`edge-functions/<nome>/\` — codigo fonte de cada Edge Function
 
 ## Restauracao do banco
