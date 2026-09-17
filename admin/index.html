@@ -20679,10 +20679,43 @@ function useCardChecklists(cardTipo, cardId) {
   return data;
 }
 
+function useCardResponsavel(cardTipo, cardId) {
+  const [resp, setResp] = React.useState(null);
+  React.useEffect(() => {
+    if (!cardTipo || !cardId) return;
+    const cli = getSupa(); if (!cli) return;
+    let alive = true;
+    const load = async () => {
+      const { data } = await cli.from('pipeline_card_responsavel')
+        .select('responsavel_id, responsavel:usuarios(id,nome,foto_url)')
+        .eq('card_tipo', cardTipo).eq('card_id', cardId).maybeSingle();
+      if (alive) setResp(data || null);
+    };
+    load();
+    const ch = cli.channel(`pcr:${cardTipo}:${cardId}`)
+      .on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_responsavel',
+        filter:`card_tipo=eq.${cardTipo}` }, load)
+      .subscribe();
+    return () => { alive = false; cli.removeChannel(ch); };
+  }, [cardTipo, cardId]);
+  const atribuir = async (userId) => {
+    const cli = getSupa(); if (!cli) return;
+    if (!userId) {
+      await cli.from('pipeline_card_responsavel').delete().eq('card_tipo', cardTipo).eq('card_id', cardId);
+    } else {
+      await cli.from('pipeline_card_responsavel').upsert(
+        { card_tipo: cardTipo, card_id: cardId, responsavel_id: userId },
+        { onConflict: 'card_tipo,card_id' });
+    }
+  };
+  return { resp, atribuir };
+}
+
 function TrelloCardModal({ cardTipo, cardId, cardNome, cardCliente, colNome, colCor, onClose }) {
   const notas = useCardNotas(cardTipo, cardId);
   const checklists = useCardChecklists(cardTipo, cardId);
   const equipe = useEquipeReal();
+  const { resp: cardResp, atribuir: atribuirResp } = useCardResponsavel(cardTipo, cardId);
   const [novaNotaTxt, setNovaNotaTxt] = React.useState('');
   const [enviando, setEnviando] = React.useState(false);
   const [mencaoAberta, setMencaoAberta] = React.useState(false);
@@ -20915,9 +20948,24 @@ function TrelloCardModal({ cardTipo, cardId, cardNome, cardCliente, colNome, col
             <div style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)',fontWeight:600,textTransform:'uppercase',letterSpacing:.06,marginBottom:10}}>Informações</div>
             <div style={{fontSize:12,color:'var(--t2)',marginBottom:6}}><strong>Tipo:</strong> {cardTipo === 'projeto' ? 'Projeto' : 'Cliente'}</div>
             {cardCliente && <div style={{fontSize:12,color:'var(--t2)',marginBottom:6}}><strong>Cliente:</strong> {cardCliente}</div>}
-            <div style={{fontSize:12,color:'var(--t2)',marginBottom:16}}>
+            <div style={{fontSize:12,color:'var(--t2)',marginBottom:14}}>
               <strong>Fase:</strong> <span style={{color:colCor,fontWeight:600}}>{colNome}</span>
             </div>
+            {/* Atribuído (responsável do card, estilo Trello) */}
+            <div style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)',fontWeight:600,textTransform:'uppercase',letterSpacing:.06,marginBottom:8}}>Atribuído</div>
+            <select value={cardResp?.responsavel_id || ''} onChange={e=>atribuirResp(e.target.value || null)}
+              style={{width:'100%',padding:'8px 10px',borderRadius:7,background:'var(--bg-3)',border:'1px solid var(--border)',color:'var(--t1)',fontSize:13,marginBottom:8,outline:'none'}}>
+              <option value="">- Ninguém</option>
+              {equipe.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
+            </select>
+            {cardResp?.responsavel && (
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
+                <div style={{width:26,height:26,borderRadius:'50%',background:cardResp.responsavel.foto_url?`url(${cardResp.responsavel.foto_url}) center/cover`:'var(--blue)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,overflow:'hidden',flexShrink:0}}>
+                  {!cardResp.responsavel.foto_url && (cardResp.responsavel.nome||'?').charAt(0).toUpperCase()}
+                </div>
+                <span style={{fontSize:12.5,color:'var(--t1)',fontWeight:600}}>{cardResp.responsavel.nome}</span>
+              </div>
+            )}
             <div style={{fontSize:11,color:'var(--t3)',fontFamily:'var(--f-m)',fontWeight:600,textTransform:'uppercase',letterSpacing:.06,marginBottom:8}}>Progresso</div>
             {checklists.map(cl => {
               const total = cl.itens.length;
