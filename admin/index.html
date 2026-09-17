@@ -23077,6 +23077,42 @@ const _pipeCardDbCache = new Map(); // cardKey -> { dbId, checklist, comments, e
 const _pipeCardSubs = new Set();
 function _notifyPipeCard(key) { _pipeCardSubs.forEach(fn => { try { fn(key); } catch {} }); }
 
+// ── Responsável por card (avatar na frente do card, estilo Trello) ──
+const _cardRespCache = new Map(); // `${tipo}:${id}` -> { nome, foto_url }
+let _cardRespLoaded = false;
+const _cardRespSubs = new Set();
+async function _loadCardResp() {
+  const cli = getSupa(); if (!cli) return;
+  const { data } = await cli.from('pipeline_card_responsavel').select('card_tipo,card_id,responsavel:usuarios(nome,foto_url)');
+  _cardRespCache.clear();
+  (data || []).forEach(r => { if (r.responsavel) _cardRespCache.set(r.card_tipo + ':' + r.card_id, r.responsavel); });
+  _cardRespSubs.forEach(fn => { try { fn(); } catch {} });
+}
+function useCardRespTick() {
+  const [, setN] = React.useState(0);
+  React.useEffect(() => {
+    const fn = () => setN(n => n + 1);
+    _cardRespSubs.add(fn);
+    if (!_cardRespLoaded) {
+      _cardRespLoaded = true;
+      _loadCardResp();
+      const cli = getSupa();
+      if (cli) cli.channel('pcr_all').on('postgres_changes', { event:'*', schema:'public', table:'pipeline_card_responsavel' }, _loadCardResp).subscribe();
+    }
+    return () => { _cardRespSubs.delete(fn); };
+  }, []);
+}
+function CardRespAvatar({ cardTipo, cardId }) {
+  useCardRespTick();
+  const u = _cardRespCache.get(cardTipo + ':' + cardId);
+  if (!u) return null;
+  return (
+    <div title={'Responsável: ' + u.nome} style={{width:22,height:22,borderRadius:'50%',background:u.foto_url?`url(${u.foto_url}) center/cover`:'var(--blue)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:9.5,fontWeight:700,overflow:'hidden',flexShrink:0,border:'1.5px solid var(--bg-2)'}}>
+      {!u.foto_url && (u.nome || '?').charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 // Hook: indexador global (rodar 1x no app, popula cache de TODOS os cards do workspace)
 function usePipelineDbIndex() {
   React.useEffect(() => {
@@ -25789,6 +25825,7 @@ function PipelineProjetos() {
                       <div style={{display:'flex', alignItems:'center', gap:6, marginBottom:3}}>
                         <Icon name="UserCircle" size={12} style={{color:col.cor, flexShrink:0}}/>
                         <span style={{fontSize:12.5, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{c.nome}</span>
+                        <CardRespAvatar cardTipo='cliente' cardId={c.id}/>
                         <button onClick={(ev)=>{ ev.stopPropagation(); setPopoverEtiqueta(popoverEtiqueta?.id===c.id?null:{id:c.id, tipo:'cliente'}); }}
                           title="Aplicar etiqueta"
                           style={{padding:2, background:'transparent', border:'none', color:'var(--t3)', cursor:'pointer', borderRadius:4, position:'relative'}}>
@@ -25846,6 +25883,7 @@ function PipelineProjetos() {
                       <div style={{display:'flex', alignItems:'center', gap:5, marginBottom:3}}>
                         <Icon name={nucIcone} size={12} style={{color:nucCor, flexShrink:0}}/>
                         <span style={{fontSize:13, color:'var(--t1)', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>{p.cliente}</span>
+                        <CardRespAvatar cardTipo='projeto' cardId={p.id}/>
                         {/* Atalho: aplicar template de checklist direto no card (so se nao tem checklist ainda) */}
                         {!progressoMap.get(p.id) && (
                           <button onClick={(ev)=>{ ev.stopPropagation(); setAplicarTplCardProjeto(p); }}
